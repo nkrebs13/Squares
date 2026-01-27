@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import RecentParties from '$lib/components/RecentParties.svelte';
 
 	let partyCode = $state('');
 
@@ -50,7 +51,5 @@
 		</form>
 	</div>
 
-	<footer class="mt-12 text-center text-sm" style="color: var(--text-muted)">
-		<p>Pinch to zoom • Tap squares to claim</p>
-	</footer>
+	<RecentParties />
 </div>

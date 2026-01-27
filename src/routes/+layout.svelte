@@ -2,11 +2,16 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import FloatingHomeButton from '$lib/components/FloatingHomeButton.svelte';
+	import { requestPersistentStorage } from '$lib/storage';
 
 	let { children } = $props();
 
 	onMount(async () => {
 		if (browser) {
+			// Request persistent storage for better data durability
+			requestPersistentStorage();
+
 			try {
 				// @ts-ignore - PWA virtual modules are generated at build time
 				const { pwaInfo } = await import('virtual:pwa-info');
@@ -48,3 +53,5 @@
 <div class="min-h-screen safe-top safe-bottom relative">
 	{@render children()}
 </div>
+
+<FloatingHomeButton />

@@ -19,14 +19,36 @@
 		isGridFull
 	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
+	import { saveRecentParty, hasHostPin } from '$lib/storage';
+	import type { RecentParty } from '$lib/types';
 
 	let code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
 
 	// Check if user is host (has PIN stored)
-	let isHost = $derived(
-		browser && sessionStorage.getItem(`squares_pin_${code}`) !== null
-	);
+	let isHost = $state(false);
+
+	async function checkIsHost() {
+		if (browser && code) {
+			// Check IndexedDB first, then fallback to sessionStorage
+			isHost = await hasHostPin(code) || sessionStorage.getItem(`squares_pin_${code}`) !== null;
+		}
+	}
+
+	async function saveToRecentParties() {
+		if (!$party) return;
+
+		const recentParty: RecentParty = {
+			code: $party.code,
+			teamRowName: $party.team_row_name,
+			teamColName: $party.team_col_name,
+			lastVisited: Date.now(),
+			status: $party.status,
+			isHost
+		};
+
+		await saveRecentParty(recentParty);
+	}
 
 	onMount(async () => {
 		// Redirect to join if no name
@@ -35,9 +57,13 @@
 			return;
 		}
 
+		await checkIsHost();
+
 		const success = await loadParty(code);
 		if (success && $party) {
 			unsubscribe = subscribeToParty($party.id);
+			// Save to recent parties
+			await saveToRecentParties();
 		}
 	});
 

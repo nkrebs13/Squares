@@ -28,6 +28,7 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.49.0",
+		"idb-keyval": "^6.2.2",
 		"panzoom": "^9.4.3"
 	}
 }

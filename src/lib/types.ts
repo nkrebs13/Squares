@@ -88,3 +88,12 @@ export const DEFAULT_TEAMS = {
 	row: { name: 'Seahawks', color: '#69BE28' },
 	col: { name: 'Patriots', color: '#C60C30' }
 };
+
+export interface RecentParty {
+	code: string;
+	teamRowName: string;
+	teamColName: string;
+	lastVisited: number; // timestamp
+	status: PartyStatus;
+	isHost: boolean;
+}
