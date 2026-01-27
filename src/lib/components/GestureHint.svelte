@@ -67,7 +67,7 @@
 						<line x1="3" y1="15" x2="21" y2="15"></line>
 					</svg>
 				</span>
-				<span>Drag to select multiple</span>
+				<span>Hold to select multiple</span>
 			</div>
 			<div class="hint-dismiss">Tap to dismiss</div>
 		</div>

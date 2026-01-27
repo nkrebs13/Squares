@@ -31,6 +31,12 @@
 	let singleTapTimeout: ReturnType<typeof setTimeout> | null = null;
 	let pendingTapAction: (() => void) | null = null;
 
+	// Long-press selection mode (Google Photos pattern)
+	let longPressTimeout: ReturnType<typeof setTimeout> | null = null;
+	let isInSelectionMode = $state(false);
+	let longPressStartCell: { row: number; col: number } | null = null;
+	const LONG_PRESS_DURATION = 500; // ms (industry standard)
+
 	// Check if grid needs zoom (doesn't fit on screen or is touch device)
 	function checkNeedsZoom() {
 		if (!browser) return;
@@ -104,6 +110,9 @@
 		if (singleTapTimeout) {
 			clearTimeout(singleTapTimeout);
 		}
+		if (longPressTimeout) {
+			clearTimeout(longPressTimeout);
+		}
 	});
 
 	function getSquare(row: number, col: number): SquareType | undefined {
@@ -144,12 +153,9 @@
 				2
 			);
 		} else {
-			// Zoom out to 1x
-			panzoomInstance.smoothZoomAbs(
-				gridWrapper.clientWidth / 2,
-				gridWrapper.clientHeight / 2,
-				1
-			);
+			// Zoom out AND reset position to origin
+			panzoomInstance.moveTo(0, 0);
+			panzoomInstance.zoomAbs(0, 0, 1);
 		}
 	}
 
@@ -181,26 +187,63 @@
 		}
 	}
 
-	function handleDragStart(row: number, col: number, e: PointerEvent) {
+	// Haptic feedback for selection mode
+	function triggerHaptic() {
+		if ('vibrate' in navigator) {
+			navigator.vibrate(10); // Short 10ms pulse
+		}
+	}
+
+	function handlePointerDown(row: number, col: number, e: PointerEvent) {
 		if (!$userName || $party?.status !== 'filling') return;
 		if (e.button !== 0) return;
 
 		// Record tap for double-tap detection on the grid
 		handleGridTap(e);
 
-		e.preventDefault();
+		// Store potential start cell for long-press
+		longPressStartCell = { row, col };
 
-		isDragging = true;
-		dragStartCell = { row, col };
-		selectedCells = new Set();
+		// Start long-press timer
+		longPressTimeout = setTimeout(() => {
+			// Long press triggered - enter selection mode
+			isInSelectionMode = true;
+			isDragging = true;
+			dragStartCell = longPressStartCell;
+			selectedCells = new Set();
 
-		if (canSelectCell(row, col)) {
-			selectedCells.add(cellKey(row, col));
+			if (longPressStartCell && canSelectCell(longPressStartCell.row, longPressStartCell.col)) {
+				selectedCells.add(cellKey(longPressStartCell.row, longPressStartCell.col));
+			}
+
+			// Haptic feedback
+			triggerHaptic();
+
+			longPressTimeout = null;
+		}, LONG_PRESS_DURATION);
+	}
+
+	function handlePointerMove(row: number, col: number) {
+		// If timer still running and moved to different cell, cancel (allow pan)
+		if (longPressTimeout && longPressStartCell) {
+			const startKey = cellKey(longPressStartCell.row, longPressStartCell.col);
+			const currentKey = cellKey(row, col);
+			if (startKey !== currentKey) {
+				clearTimeout(longPressTimeout);
+				longPressTimeout = null;
+				longPressStartCell = null;
+				return;
+			}
+		}
+
+		// Extend selection if in selection mode
+		if (isDragging && dragStartCell) {
+			handleDragExtend(row, col);
 		}
 	}
 
-	function handleDragMove(row: number, col: number) {
-		if (!isDragging || !dragStartCell) return;
+	function handleDragExtend(row: number, col: number) {
+		if (!dragStartCell) return;
 
 		const minRow = Math.min(dragStartCell.row, row);
 		const maxRow = Math.max(dragStartCell.row, row);
@@ -216,6 +259,27 @@
 			}
 		}
 		selectedCells = newSelection;
+	}
+
+	function handlePointerUp(row: number, col: number) {
+		// Cancel long-press if not triggered yet
+		if (longPressTimeout) {
+			clearTimeout(longPressTimeout);
+			longPressTimeout = null;
+
+			// Short tap - handle as single square click
+			if (longPressStartCell) {
+				handleSquareClick(longPressStartCell.row, longPressStartCell.col);
+			}
+		}
+
+		longPressStartCell = null;
+
+		// End drag selection if active
+		if (isDragging) {
+			handleDragEnd();
+			isInSelectionMode = false;
+		}
 	}
 
 	async function handleDragEnd() {
@@ -251,16 +315,32 @@
 	}
 
 	function handleGlobalPointerUp() {
+		// Cancel long-press if active
+		if (longPressTimeout) {
+			clearTimeout(longPressTimeout);
+			longPressTimeout = null;
+		}
+		longPressStartCell = null;
+
 		if (isDragging) {
 			handleDragEnd();
+			isInSelectionMode = false;
 		}
 	}
 
 	function handleGlobalPointerCancel() {
+		// Cancel long-press if active
+		if (longPressTimeout) {
+			clearTimeout(longPressTimeout);
+			longPressTimeout = null;
+		}
+		longPressStartCell = null;
+
 		if (isDragging) {
 			isDragging = false;
 			dragStartCell = null;
 			selectedCells = new Set();
+			isInSelectionMode = false;
 		}
 	}
 
@@ -384,9 +464,9 @@
 											isLocked={$party?.status !== 'filling'}
 											isSelected={selectedCells.has(cellKey(row, col))}
 											winner={getWinner(row, col)}
-											onclick={() => handleSquareClick(row, col)}
-											onpointerdown={(e) => handleDragStart(row, col, e)}
-											onpointerenter={() => handleDragMove(row, col)}
+											onpointerdown={(e) => handlePointerDown(row, col, e)}
+											onpointerenter={() => handlePointerMove(row, col)}
+											onpointerup={() => handlePointerUp(row, col)}
 										/>
 									{/if}
 								{/each}

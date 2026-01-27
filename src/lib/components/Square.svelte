@@ -9,9 +9,9 @@
 		isLocked: boolean;
 		isSelected?: boolean;
 		winner?: Winner | null;
-		onclick: () => void;
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointerenter?: () => void;
+		onpointerup?: () => void;
 	}
 
 	let {
@@ -21,9 +21,9 @@
 		isLocked,
 		isSelected = false,
 		winner = null,
-		onclick,
 		onpointerdown,
-		onpointerenter
+		onpointerenter,
+		onpointerup
 	}: Props = $props();
 
 	let isMine = $derived(
@@ -47,9 +47,9 @@
 
 <button
 	class={classes}
-	onclick={onclick}
 	onpointerdown={onpointerdown}
 	onpointerenter={onpointerenter}
+	onpointerup={onpointerup}
 	disabled={isLocked || (square.player_name !== null && !isMine)}
 	aria-label={square.player_name ? `Square claimed by ${square.player_name}` : 'Empty square'}
 >
