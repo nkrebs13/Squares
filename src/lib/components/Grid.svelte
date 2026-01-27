@@ -10,6 +10,8 @@
 
 	let gridContainer: HTMLDivElement;
 	let gridWrapper: HTMLDivElement;
+	let stickyColumnNumbers: HTMLDivElement;
+	let stickyRowNumbers: HTMLDivElement;
 	let panzoomInstance: any = null;
 	let needsZoom = $state(false);
 	let currentZoom = $state(1);
@@ -57,6 +59,20 @@
 		needsZoom = gridWidth > containerWidth + 20;
 	}
 
+	// Sync sticky column/row numbers with panzoom transform
+	function syncStickyHeaders() {
+		if (!panzoomInstance || !stickyColumnNumbers || !stickyRowNumbers) return;
+		const { x, y, scale } = panzoomInstance.getTransform();
+
+		// Column numbers: sync horizontal pan + scale
+		stickyColumnNumbers.style.transform = `translateX(${x}px) scaleX(${scale})`;
+		stickyColumnNumbers.style.transformOrigin = '0 0';
+
+		// Row numbers: sync vertical pan + scale
+		stickyRowNumbers.style.transform = `translateY(${y}px) scaleY(${scale})`;
+		stickyRowNumbers.style.transformOrigin = '0 0';
+	}
+
 	onMount(() => {
 		if (browser) {
 			checkNeedsZoom();
@@ -72,7 +88,7 @@
 					maxZoom: 3,
 					minZoom: 0.5,
 					bounds: true,
-					boundsPadding: 0.5,
+					boundsPadding: 0.1, // Tighter bounds - only 10% padding
 					zoomDoubleClickSpeed: 1 // Disable built-in double-click zoom
 				});
 
@@ -81,6 +97,9 @@
 					const transform = panzoomInstance.getTransform();
 					currentZoom = transform.scale;
 				});
+
+				// Sync sticky headers with panzoom transform
+				panzoomInstance.on('transform', syncStickyHeaders);
 			});
 		} else if (panzoomInstance && !needsZoom) {
 			panzoomInstance.dispose();
@@ -156,6 +175,8 @@
 			// Zoom out AND reset position to origin
 			panzoomInstance.moveTo(0, 0);
 			panzoomInstance.zoomAbs(0, 0, 1);
+			// Reset sticky headers to origin
+			syncStickyHeaders();
 		}
 	}
 
@@ -398,42 +419,42 @@
 
 	<!-- Grid Container -->
 	<div class="grid-outer-container">
-		<div class="overflow-auto touch-none select-none rounded-xl" bind:this={gridWrapper}>
-			<div bind:this={gridContainer} class="inline-block min-w-full">
-				<!-- Column Team Header -->
-				<div class="flex items-center justify-center gap-2 py-3 mb-1">
+		<div class="overflow-hidden touch-none select-none rounded-xl" bind:this={gridWrapper}>
+			<!-- Column Team Header (outside panzoom) -->
+			<div class="flex items-center justify-center gap-2 py-3 mb-1">
+				<img
+					src="/logos/patriots.svg"
+					alt="{$theme.colName}"
+					class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
+					onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
+				/>
+				<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
+					{$theme.colName}
+				</span>
+			</div>
+
+			<!-- Grid Layout: Row header + Numbers + Squares -->
+			<div class="flex gap-1">
+				<!-- Row Team Header (vertical, outside panzoom) -->
+				<div class="flex flex-col items-center justify-center gap-2 pr-1">
 					<img
-						src="/logos/patriots.svg"
-						alt="{$theme.colName}"
+						src="/logos/seahawks.svg"
+						alt="{$theme.rowName}"
 						class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
 						onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
 					/>
-					<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
-						{$theme.colName}
+					<span
+						class="font-bold text-sm sm:text-base writing-vertical flex-1 flex items-center"
+						style="color: {$theme.rowColor}"
+					>
+						{$theme.rowName}
 					</span>
 				</div>
 
-				<!-- Grid Layout: Row header + Numbers + Squares -->
-				<div class="flex gap-1">
-					<!-- Row Team Header (vertical) -->
-					<div class="flex flex-col items-center justify-center gap-2 pr-1">
-						<img
-							src="/logos/seahawks.svg"
-							alt="{$theme.rowName}"
-							class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-							onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
-						/>
-						<span
-							class="font-bold text-sm sm:text-base writing-vertical flex-1 flex items-center"
-							style="color: {$theme.rowColor}"
-						>
-							{$theme.rowName}
-						</span>
-					</div>
-
-					<!-- Main Grid Area with integrated row numbers -->
-					<div class="flex-1">
-						<!-- Column Numbers Row (with empty cell for row number column) -->
+				<!-- Main Grid Area -->
+				<div class="flex-1 overflow-hidden">
+					<!-- Sticky Column Numbers (outside panzoom, synced via JS) -->
+					<div bind:this={stickyColumnNumbers} class="sticky-column-numbers">
 						<div class="grid grid-cols-[auto_repeat(10,1fr)] gap-0.5 mb-0.5">
 							<div class="w-7 sm:w-8 md:w-10"></div>
 							{#each cols as col}
@@ -444,34 +465,46 @@
 								</div>
 							{/each}
 						</div>
+					</div>
 
-						<!-- Grid Squares with row numbers -->
-						{#each rows as row}
-							<div class="grid grid-cols-[auto_repeat(10,1fr)] gap-0.5 {row < 9 ? 'mb-0.5' : ''}">
-								<!-- Row number -->
-								<div
-									class="w-7 sm:w-8 md:w-10 flex items-center justify-center text-xs sm:text-sm font-bold text-white team-row-bg {row === 0 ? 'rounded-tl-lg' : ''} {row === 9 ? 'rounded-bl-lg' : ''}"
-								>
-									{$numbers ? $numbers.row_numbers[row] : '?'}
+					<!-- Content area with row numbers + grid -->
+					<div class="flex">
+						<!-- Sticky Row Numbers (outside panzoom, synced via JS) -->
+						<div bind:this={stickyRowNumbers} class="sticky-row-numbers">
+							{#each rows as row}
+								<div class="grid grid-cols-[auto] gap-0.5 {row < 9 ? 'mb-0.5' : ''}">
+									<div
+										class="w-7 sm:w-8 md:w-10 h-7 sm:h-8 md:h-10 flex items-center justify-center text-xs sm:text-sm font-bold text-white team-row-bg {row === 0 ? 'rounded-tl-lg' : ''} {row === 9 ? 'rounded-bl-lg' : ''}"
+									>
+										{$numbers ? $numbers.row_numbers[row] : '?'}
+									</div>
 								</div>
-								{#each cols as col}
-									{@const square = getSquare(row, col)}
-									{#if square}
-										<Square
-											{square}
-											rowNumber={$numbers?.row_numbers[row]}
-											colNumber={$numbers?.col_numbers[col]}
-											isLocked={$party?.status !== 'filling'}
-											isSelected={selectedCells.has(cellKey(row, col))}
-											winner={getWinner(row, col)}
-											onpointerdown={(e) => handlePointerDown(row, col, e)}
-											onpointerenter={() => handlePointerMove(row, col)}
-											onpointerup={() => handlePointerUp(row, col)}
-										/>
-									{/if}
-								{/each}
-							</div>
-						{/each}
+							{/each}
+						</div>
+
+						<!-- Panzoom Target: Grid Squares Only -->
+						<div bind:this={gridContainer} class="grid-squares-container">
+							{#each rows as row}
+								<div class="grid grid-cols-[repeat(10,1fr)] gap-0.5 {row < 9 ? 'mb-0.5' : ''}">
+									{#each cols as col}
+										{@const square = getSquare(row, col)}
+										{#if square}
+											<Square
+												{square}
+												rowNumber={$numbers?.row_numbers[row]}
+												colNumber={$numbers?.col_numbers[col]}
+												isLocked={$party?.status !== 'filling'}
+												isSelected={selectedCells.has(cellKey(row, col))}
+												winner={getWinner(row, col)}
+												onpointerdown={(e) => handlePointerDown(row, col, e)}
+												onpointerenter={() => handlePointerMove(row, col)}
+												onpointerup={() => handlePointerUp(row, col)}
+											/>
+										{/if}
+									{/each}
+								</div>
+							{/each}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -526,6 +559,28 @@
 
 	.grid-outer-container {
 		position: relative;
+	}
+
+	.sticky-column-numbers {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		background: var(--bg-primary);
+		transform-origin: 0 0;
+	}
+
+	.sticky-row-numbers {
+		position: sticky;
+		left: 0;
+		z-index: 20;
+		background: var(--bg-primary);
+		transform-origin: 0 0;
+		flex-shrink: 0;
+	}
+
+	.grid-squares-container {
+		flex: 1;
+		min-width: fit-content;
 	}
 
 	.zoom-controls {
