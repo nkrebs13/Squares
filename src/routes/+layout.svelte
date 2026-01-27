@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import FloatingHomeButton from '$lib/components/FloatingHomeButton.svelte';
+	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { requestPersistentStorage } from '$lib/storage';
 
 	let { children } = $props();
@@ -54,4 +54,4 @@
 	{@render children()}
 </div>
 
-<FloatingHomeButton />
+<ToastContainer />

@@ -4,6 +4,7 @@ import { getSupabaseClient } from '$lib/supabase';
 import type { Party, Square, Numbers, Scores, Winner, GridState } from '$lib/types';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
+import { toast } from './toast';
 
 // Core state stores
 export const party = writable<Party | null>(null);
@@ -238,7 +239,12 @@ export async function claimSquare(row: number, col: number): Promise<boolean> {
 		p_player_name: currentUser
 	});
 
-	return !claimError;
+	if (claimError) {
+		toast.error('Failed to claim square');
+		return false;
+	}
+
+	return true;
 }
 
 export async function claimSquaresBatch(cells: Array<{ row: number; col: number }>): Promise<number> {
@@ -258,10 +264,16 @@ export async function claimSquaresBatch(cells: Array<{ row: number; col: number 
 
 	if (claimError) {
 		console.error('Batch claim error:', claimError);
+		toast.error('Failed to claim squares');
 		return 0;
 	}
 
-	return data || 0;
+	const claimed = data || 0;
+	if (claimed > 0) {
+		toast.success(`Claimed ${claimed} square${claimed > 1 ? 's' : ''}`);
+	}
+
+	return claimed;
 }
 
 export async function unclaimSquare(row: number, col: number): Promise<boolean> {

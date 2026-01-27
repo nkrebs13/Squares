@@ -12,9 +12,71 @@
 	let gridWrapper: HTMLDivElement;
 	let stickyColumnNumbers: HTMLDivElement;
 	let stickyRowNumbers: HTMLDivElement;
+	let horizontalTeamLabel: HTMLDivElement;
+	let verticalTeamLabel: HTMLDivElement;
 	let panzoomInstance: any = null;
 	let needsZoom = $state(false);
 	let currentZoom = $state(1);
+	let showZoomIndicator = $state(false);
+	let zoomIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
+	let resizeObserver: ResizeObserver | null = null;
+	let resizeHandler: (() => void) | null = null;
+	let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+	let minZoom = $state(1);
+
+	// Dynamic cell sizing - pure JS calculation, no breakpoints
+	let cellSize = $state(44); // Default mobile size (Apple HIG minimum)
+	let headerHeight = $state(28); // Column/row header height
+	const MIN_CELL_SIZE = 44; // Apple HIG minimum touch target
+	const ROW_HEADER_WIDTH = 32; // Width of row number column
+	const GAP_SIZE = 2; // Gap between cells
+	const BASE_LABEL_GAP = 16; // Fixed gap between team labels and grid (per Material/HIG guidelines)
+	const VERTICAL_LABEL_WIDTH_FALLBACK = 40; // Fallback for vertical team label width
+	const HORIZONTAL_LABEL_HEIGHT_FALLBACK = 48; // Fallback for horizontal team label height
+	const NUM_COLS = 10;
+	const NUM_GAPS = NUM_COLS - 1; // 9 gaps between 10 columns
+
+	// Dynamic max based on viewport - no cap on desktop
+	function getMaxCellSize(): number {
+		if (!browser) return 80;
+		// On desktop (>1024px), allow cells to fill available space (cap at 120px for aesthetics)
+		// On mobile/tablet, keep 80px max for touch usability
+		return window.innerWidth > 1024 ? 120 : 80;
+	}
+
+	// Calculate cell size based on available width - pure math, no breakpoints
+	function calculateCellSize() {
+		if (!browser || !gridWrapper) return;
+
+		// Account for vertical team label width + gap (use measured value or fallback)
+		const verticalLabelWidth = (verticalTeamLabel?.offsetWidth || VERTICAL_LABEL_WIDTH_FALLBACK) + BASE_LABEL_GAP;
+		const availableWidth = gridWrapper.clientWidth - verticalLabelWidth;
+		const gapTotal = NUM_GAPS * GAP_SIZE;
+		const gridWidth = availableWidth - ROW_HEADER_WIDTH - gapTotal - 8; // 8px padding
+
+		// Pure calculation: available width / 10 columns, clamped to min/max
+		const maxSize = getMaxCellSize();
+		const size = Math.min(Math.max(Math.floor(gridWidth / NUM_COLS), MIN_CELL_SIZE), maxSize);
+		cellSize = size;
+
+		// Header height scales proportionally (70% of cell size, min 24px)
+		headerHeight = Math.max(Math.floor(size * 0.7), 24);
+	}
+
+	// Predefined zoom levels for snap behavior
+	const ZOOM_LEVELS = [1, 1.5, 2];
+	const ZOOM_TOLERANCE = 0.01; // Tolerance for floating-point comparison in zoom levels
+
+	// Show zoom indicator briefly
+	function flashZoomIndicator() {
+		showZoomIndicator = true;
+		if (zoomIndicatorTimeout) {
+			clearTimeout(zoomIndicatorTimeout);
+		}
+		zoomIndicatorTimeout = setTimeout(() => {
+			showZoomIndicator = false;
+		}, 1500);
+	}
 
 	// Double-tap detection
 	let lastTapTime = 0;
@@ -31,36 +93,82 @@
 
 	// Single tap timeout for disambiguation
 	let singleTapTimeout: ReturnType<typeof setTimeout> | null = null;
-	let pendingTapAction: (() => void) | null = null;
 
 	// Long-press selection mode (Google Photos pattern)
 	let longPressTimeout: ReturnType<typeof setTimeout> | null = null;
 	let isInSelectionMode = $state(false);
 	let longPressStartCell: { row: number; col: number } | null = null;
-	const LONG_PRESS_DURATION = 500; // ms (industry standard)
+	const LONG_PRESS_DURATION = 350; // ms (faster for better UX)
 
-	// Check if grid needs zoom (doesn't fit on screen or is touch device)
+	// Track touch coordinates for long-press cancellation on pan
+	let longPressStartX = 0;
+	let longPressStartY = 0;
+	const LONG_PRESS_DISTANCE_THRESHOLD = 20; // pixels - forgiving for tremor/movement on mobile
+
+	// Visual feedback state for long-press
+	let pressedCell = $state<{ row: number; col: number } | null>(null);
+	let pressStartTime = $state(0);
+	let pressProgress = $state(0);
+	let pressAnimationFrame: number | null = null;
+	let isMounted = false; // Guard for async operations after unmount
+
+	// Animate progress ring during long-press
+	function startPressAnimation() {
+		pressStartTime = Date.now();
+		const animate = () => {
+			const elapsed = Date.now() - pressStartTime;
+			pressProgress = Math.min(elapsed / LONG_PRESS_DURATION, 1);
+
+			if (pressProgress < 1 && pressedCell) {
+				pressAnimationFrame = requestAnimationFrame(animate);
+			}
+		};
+		pressAnimationFrame = requestAnimationFrame(animate);
+	}
+
+	function stopPressAnimation() {
+		// Set state first to prevent animation callback from continuing
+		pressedCell = null;
+		pressProgress = 0;
+		if (pressAnimationFrame) {
+			cancelAnimationFrame(pressAnimationFrame);
+			pressAnimationFrame = null;
+		}
+	}
+
+	// Detect if device has touch capability
+	let isTouchDevice = $state(false);
+
+	// Check if grid needs zoom/pan (doesn't fit on screen or is touch device)
 	function checkNeedsZoom() {
 		if (!browser) return;
 
 		// Always enable zoom on touch devices for better mobile UX
-		const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+		isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 		if (isTouchDevice) {
 			needsZoom = true;
 			return;
 		}
 
-		// For desktop size check, we need gridWrapper
+		// For size check, we need gridWrapper
 		if (!gridWrapper) return;
 
-		// On desktop, only enable if grid exceeds container
-		const containerWidth = gridWrapper.parentElement?.clientWidth || window.innerWidth;
-		const gridWidth = gridWrapper.scrollWidth;
-		needsZoom = gridWidth > containerWidth + 20;
+		// Account for team label dimensions + gaps
+		const verticalLabelWidth = (verticalTeamLabel?.offsetWidth || VERTICAL_LABEL_WIDTH_FALLBACK) + BASE_LABEL_GAP;
+		const horizontalLabelHeight = (horizontalTeamLabel?.offsetHeight || HORIZONTAL_LABEL_HEIGHT_FALLBACK) + BASE_LABEL_GAP;
+
+		// Calculate actual grid dimensions from cell size (more reliable than scrollWidth)
+		const actualGridWidth = (cellSize * NUM_COLS) + (GAP_SIZE * NUM_GAPS) + ROW_HEADER_WIDTH;
+		const actualGridHeight = (cellSize * NUM_COLS) + (GAP_SIZE * NUM_GAPS) + headerHeight;
+		const containerWidth = gridWrapper.clientWidth - verticalLabelWidth;
+		const containerHeight = gridWrapper.clientHeight - horizontalLabelHeight;
+
+		// Enable panzoom if grid doesn't fit in container (check both dimensions)
+		needsZoom = actualGridWidth > containerWidth || actualGridHeight > containerHeight;
 	}
 
-	// Sync sticky column/row numbers with panzoom transform
-	function syncStickyHeaders() {
+	// Sync sticky column/row numbers and team label gaps with panzoom transform
+	function syncZoomElements() {
 		if (!panzoomInstance || !stickyColumnNumbers || !stickyRowNumbers) return;
 		const { x, y, scale } = panzoomInstance.getTransform();
 
@@ -71,48 +179,98 @@
 		// Row numbers: sync vertical pan + scale
 		stickyRowNumbers.style.transform = `translateY(${y}px) scaleY(${scale})`;
 		stickyRowNumbers.style.transformOrigin = '0 0';
+
+		// Scale team label gaps proportionally with zoom
+		// This keeps the visual gap consistent relative to the scaled grid
+		const scaledGap = BASE_LABEL_GAP * scale;
+		if (horizontalTeamLabel) {
+			horizontalTeamLabel.style.marginBottom = `${scaledGap}px`;
+		}
+		if (verticalTeamLabel) {
+			verticalTeamLabel.style.paddingRight = `${scaledGap}px`;
+		}
 	}
 
-	// Custom bounds enforcement - mobile-optimized, minimal whitespace
+	// Calculate actual grid dimensions from cell size (more accurate than scrollWidth)
+	function getActualGridDimensions() {
+		// Grid = 10 cells + 9 gaps
+		const width = (cellSize * NUM_COLS) + (GAP_SIZE * NUM_GAPS);
+		const height = (cellSize * NUM_COLS) + (GAP_SIZE * NUM_GAPS); // 10 rows
+		return { width, height };
+	}
+
+	// Calculate minZoom to fit entire grid in viewport
+	function calculateMinZoom(): number {
+		if (!browser || !gridWrapper) return 1;
+
+		const gridDims = getActualGridDimensions();
+
+		// Account for all fixed elements (team labels + headers + gaps)
+		// At 1.0 scale, gaps are BASE_LABEL_GAP pixels
+		const verticalLabelWidth = (verticalTeamLabel?.offsetWidth || VERTICAL_LABEL_WIDTH_FALLBACK) + BASE_LABEL_GAP;
+		const horizontalLabelHeight = (horizontalTeamLabel?.offsetHeight || HORIZONTAL_LABEL_HEIGHT_FALLBACK) + BASE_LABEL_GAP;
+
+		// Guard against zero/negative dimensions during initial layout
+		const wrapperWidth = Math.max(1, gridWrapper.clientWidth - verticalLabelWidth - ROW_HEADER_WIDTH);
+		const wrapperHeight = Math.max(1, gridWrapper.clientHeight - horizontalLabelHeight - headerHeight);
+
+		// Find scale where grid fits in both dimensions
+		const scaleX = wrapperWidth / gridDims.width;
+		const scaleY = wrapperHeight / gridDims.height;
+
+		// Use smaller scale to fit entire grid, minimum 0.5 for usability
+		return Math.max(0.5, Math.min(scaleX, scaleY, 1));
+	}
+
+	// Custom bounds enforcement - mobile-optimized, allows reaching all columns
 	function enforceCustomBounds() {
 		if (!panzoomInstance || !gridWrapper || !gridContainer) return;
 
 		const { x, y, scale } = panzoomInstance.getTransform();
 
 		const wrapperRect = gridWrapper.getBoundingClientRect();
-		const scaledWidth = gridContainer.scrollWidth * scale;
-		const scaledHeight = gridContainer.scrollHeight * scale;
+		const gridDims = getActualGridDimensions();
+		const scaledWidth = gridDims.width * scale;
+		const scaledHeight = gridDims.height * scale;
 
-		// Maximum whitespace allowed at edges (native feel: 8px)
-		const EDGE_PADDING = 8;
+		// Padding at edges - allows a bit of overscroll for native feel
+		const EDGE_PADDING = 16;
 
 		let clampedX = x;
 		let clampedY = y;
 
-		if (scaledWidth > wrapperRect.width) {
-			// Zoomed in: grid larger than container
-			// Allow panning to see all content, but grid edge can't go past container edge + padding
-			const minX = wrapperRect.width - scaledWidth - EDGE_PADDING;
+		// Get actual dimensions of fixed elements (team labels)
+		// Note: offsetWidth/Height don't include margins/padding used as gaps, so we add the scaled gap
+		const scaledGap = BASE_LABEL_GAP * scale;
+		const verticalLabelWidth = (verticalTeamLabel?.offsetWidth || VERTICAL_LABEL_WIDTH_FALLBACK) + scaledGap;
+		const horizontalLabelHeight = (horizontalTeamLabel?.offsetHeight || HORIZONTAL_LABEL_HEIGHT_FALLBACK) + scaledGap;
+
+		// Account for vertical team label AND sticky row header width in available viewport
+		const availableWidth = Math.max(1, wrapperRect.width - verticalLabelWidth - ROW_HEADER_WIDTH);
+		if (scaledWidth > availableWidth) {
+			// Grid larger than container - allow panning to see ALL content
+			// minX: how far left we can pan (to see right edge of grid)
+			// maxX: how far right we can pan (to see left edge of grid)
+			const minX = availableWidth - scaledWidth - EDGE_PADDING;
 			const maxX = EDGE_PADDING;
 			clampedX = Math.max(minX, Math.min(maxX, x));
 		} else {
-			// Zoomed out or fits: grid same size or smaller than container
-			// Lock to center, allow only minimal drift for "alive" feel
-			const centerX = (wrapperRect.width - scaledWidth) / 2;
-			const DRIFT = 8; // Minimal drift allowed
-			clampedX = Math.max(centerX - DRIFT, Math.min(centerX + DRIFT, x));
+			// Grid fits or smaller - center it with minimal drift
+			const centerX = (availableWidth - scaledWidth) / 2;
+			clampedX = centerX; // Lock to center when grid fits
 		}
 
-		if (scaledHeight > wrapperRect.height) {
-			// Zoomed in: grid taller than container
-			const minY = wrapperRect.height - scaledHeight - EDGE_PADDING;
+		// Account for horizontal team label AND sticky column header height in available viewport
+		const availableHeight = Math.max(1, wrapperRect.height - horizontalLabelHeight - headerHeight);
+		if (scaledHeight > availableHeight) {
+			// Grid taller than container - allow panning to see all rows
+			const minY = availableHeight - scaledHeight - EDGE_PADDING;
 			const maxY = EDGE_PADDING;
 			clampedY = Math.max(minY, Math.min(maxY, y));
 		} else {
-			// Zoomed out or fits: keep centered with minimal drift
-			const centerY = (wrapperRect.height - scaledHeight) / 2;
-			const DRIFT = 8;
-			clampedY = Math.max(centerY - DRIFT, Math.min(centerY + DRIFT, y));
+			// Grid fits - center it
+			const centerY = (availableHeight - scaledHeight) / 2;
+			clampedY = centerY;
 		}
 
 		if (clampedX !== x || clampedY !== y) {
@@ -121,33 +279,95 @@
 	}
 
 	onMount(() => {
+		isMounted = true;
+
 		if (browser) {
-			checkNeedsZoom();
-			window.addEventListener('resize', checkNeedsZoom);
+			// Defer initial calculations to after first paint (avoid layout race)
+			requestAnimationFrame(() => {
+				if (!isMounted) return;
+				calculateCellSize();
+				checkNeedsZoom();
+				minZoom = calculateMinZoom();
+			});
+
+			// Store resize handler for proper cleanup
+			resizeHandler = () => {
+				calculateCellSize();
+				checkNeedsZoom();
+				minZoom = calculateMinZoom();
+				// Update panzoom minZoom if instance exists
+				if (panzoomInstance) {
+					panzoomInstance.setMinZoom(minZoom);
+				}
+			};
+			window.addEventListener('resize', resizeHandler);
+
+			// Set up ResizeObserver with debouncing for continuous sizing
+			if (gridWrapper) {
+				resizeObserver = new ResizeObserver(() => {
+					if (resizeTimeout) clearTimeout(resizeTimeout);
+					resizeTimeout = setTimeout(() => {
+						if (!isMounted) return;
+						calculateCellSize();
+						checkNeedsZoom();
+						minZoom = calculateMinZoom();
+						// Update panzoom minZoom if instance exists
+						if (panzoomInstance) {
+							panzoomInstance.setMinZoom(minZoom);
+						}
+					}, 16); // One frame at 60fps for responsive resize
+				});
+				resizeObserver.observe(gridWrapper);
+			}
 		}
 	});
 
 	$effect(() => {
 		if (browser && gridContainer && needsZoom && !panzoomInstance) {
 			import('panzoom').then((module) => {
-				const panzoom = module.default;
-				panzoomInstance = panzoom(gridContainer, {
-					maxZoom: 3,
-					minZoom: 0.5,
-					// Custom bounds enforcement instead of built-in (which doesn't work with our DOM structure)
-					zoomDoubleClickSpeed: 1 // Disable built-in double-click zoom
-				});
+				// Guard against component unmount during async import
+				if (!isMounted) return;
 
-				// Listen for zoom changes
-				panzoomInstance.on('zoom', () => {
-					const transform = panzoomInstance.getTransform();
-					currentZoom = transform.scale;
-				});
+				// Defer to next frame to ensure layout is complete
+				requestAnimationFrame(() => {
+					if (!isMounted) return;
 
-				// Sync sticky headers and enforce custom bounds on every transform
-				panzoomInstance.on('transform', () => {
-					syncStickyHeaders();
-					enforceCustomBounds();
+					const panzoom = module.default;
+					panzoomInstance = panzoom(gridContainer, {
+						maxZoom: 2,
+						minZoom: calculateMinZoom(), // Dynamic based on grid/viewport
+						// Disable scroll/pinch zoom - use buttons and double-tap only
+						beforeWheel: () => true, // Return true to prevent wheel zoom
+						beforeMouseDown: (e: MouseEvent) => {
+							// Allow panning with mouse
+							return false;
+						},
+						pinchSpeed: 0, // Disable pinch zoom
+						zoomDoubleClickSpeed: 1, // Disable built-in double-click zoom (we handle it ourselves)
+						// Smooth panning settings for mobile
+						smoothScroll: false, // We handle our own bounds
+						filterKey: () => true // Allow all key events through
+					});
+
+					// Listen for zoom changes
+					panzoomInstance.on('zoom', () => {
+						const transform = panzoomInstance.getTransform();
+						currentZoom = transform.scale;
+						flashZoomIndicator();
+					});
+
+					// Sync sticky headers and enforce bounds on every transform
+					// Direct sync (no RAF throttle) prevents visual desync/jank
+					panzoomInstance.on('transform', () => {
+						syncZoomElements();
+						enforceCustomBounds();
+					});
+
+					// Initial position - center the grid or align left on mobile
+					requestAnimationFrame(() => {
+						enforceCustomBounds();
+						syncZoomElements();
+					});
 				});
 			});
 		} else if (panzoomInstance && !needsZoom) {
@@ -169,8 +389,16 @@
 	});
 
 	onDestroy(() => {
-		if (browser) {
-			window.removeEventListener('resize', checkNeedsZoom);
+		isMounted = false; // Prevent async callbacks from running
+
+		if (browser && resizeHandler) {
+			window.removeEventListener('resize', resizeHandler);
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+		}
+		if (resizeTimeout) {
+			clearTimeout(resizeTimeout);
 		}
 		if (panzoomInstance) {
 			panzoomInstance.dispose();
@@ -181,21 +409,42 @@
 		if (longPressTimeout) {
 			clearTimeout(longPressTimeout);
 		}
+		if (zoomIndicatorTimeout) {
+			clearTimeout(zoomIndicatorTimeout);
+		}
+		if (pressAnimationFrame) {
+			cancelAnimationFrame(pressAnimationFrame);
+		}
+	});
+
+	// Derived lookup maps for O(1) access (avoids 100x O(n) lookups per render)
+	let squareMap = $derived.by(() => {
+		const map = new Map<string, SquareType>();
+		for (const s of $squares) {
+			map.set(`${s.row_num}-${s.col_num}`, s);
+		}
+		return map;
+	});
+
+	let winnerMap = $derived.by(() => {
+		if (!$numbers) return new Map<string, Winner>();
+		const map = new Map<string, Winner>();
+		for (const w of $winners) {
+			const row = $numbers.row_numbers.indexOf(w.winning_row);
+			const col = $numbers.col_numbers.indexOf(w.winning_col);
+			if (row !== -1 && col !== -1) {
+				map.set(`${row}-${col}`, w);
+			}
+		}
+		return map;
 	});
 
 	function getSquare(row: number, col: number): SquareType | undefined {
-		return $squares.find((s) => s.row_num === row && s.col_num === col);
+		return squareMap.get(`${row}-${col}`);
 	}
 
 	function getWinner(row: number, col: number): Winner | null {
-		if (!$numbers) return null;
-		return (
-			$winners.find((w) => {
-				const winRow = $numbers!.row_numbers.indexOf(w.winning_row);
-				const winCol = $numbers!.col_numbers.indexOf(w.winning_col);
-				return winRow === row && winCol === col;
-			}) || null
-		);
+		return winnerMap.get(`${row}-${col}`) || null;
 	}
 
 	function cellKey(row: number, col: number): string {
@@ -208,24 +457,24 @@
 		return square !== undefined && square.player_name === null;
 	}
 
-	// Double-tap zoom handling
+	// Double-tap zoom handling - zooms toward tap location for native-like UX
 	function handleDoubleTap() {
 		if (!panzoomInstance) return;
 
 		const transform = panzoomInstance.getTransform();
 		if (transform.scale < 1.5) {
-			// Zoom in to 2x
-			panzoomInstance.smoothZoomAbs(
-				gridWrapper.clientWidth / 2,
-				gridWrapper.clientHeight / 2,
-				2
-			);
+			// Zoom in to 2x toward the tap location
+			// Convert page coordinates to wrapper-relative coordinates
+			const wrapperRect = gridWrapper.getBoundingClientRect();
+			const zoomX = lastTapX - wrapperRect.left;
+			const zoomY = lastTapY - wrapperRect.top;
+			panzoomInstance.smoothZoomAbs(zoomX, zoomY, 2);
 		} else {
 			// Zoom out AND reset position to origin
 			panzoomInstance.moveTo(0, 0);
 			panzoomInstance.zoomAbs(0, 0, 1);
 			// Reset sticky headers to origin
-			syncStickyHeaders();
+			syncZoomElements();
 		}
 	}
 
@@ -246,7 +495,6 @@
 			if (singleTapTimeout) {
 				clearTimeout(singleTapTimeout);
 				singleTapTimeout = null;
-				pendingTapAction = null;
 			}
 			handleDoubleTap();
 			lastTapTime = 0;
@@ -271,8 +519,25 @@
 		// Record tap for double-tap detection on the grid
 		handleGridTap(e);
 
-		// Store potential start cell for long-press
+		// Store potential start cell and coordinates for long-press
 		longPressStartCell = { row, col };
+		longPressStartX = e.clientX;
+		longPressStartY = e.clientY;
+
+		// On desktop with Shift key, start drag selection immediately
+		if (!isTouchDevice && e.shiftKey && canSelectCell(row, col)) {
+			isInSelectionMode = true;
+			isDragging = true;
+			dragStartCell = { row, col };
+			selectedCells = new Set([cellKey(row, col)]);
+			return;
+		}
+
+		// Start visual feedback immediately if cell can be selected
+		if (canSelectCell(row, col)) {
+			pressedCell = { row, col };
+			startPressAnimation();
+		}
 
 		// Start long-press timer
 		longPressTimeout = setTimeout(() => {
@@ -289,6 +554,9 @@
 			// Haptic feedback
 			triggerHaptic();
 
+			// Stop press animation (selection mode takes over)
+			stopPressAnimation();
+
 			longPressTimeout = null;
 		}, LONG_PRESS_DURATION);
 	}
@@ -302,6 +570,7 @@
 				clearTimeout(longPressTimeout);
 				longPressTimeout = null;
 				longPressStartCell = null;
+				stopPressAnimation();
 				return;
 			}
 		}
@@ -332,6 +601,9 @@
 	}
 
 	function handlePointerUp(row: number, col: number) {
+		// Stop press animation
+		stopPressAnimation();
+
 		// Cancel long-press if not triggered yet
 		if (longPressTimeout) {
 			clearTimeout(longPressTimeout);
@@ -385,6 +657,9 @@
 	}
 
 	function handleGlobalPointerUp() {
+		// Stop press animation
+		stopPressAnimation();
+
 		// Cancel long-press if active
 		if (longPressTimeout) {
 			clearTimeout(longPressTimeout);
@@ -399,6 +674,9 @@
 	}
 
 	function handleGlobalPointerCancel() {
+		// Stop press animation
+		stopPressAnimation();
+
 		// Cancel long-press if active
 		if (longPressTimeout) {
 			clearTimeout(longPressTimeout);
@@ -414,11 +692,48 @@
 		}
 	}
 
-	// Accessibility zoom controls
+	// Check pixel distance during long-press to cancel on pan
+	function handleGlobalPointerMove(e: PointerEvent) {
+		if (longPressTimeout) {
+			const distMoved = Math.sqrt(
+				Math.pow(e.clientX - longPressStartX, 2) +
+				Math.pow(e.clientY - longPressStartY, 2)
+			);
+			if (distMoved > LONG_PRESS_DISTANCE_THRESHOLD) {
+				clearTimeout(longPressTimeout);
+				longPressTimeout = null;
+				longPressStartCell = null;
+				stopPressAnimation();
+			}
+		}
+	}
+
+	// Accessibility zoom controls with snap-to-level behavior
+	function getNextZoomLevel(direction: 'in' | 'out'): number {
+		const transform = panzoomInstance.getTransform();
+		const current = transform.scale;
+
+		// Build dynamic zoom levels including minZoom if it's below 1.0
+		const levels = minZoom < 1 ? [minZoom, ...ZOOM_LEVELS] : ZOOM_LEVELS;
+
+		if (direction === 'in') {
+			// Find next higher zoom level
+			for (const level of levels) {
+				if (level > current + 0.05) return level;
+			}
+			return levels[levels.length - 1];
+		} else {
+			// Find next lower zoom level
+			for (let i = levels.length - 1; i >= 0; i--) {
+				if (levels[i] < current - 0.05) return levels[i];
+			}
+			return minZoom;
+		}
+	}
+
 	function zoomIn() {
 		if (!panzoomInstance) return;
-		const transform = panzoomInstance.getTransform();
-		const newZoom = Math.min(transform.scale + 0.5, 3);
+		const newZoom = getNextZoomLevel('in');
 		panzoomInstance.smoothZoomAbs(
 			gridWrapper.clientWidth / 2,
 			gridWrapper.clientHeight / 2,
@@ -428,8 +743,7 @@
 
 	function zoomOut() {
 		if (!panzoomInstance) return;
-		const transform = panzoomInstance.getTransform();
-		const newZoom = Math.max(transform.scale - 0.5, 0.5);
+		const newZoom = getNextZoomLevel('out');
 		panzoomInstance.smoothZoomAbs(
 			gridWrapper.clientWidth / 2,
 			gridWrapper.clientHeight / 2,
@@ -437,11 +751,19 @@
 		);
 	}
 
+	function resetZoom() {
+		if (!panzoomInstance) return;
+		panzoomInstance.moveTo(0, 0);
+		panzoomInstance.zoomAbs(0, 0, 1);
+		syncZoomElements();
+	}
+
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 </script>
 
 <svelte:window
+	onpointermove={handleGlobalPointerMove}
 	onpointerup={handleGlobalPointerUp}
 	onpointercancel={handleGlobalPointerCancel}
 />
@@ -467,10 +789,10 @@
 	{/if}
 
 	<!-- Grid Container -->
-	<div class="grid-outer-container">
-		<div class="overflow-hidden touch-none select-none rounded-xl" bind:this={gridWrapper}>
+	<div class="grid-outer-container" style="--cell-size: {cellSize}px; --header-height: {headerHeight}px; --row-header-width: {ROW_HEADER_WIDTH}px;">
+		<div class="overflow-hidden select-none rounded-xl" style="touch-action: none;" bind:this={gridWrapper}>
 			<!-- Column Team Header (outside panzoom) -->
-			<div class="flex items-center justify-center gap-2 py-3 mb-1">
+			<div bind:this={horizontalTeamLabel} class="flex items-center justify-center gap-2 py-3" style="margin-bottom: {BASE_LABEL_GAP}px;">
 				<img
 					src="/logos/patriots.svg"
 					alt="{$theme.colName}"
@@ -485,7 +807,7 @@
 			<!-- Grid Layout: Row header + Numbers + Squares -->
 			<div class="flex gap-1">
 				<!-- Row Team Header (vertical, outside panzoom) -->
-				<div class="flex flex-col items-center justify-center gap-2 pr-1">
+				<div bind:this={verticalTeamLabel} class="flex flex-col items-center justify-center gap-2" style="padding-right: {BASE_LABEL_GAP}px;">
 					<img
 						src="/logos/seahawks.svg"
 						alt="{$theme.rowName}"
@@ -504,11 +826,11 @@
 				<div class="flex-1 overflow-hidden">
 					<!-- Sticky Column Numbers (outside panzoom, synced via JS) -->
 					<div bind:this={stickyColumnNumbers} class="sticky-column-numbers">
-						<div class="grid grid-cols-[auto_repeat(10,1fr)] gap-0.5 mb-0.5">
-							<div class="w-7 sm:w-8 md:w-10"></div>
+						<div class="col-numbers-row">
+							<div class="row-number-spacer"></div>
 							{#each cols as col}
 								<div
-									class="h-7 sm:h-8 md:h-10 flex items-center justify-center text-xs sm:text-sm font-bold text-white team-col-bg {col === 0 ? 'rounded-tl-lg' : ''} {col === 9 ? 'rounded-tr-lg' : ''}"
+									class="col-number flex items-center justify-center text-xs sm:text-sm font-bold text-white team-col-bg {col === 0 ? 'rounded-tl-lg' : ''} {col === 9 ? 'rounded-tr-lg' : ''}"
 								>
 									{$numbers ? $numbers.col_numbers[col] : '?'}
 								</div>
@@ -521,9 +843,9 @@
 						<!-- Sticky Row Numbers (outside panzoom, synced via JS) -->
 						<div bind:this={stickyRowNumbers} class="sticky-row-numbers">
 							{#each rows as row}
-								<div class="grid grid-cols-[auto] gap-0.5 {row < 9 ? 'mb-0.5' : ''}">
+								<div class="row-number-container {row < 9 ? 'mb-0.5' : ''}">
 									<div
-										class="w-7 sm:w-8 md:w-10 h-7 sm:h-8 md:h-10 flex items-center justify-center text-xs sm:text-sm font-bold text-white team-row-bg {row === 0 ? 'rounded-tl-lg' : ''} {row === 9 ? 'rounded-bl-lg' : ''}"
+										class="row-number flex items-center justify-center text-xs sm:text-sm font-bold text-white team-row-bg {row === 0 ? 'rounded-tl-lg' : ''} {row === 9 ? 'rounded-bl-lg' : ''}"
 									>
 										{$numbers ? $numbers.row_numbers[row] : '?'}
 									</div>
@@ -534,16 +856,19 @@
 						<!-- Panzoom Target: Grid Squares Only -->
 						<div bind:this={gridContainer} class="grid-squares-container">
 							{#each rows as row}
-								<div class="grid grid-cols-[repeat(10,1fr)] gap-0.5 {row < 9 ? 'mb-0.5' : ''}">
+								<div class="grid-row">
 									{#each cols as col}
 										{@const square = getSquare(row, col)}
 										{#if square}
 											<Square
 												{square}
+												size={cellSize}
 												rowNumber={$numbers?.row_numbers[row]}
 												colNumber={$numbers?.col_numbers[col]}
 												isLocked={$party?.status !== 'filling'}
 												isSelected={selectedCells.has(cellKey(row, col))}
+												isPressed={pressedCell?.row === row && pressedCell?.col === col}
+												pressProgress={pressedCell?.row === row && pressedCell?.col === col ? pressProgress : 0}
 												winner={getWinner(row, col)}
 												onpointerdown={(e) => handlePointerDown(row, col, e)}
 												onpointerenter={() => handlePointerMove(row, col)}
@@ -559,6 +884,13 @@
 			</div>
 		</div>
 
+		<!-- Zoom Indicator -->
+		{#if showZoomIndicator && needsZoom}
+			<div class="zoom-indicator">
+				{currentZoom.toFixed(1)}x
+			</div>
+		{/if}
+
 		<!-- Accessibility Zoom Controls -->
 		{#if needsZoom}
 			<div class="zoom-controls">
@@ -566,7 +898,7 @@
 					class="zoom-btn"
 					onclick={zoomOut}
 					aria-label="Zoom out"
-					disabled={currentZoom <= 0.5}
+					disabled={currentZoom <= minZoom + ZOOM_TOLERANCE}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<circle cx="11" cy="11" r="8"></circle>
@@ -576,9 +908,23 @@
 				</button>
 				<button
 					class="zoom-btn"
+					onclick={resetZoom}
+					aria-label="Reset zoom"
+					disabled={Math.abs(currentZoom - 1) < ZOOM_TOLERANCE}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+						<line x1="9" y1="3" x2="9" y2="21"></line>
+						<line x1="15" y1="3" x2="15" y2="21"></line>
+						<line x1="3" y1="9" x2="21" y2="9"></line>
+						<line x1="3" y1="15" x2="21" y2="15"></line>
+					</svg>
+				</button>
+				<button
+					class="zoom-btn"
 					onclick={zoomIn}
 					aria-label="Zoom in"
-					disabled={currentZoom >= 3}
+					disabled={currentZoom >= 2 - ZOOM_TOLERANCE}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<circle cx="11" cy="11" r="8"></circle>
@@ -589,6 +935,24 @@
 				</button>
 			</div>
 		{/if}
+	</div>
+
+	<!-- Grid Legend -->
+	<div class="grid-legend">
+		<div class="legend-item">
+			<div class="legend-swatch legend-available"></div>
+			<span>Available</span>
+		</div>
+		{#if $userName}
+			<div class="legend-item">
+				<div class="legend-swatch legend-mine"></div>
+				<span>Yours</span>
+			</div>
+		{/if}
+		<div class="legend-item">
+			<div class="legend-swatch legend-winner"></div>
+			<span>Winner</span>
+		</div>
 	</div>
 
 	<!-- Selection info during drag -->
@@ -608,6 +972,10 @@
 
 	.grid-outer-container {
 		position: relative;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 0; /* Allow flex shrinking */
 	}
 
 	.sticky-column-numbers {
@@ -616,6 +984,7 @@
 		z-index: 20;
 		background: var(--bg-primary);
 		transform-origin: 0 0;
+		will-change: transform; /* Optimize for frequent transform updates during pan/zoom */
 	}
 
 	.sticky-row-numbers {
@@ -625,11 +994,82 @@
 		background: var(--bg-primary);
 		transform-origin: 0 0;
 		flex-shrink: 0;
+		will-change: transform; /* Optimize for frequent transform updates during pan/zoom */
 	}
 
 	.grid-squares-container {
 		flex: 1;
 		min-width: fit-content;
+		touch-action: none; /* Prevent browser touch gestures from interfering with panzoom */
+	}
+
+	/* Column numbers row - uses CSS variables for dynamic sizing */
+	.col-numbers-row {
+		display: flex;
+		gap: 2px;
+		margin-bottom: 2px;
+	}
+
+	.row-number-spacer {
+		/* Uses CSS variable for row header width */
+		width: var(--row-header-width, 32px);
+		flex-shrink: 0;
+	}
+
+	.col-number {
+		/* Uses CSS variables for dynamic sizing - no breakpoints */
+		min-width: var(--cell-size, 44px);
+		width: var(--cell-size, 44px);
+		height: var(--header-height, 28px);
+		flex-shrink: 0;
+	}
+
+	/* Row numbers - uses CSS variables for dynamic sizing */
+	.row-number-container {
+		display: flex;
+	}
+
+	.row-number {
+		/* Uses CSS variables for dynamic sizing - no breakpoints */
+		width: var(--row-header-width, 32px);
+		min-height: var(--cell-size, 44px);
+		height: var(--cell-size, 44px);
+		flex-shrink: 0;
+	}
+
+	/* Grid rows - must match column layout */
+	.grid-row {
+		display: flex;
+		gap: 2px;
+		margin-bottom: 2px;
+	}
+
+	.grid-row:last-child {
+		margin-bottom: 0;
+	}
+
+	.zoom-indicator {
+		position: fixed;
+		bottom: calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 180px);
+		right: max(1rem, env(safe-area-inset-right, 0px));
+		padding: 0.5rem 0.75rem;
+		background: rgba(26, 26, 36, 0.9);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		z-index: 101;
+		animation: fadeInOut 1.5s ease-out forwards;
+	}
+
+	@keyframes fadeInOut {
+		0% { opacity: 0; transform: translateY(5px); }
+		15% { opacity: 1; transform: translateY(0); }
+		85% { opacity: 1; }
+		100% { opacity: 0; }
 	}
 
 	.zoom-controls {
@@ -657,6 +1097,7 @@
 		cursor: pointer;
 		transition: all 200ms ease;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+		touch-action: manipulation; /* Prevent 300ms tap delay and double-tap-to-zoom interference */
 	}
 
 	.zoom-btn:hover:not(:disabled) {
@@ -672,5 +1113,51 @@
 	.zoom-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.grid-legend {
+		display: flex;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.75rem;
+		margin-top: 0.75rem;
+		background: rgba(255, 255, 255, 0.03);
+		border-radius: 10px;
+		border: 1px solid var(--border-color);
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.legend-swatch {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 4px;
+		border: 1px solid var(--border-color);
+	}
+
+	.legend-available {
+		background: rgba(255, 255, 255, 0.06);
+		border-color: rgba(255, 255, 255, 0.08);
+	}
+
+	.legend-mine {
+		background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
+		border-color: rgba(244, 143, 177, 0.5);
+		outline: 2px solid rgba(244, 143, 177, 0.7);
+		outline-offset: -1px;
+	}
+
+	.legend-winner {
+		background: linear-gradient(135deg, rgba(100, 200, 130, 0.35), rgba(100, 210, 200, 0.35));
+		border-color: rgba(100, 200, 130, 0.6);
+		outline: 2px solid rgba(100, 200, 130, 0.8);
+		outline-offset: -1px;
+		box-shadow: 0 0 8px rgba(100, 200, 130, 0.4);
 	}
 </style>
