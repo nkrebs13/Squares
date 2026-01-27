@@ -73,6 +73,57 @@
 		stickyRowNumbers.style.transformOrigin = '0 0';
 	}
 
+	// Custom bounds enforcement - keeps at least 30% of grid visible
+	function enforceCustomBounds() {
+		if (!panzoomInstance || !gridWrapper || !gridContainer) return;
+
+		const { x, y, scale } = panzoomInstance.getTransform();
+
+		// Get the visible area dimensions
+		const wrapperRect = gridWrapper.getBoundingClientRect();
+
+		// Get the grid's natural dimensions and scale them
+		const scaledWidth = gridContainer.scrollWidth * scale;
+		const scaledHeight = gridContainer.scrollHeight * scale;
+
+		// Require at least 30% of grid to remain visible
+		const minVisible = 0.3;
+		const minVisibleWidth = Math.min(scaledWidth * minVisible, wrapperRect.width * 0.8);
+		const minVisibleHeight = Math.min(scaledHeight * minVisible, wrapperRect.height * 0.8);
+
+		let clampedX = x;
+		let clampedY = y;
+
+		// Calculate bounds based on whether grid is larger than container
+		if (scaledWidth > wrapperRect.width) {
+			// Grid is wider than container - allow panning until only minVisibleWidth remains visible
+			const maxPanRight = minVisibleWidth;
+			const maxPanLeft = -(scaledWidth - wrapperRect.width + minVisibleWidth);
+			clampedX = Math.max(maxPanLeft, Math.min(maxPanRight, x));
+		} else {
+			// Grid fits in container - limit pan to keep it mostly visible
+			const maxPanRight = wrapperRect.width - scaledWidth * minVisible;
+			const maxPanLeft = -(scaledWidth * (1 - minVisible));
+			clampedX = Math.max(maxPanLeft, Math.min(maxPanRight, x));
+		}
+
+		if (scaledHeight > wrapperRect.height) {
+			// Grid is taller than container
+			const maxPanDown = minVisibleHeight;
+			const maxPanUp = -(scaledHeight - wrapperRect.height + minVisibleHeight);
+			clampedY = Math.max(maxPanUp, Math.min(maxPanDown, y));
+		} else {
+			// Grid fits in container
+			const maxPanDown = wrapperRect.height - scaledHeight * minVisible;
+			const maxPanUp = -(scaledHeight * (1 - minVisible));
+			clampedY = Math.max(maxPanUp, Math.min(maxPanDown, y));
+		}
+
+		if (clampedX !== x || clampedY !== y) {
+			panzoomInstance.moveTo(clampedX, clampedY);
+		}
+	}
+
 	onMount(() => {
 		if (browser) {
 			checkNeedsZoom();
@@ -87,8 +138,7 @@
 				panzoomInstance = panzoom(gridContainer, {
 					maxZoom: 3,
 					minZoom: 0.5,
-					bounds: true,
-					boundsPadding: 0.1, // Tighter bounds - only 10% padding
+					// Custom bounds enforcement instead of built-in (which doesn't work with our DOM structure)
 					zoomDoubleClickSpeed: 1 // Disable built-in double-click zoom
 				});
 
@@ -98,8 +148,11 @@
 					currentZoom = transform.scale;
 				});
 
-				// Sync sticky headers with panzoom transform
-				panzoomInstance.on('transform', syncStickyHeaders);
+				// Sync sticky headers and enforce custom bounds on every transform
+				panzoomInstance.on('transform', () => {
+					syncStickyHeaders();
+					enforceCustomBounds();
+				});
 			});
 		} else if (panzoomInstance && !needsZoom) {
 			panzoomInstance.dispose();
