@@ -1,0 +1,432 @@
+@import 'tailwindcss';
+
+@theme {
+	/* Aurora dark theme accent colors */
+	--color-accent: #f48fb1;
+	--color-success: rgba(100, 200, 130, 0.9);
+	--color-warning: #ffb74d;
+	--color-surface-dark: #1a1a24;
+}
+
+:root {
+	/* Aurora dark mode colors */
+	--bg-primary: #0f0f14;
+	--bg-secondary: #1a1a24;
+	--text-primary: #e2e8f0;
+	--text-secondary: #94a3b8;
+	--text-muted: #64748b;
+	--border-color: rgba(255, 255, 255, 0.06);
+	--shadow-color: rgba(0, 0, 0, 0.3);
+
+	/* Aurora glow colors */
+	--aurora-mint: rgba(100, 210, 200, 0.12);
+	--aurora-lavender: rgba(180, 130, 200, 0.12);
+	--aurora-peach: rgba(255, 180, 130, 0.1);
+	--aurora-sky: rgba(100, 170, 230, 0.12);
+
+	/* Team colors (keep for Super Bowl theming) */
+	--team-row-color: #E31837;
+	--team-col-color: #004C54;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	background: var(--bg-primary);
+	color: var(--text-primary);
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+/* Grid colors */
+.team-row-bg {
+	background-color: var(--team-row-color);
+}
+
+.team-col-bg {
+	background-color: var(--team-col-color);
+}
+
+.team-row-text {
+	color: var(--team-row-color);
+}
+
+.team-col-text {
+	color: var(--team-col-color);
+}
+
+/* Square styles */
+.square {
+	@apply flex items-center justify-center text-xs font-medium transition-all duration-200;
+	aspect-ratio: 1;
+	min-height: 1.75rem;
+	min-width: 1.75rem;
+	border-radius: 6px;
+	border: 1px solid var(--border-color);
+}
+
+@media (min-width: 640px) {
+	.square {
+		min-height: 2rem;
+		min-width: 2rem;
+		border-radius: 8px;
+	}
+}
+
+@media (min-width: 768px) {
+	.square {
+		min-height: 2.5rem;
+		min-width: 2.5rem;
+		@apply text-sm;
+	}
+}
+
+.square-empty {
+	background: rgba(255, 255, 255, 0.03);
+	cursor: pointer;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.square-empty:hover {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.15);
+	box-shadow: 0 0 12px rgba(100, 210, 200, 0.1);
+}
+
+.square-empty:active {
+	transform: scale(0.97);
+}
+
+.square-claimed {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
+.square-mine {
+	background: linear-gradient(135deg, rgba(244, 143, 177, 0.25), rgba(180, 130, 200, 0.25));
+	@apply ring-2;
+	--tw-ring-color: rgba(244, 143, 177, 0.6);
+	border-color: rgba(244, 143, 177, 0.4);
+}
+
+.square-winner {
+	background: linear-gradient(135deg, rgba(100, 200, 130, 0.3), rgba(100, 210, 200, 0.3));
+	@apply ring-2;
+	--tw-ring-color: rgba(100, 200, 130, 0.7);
+	border-color: rgba(100, 200, 130, 0.5);
+	animation: glow-winner 3s ease-in-out infinite;
+}
+
+@keyframes glow-winner {
+	0%, 100% {
+		box-shadow: 0 0 8px rgba(100, 200, 130, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 16px rgba(100, 200, 130, 0.5);
+	}
+}
+
+.square-selected {
+	background: linear-gradient(135deg, rgba(244, 143, 177, 0.2), rgba(180, 130, 200, 0.2));
+	@apply ring-2;
+	--tw-ring-color: rgba(244, 143, 177, 0.5);
+	border-color: rgba(244, 143, 177, 0.3);
+}
+
+/* Button styles */
+.btn {
+	@apply px-6 py-3 font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+	border-radius: 12px;
+}
+
+.btn-primary {
+	background: linear-gradient(135deg, rgba(100, 210, 200, 0.4), rgba(100, 170, 230, 0.4));
+	color: var(--text-primary);
+	border: 1px solid rgba(100, 210, 200, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+	background: linear-gradient(135deg, rgba(100, 210, 200, 0.5), rgba(100, 170, 230, 0.5));
+	box-shadow: 0 0 20px rgba(100, 210, 200, 0.2);
+}
+
+.btn-secondary {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+	border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-success {
+	background: linear-gradient(135deg, rgba(100, 200, 130, 0.5), rgba(100, 210, 200, 0.4));
+	color: var(--text-primary);
+	border: 1px solid rgba(100, 200, 130, 0.4);
+}
+
+.btn-success:hover:not(:disabled) {
+	background: linear-gradient(135deg, rgba(100, 200, 130, 0.6), rgba(100, 210, 200, 0.5));
+	box-shadow: 0 0 20px rgba(100, 200, 130, 0.2);
+}
+
+/* Input styles */
+.input {
+	@apply w-full px-4 py-3;
+	background: var(--bg-primary);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	color: var(--text-primary);
+}
+
+.input::placeholder {
+	color: var(--text-muted);
+}
+
+.input:focus {
+	outline: none;
+	border-color: rgba(100, 210, 200, 0.4);
+	box-shadow: 0 0 0 3px rgba(100, 210, 200, 0.1);
+}
+
+/* Card styles */
+.card {
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 20px;
+	padding: 1.5rem;
+	box-shadow: 0 4px 24px var(--shadow-color);
+}
+
+/* Party code display */
+.party-code {
+	@apply text-4xl font-mono font-bold tracking-[0.3em];
+	color: var(--color-accent);
+}
+
+/* Scoreboard */
+.scoreboard {
+	@apply flex items-center justify-center gap-4 p-4;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 12px;
+}
+
+.score-team {
+	@apply text-center;
+}
+
+.score-name {
+	@apply text-sm font-medium;
+	opacity: 0.8;
+}
+
+.score-value {
+	@apply text-3xl font-bold tabular-nums;
+}
+
+/* Winner announcement */
+.winner-banner {
+	@apply p-4 border;
+	background: linear-gradient(to right, rgba(100, 200, 130, 0.2), rgba(100, 200, 130, 0.05));
+	border-color: rgba(100, 200, 130, 0.3);
+	border-radius: 12px;
+	animation: soft-pulse 3s ease-in-out infinite;
+}
+
+@keyframes soft-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.85;
+	}
+}
+
+/* Safe area padding for PWA */
+@supports (padding-top: env(safe-area-inset-top)) {
+	.safe-top {
+		padding-top: env(safe-area-inset-top);
+	}
+	.safe-bottom {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+}
+
+/* Animations */
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+	from { transform: scale(0.9); opacity: 0; }
+	to { transform: scale(1); opacity: 1; }
+}
+
+.animate-scale-in {
+	animation: scaleIn 0.2s ease-out;
+}
+
+/* Aurora background animations */
+@keyframes aurora-shift {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	25% { transform: translate(5%, 3%) scale(1.02); }
+	50% { transform: translate(-3%, 5%) scale(0.98); }
+	75% { transform: translate(-5%, -3%) scale(1.01); }
+}
+
+@keyframes aurora-breathe {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.7; }
+}
+
+/* Aurora background styles */
+.aurora-bg {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.aurora-gradient {
+	position: absolute;
+	width: 150%;
+	height: 150%;
+	top: -25%;
+	left: -25%;
+	background:
+		radial-gradient(ellipse 80% 50% at 20% 20%, var(--aurora-mint), transparent 50%),
+		radial-gradient(ellipse 60% 40% at 80% 30%, var(--aurora-lavender), transparent 50%),
+		radial-gradient(ellipse 70% 50% at 60% 80%, var(--aurora-peach), transparent 50%),
+		radial-gradient(ellipse 50% 60% at 30% 70%, var(--aurora-sky), transparent 50%);
+	animation: aurora-shift 30s ease-in-out infinite, aurora-breathe 8s ease-in-out infinite;
+}
+
+.aurora-gradient-2 {
+	position: absolute;
+	width: 150%;
+	height: 150%;
+	top: -25%;
+	left: -25%;
+	background:
+		radial-gradient(ellipse 50% 40% at 70% 60%, var(--aurora-sky), transparent 40%),
+		radial-gradient(ellipse 40% 50% at 40% 40%, var(--aurora-mint), transparent 40%),
+		radial-gradient(ellipse 60% 30% at 20% 80%, var(--aurora-lavender), transparent 40%);
+	animation: aurora-shift 35s ease-in-out infinite reverse, aurora-breathe 10s ease-in-out infinite 2s;
+	opacity: 0.7;
+}
+
+/* Status banner styles */
+.status-banner {
+	@apply p-3 text-center;
+	border-radius: 12px;
+	border: 1px solid;
+}
+
+.status-banner-filling {
+	background: rgba(244, 143, 177, 0.1);
+	border-color: rgba(244, 143, 177, 0.3);
+}
+
+.status-banner-locked {
+	background: rgba(255, 183, 77, 0.1);
+	border-color: rgba(255, 183, 77, 0.3);
+}
+
+.status-banner-success {
+	background: rgba(100, 200, 130, 0.1);
+	border-color: rgba(100, 200, 130, 0.3);
+}
+
+/* Stats bar */
+.stats-bar {
+	@apply flex items-center justify-between px-4 py-3;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+}
+
+/* Quarter scores grid */
+.quarter-score-box {
+	@apply p-2 rounded text-center;
+	background: rgba(255, 255, 255, 0.03);
+}
+
+/* Selection indicator */
+.selection-indicator {
+	@apply fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full z-50 font-medium;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	box-shadow: 0 4px 24px var(--shadow-color);
+	color: var(--text-primary);
+}
+
+/* Divider */
+.divider {
+	height: 1px;
+	background: var(--border-color);
+}
+
+/* Error/Success message boxes */
+.message-error {
+	@apply p-4;
+	background: rgba(239, 68, 68, 0.1);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	border-radius: 12px;
+	color: #fca5a5;
+}
+
+.message-success {
+	@apply p-4;
+	background: rgba(100, 200, 130, 0.1);
+	border: 1px solid rgba(100, 200, 130, 0.3);
+	border-radius: 12px;
+	color: rgba(134, 239, 172, 1);
+}
+
+/* Progress bar */
+.progress-bar {
+	@apply h-2 rounded-full overflow-hidden;
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.progress-bar-fill {
+	@apply h-full transition-all duration-300;
+	background: linear-gradient(90deg, rgba(100, 210, 200, 0.6), rgba(244, 143, 177, 0.6));
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.squares.score-fetcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/npx</string>
+        <string>tsx</string>
+        <string>/Users/nathankrebs/Personal/Projects/Squares/scripts/score-fetcher/index.ts</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>30</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SUPABASE_URL</key>
+        <string>YOUR_SUPABASE_URL</string>
+        <key>SUPABASE_SERVICE_KEY</key>
+        <string>YOUR_SUPABASE_SERVICE_KEY</string>
+        <key>SUPER_BOWL_EVENT_ID</key>
+        <string></string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/squares-score-fetcher.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/squares-score-fetcher.error.log</string>
+</dict>
+</plist>
