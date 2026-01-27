@@ -73,50 +73,46 @@
 		stickyRowNumbers.style.transformOrigin = '0 0';
 	}
 
-	// Custom bounds enforcement - keeps at least 30% of grid visible
+	// Custom bounds enforcement - mobile-optimized, minimal whitespace
 	function enforceCustomBounds() {
 		if (!panzoomInstance || !gridWrapper || !gridContainer) return;
 
 		const { x, y, scale } = panzoomInstance.getTransform();
 
-		// Get the visible area dimensions
 		const wrapperRect = gridWrapper.getBoundingClientRect();
-
-		// Get the grid's natural dimensions and scale them
 		const scaledWidth = gridContainer.scrollWidth * scale;
 		const scaledHeight = gridContainer.scrollHeight * scale;
 
-		// Require at least 30% of grid to remain visible
-		const minVisible = 0.3;
-		const minVisibleWidth = Math.min(scaledWidth * minVisible, wrapperRect.width * 0.8);
-		const minVisibleHeight = Math.min(scaledHeight * minVisible, wrapperRect.height * 0.8);
+		// Maximum whitespace allowed at edges (native feel: 8px)
+		const EDGE_PADDING = 8;
 
 		let clampedX = x;
 		let clampedY = y;
 
-		// Calculate bounds based on whether grid is larger than container
 		if (scaledWidth > wrapperRect.width) {
-			// Grid is wider than container - allow panning until only minVisibleWidth remains visible
-			const maxPanRight = minVisibleWidth;
-			const maxPanLeft = -(scaledWidth - wrapperRect.width + minVisibleWidth);
-			clampedX = Math.max(maxPanLeft, Math.min(maxPanRight, x));
+			// Zoomed in: grid larger than container
+			// Allow panning to see all content, but grid edge can't go past container edge + padding
+			const minX = wrapperRect.width - scaledWidth - EDGE_PADDING;
+			const maxX = EDGE_PADDING;
+			clampedX = Math.max(minX, Math.min(maxX, x));
 		} else {
-			// Grid fits in container - limit pan to keep it mostly visible
-			const maxPanRight = wrapperRect.width - scaledWidth * minVisible;
-			const maxPanLeft = -(scaledWidth * (1 - minVisible));
-			clampedX = Math.max(maxPanLeft, Math.min(maxPanRight, x));
+			// Zoomed out or fits: grid same size or smaller than container
+			// Lock to center, allow only minimal drift for "alive" feel
+			const centerX = (wrapperRect.width - scaledWidth) / 2;
+			const DRIFT = 8; // Minimal drift allowed
+			clampedX = Math.max(centerX - DRIFT, Math.min(centerX + DRIFT, x));
 		}
 
 		if (scaledHeight > wrapperRect.height) {
-			// Grid is taller than container
-			const maxPanDown = minVisibleHeight;
-			const maxPanUp = -(scaledHeight - wrapperRect.height + minVisibleHeight);
-			clampedY = Math.max(maxPanUp, Math.min(maxPanDown, y));
+			// Zoomed in: grid taller than container
+			const minY = wrapperRect.height - scaledHeight - EDGE_PADDING;
+			const maxY = EDGE_PADDING;
+			clampedY = Math.max(minY, Math.min(maxY, y));
 		} else {
-			// Grid fits in container
-			const maxPanDown = wrapperRect.height - scaledHeight * minVisible;
-			const maxPanUp = -(scaledHeight * (1 - minVisible));
-			clampedY = Math.max(maxPanUp, Math.min(maxPanDown, y));
+			// Zoomed out or fits: keep centered with minimal drift
+			const centerY = (wrapperRect.height - scaledHeight) / 2;
+			const DRIFT = 8;
+			clampedY = Math.max(centerY - DRIFT, Math.min(centerY + DRIFT, y));
 		}
 
 		if (clampedX !== x || clampedY !== y) {
