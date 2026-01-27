@@ -9,9 +9,13 @@
 		loadParty,
 		lockParty,
 		startGame,
-		updateScore
+		updateScore,
+		updatePayoutStructure,
+		deleteParty
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
+	import { SPLIT_PRESETS } from '$lib/types';
+	import { goto } from '$app/navigation';
 
 	let code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
@@ -30,6 +34,15 @@
 	});
 	let isUpdatingScore = $state(false);
 
+	// Payout structure editing
+	let payoutSplits = $state({ q1: 10, q2: 20, q3: 30, final: 40 });
+	let isUpdatingPayout = $state(false);
+	let selectedPreset = $state('Rising');
+
+	// Delete confirmation
+	let showDeleteConfirm = $state(false);
+	let isDeleting = $state(false);
+
 	onMount(async () => {
 		if (browser) {
 			storedPin = sessionStorage.getItem(`squares_pin_${code}`);
@@ -40,6 +53,28 @@
 
 		if (!$party) {
 			await loadParty(code);
+		}
+
+		// Initialize payout splits from party
+		if ($party) {
+			payoutSplits = {
+				q1: $party.split_q1,
+				q2: $party.split_q2,
+				q3: $party.split_q3,
+				final: $party.split_final
+			};
+		}
+	});
+
+	// Keep payout splits in sync with party
+	$effect(() => {
+		if ($party) {
+			payoutSplits = {
+				q1: $party.split_q1,
+				q2: $party.split_q2,
+				q3: $party.split_q3,
+				final: $party.split_final
+			};
 		}
 	});
 
@@ -133,6 +168,51 @@
 		{ value: 'q3', label: '3rd Quarter' },
 		{ value: 'final', label: 'Final' }
 	];
+
+	function applyPreset(presetName: string) {
+		const preset = SPLIT_PRESETS.find((p) => p.name === presetName);
+		if (preset && preset.name !== 'Custom') {
+			payoutSplits = { q1: preset.q1, q2: preset.q2, q3: preset.q3, final: preset.final };
+		}
+		selectedPreset = presetName;
+	}
+
+	const splitTotal = $derived(payoutSplits.q1 + payoutSplits.q2 + payoutSplits.q3 + payoutSplits.final);
+
+	async function handleUpdatePayout() {
+		if (!storedPin) return;
+
+		isUpdatingPayout = true;
+		error = null;
+		success = null;
+
+		const result = await updatePayoutStructure(storedPin, payoutSplits);
+
+		if (result.success) {
+			success = 'Payout structure updated!';
+		} else {
+			error = result.error || 'Failed to update payout structure';
+		}
+
+		isUpdatingPayout = false;
+	}
+
+	async function handleDeleteParty() {
+		if (!storedPin) return;
+
+		isDeleting = true;
+		error = null;
+
+		const result = await deleteParty(storedPin);
+
+		if (result.success) {
+			goto('/');
+		} else {
+			error = result.error || 'Failed to delete party';
+			isDeleting = false;
+			showDeleteConfirm = false;
+		}
+	}
 </script>
 
 <div class="min-h-screen p-6">
@@ -191,6 +271,96 @@
 
 			<!-- Filling Phase Controls -->
 			{#if $party.status === 'filling'}
+				<!-- Payout Structure -->
+				<div class="card">
+					<h2 class="text-lg font-semibold mb-4">Payout Structure</h2>
+					<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						Adjust how the pot is split between quarters. Must total 100%.
+					</p>
+
+					<div class="flex gap-2 mb-4 flex-wrap">
+						{#each SPLIT_PRESETS.filter(p => p.name !== 'Custom') as preset}
+							<button
+								class="btn btn-sm {selectedPreset === preset.name ? 'btn-primary' : 'btn-secondary'}"
+								onclick={() => applyPreset(preset.name)}
+							>
+								{preset.name}
+							</button>
+						{/each}
+					</div>
+
+					<div class="grid grid-cols-2 gap-3 mb-4">
+						<div>
+							<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
+							<div class="flex items-center gap-1">
+								<input
+									type="number"
+									bind:value={payoutSplits.q1}
+									min="0"
+									max="100"
+									class="input mt-1"
+									onchange={() => selectedPreset = 'Custom'}
+								/>
+								<span class="text-sm" style="color: var(--text-secondary)">%</span>
+							</div>
+						</div>
+						<div>
+							<label class="text-sm" style="color: var(--text-secondary)">Q2</label>
+							<div class="flex items-center gap-1">
+								<input
+									type="number"
+									bind:value={payoutSplits.q2}
+									min="0"
+									max="100"
+									class="input mt-1"
+									onchange={() => selectedPreset = 'Custom'}
+								/>
+								<span class="text-sm" style="color: var(--text-secondary)">%</span>
+							</div>
+						</div>
+						<div>
+							<label class="text-sm" style="color: var(--text-secondary)">Q3</label>
+							<div class="flex items-center gap-1">
+								<input
+									type="number"
+									bind:value={payoutSplits.q3}
+									min="0"
+									max="100"
+									class="input mt-1"
+									onchange={() => selectedPreset = 'Custom'}
+								/>
+								<span class="text-sm" style="color: var(--text-secondary)">%</span>
+							</div>
+						</div>
+						<div>
+							<label class="text-sm" style="color: var(--text-secondary)">Final</label>
+							<div class="flex items-center gap-1">
+								<input
+									type="number"
+									bind:value={payoutSplits.final}
+									min="0"
+									max="100"
+									class="input mt-1"
+									onchange={() => selectedPreset = 'Custom'}
+								/>
+								<span class="text-sm" style="color: var(--text-secondary)">%</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="text-sm mb-4 {splitTotal === 100 ? '' : 'text-red-400'}">
+						Total: {splitTotal}% {splitTotal !== 100 ? '(must be 100%)' : '✓'}
+					</div>
+
+					<button
+						onclick={handleUpdatePayout}
+						class="btn btn-primary w-full"
+						disabled={isUpdatingPayout || splitTotal !== 100}
+					>
+						{isUpdatingPayout ? 'Saving...' : 'Save Payout Structure'}
+					</button>
+				</div>
+
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-4">Lock Grid</h2>
 					{#if $isGridFull}
@@ -296,6 +466,44 @@
 					</p>
 				</div>
 			{/if}
+
+			<!-- Danger Zone - Delete Party -->
+			<div class="card border border-red-500/30">
+				<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
+				{#if !showDeleteConfirm}
+					<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						Permanently delete this party and all associated data.
+					</p>
+					<button
+						onclick={() => showDeleteConfirm = true}
+						class="btn w-full"
+						style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
+					>
+						Delete Party
+					</button>
+				{:else}
+					<p class="text-sm mb-4 text-red-400">
+						Are you sure? This action cannot be undone. All squares, numbers, and winners will be permanently deleted.
+					</p>
+					<div class="flex gap-2">
+						<button
+							onclick={() => showDeleteConfirm = false}
+							class="btn btn-secondary flex-1"
+							disabled={isDeleting}
+						>
+							Cancel
+						</button>
+						<button
+							onclick={handleDeleteParty}
+							class="btn flex-1"
+							style="background: #ef4444; color: white;"
+							disabled={isDeleting}
+						>
+							{isDeleting ? 'Deleting...' : 'Yes, Delete'}
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

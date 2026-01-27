@@ -357,6 +357,83 @@ export async function updateScore(
 	return { success: true };
 }
 
+export async function updatePayoutStructure(
+	pin: string,
+	splits: { q1: number; q2: number; q3: number; final: number }
+): Promise<{ success: boolean; error?: string }> {
+	const currentParty = get(party);
+	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (currentParty.status !== 'filling') return { success: false, error: 'Grid is already locked' };
+
+	// Verify PIN matches
+	if (pin !== currentParty.host_pin) {
+		return { success: false, error: 'Invalid PIN' };
+	}
+
+	// Verify splits add up to 100
+	const total = splits.q1 + splits.q2 + splits.q3 + splits.final;
+	if (total !== 100) {
+		return { success: false, error: 'Splits must add up to 100%' };
+	}
+
+	const supabase = getSupabaseClient();
+
+	const { error: updateError } = await supabase
+		.from('parties')
+		.update({
+			split_q1: splits.q1,
+			split_q2: splits.q2,
+			split_q3: splits.q3,
+			split_final: splits.final
+		})
+		.eq('id', currentParty.id)
+		.eq('host_pin', pin);
+
+	if (updateError) {
+		return { success: false, error: updateError.message };
+	}
+
+	// Update local state
+	party.update((p) =>
+		p
+			? {
+					...p,
+					split_q1: splits.q1,
+					split_q2: splits.q2,
+					split_q3: splits.q3,
+					split_final: splits.final
+				}
+			: null
+	);
+
+	return { success: true };
+}
+
+export async function deleteParty(pin: string): Promise<{ success: boolean; error?: string }> {
+	const currentParty = get(party);
+	if (!currentParty) return { success: false, error: 'No party loaded' };
+
+	// Verify PIN matches
+	if (pin !== currentParty.host_pin) {
+		return { success: false, error: 'Invalid PIN' };
+	}
+
+	const supabase = getSupabaseClient();
+
+	// Delete party (cascades to squares, numbers, scores, winners)
+	const { error: deleteError } = await supabase
+		.from('parties')
+		.delete()
+		.eq('id', currentParty.id)
+		.eq('host_pin', pin);
+
+	if (deleteError) {
+		return { success: false, error: deleteError.message };
+	}
+
+	return { success: true };
+}
+
 export function cleanup() {
 	if (channel) {
 		channel.unsubscribe();
