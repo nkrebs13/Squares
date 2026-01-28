@@ -359,6 +359,7 @@
 			<!-- Scrollable Grid Container -->
 			<div
 				class="scroll-container"
+				class:fit-mode={zoomState === 'fit'}
 				bind:this={scrollContainer}
 				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px; --row-header-width: {ROW_HEADER_WIDTH}px;"
 			>
@@ -567,6 +568,10 @@
 		padding: 0.25rem;
 	}
 
+	.scroll-container.fit-mode {
+		overflow-x: hidden;
+	}
+
 	.grid-11x11 {
 		display: grid;
 		grid-template-columns: var(--row-header-width) repeat(10, var(--cell-size));
@@ -579,10 +584,10 @@
 		position: sticky;
 		left: 0;
 		z-index: 20;
-		background: var(--team-row-color, #69BE28);
+		background: var(--bg-secondary);
 		width: var(--row-header-width);
 		height: var(--header-height);
-		border-top-left-radius: 6px;
+		box-shadow: -8px 0 0 var(--bg-secondary), 0 -8px 0 var(--bg-secondary);
 	}
 
 	.col-header {
@@ -609,7 +614,7 @@
 		font-weight: bold;
 		color: white;
 		background: var(--team-row-color, #69BE28);
-		box-shadow: -8px 0 0 var(--team-row-color, #69BE28);
+		box-shadow: -8px 0 0 var(--team-row-color, #69BE28), 0 -1px 0 var(--team-row-color, #69BE28), 0 1px 0 var(--team-row-color, #69BE28);
 	}
 
 	.team-col-bg {

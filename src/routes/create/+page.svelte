@@ -131,7 +131,7 @@
 						type="number"
 						bind:value={squarePrice}
 						min="0"
-						step="0.5"
+						step="0.01"
 						class="input text-2xl w-24"
 					/>
 				</div>
