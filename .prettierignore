@@ -1,0 +1,15 @@
+# Package manager
+package-lock.json
+node_modules/
+
+# Build outputs
+.svelte-kit/
+build/
+dist/
+
+# Generated files
+.env
+.env.*
+
+# Static assets that shouldn't be formatted
+static/
