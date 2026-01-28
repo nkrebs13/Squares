@@ -5,7 +5,7 @@
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { requestPersistentStorage } from '$lib/storage';
 
-	let { children } = $props();
+	const { children } = $props();
 
 	onMount(async () => {
 		if (browser) {
@@ -25,7 +25,7 @@
 						},
 						onOfflineReady() {
 							console.log('PWA ready for offline use');
-						}
+						},
 					});
 				}
 			} catch (e) {

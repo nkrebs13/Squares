@@ -25,22 +25,29 @@
 	--aurora-sky: rgba(100, 170, 230, 0.12);
 
 	/* Team colors (keep for Super Bowl theming) */
-	--team-row-color: #E31837;
-	--team-col-color: #004C54;
+	--team-row-color: #e31837;
+	--team-col-color: #004c54;
 }
 
 * {
 	box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
 	height: 100%;
 	margin: 0;
 	padding: 0;
 }
 
 body {
-	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	font-family:
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		sans-serif;
 	background: var(--bg-primary);
 	color: var(--text-primary);
 	min-height: 100vh;
@@ -132,7 +139,8 @@ body {
 }
 
 @keyframes pulse-mine {
-	0%, 100% {
+	0%,
+	100% {
 		box-shadow: 0 0 12px rgba(244, 143, 177, 0.25);
 	}
 	50% {
@@ -149,11 +157,16 @@ body {
 }
 
 @keyframes glow-winner {
-	0%, 100% {
-		box-shadow: 0 0 12px rgba(100, 200, 130, 0.4), 0 0 24px rgba(100, 200, 130, 0.2);
+	0%,
+	100% {
+		box-shadow:
+			0 0 12px rgba(100, 200, 130, 0.4),
+			0 0 24px rgba(100, 200, 130, 0.2);
 	}
 	50% {
-		box-shadow: 0 0 20px rgba(100, 200, 130, 0.6), 0 0 36px rgba(100, 200, 130, 0.3);
+		box-shadow:
+			0 0 20px rgba(100, 200, 130, 0.6),
+			0 0 36px rgba(100, 200, 130, 0.3);
 	}
 }
 
@@ -173,14 +186,30 @@ body {
 }
 
 .square-winner {
-	animation: winner-entrance 0.4s ease-out, glow-winner 2.5s ease-in-out infinite 0.4s;
+	animation:
+		winner-entrance 0.4s ease-out,
+		glow-winner 2.5s ease-in-out infinite 0.4s;
 }
 
 /* Error shake animation */
 @keyframes shake-error {
-	0%, 100% { transform: translateX(0); }
-	10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-	20%, 40%, 60%, 80% { transform: translateX(4px); }
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	10%,
+	30%,
+	50%,
+	70%,
+	90% {
+		transform: translateX(-4px);
+	}
+	20%,
+	40%,
+	60%,
+	80% {
+		transform: translateX(4px);
+	}
 }
 
 .square-error {
@@ -220,7 +249,8 @@ body {
 }
 
 @keyframes pulse-pending {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.85;
 	}
 	50% {
@@ -350,7 +380,8 @@ body {
 }
 
 @keyframes soft-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 1;
 	}
 	50% {
@@ -370,8 +401,14 @@ body {
 
 /* Animations */
 @keyframes fadeIn {
-	from { opacity: 0; transform: translateY(10px); }
-	to { opacity: 1; transform: translateY(0); }
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .animate-fade-in {
@@ -379,8 +416,14 @@ body {
 }
 
 @keyframes scaleIn {
-	from { transform: scale(0.9); opacity: 0; }
-	to { transform: scale(1); opacity: 1; }
+	from {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
 }
 
 .animate-scale-in {
@@ -389,15 +432,29 @@ body {
 
 /* Aurora background animations */
 @keyframes aurora-shift {
-	0%, 100% { transform: translate(0, 0) scale(1); }
-	25% { transform: translate(5%, 3%) scale(1.02); }
-	50% { transform: translate(-3%, 5%) scale(0.98); }
-	75% { transform: translate(-5%, -3%) scale(1.01); }
+	0%,
+	100% {
+		transform: translate(0, 0) scale(1);
+	}
+	25% {
+		transform: translate(5%, 3%) scale(1.02);
+	}
+	50% {
+		transform: translate(-3%, 5%) scale(0.98);
+	}
+	75% {
+		transform: translate(-5%, -3%) scale(1.01);
+	}
 }
 
 @keyframes aurora-breathe {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.7; }
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
 }
 
 /* Aurora background styles */
@@ -420,7 +477,9 @@ body {
 		radial-gradient(ellipse 60% 40% at 80% 30%, var(--aurora-lavender), transparent 50%),
 		radial-gradient(ellipse 70% 50% at 60% 80%, var(--aurora-peach), transparent 50%),
 		radial-gradient(ellipse 50% 60% at 30% 70%, var(--aurora-sky), transparent 50%);
-	animation: aurora-shift 30s ease-in-out infinite, aurora-breathe 8s ease-in-out infinite;
+	animation:
+		aurora-shift 30s ease-in-out infinite,
+		aurora-breathe 8s ease-in-out infinite;
 }
 
 .aurora-gradient-2 {
@@ -433,7 +492,9 @@ body {
 		radial-gradient(ellipse 50% 40% at 70% 60%, var(--aurora-sky), transparent 40%),
 		radial-gradient(ellipse 40% 50% at 40% 40%, var(--aurora-mint), transparent 40%),
 		radial-gradient(ellipse 60% 30% at 20% 80%, var(--aurora-lavender), transparent 40%);
-	animation: aurora-shift 35s ease-in-out infinite reverse, aurora-breathe 10s ease-in-out infinite 2s;
+	animation:
+		aurora-shift 35s ease-in-out infinite reverse,
+		aurora-breathe 10s ease-in-out infinite 2s;
 	opacity: 0.7;
 }
 
@@ -523,20 +584,14 @@ body {
 }
 
 .logo-gradient {
-	background: linear-gradient(
-		135deg,
-		#64d2c8 0%,
-		#64aae6 30%,
-		#b482c8 60%,
-		#f48fb1 100%
-	);
+	background: linear-gradient(135deg, #64d2c8 0%, #64aae6 30%, #b482c8 60%, #f48fb1 100%);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
 	position: relative;
 	display: inline-block;
 	filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-	        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+		drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
 }
 
 /* Add a subtle background glow behind the logo */
@@ -561,13 +616,14 @@ body {
 
 /* Subtle glow animation on logo */
 @keyframes logo-glow {
-	0%, 100% {
+	0%,
+	100% {
 		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-		        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+			drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
 	}
 	50% {
 		filter: drop-shadow(0 4px 16px rgba(100, 210, 200, 0.35))
-		        drop-shadow(0 0 32px rgba(100, 170, 230, 0.3));
+			drop-shadow(0 0 32px rgba(100, 170, 230, 0.3));
 	}
 }
 
@@ -580,6 +636,6 @@ body {
 	.logo-gradient {
 		animation: none;
 		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-		        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+			drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
 	}
 }

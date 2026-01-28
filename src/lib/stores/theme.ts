@@ -14,7 +14,7 @@ function createThemeStore() {
 		rowColor: DEFAULT_TEAMS.row.color,
 		colColor: DEFAULT_TEAMS.col.color,
 		rowName: DEFAULT_TEAMS.row.name,
-		colName: DEFAULT_TEAMS.col.name
+		colName: DEFAULT_TEAMS.col.name,
 	});
 
 	return {
@@ -25,7 +25,7 @@ function createThemeStore() {
 				document.documentElement.style.setProperty('--team-col-color', colors.colColor);
 			}
 			set(colors);
-		}
+		},
 	};
 }
 
