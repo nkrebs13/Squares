@@ -902,17 +902,10 @@
 		z-index: 100;
 	}
 
-	/* Mobile: Sticky control center */
+	/* Mobile: Control center spacing */
 	@media (max-width: 639px) {
 		.grid-control-center {
-			position: sticky;
-			bottom: 0;
-			z-index: 30;
 			margin-top: 0.5rem;
-			background: var(--bg-primary);
-			border-top: 1px solid var(--border-color);
-			border-radius: 12px 12px 0 0;
-			box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
 		}
 	}
 
