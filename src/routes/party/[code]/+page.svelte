@@ -8,6 +8,7 @@
 	import Winners from '$lib/components/Winners.svelte';
 	import PartyCode from '$lib/components/PartyCode.svelte';
 	import PlayerStats from '$lib/components/PlayerStats.svelte';
+	import PlayerLegend from '$lib/components/PlayerLegend.svelte';
 	import {
 		loadParty,
 		subscribeToParty,
@@ -28,8 +29,6 @@
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
 
-	// Collapsible sidebar state
-	let sidebarCollapsed = $state(false);
 
 	async function checkIsHost() {
 		if (browser && code) {
@@ -191,28 +190,7 @@
 			</div>
 
 			<!-- Desktop Sidebar -->
-			<aside class="sidebar hidden lg:block {sidebarCollapsed ? 'collapsed' : ''}">
-				<!-- Sidebar collapse toggle -->
-				<button
-					class="sidebar-toggle"
-					onclick={() => sidebarCollapsed = !sidebarCollapsed}
-					aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class="chevron-icon {sidebarCollapsed ? 'collapsed' : ''}"
-					>
-						<polyline points="9 18 15 12 9 6"></polyline>
-					</svg>
-				</button>
+			<aside class="sidebar hidden lg:block">
 				<div class="sidebar-content">
 					<!-- Status banner -->
 					{#if $party.status === 'filling'}
@@ -282,6 +260,11 @@
 							</div>
 						{/if}
 					</div>
+
+					<!-- Player Legend -->
+					<div class="mt-4">
+						<PlayerLegend />
+					</div>
 				</div>
 			</aside>
 		</div>
@@ -344,52 +327,9 @@
 		}
 
 		.sidebar {
-			position: relative;
 			width: 340px;
 			max-width: 400px;
 			flex-shrink: 0;
-			transition: width 200ms ease, opacity 200ms ease;
-		}
-
-		.sidebar.collapsed {
-			width: 0;
-			opacity: 0;
-			overflow: hidden;
-		}
-
-		.sidebar-toggle {
-			position: absolute;
-			left: -12px;
-			top: 1rem;
-			width: 24px;
-			height: 24px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background: var(--bg-secondary);
-			border: 1px solid var(--border-color);
-			border-radius: 50%;
-			color: var(--text-secondary);
-			cursor: pointer;
-			z-index: 10;
-			transition: all 200ms ease;
-		}
-
-		.sidebar-toggle:hover {
-			background: rgba(255, 255, 255, 0.08);
-			color: var(--text-primary);
-		}
-
-		.sidebar.collapsed .sidebar-toggle {
-			left: -36px;
-		}
-
-		.chevron-icon {
-			transition: transform 200ms ease;
-		}
-
-		.chevron-icon.collapsed {
-			transform: rotate(180deg);
 		}
 
 		.sidebar-content {
@@ -421,7 +361,7 @@
 
 	/* Larger desktop - wider sidebar */
 	@media (min-width: 1280px) {
-		.sidebar:not(.collapsed) {
+		.sidebar {
 			width: 380px;
 		}
 	}
