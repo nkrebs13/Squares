@@ -2,9 +2,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
-	import { squares, numbers, party, winners, claimSquare, claimSquaresBatch, unclaimSquare, mySquareCount, amountOwed, playerSummary, availableCount } from '$lib/stores/game';
+	import { squares, numbers, party, winners, claimSquareOptimistic, claimSquaresBatchOptimistic, unclaimSquareOptimistic, pendingOperations, mySquareCount, amountOwed, playerSummary, availableCount } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
-	import { userName } from '$lib/stores/user';
+	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -221,7 +221,7 @@
 		pointerStartCell = null;
 	}
 
-	async function handleDragEnd() {
+	function handleDragEnd() {
 		if (!isDragging) return;
 
 		isDragging = false;
@@ -233,23 +233,31 @@
 				const [row, col] = key.split('-').map(Number);
 				return { row, col };
 			});
-			await claimSquaresBatch(cells);
+			// Non-blocking optimistic batch claim
+			claimSquaresBatchOptimistic(cells);
 			selectedCells = new Set();
 			isProcessing = false;
 		}
 	}
 
-	async function handleSquareClick(row: number, col: number) {
+	function handleSquareClick(row: number, col: number) {
 		if (!$userName || $party?.status !== 'filling') return;
 
 		const square = getSquare(row, col);
 		if (!square) return;
 
-		if (square.player_name_lower === $userName.toLowerCase()) {
-			await unclaimSquare(row, col);
+		if (square.player_name_lower === normalizePlayerName($userName)) {
+			// Non-blocking optimistic unclaim
+			unclaimSquareOptimistic(row, col);
 		} else if (!square.player_name) {
-			await claimSquare(row, col);
+			// Non-blocking optimistic claim
+			claimSquareOptimistic(row, col);
 		}
+	}
+
+	// Check if a square has a pending operation
+	function isSquarePending(row: number, col: number): boolean {
+		return $pendingOperations.has(cellKey(row, col));
 	}
 
 	function handleGlobalPointerUp() {
@@ -383,7 +391,8 @@
 										colNumber={$numbers?.col_numbers[col]}
 										isLocked={$party?.status !== 'filling'}
 										isSelected={selectedCells.has(cellKey(row, col))}
-										winner={getWinner(row, col)}
+									isPending={isSquarePending(row, col)}
+									winner={getWinner(row, col)}
 										onpointerdown={(e) => handlePointerDown(row, col, e)}
 										onpointerenter={() => handlePointerMove(row, col)}
 										onpointerup={() => handlePointerUp(row, col)}
@@ -549,7 +558,7 @@
 	.scroll-container {
 		flex: 1;
 		overflow-x: auto;
-		overflow-y: visible;
+		overflow-y: hidden;
 		-webkit-overflow-scrolling: touch;
 		overscroll-behavior-x: contain;
 		border-radius: 12px;

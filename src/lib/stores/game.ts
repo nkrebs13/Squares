@@ -1,10 +1,13 @@
 import { writable, derived, get } from 'svelte/store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabaseClient } from '$lib/supabase';
-import type { Party, Square, Numbers, Scores, Winner, GridState } from '$lib/types';
+import type { Party, Square, Numbers, Scores, Winner, GridState, OptimisticOperation, BroadcastMessage } from '$lib/types';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 import { toast } from './toast';
+
+// Unique client ID per browser tab (for broadcast deduplication)
+const clientId = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
 // Core state stores
 export const party = writable<Party | null>(null);
@@ -82,6 +85,26 @@ export const availableCount = derived(squares, ($squares) =>
 
 // Channel management
 let channel: RealtimeChannel | null = null;
+let broadcastChannel: RealtimeChannel | null = null;
+
+// Track pending optimistic operations
+export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
+
+// Track timeout IDs for cleanup
+const pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+// Timeout for pending operations (10 seconds)
+const PENDING_TIMEOUT_MS = 10000;
+
+// Helper to create square key
+function squareKey(row: number, col: number): string {
+	return `${row}-${col}`;
+}
+
+// Helper to check if an operation is from this client
+function isOwnBroadcast(message: BroadcastMessage): boolean {
+	return message.clientId === clientId;
+}
 
 export async function loadParty(code: string) {
 	isLoading.set(true);
@@ -162,13 +185,111 @@ export async function loadParty(code: string) {
 	}
 }
 
+// Handle broadcast messages from other clients
+function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
+	const message = payload.payload;
+
+	// Ignore our own broadcasts
+	if (isOwnBroadcast(message)) return;
+
+	const currentSquares = get(squares);
+	const key = message.squareKey;
+	const [row, col] = key.split('-').map(Number);
+
+	if (message.type === 'claim_intent') {
+		// Another user is claiming - show optimistically with pending state
+		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
+		if (!existingSquare || existingSquare.player_name) return; // Already claimed
+
+		// Add to pending operations (as "other user's pending")
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			newOps.set(key, {
+				id: `remote-${message.clientId}-${key}`,
+				type: 'claim',
+				row,
+				col,
+				timestamp: message.timestamp,
+				status: 'pending',
+				originalState: {
+					player_name: existingSquare.player_name,
+					player_name_lower: existingSquare.player_name_lower,
+					claimed_at: existingSquare.claimed_at
+				}
+			});
+			return newOps;
+		});
+
+		// Optimistically show the claim
+		squares.update((current) =>
+			current.map((s) =>
+				s.row_num === row && s.col_num === col
+					? {
+							...s,
+							player_name: message.playerName,
+							player_name_lower: message.playerName.toLowerCase(),
+							claimed_at: new Date().toISOString()
+						}
+					: s
+			)
+		);
+
+		// Schedule timeout cleanup for remote pending operations
+		schedulePendingTimeout(key);
+	} else if (message.type === 'claim_rejected') {
+		// Another user's claim was rejected - remove their pending claim
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			const op = newOps.get(key);
+			if (op && op.id.startsWith('remote-')) {
+				// Rollback to original state
+				squares.update((current) =>
+					current.map((s) =>
+						s.row_num === row && s.col_num === col
+							? {
+									...s,
+									player_name: op.originalState.player_name,
+									player_name_lower: op.originalState.player_name_lower,
+									claimed_at: op.originalState.claimed_at
+								}
+							: s
+					)
+				);
+				newOps.delete(key);
+			}
+			return newOps;
+		});
+	} else if (message.type === 'unclaim_intent') {
+		// Another user is unclaiming - show optimistically
+		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
+		if (!existingSquare || !existingSquare.player_name) return;
+
+		squares.update((current) =>
+			current.map((s) =>
+				s.row_num === row && s.col_num === col
+					? { ...s, player_name: null, player_name_lower: null, claimed_at: null }
+					: s
+			)
+		);
+	}
+}
+
 export function subscribeToParty(partyId: string) {
 	const supabase = getSupabaseClient();
 
-	// Unsubscribe from previous channel
+	// Unsubscribe from previous channels
 	if (channel) {
 		channel.unsubscribe();
 	}
+	if (broadcastChannel) {
+		broadcastChannel.unsubscribe();
+	}
+
+	// Set up broadcast channel for fast optimistic updates
+	broadcastChannel = supabase
+		.channel(`party-broadcast:${partyId}`)
+		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
+		.subscribe();
 
 	channel = supabase
 		.channel(`party:${partyId}`)
@@ -182,10 +303,20 @@ export function subscribeToParty(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
+					const newSquare = payload.new as Square;
+					const key = squareKey(newSquare.row_num, newSquare.col_num);
+
+					// Clear any pending operation and timeout for this square - database is source of truth
+					clearPendingTimeout(key);
+					pendingOperations.update((ops) => {
+						const newOps = new Map(ops);
+						newOps.delete(key);
+						return newOps;
+					});
+
+					// Update with confirmed state from database
 					squares.update((current) =>
-						current.map((s) =>
-							s.id === (payload.new as Square).id ? (payload.new as Square) : s
-						)
+						current.map((s) => (s.id === newSquare.id ? newSquare : s))
 					);
 				}
 			}
@@ -254,6 +385,408 @@ export function subscribeToParty(partyId: string) {
 	};
 }
 
+// Broadcast a message to other clients
+function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clientId'>) {
+	if (!broadcastChannel) return;
+
+	broadcastChannel.send({
+		type: 'broadcast',
+		event: 'square_update',
+		payload: { ...message, clientId }
+	});
+}
+
+// Schedule timeout cleanup for pending operations
+function schedulePendingTimeout(key: string) {
+	// Clear any existing timeout for this key
+	const existingTimeout = pendingTimeouts.get(key);
+	if (existingTimeout) {
+		clearTimeout(existingTimeout);
+	}
+
+	const timeoutId = setTimeout(() => {
+		pendingTimeouts.delete(key);
+		pendingOperations.update((ops) => {
+			const op = ops.get(key);
+			if (op && op.status === 'pending') {
+				// Operation timed out - rollback
+				const newOps = new Map(ops);
+				newOps.delete(key);
+
+				// Rollback the square state
+				squares.update((current) =>
+					current.map((s) =>
+						s.row_num === op.row && s.col_num === op.col
+							? {
+									...s,
+									player_name: op.originalState.player_name,
+									player_name_lower: op.originalState.player_name_lower,
+									claimed_at: op.originalState.claimed_at
+								}
+							: s
+					)
+				);
+
+				toast.error('Claim timed out - please try again');
+				return newOps;
+			}
+			return ops;
+		});
+	}, PENDING_TIMEOUT_MS);
+
+	pendingTimeouts.set(key, timeoutId);
+}
+
+// Clear a pending timeout when operation is confirmed
+function clearPendingTimeout(key: string) {
+	const timeoutId = pendingTimeouts.get(key);
+	if (timeoutId) {
+		clearTimeout(timeoutId);
+		pendingTimeouts.delete(key);
+	}
+}
+
+/**
+ * Optimistic claim - updates UI immediately, then confirms with server
+ * Non-blocking: returns immediately after optimistic update
+ */
+export function claimSquareOptimistic(row: number, col: number): void {
+	const currentParty = get(party);
+	const currentUser = get(userName);
+
+	if (!currentParty || !currentUser) return;
+	if (currentParty.status !== 'filling') return;
+
+	const key = squareKey(row, col);
+	const currentSquares = get(squares);
+	const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
+
+	if (!existingSquare || existingSquare.player_name) return; // Already claimed
+
+	const timestamp = Date.now();
+	const operationId = `${clientId}-${key}-${timestamp}`;
+
+	// 1. Create pending operation for rollback
+	const operation: OptimisticOperation = {
+		id: operationId,
+		type: 'claim',
+		row,
+		col,
+		timestamp,
+		status: 'pending',
+		originalState: {
+			player_name: existingSquare.player_name,
+			player_name_lower: existingSquare.player_name_lower,
+			claimed_at: existingSquare.claimed_at
+		}
+	};
+
+	pendingOperations.update((ops) => {
+		const newOps = new Map(ops);
+		newOps.set(key, operation);
+		return newOps;
+	});
+
+	// 2. Immediately update local state (optimistic)
+	squares.update((current) =>
+		current.map((s) =>
+			s.row_num === row && s.col_num === col
+				? {
+						...s,
+						player_name: currentUser,
+						player_name_lower: normalizePlayerName(currentUser),
+						claimed_at: new Date().toISOString()
+					}
+				: s
+		)
+	);
+
+	// 3. Broadcast intent to other clients
+	broadcast(currentParty.id, {
+		type: 'claim_intent',
+		squareKey: key,
+		playerName: currentUser,
+		timestamp
+	});
+
+	// 4. Schedule timeout cleanup
+	schedulePendingTimeout(key);
+
+	// 5. Make API call in background (non-blocking)
+	const supabase = getSupabaseClient();
+
+	supabase
+		.rpc('claim_square', {
+			p_party_id: currentParty.id,
+			p_row: row,
+			p_col: col,
+			p_player_name: currentUser
+		})
+		.then(({ error: claimError }) => {
+			if (claimError) {
+				// Rollback on failure
+				pendingOperations.update((ops) => {
+					const op = ops.get(key);
+					if (op && op.id === operationId) {
+						const newOps = new Map(ops);
+						newOps.delete(key);
+
+						// Rollback the square state
+						squares.update((current) =>
+							current.map((s) =>
+								s.row_num === row && s.col_num === col
+									? {
+											...s,
+											player_name: op.originalState.player_name,
+											player_name_lower: op.originalState.player_name_lower,
+											claimed_at: op.originalState.claimed_at
+										}
+									: s
+							)
+						);
+
+						// Broadcast rejection to other clients
+						broadcast(currentParty.id, {
+							type: 'claim_rejected',
+							squareKey: key,
+							playerName: currentUser,
+							timestamp
+						});
+
+						return newOps;
+					}
+					return ops;
+				});
+
+				toast.error('Square already claimed');
+			}
+			// Success case: postgres_changes will clear the pending operation
+		});
+}
+
+/**
+ * Optimistic unclaim - updates UI immediately, then confirms with server
+ */
+export function unclaimSquareOptimistic(row: number, col: number): void {
+	const currentParty = get(party);
+	const currentUser = get(userName);
+
+	if (!currentParty || !currentUser) return;
+	if (currentParty.status !== 'filling') return;
+
+	const key = squareKey(row, col);
+	const currentSquares = get(squares);
+	const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
+
+	if (!existingSquare || !existingSquare.player_name) return;
+
+	// Can only unclaim own squares
+	if (existingSquare.player_name_lower !== normalizePlayerName(currentUser)) return;
+
+	const timestamp = Date.now();
+	const operationId = `${clientId}-${key}-${timestamp}`;
+
+	// 1. Create pending operation for rollback
+	const operation: OptimisticOperation = {
+		id: operationId,
+		type: 'unclaim',
+		row,
+		col,
+		timestamp,
+		status: 'pending',
+		originalState: {
+			player_name: existingSquare.player_name,
+			player_name_lower: existingSquare.player_name_lower,
+			claimed_at: existingSquare.claimed_at
+		}
+	};
+
+	pendingOperations.update((ops) => {
+		const newOps = new Map(ops);
+		newOps.set(key, operation);
+		return newOps;
+	});
+
+	// 2. Immediately update local state (optimistic)
+	squares.update((current) =>
+		current.map((s) =>
+			s.row_num === row && s.col_num === col
+				? { ...s, player_name: null, player_name_lower: null, claimed_at: null }
+				: s
+		)
+	);
+
+	// 3. Broadcast intent to other clients
+	broadcast(currentParty.id, {
+		type: 'unclaim_intent',
+		squareKey: key,
+		playerName: currentUser,
+		timestamp
+	});
+
+	// 4. Schedule timeout cleanup
+	schedulePendingTimeout(key);
+
+	// 5. Make API call in background
+	const supabase = getSupabaseClient();
+
+	supabase
+		.rpc('unclaim_square', {
+			p_party_id: currentParty.id,
+			p_row: row,
+			p_col: col,
+			p_player_name: currentUser
+		})
+		.then(({ error: unclaimError }) => {
+			if (unclaimError) {
+				// Rollback on failure
+				pendingOperations.update((ops) => {
+					const op = ops.get(key);
+					if (op && op.id === operationId) {
+						const newOps = new Map(ops);
+						newOps.delete(key);
+
+						// Rollback the square state
+						squares.update((current) =>
+							current.map((s) =>
+								s.row_num === row && s.col_num === col
+									? {
+											...s,
+											player_name: op.originalState.player_name,
+											player_name_lower: op.originalState.player_name_lower,
+											claimed_at: op.originalState.claimed_at
+										}
+									: s
+							)
+						);
+
+						return newOps;
+					}
+					return ops;
+				});
+
+				toast.error('Failed to unclaim square');
+			}
+		});
+}
+
+/**
+ * Optimistic batch claim - updates UI immediately for all cells
+ */
+export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: number }>): void {
+	const currentParty = get(party);
+	const currentUser = get(userName);
+
+	if (!currentParty || !currentUser || cells.length === 0) return;
+	if (currentParty.status !== 'filling') return;
+
+	const currentSquares = get(squares);
+	const timestamp = Date.now();
+
+	// Filter to only claimable cells
+	const claimableCells = cells.filter((cell) => {
+		const square = currentSquares.find((s) => s.row_num === cell.row && s.col_num === cell.col);
+		return square && !square.player_name;
+	});
+
+	if (claimableCells.length === 0) return;
+
+	// 1. Create pending operations for all cells
+	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(
+		(cell) => {
+			const key = squareKey(cell.row, cell.col);
+			const existingSquare = currentSquares.find(
+				(s) => s.row_num === cell.row && s.col_num === cell.col
+			)!;
+
+			return {
+				key,
+				operation: {
+					id: `${clientId}-${key}-${timestamp}`,
+					type: 'claim' as const,
+					row: cell.row,
+					col: cell.col,
+					timestamp,
+					status: 'pending' as const,
+					originalState: {
+						player_name: existingSquare.player_name,
+						player_name_lower: existingSquare.player_name_lower,
+						claimed_at: existingSquare.claimed_at
+					}
+				}
+			};
+		}
+	);
+
+	pendingOperations.update((ops) => {
+		const newOps = new Map(ops);
+		for (const { key, operation } of operations) {
+			newOps.set(key, operation);
+		}
+		return newOps;
+	});
+
+	// 2. Immediately update all squares
+	const cellKeys = new Set(claimableCells.map((c) => squareKey(c.row, c.col)));
+	squares.update((current) =>
+		current.map((s) =>
+			cellKeys.has(squareKey(s.row_num, s.col_num))
+				? {
+						...s,
+						player_name: currentUser,
+						player_name_lower: normalizePlayerName(currentUser),
+						claimed_at: new Date().toISOString()
+					}
+				: s
+		)
+	);
+
+	// 3. Broadcast intents for all cells
+	for (const cell of claimableCells) {
+		broadcast(currentParty.id, {
+			type: 'claim_intent',
+			squareKey: squareKey(cell.row, cell.col),
+			playerName: currentUser,
+			timestamp
+		});
+	}
+
+	// 4. Schedule timeout cleanup for each
+	for (const { key } of operations) {
+		schedulePendingTimeout(key);
+	}
+
+	// 5. Make batch API call
+	const supabase = getSupabaseClient();
+
+	supabase
+		.rpc('claim_squares_batch', {
+			p_party_id: currentParty.id,
+			p_player_name: currentUser,
+			p_cells: claimableCells
+		})
+		.then(({ data, error: claimError }) => {
+			if (claimError) {
+				// Complete failure - show error
+				toast.error('Failed to claim squares - please try again');
+				return;
+			}
+
+			const claimed = data || 0;
+			const failed = claimableCells.length - claimed;
+
+			if (failed > 0) {
+				// Some claims failed - postgres_changes will handle reconciliation
+				toast.error(`${failed} square${failed > 1 ? 's were' : ' was'} already claimed`);
+			}
+
+			if (claimed > 0) {
+				toast.success(`Claimed ${claimed} square${claimed > 1 ? 's' : ''}`);
+			}
+		});
+}
+
+// Keep the original functions for backward compatibility
 export async function claimSquare(row: number, col: number): Promise<boolean> {
 	const currentParty = get(party);
 	const currentUser = get(userName);
@@ -523,15 +1056,26 @@ export async function deleteParty(pin: string): Promise<{ success: boolean; erro
 }
 
 export function cleanup() {
+	// Clear all pending timeouts
+	for (const timeoutId of pendingTimeouts.values()) {
+		clearTimeout(timeoutId);
+	}
+	pendingTimeouts.clear();
+
 	if (channel) {
 		channel.unsubscribe();
 		channel = null;
+	}
+	if (broadcastChannel) {
+		broadcastChannel.unsubscribe();
+		broadcastChannel = null;
 	}
 	party.set(null);
 	squares.set([]);
 	numbers.set(null);
 	scores.set(null);
 	winners.set([]);
+	pendingOperations.set(new Map());
 	isLoading.set(true);
 	error.set(null);
 }

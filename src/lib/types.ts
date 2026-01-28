@@ -98,3 +98,26 @@ export interface RecentParty {
 	status: PartyStatus;
 	isHost: boolean;
 }
+
+// Optimistic UI types
+export interface OptimisticOperation {
+	id: string;
+	type: 'claim' | 'unclaim';
+	row: number;
+	col: number;
+	timestamp: number;
+	status: 'pending' | 'confirmed' | 'failed';
+	originalState: {
+		player_name: string | null;
+		player_name_lower: string | null;
+		claimed_at: string | null;
+	};
+}
+
+export interface BroadcastMessage {
+	type: 'claim_intent' | 'claim_rejected' | 'unclaim_intent';
+	squareKey: string;
+	playerName: string;
+	timestamp: number;
+	clientId: string;
+}

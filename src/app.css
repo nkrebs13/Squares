@@ -196,6 +196,57 @@ body {
 	border-color: rgba(244, 143, 177, 0.4);
 }
 
+/* Pending claim animation - subtle pulse to indicate waiting for confirmation */
+.square-pending {
+	animation: pulse-pending 1.2s ease-in-out infinite;
+	position: relative;
+	isolation: isolate;
+}
+
+.square-pending::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 6px;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.08) 50%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	background-size: 200% 100%;
+	animation: shimmer-pending 1.5s ease-in-out infinite;
+	pointer-events: none;
+}
+
+@keyframes pulse-pending {
+	0%, 100% {
+		opacity: 0.85;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+@keyframes shimmer-pending {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: -100% 0;
+	}
+}
+
+/* Reduced motion: disable pending animations */
+@media (prefers-reduced-motion: reduce) {
+	.square-pending {
+		animation: none;
+	}
+	.square-pending::after {
+		animation: none;
+	}
+}
+
 /* Button styles */
 .btn {
 	@apply px-6 py-3 font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;

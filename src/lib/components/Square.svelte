@@ -11,6 +11,7 @@
 		isSelected?: boolean;
 		isPressed?: boolean;
 		pressProgress?: number;
+		isPending?: boolean;
 		winner?: Winner | null;
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointerenter?: () => void;
@@ -26,6 +27,7 @@
 		isSelected = false,
 		isPressed = false,
 		pressProgress = 0,
+		isPending = false,
 		winner = null,
 		onpointerdown,
 		onpointerenter,
@@ -89,7 +91,7 @@
 	);
 
 	let classes = $derived(
-		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''}`
+		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''} ${isPending ? 'square-pending' : ''}`
 	);
 
 	// Progress ring calculation - scales with button size
