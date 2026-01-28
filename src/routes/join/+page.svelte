@@ -3,12 +3,21 @@
 	import { goto } from '$app/navigation';
 	import { userName } from '$lib/stores/user';
 	import { getSupabaseClient } from '$lib/supabase';
+	import { verifyHostPin } from '$lib/stores/game';
+	import { getHostPin, setHostPin } from '$lib/storage';
 	import { onMount } from 'svelte';
 
 	let code = $state('');
 	let name = $state('');
 	let isChecking = $state(false);
 	let error = $state<string | null>(null);
+
+	// PIN challenge state
+	let showPinChallenge = $state(false);
+	let pinInput = $state('');
+	let pinError = $state<string | null>(null);
+	let isVerifyingPin = $state(false);
+	let pendingPartyCode = $state('');
 
 	onMount(() => {
 		const urlCode = $page.url.searchParams.get('code');
@@ -32,12 +41,13 @@
 
 		try {
 			const supabase = getSupabaseClient();
+			const upperCode = code.toUpperCase();
 
-			// Check if party exists
+			// Check if party exists and get host_name_lower
 			const { data: partyData, error: partyError } = await supabase
 				.from('parties')
-				.select('id, status')
-				.eq('code', code.toUpperCase())
+				.select('id, status, host_name_lower')
+				.eq('code', upperCode)
 				.single();
 
 			if (partyError || !partyData) {
@@ -45,14 +55,74 @@
 				return;
 			}
 
-			// Save name and redirect to party
+			// Check if entered name matches host name (case-insensitive)
+			const enteredNameLower = name.trim().toLowerCase();
+			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
+				// Check if we have a valid stored PIN for this party
+				const storedPin = await getHostPin(upperCode);
+				if (storedPin) {
+					// Verify stored PIN is still valid
+					const isValid = await verifyHostPin(upperCode, storedPin);
+					if (isValid) {
+						// Stored PIN is valid, proceed directly
+						userName.setName(name.trim());
+						goto(`/party/${upperCode}`);
+						return;
+					}
+				}
+
+				// No valid stored PIN, show challenge
+				pendingPartyCode = upperCode;
+				showPinChallenge = true;
+				pinInput = '';
+				pinError = null;
+				return;
+			}
+
+			// Not the host name, proceed normally
 			userName.setName(name.trim());
-			goto(`/party/${code.toUpperCase()}`);
+			goto(`/party/${upperCode}`);
 		} catch (e) {
 			error = 'Something went wrong. Please try again.';
 		} finally {
 			isChecking = false;
 		}
+	}
+
+	async function verifyPin() {
+		if (pinInput.length !== 4) return;
+
+		isVerifyingPin = true;
+		pinError = null;
+
+		try {
+			const isValid = await verifyHostPin(pendingPartyCode, pinInput);
+
+			if (isValid) {
+				// Store PIN in IndexedDB and session storage
+				await setHostPin(pendingPartyCode, pinInput);
+				sessionStorage.setItem(`squares_pin_${pendingPartyCode}`, pinInput);
+
+				// Proceed to party
+				userName.setName(name.trim());
+				showPinChallenge = false;
+				goto(`/party/${pendingPartyCode}`);
+			} else {
+				pinError = 'Incorrect PIN. Please try again.';
+				pinInput = '';
+			}
+		} catch (e) {
+			pinError = 'Unable to verify PIN. Please try again.';
+		} finally {
+			isVerifyingPin = false;
+		}
+	}
+
+	function cancelPinChallenge() {
+		showPinChallenge = false;
+		pinInput = '';
+		pinError = null;
+		name = '';
 	}
 </script>
 
@@ -113,3 +183,59 @@
 		</button>
 	</form>
 </div>
+
+<!-- PIN Challenge Modal -->
+{#if showPinChallenge}
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+		<div class="card max-w-sm w-full">
+			<h2 class="text-xl font-bold mb-2">Host Name Protected</h2>
+			<p class="text-sm mb-4" style="color: var(--text-secondary)">
+				This name belongs to the party host. Enter the host PIN to continue.
+			</p>
+
+			<form
+				onsubmit={(e) => { e.preventDefault(); verifyPin(); }}
+				class="space-y-4"
+			>
+				<div>
+					<label class="block">
+						<span class="text-sm" style="color: var(--text-secondary)">Enter Host PIN</span>
+						<input
+							type="tel"
+							bind:value={pinInput}
+							placeholder="0000"
+							maxlength="4"
+							pattern="[0-9]*"
+							inputmode="numeric"
+							class="input mt-2 text-center text-2xl tracking-widest"
+							autofocus
+						/>
+					</label>
+				</div>
+
+				{#if pinError}
+					<div class="message-error">
+						{pinError}
+					</div>
+				{/if}
+
+				<div class="flex gap-3">
+					<button
+						type="button"
+						class="btn btn-secondary flex-1"
+						onclick={cancelPinChallenge}
+					>
+						Use Different Name
+					</button>
+					<button
+						type="submit"
+						class="btn btn-primary flex-1"
+						disabled={pinInput.length !== 4 || isVerifyingPin}
+					>
+						{isVerifyingPin ? 'Verifying...' : 'Verify'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}

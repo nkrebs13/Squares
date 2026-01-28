@@ -2,11 +2,14 @@
 	import { goto } from '$app/navigation';
 	import { getSupabaseClient } from '$lib/supabase';
 	import { SPLIT_PRESETS, DEFAULT_TEAMS, type SplitPreset } from '$lib/types';
+	import { userName } from '$lib/stores/user';
+	import { setHostPin } from '$lib/storage';
 
 	let squarePrice = $state(1);
 	let selectedPreset = $state<SplitPreset>(SPLIT_PRESETS[0]);
 	let customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
+	let hostName = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
 
@@ -21,7 +24,8 @@
 	let splitTotal = $derived(currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final);
 	let isValidSplit = $derived(splitTotal === 100);
 	let isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
-	let canCreate = $derived(isValidSplit && isValidPin && squarePrice >= 0);
+	let isValidHostName = $derived(hostName.trim().length > 0);
+	let canCreate = $derived(isValidSplit && isValidPin && isValidHostName && squarePrice >= 0);
 
 	function generateCode(): string {
 		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -48,6 +52,7 @@
 				.insert({
 					code,
 					host_pin: hostPin,
+					host_name_lower: hostName.trim().toLowerCase(),
 					square_price: squarePrice,
 					split_q1: currentSplit.q1,
 					split_q2: currentSplit.q2,
@@ -90,8 +95,12 @@
 			// Create empty scores record
 			await supabase.from('scores').insert({ party_id: partyData.id });
 
-			// Store PIN in session storage for this party
+			// Store PIN in IndexedDB and session storage for this party
+			await setHostPin(code, hostPin);
 			sessionStorage.setItem(`squares_pin_${code}`, hostPin);
+
+			// Store host name
+			await userName.setName(hostName.trim());
 
 			goto(`/party/${code}`);
 		} catch (e) {
@@ -174,6 +183,24 @@
 					Split must total 100% (currently {splitTotal}%)
 				</p>
 			{/if}
+		</div>
+
+		<!-- Host Name -->
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Your Name (Host)</span>
+				<input
+					type="text"
+					bind:value={hostName}
+					placeholder="Enter your name"
+					class="input mt-2"
+					maxlength="20"
+					autocomplete="name"
+				/>
+			</label>
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				This name will be PIN-protected so only you can use it
+			</p>
 		</div>
 
 		<!-- Host PIN -->

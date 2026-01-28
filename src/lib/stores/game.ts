@@ -535,3 +535,19 @@ export function cleanup() {
 	isLoading.set(true);
 	error.set(null);
 }
+
+export async function verifyHostPin(code: string, pin: string): Promise<boolean> {
+	const supabase = getSupabaseClient();
+
+	const { data, error } = await supabase.rpc('verify_host_pin', {
+		p_party_code: code,
+		p_pin: pin
+	});
+
+	if (error) {
+		console.error('Error verifying host PIN:', error);
+		return false;
+	}
+
+	return data === true;
+}
