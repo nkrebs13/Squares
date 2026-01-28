@@ -2,21 +2,21 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
-	import GestureHint from './GestureHint.svelte';
 	import { squares, numbers, party, winners, claimSquare, claimSquaresBatch, unclaimSquare, mySquareCount, amountOwed } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName } from '$lib/stores/user';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
-	const MIN_CELL_SIZE = 44; // Apple HIG minimum touch target
+	const MIN_CELL_SIZE_DESKTOP = 44; // Apple HIG minimum touch target (desktop only)
+	const MIN_CELL_SIZE_MOBILE = 28; // Allow smaller cells on mobile to fit screen
 	const ZOOMED_CELL_SIZE = 64;
-	const ROW_HEADER_WIDTH = 32;
+	const ROW_HEADER_WIDTH = 28; // Slightly smaller header for mobile fit
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
 	const NUM_GAPS = NUM_COLS - 1;
-	const LONG_PRESS_DURATION = 350;
-	const LONG_PRESS_DISTANCE_THRESHOLD = 20;
+	const TEAM_LABEL_WIDTH = 36; // Width of vertical team label (32px) + gap (4px)
+	const SCROLL_CONTAINER_PADDING = 8; // 0.25rem * 2 sides
 
 	// DOM refs
 	let scrollContainer: HTMLDivElement;
@@ -33,18 +33,8 @@
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
-	// Long-press state
-	let longPressTimeout: ReturnType<typeof setTimeout> | null = null;
-	let isInSelectionMode = $state(false);
-	let longPressStartCell: { row: number; col: number } | null = null;
-	let longPressStartX = 0;
-	let longPressStartY = 0;
-
-	// Press feedback state
-	let pressedCell = $state<{ row: number; col: number } | null>(null);
-	let pressProgress = $state(0);
-	let pressAnimationFrame: number | null = null;
-	let pressStartTime = $state(0);
+	// Track pointer start for mobile tap detection
+	let pointerStartCell: { row: number; col: number } | null = null;
 
 	// Lifecycle guards
 	let isMounted = false;
@@ -52,17 +42,21 @@
 
 	// Calculate fit-to-width cell size
 	function calculateFitCellSize(): number {
-		if (!containerWidth) return MIN_CELL_SIZE;
+		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
 		const gapTotal = NUM_GAPS * GAP_SIZE;
-		const availableWidth = containerWidth - ROW_HEADER_WIDTH - gapTotal - 8; // 8px padding
+		// Account for: row header, gaps between cells, scroll container padding
+		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
 		return Math.floor(availableWidth / NUM_COLS);
 	}
+
+	// Minimum cell size depends on device
+	let minCellSize = $derived(isTouchDevice ? MIN_CELL_SIZE_MOBILE : MIN_CELL_SIZE_DESKTOP);
 
 	// Effective cell size based on zoom state
 	let effectiveCellSize = $derived(
 		zoomState === 'zoomed'
 			? ZOOMED_CELL_SIZE
-			: Math.max(MIN_CELL_SIZE, calculateFitCellSize())
+			: Math.max(minCellSize, calculateFitCellSize())
 	);
 
 	// Header height scales with cell size
@@ -108,35 +102,6 @@
 		return square !== undefined && square.player_name === null;
 	}
 
-	// Press animation
-	function startPressAnimation() {
-		pressStartTime = Date.now();
-		const animate = () => {
-			const elapsed = Date.now() - pressStartTime;
-			pressProgress = Math.min(elapsed / LONG_PRESS_DURATION, 1);
-			if (pressProgress < 1 && pressedCell) {
-				pressAnimationFrame = requestAnimationFrame(animate);
-			}
-		};
-		pressAnimationFrame = requestAnimationFrame(animate);
-	}
-
-	function stopPressAnimation() {
-		pressedCell = null;
-		pressProgress = 0;
-		if (pressAnimationFrame) {
-			cancelAnimationFrame(pressAnimationFrame);
-			pressAnimationFrame = null;
-		}
-	}
-
-	// Haptic feedback
-	function triggerHaptic() {
-		if ('vibrate' in navigator) {
-			navigator.vibrate(10);
-		}
-	}
-
 	// Toggle zoom
 	function toggleZoom() {
 		zoomState = zoomState === 'fit' ? 'zoomed' : 'fit';
@@ -147,58 +112,20 @@
 		if (!$userName || $party?.status !== 'filling') return;
 		if (e.button !== 0) return;
 
-		longPressStartCell = { row, col };
-		longPressStartX = e.clientX;
-		longPressStartY = e.clientY;
+		pointerStartCell = { row, col };
 
-		// Desktop with Shift key - immediate drag selection
-		if (!isTouchDevice && e.shiftKey && canSelectCell(row, col)) {
-			isInSelectionMode = true;
+		// Desktop - immediate drag selection
+		if (!isTouchDevice && canSelectCell(row, col)) {
 			isDragging = true;
 			dragStartCell = { row, col };
 			selectedCells = new Set([cellKey(row, col)]);
-			return;
 		}
-
-		// Start visual feedback for selectable cells
-		if (canSelectCell(row, col)) {
-			pressedCell = { row, col };
-			startPressAnimation();
-		}
-
-		// Start long-press timer
-		longPressTimeout = setTimeout(() => {
-			isInSelectionMode = true;
-			isDragging = true;
-			dragStartCell = longPressStartCell;
-			selectedCells = new Set();
-
-			if (longPressStartCell && canSelectCell(longPressStartCell.row, longPressStartCell.col)) {
-				selectedCells.add(cellKey(longPressStartCell.row, longPressStartCell.col));
-			}
-
-			triggerHaptic();
-			stopPressAnimation();
-			longPressTimeout = null;
-		}, LONG_PRESS_DURATION);
+		// Mobile - just track start cell, claim on pointer up
 	}
 
 	function handlePointerMove(row: number, col: number) {
-		// Cancel long-press if moved to different cell
-		if (longPressTimeout && longPressStartCell) {
-			const startKey = cellKey(longPressStartCell.row, longPressStartCell.col);
-			const currentKey = cellKey(row, col);
-			if (startKey !== currentKey) {
-				clearTimeout(longPressTimeout);
-				longPressTimeout = null;
-				longPressStartCell = null;
-				stopPressAnimation();
-				return;
-			}
-		}
-
-		// Extend selection if in selection mode
-		if (isDragging && dragStartCell) {
+		// Desktop only - extend selection during drag
+		if (!isTouchDevice && isDragging && dragStartCell) {
 			handleDragExtend(row, col);
 		}
 	}
@@ -223,24 +150,18 @@
 	}
 
 	function handlePointerUp(row: number, col: number) {
-		stopPressAnimation();
-
-		if (longPressTimeout) {
-			clearTimeout(longPressTimeout);
-			longPressTimeout = null;
-
-			// Short tap - single cell action
-			if (longPressStartCell) {
-				handleSquareClick(longPressStartCell.row, longPressStartCell.col);
+		if (isTouchDevice) {
+			// Mobile - tap to claim single cell
+			if (pointerStartCell && pointerStartCell.row === row && pointerStartCell.col === col) {
+				handleSquareClick(row, col);
+			}
+		} else {
+			// Desktop - end drag selection
+			if (isDragging) {
+				handleDragEnd();
 			}
 		}
-
-		longPressStartCell = null;
-
-		if (isDragging) {
-			handleDragEnd();
-			isInSelectionMode = false;
-		}
+		pointerStartCell = null;
 	}
 
 	async function handleDragEnd() {
@@ -275,50 +196,17 @@
 	}
 
 	function handleGlobalPointerUp() {
-		stopPressAnimation();
-
-		if (longPressTimeout) {
-			clearTimeout(longPressTimeout);
-			longPressTimeout = null;
-		}
-		longPressStartCell = null;
-
 		if (isDragging) {
 			handleDragEnd();
-			isInSelectionMode = false;
 		}
+		pointerStartCell = null;
 	}
 
 	function handleGlobalPointerCancel() {
-		stopPressAnimation();
-
-		if (longPressTimeout) {
-			clearTimeout(longPressTimeout);
-			longPressTimeout = null;
-		}
-		longPressStartCell = null;
-
-		if (isDragging) {
-			isDragging = false;
-			dragStartCell = null;
-			selectedCells = new Set();
-			isInSelectionMode = false;
-		}
-	}
-
-	function handleGlobalPointerMove(e: PointerEvent) {
-		if (longPressTimeout) {
-			const distMoved = Math.sqrt(
-				Math.pow(e.clientX - longPressStartX, 2) +
-				Math.pow(e.clientY - longPressStartY, 2)
-			);
-			if (distMoved > LONG_PRESS_DISTANCE_THRESHOLD) {
-				clearTimeout(longPressTimeout);
-				longPressTimeout = null;
-				longPressStartCell = null;
-				stopPressAnimation();
-			}
-		}
+		isDragging = false;
+		dragStartCell = null;
+		selectedCells = new Set();
+		pointerStartCell = null;
 	}
 
 	onMount(() => {
@@ -348,12 +236,6 @@
 		if (resizeObserver) {
 			resizeObserver.disconnect();
 		}
-		if (longPressTimeout) {
-			clearTimeout(longPressTimeout);
-		}
-		if (pressAnimationFrame) {
-			cancelAnimationFrame(pressAnimationFrame);
-		}
 	});
 
 	const rows = Array.from({ length: 10 }, (_, i) => i);
@@ -361,12 +243,9 @@
 </script>
 
 <svelte:window
-	onpointermove={handleGlobalPointerMove}
 	onpointerup={handleGlobalPointerUp}
 	onpointercancel={handleGlobalPointerCancel}
 />
-
-<GestureHint />
 
 <div class="space-y-4">
 	<!-- Player Stats Bar -->
@@ -452,8 +331,6 @@
 									colNumber={$numbers?.col_numbers[col]}
 									isLocked={$party?.status !== 'filling'}
 									isSelected={selectedCells.has(cellKey(row, col))}
-									isPressed={pressedCell?.row === row && pressedCell?.col === col}
-									pressProgress={pressedCell?.row === row && pressedCell?.col === col ? pressProgress : 0}
 									winner={getWinner(row, col)}
 									onpointerdown={(e) => handlePointerDown(row, col, e)}
 									onpointerenter={() => handlePointerMove(row, col)}
@@ -543,16 +420,17 @@
 
 	.grid-with-row-label {
 		display: flex;
-		gap: 0.75rem;
+		gap: 0.25rem; /* Minimal gap for mobile fit */
 	}
 
 	.team-label-row {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		gap: 0.25rem;
+		padding: 0.25rem 0;
 		flex-shrink: 0;
+		width: 32px; /* Compact width for mobile */
 	}
 
 	/* Scrollable container - horizontal scroll only */
