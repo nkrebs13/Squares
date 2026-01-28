@@ -20,9 +20,7 @@
 	</div>
 
 	<div class="w-full max-w-sm space-y-4 animate-scale-in">
-		<a href="/create" class="btn btn-primary w-full block text-center">
-			Create Party
-		</a>
+		<a href="/create" class="btn btn-primary w-full block text-center"> Create Party </a>
 
 		<div class="flex items-center gap-4">
 			<div class="flex-1 divider"></div>
@@ -30,7 +28,13 @@
 			<div class="flex-1 divider"></div>
 		</div>
 
-		<form onsubmit={(e) => { e.preventDefault(); handleJoin(); }} class="space-y-3">
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleJoin();
+			}}
+			class="space-y-3"
+		>
 			<input
 				type="text"
 				bind:value={partyCode}
@@ -40,11 +44,7 @@
 				autocomplete="off"
 				autocapitalize="characters"
 			/>
-			<button
-				type="submit"
-				class="btn btn-secondary w-full"
-				disabled={partyCode.trim().length < 4}
-			>
+			<button type="submit" class="btn btn-secondary w-full" disabled={partyCode.trim().length < 4}>
 				Join Party
 			</button>
 		</form>

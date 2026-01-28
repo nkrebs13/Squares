@@ -6,7 +6,7 @@ const STORAGE_KEYS = {
 	userName: 'squares_user_name',
 	recentParties: 'squares_recent_parties',
 	hostPins: 'squares_host_pins',
-	gestureHintShown: 'squares_gesture_hint_shown'
+	gestureHintShown: 'squares_gesture_hint_shown',
 } as const;
 
 const MAX_RECENT_PARTIES = 10;
@@ -75,7 +75,7 @@ export async function getRecentParties(): Promise<RecentParty[]> {
 		// Filter out expired parties
 		const now = Date.now();
 		const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-		return parties.filter(p => now - p.lastVisited < expiryMs);
+		return parties.filter((p) => now - p.lastVisited < expiryMs);
 	} catch {
 		// Try localStorage fallback
 		try {
@@ -94,7 +94,7 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 		let parties = await getRecentParties();
 
 		// Remove existing entry for this party code
-		parties = parties.filter(p => p.code !== party.code);
+		parties = parties.filter((p) => p.code !== party.code);
 
 		// Add new entry at the beginning
 		parties.unshift(party);
@@ -107,7 +107,7 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 		// Fallback to localStorage
 		try {
 			let parties = await getRecentParties();
-			parties = parties.filter(p => p.code !== party.code);
+			parties = parties.filter((p) => p.code !== party.code);
 			parties.unshift(party);
 			parties = parties.slice(0, MAX_RECENT_PARTIES);
 			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
@@ -122,13 +122,13 @@ export async function removeRecentParty(code: string): Promise<void> {
 
 	try {
 		let parties = await getRecentParties();
-		parties = parties.filter(p => p.code !== code);
+		parties = parties.filter((p) => p.code !== code);
 		await set(STORAGE_KEYS.recentParties, parties);
 	} catch {
 		// Fallback to localStorage
 		try {
 			let parties = await getRecentParties();
-			parties = parties.filter(p => p.code !== code);
+			parties = parties.filter((p) => p.code !== code);
 			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
 			// Silently fail
@@ -153,7 +153,7 @@ export async function setHostPin(code: string, pin: string): Promise<void> {
 	if (!browser) return;
 
 	try {
-		const pins = await get<Record<string, string>>(STORAGE_KEYS.hostPins) ?? {};
+		const pins = (await get<Record<string, string>>(STORAGE_KEYS.hostPins)) ?? {};
 		pins[code] = pin;
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {
@@ -166,7 +166,7 @@ export async function removeHostPin(code: string): Promise<void> {
 	if (!browser) return;
 
 	try {
-		const pins = await get<Record<string, string>>(STORAGE_KEYS.hostPins) ?? {};
+		const pins = (await get<Record<string, string>>(STORAGE_KEYS.hostPins)) ?? {};
 		delete pins[code];
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {

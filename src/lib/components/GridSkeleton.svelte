@@ -52,7 +52,12 @@
 		width: 1.75rem;
 		height: 1.75rem;
 		border-radius: 50%;
-		background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 100%);
+		background: linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.04) 0%,
+			rgba(255, 255, 255, 0.08) 50%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 	}
@@ -61,7 +66,12 @@
 		width: 6rem;
 		height: 1.25rem;
 		border-radius: 4px;
-		background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 100%);
+		background: linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.04) 0%,
+			rgba(255, 255, 255, 0.08) 50%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 	}
@@ -87,7 +97,12 @@
 		width: 2.75rem;
 		height: 1.75rem;
 		border-radius: 4px;
-		background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 100%);
+		background: linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.04) 0%,
+			rgba(255, 255, 255, 0.08) 50%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 		flex-shrink: 0;
@@ -107,7 +122,12 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: 6px;
-		background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 100%);
+		background: linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.03) 0%,
+			rgba(255, 255, 255, 0.06) 50%,
+			rgba(255, 255, 255, 0.03) 100%
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1.5s infinite;
 		flex-shrink: 0;

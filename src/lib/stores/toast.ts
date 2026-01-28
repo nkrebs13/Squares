@@ -36,7 +36,7 @@ function createToastStore() {
 		success: (message: string, duration?: number) => show(message, 'success', duration),
 		error: (message: string, duration?: number) => show(message, 'error', duration),
 		info: (message: string, duration?: number) => show(message, 'info', duration),
-		remove
+		remove,
 	};
 }
 
