@@ -4,8 +4,11 @@
 	import { SPLIT_PRESETS, DEFAULT_TEAMS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin } from '$lib/storage';
+	import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
 
-	let squarePrice = $state(1);
+	let squarePriceInput = $state('1');
+	const squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
+	const isValidPrice = $derived(isValidUsdAmount(squarePriceInput));
 	let selectedPreset = $state<SplitPreset>(SPLIT_PRESETS[0]);
 	const customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
@@ -32,7 +35,7 @@
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
-	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && squarePrice >= 0);
+	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
 
 	function generateCode(): string {
 		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -138,16 +141,21 @@
 				<div class="mt-2 flex items-center gap-2">
 					<span class="text-2xl">$</span>
 					<input
-						type="number"
-						bind:value={squarePrice}
-						min="0"
-						step="0.01"
-						class="input text-2xl w-24"
+						type="text"
+						inputmode="decimal"
+						bind:value={squarePriceInput}
+						class="input input-no-spinner text-2xl w-24"
+						placeholder="0"
 					/>
 				</div>
+				{#if !isValidPrice && squarePriceInput !== ''}
+					<p class="mt-2 text-sm" style="color: #fca5a5">
+						Enter a valid amount (e.g., 1, 5.50, 10)
+					</p>
+				{/if}
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				Total pot: ${(squarePrice * 100).toFixed(0)}
+				Total pot: {formatPrice(squarePrice * 100)}
 			</p>
 		</div>
 

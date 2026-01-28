@@ -335,6 +335,18 @@ body {
 	box-shadow: 0 0 0 3px rgba(100, 210, 200, 0.1);
 }
 
+/* Hide number input spinners */
+.input-no-spinner::-webkit-outer-spin-button,
+.input-no-spinner::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.input-no-spinner {
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+
 /* Card styles */
 .card {
 	background: var(--bg-secondary);

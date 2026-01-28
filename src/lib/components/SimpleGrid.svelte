@@ -19,6 +19,7 @@
 	} from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
+	import { formatPrice } from '$lib/utils/format';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -328,7 +329,7 @@
 				<div class="flex items-center gap-2">
 					<span class="text-sm" style="color: var(--text-secondary)">You owe:</span>
 					<span class="font-bold text-lg" style="color: var(--color-accent)"
-						>${$amountOwed.toFixed(2)}</span
+						>{formatPrice($amountOwed)}</span
 					>
 				</div>
 			{/if}
