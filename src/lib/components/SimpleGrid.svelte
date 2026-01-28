@@ -5,6 +5,7 @@
 	import { squares, numbers, party, winners, claimSquareOptimistic, claimSquaresBatchOptimistic, unclaimSquareOptimistic, pendingOperations, mySquareCount, amountOwed, playerSummary, availableCount } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
+	import { formatPrice } from '$lib/utils/format';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -318,7 +319,7 @@
 			{#if $party && $party.square_price > 0}
 				<div class="flex items-center gap-2">
 					<span class="text-sm" style="color: var(--text-secondary)">You owe:</span>
-					<span class="font-bold text-lg" style="color: var(--color-accent)">${$amountOwed.toFixed(2)}</span>
+					<span class="font-bold text-lg" style="color: var(--color-accent)">{formatPrice($amountOwed)}</span>
 				</div>
 			{/if}
 		</div>

@@ -1,13 +1,7 @@
 <script lang="ts">
 	import { mySquareCount, amountOwed, party } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
-
-	function formatAmount(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		}).format(amount);
-	}
+	import { formatPrice } from '$lib/utils/format';
 </script>
 
 {#if $userName}
@@ -26,7 +20,7 @@
 			{#if $party && $party.square_price > 0}
 				<div class="text-right">
 					<div class="text-sm" style="color: var(--text-secondary)">Amount owed</div>
-					<div class="font-semibold" style="color: var(--color-warning)">{formatAmount($amountOwed)}</div>
+					<div class="font-semibold" style="color: var(--color-warning)">{formatPrice($amountOwed)}</div>
 				</div>
 			{/if}
 		</div>

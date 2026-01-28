@@ -20,6 +20,7 @@
 	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
+	import { formatPrice } from '$lib/utils/format';
 	import type { RecentParty } from '$lib/types';
 
 	let code = $derived($page.params.code ?? '');
@@ -183,7 +184,7 @@
 						</div>
 						{#if $party.square_price > 0}
 							<div class="mt-3 text-center" style="color: var(--text-secondary)">
-								${$party.square_price}/square • ${($party.square_price * 100).toFixed(0)} total pot
+								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total pot
 							</div>
 						{/if}
 					</div>
@@ -278,7 +279,7 @@
 						</div>
 						{#if $party.square_price > 0}
 							<div class="mt-3 text-center" style="color: var(--text-secondary)">
-								${$party.square_price}/square • ${($party.square_price * 100).toFixed(0)} total pot
+								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total pot
 							</div>
 						{/if}
 					</div>
