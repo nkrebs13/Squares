@@ -15,6 +15,7 @@
 		amountOwed,
 		playerSummary,
 		availableCount,
+		selectedPlayerFilter,
 	} from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
@@ -72,8 +73,7 @@
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
-	// Player filter state
-	let selectedPlayerFilter = $state<string | null>(null);
+	// Player filter state (using shared store)
 	let isPlayersExpanded = $state(false);
 	let hasInteractedWithPlayers = $state(false);
 
@@ -155,20 +155,20 @@
 
 	// Check if a square should be highlighted based on player filter
 	function isSquareHighlighted(square: SquareType): boolean {
-		if (!selectedPlayerFilter) return false;
-		return square.player_name_lower === selectedPlayerFilter;
+		if (!$selectedPlayerFilter) return false;
+		return square.player_name_lower === $selectedPlayerFilter;
 	}
 
 	// Check if a square should be dimmed
 	function isSquareDimmed(square: SquareType): boolean {
-		if (!selectedPlayerFilter) return false;
-		return square.player_name_lower !== selectedPlayerFilter;
+		if (!$selectedPlayerFilter) return false;
+		return square.player_name_lower !== $selectedPlayerFilter;
 	}
 
 	// Toggle player filter
 	function togglePlayerFilter(normalizedName: string) {
 		hasInteractedWithPlayers = true;
-		selectedPlayerFilter = selectedPlayerFilter === normalizedName ? null : normalizedName;
+		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
 	}
 
 	// Handle players section toggle
@@ -488,9 +488,9 @@
 			{/if}
 		</div>
 
-		<!-- Players Section -->
+		<!-- Players Section (mobile only - desktop uses sidebar) -->
 		{#if $playerSummary.length > 0}
-			<div class="players-section">
+			<div class="players-section lg:hidden">
 				<!-- Players Header / Toggle -->
 				<button
 					class="players-toggle"
@@ -499,7 +499,7 @@
 				>
 					<span class="players-label">
 						Players ({$playerSummary.length})
-						{#if selectedPlayerFilter}
+						{#if $selectedPlayerFilter}
 							<span class="filter-badge">filtering</span>
 						{:else if !hasInteractedWithPlayers && isPlayersExpanded}
 							<span class="hint-badge">tap to highlight</span>
@@ -529,7 +529,7 @@
 							{@const color = getPlayerColor(player.name)}
 							<button
 								class="player-pill"
-								class:selected={selectedPlayerFilter === player.normalizedName}
+								class:selected={$selectedPlayerFilter === player.normalizedName}
 								style="--player-bg: {color.bg}; --player-text: {color.text};"
 								onclick={() => togglePlayerFilter(player.normalizedName)}
 							>

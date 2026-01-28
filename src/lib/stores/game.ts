@@ -95,6 +95,9 @@ export const availableCount = derived(
 	($squares) => $squares.filter((s) => s.player_name === null).length
 );
 
+// Player filter for highlighting squares by player (shared between sidebar and grid)
+export const selectedPlayerFilter = writable<string | null>(null);
+
 // Channel management
 let channel: RealtimeChannel | null = null;
 let broadcastChannel: RealtimeChannel | null = null;
