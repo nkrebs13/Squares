@@ -38,10 +38,15 @@
 
 <svelte:head>
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-	<meta name="theme-color" content="#0f0f14" />
+	<meta name="theme-color" content="#1a2744" />
 	<link rel="manifest" href="/manifest.webmanifest" />
-	<link rel="apple-touch-icon" href="/icons/icon.svg" />
+
+	<!-- Favicons - best practices -->
+	<link rel="icon" href="/favicon.ico" sizes="32x32" />
 	<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+	<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+	<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+	<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
 </svelte:head>
 
 <!-- Aurora animated background -->
