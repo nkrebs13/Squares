@@ -9,9 +9,9 @@ export const supabase = browser
 	? createClient(supabaseUrl, supabaseAnonKey, {
 			realtime: {
 				params: {
-					eventsPerSecond: 10
-				}
-			}
+					eventsPerSecond: 10,
+				},
+			},
 		})
 	: null;
 

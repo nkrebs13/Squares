@@ -2,15 +2,11 @@
 	import { page } from '$app/stores';
 
 	// Hide on home page
-	let isHomePage = $derived($page.url.pathname === '/');
+	const isHomePage = $derived($page.url.pathname === '/');
 </script>
 
 {#if !isHomePage}
-	<a
-		href="/"
-		class="floating-home-btn"
-		aria-label="Return to home"
-	>
+	<a href="/" class="floating-home-btn" aria-label="Return to home">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="24"

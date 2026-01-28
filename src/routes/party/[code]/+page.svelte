@@ -17,23 +17,22 @@
 		isLoading,
 		error,
 		filledCount,
-		isGridFull
+		isGridFull,
 	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
 	import type { RecentParty } from '$lib/types';
 
-	let code = $derived($page.params.code ?? '');
+	const code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
 
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
 
-
 	async function checkIsHost() {
 		if (browser && code) {
 			// Check IndexedDB first, then fallback to sessionStorage
-			isHost = await hasHostPin(code) || sessionStorage.getItem(`squares_pin_${code}`) !== null;
+			isHost = (await hasHostPin(code)) || sessionStorage.getItem(`squares_pin_${code}`) !== null;
 		}
 	}
 
@@ -46,7 +45,7 @@
 			teamColName: $party.team_col_name,
 			lastVisited: Date.now(),
 			status: $party.status,
-			isHost
+			isHost,
 		};
 
 		await saveRecentParty(recentParty);
@@ -81,7 +80,10 @@
 	{#if $isLoading}
 		<div class="flex items-center justify-center h-screen">
 			<div class="text-center">
-				<div class="w-12 h-12 border-4 rounded-full animate-spin mx-auto" style="border-color: rgba(100, 210, 200, 0.3); border-top-color: rgba(100, 210, 200, 0.8);"></div>
+				<div
+					class="w-12 h-12 border-4 rounded-full animate-spin mx-auto"
+					style="border-color: rgba(100, 210, 200, 0.3); border-top-color: rgba(100, 210, 200, 0.8);"
+				></div>
 				<p class="mt-4" style="color: var(--text-secondary)">Loading party...</p>
 			</div>
 		</div>
@@ -93,18 +95,14 @@
 	{:else if $party}
 		<header class="mb-4 flex justify-between items-start">
 			<div>
-				<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Home</a>
+				<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Home</a
+				>
 				<h1 class="text-2xl font-bold mt-1">
 					{$party.team_row_name} vs {$party.team_col_name}
 				</h1>
 			</div>
 			{#if isHost}
-				<a
-					href="/party/{code}/admin"
-					class="btn btn-secondary text-sm"
-				>
-					Host Panel
-				</a>
+				<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>
 			{/if}
 		</header>
 
@@ -129,13 +127,11 @@
 						<ScoreBoard />
 					</div>
 				{:else if $party.status === 'complete'}
-					<div class="mb-4 status-banner status-banner-success lg:hidden">
-						Game complete!
-					</div>
+					<div class="mb-4 status-banner status-banner-success lg:hidden">Game complete!</div>
 				{/if}
 
 				<!-- Winners (mobile only) -->
-				{#if ($party.status === 'active' || $party.status === 'complete')}
+				{#if $party.status === 'active' || $party.status === 'complete'}
 					<div class="mb-4 lg:hidden">
 						<Winners />
 					</div>
@@ -209,9 +205,7 @@
 							<ScoreBoard />
 						</div>
 					{:else if $party.status === 'complete'}
-						<div class="mb-4 status-banner status-banner-success">
-							Game complete!
-						</div>
+						<div class="mb-4 status-banner status-banner-success">Game complete!</div>
 					{/if}
 
 					<!-- Winners -->

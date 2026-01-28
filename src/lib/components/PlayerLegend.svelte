@@ -30,9 +30,7 @@
 
 	// Toggle player filter
 	function togglePlayerFilter(normalizedName: string) {
-		selectedPlayerFilter.update(current =>
-			current === normalizedName ? null : normalizedName
-		);
+		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
 	}
 </script>
 
@@ -40,7 +38,7 @@
 	<div class="players-legend">
 		<h3 class="font-medium mb-3" style="color: var(--text-secondary)">Players</h3>
 		<div class="players-grid">
-			{#each $playerSummary as player}
+			{#each $playerSummary as player (player.normalizedName)}
 				{@const color = getPlayerColor(player.name)}
 				<button
 					class="player-pill"

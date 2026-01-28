@@ -10,14 +10,34 @@
 		colScore: number | null;
 	}
 
-	let quarterScores = $derived<QuarterScore[]>([
-		{ quarter: 'q1', label: 'Q1', rowScore: $scores?.q1_row_score ?? null, colScore: $scores?.q1_col_score ?? null },
-		{ quarter: 'q2', label: 'Q2', rowScore: $scores?.q2_row_score ?? null, colScore: $scores?.q2_col_score ?? null },
-		{ quarter: 'q3', label: 'Q3', rowScore: $scores?.q3_row_score ?? null, colScore: $scores?.q3_col_score ?? null },
-		{ quarter: 'final', label: 'Final', rowScore: $scores?.final_row_score ?? null, colScore: $scores?.final_col_score ?? null }
+	const quarterScores = $derived<QuarterScore[]>([
+		{
+			quarter: 'q1',
+			label: 'Q1',
+			rowScore: $scores?.q1_row_score ?? null,
+			colScore: $scores?.q1_col_score ?? null,
+		},
+		{
+			quarter: 'q2',
+			label: 'Q2',
+			rowScore: $scores?.q2_row_score ?? null,
+			colScore: $scores?.q2_col_score ?? null,
+		},
+		{
+			quarter: 'q3',
+			label: 'Q3',
+			rowScore: $scores?.q3_row_score ?? null,
+			colScore: $scores?.q3_col_score ?? null,
+		},
+		{
+			quarter: 'final',
+			label: 'Final',
+			rowScore: $scores?.final_row_score ?? null,
+			colScore: $scores?.final_col_score ?? null,
+		},
 	]);
 
-	let currentQuarter = $derived.by<QuarterScore | null>(() => {
+	const currentQuarter = $derived.by<QuarterScore | null>(() => {
 		if (!$scores) return null;
 		if ($scores.final_row_score !== null) return quarterScores[3];
 		if ($scores.q3_row_score !== null) return quarterScores[2];
