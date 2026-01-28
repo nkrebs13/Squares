@@ -19,7 +19,7 @@
 					// @ts-ignore
 					const { registerSW } = await import('virtual:pwa-register');
 					registerSW({
-						immediate: true
+						immediate: true,
 					});
 				}
 			} catch {
