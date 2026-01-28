@@ -515,3 +515,71 @@ body {
 	@apply h-full transition-all duration-300;
 	background: linear-gradient(90deg, rgba(100, 210, 200, 0.6), rgba(244, 143, 177, 0.6));
 }
+
+/* Logo styles */
+.logo-title {
+	letter-spacing: -0.02em;
+	position: relative;
+}
+
+.logo-gradient {
+	background: linear-gradient(
+		135deg,
+		#64d2c8 0%,
+		#64aae6 30%,
+		#b482c8 60%,
+		#f48fb1 100%
+	);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	position: relative;
+	display: inline-block;
+	filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
+	        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+}
+
+/* Add a subtle background glow behind the logo */
+.logo-title::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 120%;
+	height: 140%;
+	background: radial-gradient(
+		ellipse at center,
+		rgba(100, 210, 200, 0.08) 0%,
+		rgba(100, 170, 230, 0.05) 40%,
+		transparent 70%
+	);
+	filter: blur(20px);
+	z-index: -1;
+	pointer-events: none;
+}
+
+/* Subtle glow animation on logo */
+@keyframes logo-glow {
+	0%, 100% {
+		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
+		        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+	}
+	50% {
+		filter: drop-shadow(0 4px 16px rgba(100, 210, 200, 0.35))
+		        drop-shadow(0 0 32px rgba(100, 170, 230, 0.3));
+	}
+}
+
+.logo-gradient {
+	animation: logo-glow 4s ease-in-out infinite;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+	.logo-gradient {
+		animation: none;
+		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
+		        drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+	}
+}

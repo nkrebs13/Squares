@@ -55,9 +55,6 @@
 				>
 					<div class="party-info">
 						<div class="party-code">{party.code}</div>
-						<div class="party-teams">
-							{party.teamRowName} vs {party.teamColName}
-						</div>
 					</div>
 					<div class="party-meta">
 						{#if party.isHost}
@@ -143,11 +140,6 @@
 		font-size: 0.875rem;
 		color: var(--text-primary);
 		letter-spacing: 0.1em;
-	}
-
-	.party-teams {
-		font-size: 0.75rem;
-		color: var(--text-secondary);
 	}
 
 	.party-meta {

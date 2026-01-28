@@ -13,9 +13,8 @@
 
 <div class="min-h-screen flex flex-col items-center justify-center p-6">
 	<div class="text-center mb-12 animate-fade-in">
-		<h1 class="text-5xl font-bold mb-3">
-			<span class="team-row-text">Football</span>
-			<span class="team-col-text">Squares</span>
+		<h1 class="text-5xl sm:text-6xl font-bold mb-3 logo-title">
+			<span class="logo-gradient">Football Squares</span>
 		</h1>
 		<p class="text-lg" style="color: var(--text-secondary)">Super Bowl party pools made easy</p>
 	</div>
