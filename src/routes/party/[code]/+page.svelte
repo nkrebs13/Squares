@@ -179,7 +179,8 @@
 						</div>
 						{#if $party.square_price > 0}
 							<div class="mt-3 text-center" style="color: var(--text-secondary)">
-								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total pot
+								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total
+								pot
 							</div>
 						{/if}
 					</div>
@@ -251,7 +252,8 @@
 						</div>
 						{#if $party.square_price > 0}
 							<div class="mt-3 text-center" style="color: var(--text-secondary)">
-								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total pot
+								{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total
+								pot
 							</div>
 						{/if}
 					</div>
