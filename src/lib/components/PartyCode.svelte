@@ -9,8 +9,8 @@
 			await navigator.clipboard.writeText($party.code);
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
-		} catch (e) {
-			console.error('Failed to copy:', e);
+		} catch {
+			// Copy failed silently - user can retry
 		}
 	}
 
