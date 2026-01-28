@@ -370,7 +370,7 @@
 					</p>
 
 					<div class="flex gap-2 mb-4 flex-wrap">
-						{#each SPLIT_PRESETS.filter((p) => p.name !== 'Custom') as preset}
+						{#each SPLIT_PRESETS as preset}
 							<button
 								class="btn btn-sm {selectedPreset === preset.name
 									? 'btn-primary'
@@ -382,7 +382,7 @@
 						{/each}
 					</div>
 
-					<div class="grid grid-cols-2 gap-3 mb-4">
+					<div class="grid grid-cols-1 gap-3 mb-4">
 						<div>
 							<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
 							<div class="flex items-center gap-1">
@@ -627,3 +627,16 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	/* Hide number input spinner arrows */
+	input[type='number']::-webkit-outer-spin-button,
+	input[type='number']::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+	input[type='number'] {
+		-moz-appearance: textfield;
+		appearance: textfield;
+	}
+</style>
