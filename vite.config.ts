@@ -25,15 +25,15 @@ export default defineConfig({
 						src: '/icons/icon.svg',
 						sizes: 'any',
 						type: 'image/svg+xml',
-						purpose: 'any'
+						purpose: 'any',
 					},
 					{
 						src: '/icons/icon.svg',
 						sizes: 'any',
 						type: 'image/svg+xml',
-						purpose: 'maskable'
-					}
-				]
+						purpose: 'maskable',
+					},
+				],
 			},
 			workbox: {
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
@@ -45,15 +45,15 @@ export default defineConfig({
 							cacheName: 'supabase-cache',
 							expiration: {
 								maxEntries: 50,
-								maxAgeSeconds: 60 * 5 // 5 minutes
-							}
-						}
-					}
-				]
+								maxAgeSeconds: 60 * 5, // 5 minutes
+							},
+						},
+					},
+				],
 			},
 			devOptions: {
-				enabled: false
-			}
-		})
-	]
+				enabled: false,
+			},
+		}),
+	],
 });

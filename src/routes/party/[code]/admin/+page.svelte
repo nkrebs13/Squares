@@ -13,13 +13,13 @@
 		updatePayoutStructure,
 		deleteParty,
 		removePlayer,
-		playerSummary
+		playerSummary,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS } from '$lib/types';
 	import { goto } from '$app/navigation';
 
-	let code = $derived($page.params.code ?? '');
+	const code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
 	let enteredPin = $state('');
 	let isAuthorized = $state(false);
@@ -28,10 +28,10 @@
 	let success = $state<string | null>(null);
 
 	// Manual score entry
-	let manualScores = $state({
+	const manualScores = $state({
 		quarter: 'q1' as Quarter,
 		rowScore: 0,
-		colScore: 0
+		colScore: 0,
 	});
 	let isUpdatingScore = $state(false);
 
@@ -49,7 +49,7 @@
 	let isRemovingPlayer = $state(false);
 
 	// Determine the next quarter that needs scores entered
-	let nextQuarter = $derived.by(() => {
+	const nextQuarter = $derived.by(() => {
 		if (!$scores) return 'q1' as Quarter;
 		if ($scores.q1_row_score === null) return 'q1' as Quarter;
 		if ($scores.q2_row_score === null) return 'q2' as Quarter;
@@ -61,10 +61,14 @@
 	function getScoresForQuarter(quarter: Quarter): { row: number; col: number } {
 		if (!$scores) return { row: 0, col: 0 };
 		switch (quarter) {
-			case 'q1': return { row: $scores.q1_row_score ?? 0, col: $scores.q1_col_score ?? 0 };
-			case 'q2': return { row: $scores.q2_row_score ?? 0, col: $scores.q2_col_score ?? 0 };
-			case 'q3': return { row: $scores.q3_row_score ?? 0, col: $scores.q3_col_score ?? 0 };
-			case 'final': return { row: $scores.final_row_score ?? 0, col: $scores.final_col_score ?? 0 };
+			case 'q1':
+				return { row: $scores.q1_row_score ?? 0, col: $scores.q1_col_score ?? 0 };
+			case 'q2':
+				return { row: $scores.q2_row_score ?? 0, col: $scores.q2_col_score ?? 0 };
+			case 'q3':
+				return { row: $scores.q3_row_score ?? 0, col: $scores.q3_col_score ?? 0 };
+			case 'final':
+				return { row: $scores.final_row_score ?? 0, col: $scores.final_col_score ?? 0 };
 		}
 	}
 
@@ -100,7 +104,7 @@
 				q1: $party.split_q1,
 				q2: $party.split_q2,
 				q3: $party.split_q3,
-				final: $party.split_final
+				final: $party.split_final,
 			};
 		}
 	});
@@ -112,7 +116,7 @@
 				q1: $party.split_q1,
 				q2: $party.split_q2,
 				q3: $party.split_q3,
-				final: $party.split_final
+				final: $party.split_final,
 			};
 		}
 	});
@@ -171,7 +175,12 @@
 		if (!storedPin) return;
 
 		// Use the final quarter update to mark game complete
-		const result = await updateScore(storedPin, 'final', manualScores.rowScore, manualScores.colScore);
+		const result = await updateScore(
+			storedPin,
+			'final',
+			manualScores.rowScore,
+			manualScores.colScore
+		);
 
 		if (result.success) {
 			success = 'Game marked complete!';
@@ -185,7 +194,7 @@
 		{ value: 'q1', label: '1st Quarter' },
 		{ value: 'q2', label: '2nd Quarter' },
 		{ value: 'q3', label: '3rd Quarter' },
-		{ value: 'final', label: 'Final' }
+		{ value: 'final', label: 'Final' },
 	];
 
 	function applyPreset(presetName: string) {
@@ -196,7 +205,9 @@
 		selectedPreset = presetName;
 	}
 
-	const splitTotal = $derived(payoutSplits.q1 + payoutSplits.q2 + payoutSplits.q3 + payoutSplits.final);
+	const splitTotal = $derived(
+		payoutSplits.q1 + payoutSplits.q2 + payoutSplits.q3 + payoutSplits.final
+	);
 
 	async function handleUpdatePayout() {
 		if (!storedPin) return;
@@ -255,7 +266,9 @@
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">
-		<a href="/party/{code}" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Back to Game</a>
+		<a href="/party/{code}" class="text-sm hover:opacity-100" style="color: var(--text-secondary)"
+			>← Back to Game</a
+		>
 		<h1 class="text-3xl font-bold mt-2">Host Panel</h1>
 	</header>
 
@@ -319,7 +332,10 @@
 
 						<div class="space-y-2">
 							{#each $playerSummary as player}
-								<div class="flex items-center justify-between p-3 rounded-lg" style="background: rgba(255, 255, 255, 0.04);">
+								<div
+									class="flex items-center justify-between p-3 rounded-lg"
+									style="background: rgba(255, 255, 255, 0.04);"
+								>
 									<div>
 										<div class="font-medium">
 											{player.name}
@@ -327,11 +343,13 @@
 												<span class="text-xs ml-1" style="color: var(--text-muted)">(host)</span>
 											{/if}
 										</div>
-										<div class="text-sm" style="color: var(--text-secondary)">{player.count} square{player.count !== 1 ? 's' : ''}</div>
+										<div class="text-sm" style="color: var(--text-secondary)">
+											{player.count} square{player.count !== 1 ? 's' : ''}
+										</div>
 									</div>
 									{#if player.normalizedName !== $party?.host_name_lower}
 										<button
-											onclick={() => playerToRemove = player}
+											onclick={() => (playerToRemove = player)}
 											class="btn btn-sm"
 											style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
 										>
@@ -352,9 +370,11 @@
 					</p>
 
 					<div class="flex gap-2 mb-4 flex-wrap">
-						{#each SPLIT_PRESETS.filter(p => p.name !== 'Custom') as preset}
+						{#each SPLIT_PRESETS as preset}
 							<button
-								class="btn btn-sm {selectedPreset === preset.name ? 'btn-primary' : 'btn-secondary'}"
+								class="btn btn-sm {selectedPreset === preset.name
+									? 'btn-primary'
+									: 'btn-secondary'}"
 								onclick={() => applyPreset(preset.name)}
 							>
 								{preset.name}
@@ -362,7 +382,7 @@
 						{/each}
 					</div>
 
-					<div class="grid grid-cols-2 gap-3 mb-4">
+					<div class="grid grid-cols-1 gap-3 mb-4">
 						<div>
 							<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
 							<div class="flex items-center gap-1">
@@ -372,7 +392,7 @@
 									min="0"
 									max="100"
 									class="input mt-1"
-									onchange={() => selectedPreset = 'Custom'}
+									onchange={() => (selectedPreset = 'Custom')}
 								/>
 								<span class="text-sm" style="color: var(--text-secondary)">%</span>
 							</div>
@@ -386,7 +406,7 @@
 									min="0"
 									max="100"
 									class="input mt-1"
-									onchange={() => selectedPreset = 'Custom'}
+									onchange={() => (selectedPreset = 'Custom')}
 								/>
 								<span class="text-sm" style="color: var(--text-secondary)">%</span>
 							</div>
@@ -400,7 +420,7 @@
 									min="0"
 									max="100"
 									class="input mt-1"
-									onchange={() => selectedPreset = 'Custom'}
+									onchange={() => (selectedPreset = 'Custom')}
 								/>
 								<span class="text-sm" style="color: var(--text-secondary)">%</span>
 							</div>
@@ -414,7 +434,7 @@
 									min="0"
 									max="100"
 									class="input mt-1"
-									onchange={() => selectedPreset = 'Custom'}
+									onchange={() => (selectedPreset = 'Custom')}
 								/>
 								<span class="text-sm" style="color: var(--text-secondary)">%</span>
 							</div>
@@ -449,10 +469,7 @@
 							locking.
 						</p>
 						<div class="mt-4 progress-bar">
-							<div
-								class="progress-bar-fill"
-								style="width: {$filledCount}%"
-							></div>
+							<div class="progress-bar-fill" style="width: {$filledCount}%"></div>
 						</div>
 					{/if}
 				</div>
@@ -462,11 +479,15 @@
 			{#if $party.status === 'active'}
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">Enter scores and calculate winners for each quarter.</p>
+					<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						Enter scores and calculate winners for each quarter.
+					</p>
 
 					<div class="space-y-4">
 						<div>
-							<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)">Quarter</label>
+							<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
+								>Quarter</label
+							>
 							<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
 								{#each quarters as q}
 									<option value={q.value}>{q.label}</option>
@@ -476,7 +497,9 @@
 
 						<div class="grid grid-cols-2 gap-4">
 							<div>
-								<label for="row-score" class="text-sm" style="color: var(--text-secondary)">{$party.team_row_name}</label>
+								<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
+									>{$party.team_row_name}</label
+								>
 								<input
 									id="row-score"
 									type="number"
@@ -486,7 +509,9 @@
 								/>
 							</div>
 							<div>
-								<label for="col-score" class="text-sm" style="color: var(--text-secondary)">{$party.team_col_name}</label>
+								<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
+									>{$party.team_col_name}</label
+								>
 								<input
 									id="col-score"
 									type="number"
@@ -510,8 +535,8 @@
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-4">Game Info</h2>
 					<p class="text-sm" style="color: var(--text-secondary)">
-						Enter scores for each quarter as they complete. The winning square will be
-						automatically highlighted based on the last digit of each team's score.
+						Enter scores for each quarter as they complete. The winning square will be automatically
+						highlighted based on the last digit of each team's score.
 					</p>
 				</div>
 			{/if}
@@ -535,7 +560,7 @@
 						Permanently delete this party and all associated data.
 					</p>
 					<button
-						onclick={() => showDeleteConfirm = true}
+						onclick={() => (showDeleteConfirm = true)}
 						class="btn w-full"
 						style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
 					>
@@ -543,11 +568,12 @@
 					</button>
 				{:else}
 					<p class="text-sm mb-4 text-red-400">
-						Are you sure? This action cannot be undone. All squares, numbers, and winners will be permanently deleted.
+						Are you sure? This action cannot be undone. All squares, numbers, and winners will be
+						permanently deleted.
 					</p>
 					<div class="flex gap-2">
 						<button
-							onclick={() => showDeleteConfirm = false}
+							onclick={() => (showDeleteConfirm = false)}
 							class="btn btn-secondary flex-1"
 							disabled={isDeleting}
 						>
@@ -568,15 +594,20 @@
 
 		<!-- Remove Player Confirmation Dialog -->
 		{#if playerToRemove}
-			<div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0, 0, 0, 0.7);">
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center p-4"
+				style="background: rgba(0, 0, 0, 0.7);"
+			>
 				<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
 					<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
 					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to claim.
+						Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
+						up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to
+						claim.
 					</p>
 					<div class="flex gap-2">
 						<button
-							onclick={() => playerToRemove = null}
+							onclick={() => (playerToRemove = null)}
 							class="btn btn-secondary flex-1"
 							disabled={isRemovingPlayer}
 						>
@@ -596,3 +627,16 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	/* Hide number input spinner arrows */
+	input[type='number']::-webkit-outer-spin-button,
+	input[type='number']::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+	input[type='number'] {
+		-moz-appearance: textfield;
+		appearance: textfield;
+	}
+</style>

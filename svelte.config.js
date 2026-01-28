@@ -6,13 +6,13 @@ const config = {
 		adapter: adapter({
 			routes: {
 				include: ['/*'],
-				exclude: ['<all>']
-			}
+				exclude: ['<all>'],
+			},
 		}),
 		alias: {
-			$lib: './src/lib'
-		}
-	}
+			$lib: './src/lib',
+		},
+	},
 };
 
 export default config;
