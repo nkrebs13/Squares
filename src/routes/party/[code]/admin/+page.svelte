@@ -11,7 +11,9 @@
 		startGame,
 		updateScore,
 		updatePayoutStructure,
-		deleteParty
+		deleteParty,
+		removePlayer,
+		playerSummary
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS } from '$lib/types';
@@ -42,6 +44,10 @@
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
 	let isDeleting = $state(false);
+
+	// Player removal
+	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
+	let isRemovingPlayer = $state(false);
 
 	onMount(async () => {
 		if (browser) {
@@ -213,6 +219,25 @@
 			showDeleteConfirm = false;
 		}
 	}
+
+	async function handleRemovePlayer() {
+		if (!storedPin || !playerToRemove) return;
+
+		isRemovingPlayer = true;
+		error = null;
+		success = null;
+
+		const result = await removePlayer(storedPin, playerToRemove.normalizedName);
+
+		if (result.success) {
+			success = `Removed ${playerToRemove.name} (${result.removedCount} squares freed)`;
+			playerToRemove = null;
+		} else {
+			error = result.error || 'Failed to remove player';
+		}
+
+		isRemovingPlayer = false;
+	}
 </script>
 
 <div class="min-h-screen p-6">
@@ -271,6 +296,34 @@
 
 			<!-- Filling Phase Controls -->
 			{#if $party.status === 'filling'}
+				<!-- Manage Players -->
+				{#if $playerSummary.length > 0}
+					<div class="card">
+						<h2 class="text-lg font-semibold mb-4">Manage Players</h2>
+						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+							Remove a player to free up their squares for others to claim.
+						</p>
+
+						<div class="space-y-2">
+							{#each $playerSummary as player}
+								<div class="flex items-center justify-between p-3 rounded-lg" style="background: rgba(255, 255, 255, 0.04);">
+									<div>
+										<div class="font-medium">{player.name}</div>
+										<div class="text-sm" style="color: var(--text-secondary)">{player.count} square{player.count !== 1 ? 's' : ''}</div>
+									</div>
+									<button
+										onclick={() => playerToRemove = player}
+										class="btn btn-sm"
+										style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
+									>
+										Remove
+									</button>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
 				<!-- Payout Structure -->
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-4">Payout Structure</h2>
@@ -505,5 +558,34 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- Remove Player Confirmation Dialog -->
+		{#if playerToRemove}
+			<div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0, 0, 0, 0.7);">
+				<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+					<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
+					<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to claim.
+					</p>
+					<div class="flex gap-2">
+						<button
+							onclick={() => playerToRemove = null}
+							class="btn btn-secondary flex-1"
+							disabled={isRemovingPlayer}
+						>
+							Cancel
+						</button>
+						<button
+							onclick={handleRemovePlayer}
+							class="btn flex-1"
+							style="background: #ef4444; color: white;"
+							disabled={isRemovingPlayer}
+						>
+							{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{/if}
 </div>

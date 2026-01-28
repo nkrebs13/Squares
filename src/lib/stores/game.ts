@@ -452,6 +452,51 @@ export async function updatePayoutStructure(
 	return { success: true };
 }
 
+export async function removePlayer(
+	pin: string,
+	playerNameLower: string
+): Promise<{ success: boolean; removedCount: number; error?: string }> {
+	const currentParty = get(party);
+	if (!currentParty) return { success: false, removedCount: 0, error: 'No party loaded' };
+
+	// Only allow during filling phase
+	if (currentParty.status !== 'filling') {
+		return { success: false, removedCount: 0, error: 'Cannot remove players after grid is locked' };
+	}
+
+	// Verify PIN matches
+	if (pin !== currentParty.host_pin) {
+		return { success: false, removedCount: 0, error: 'Invalid PIN' };
+	}
+
+	const supabase = getSupabaseClient();
+
+	// Remove all squares owned by this player
+	const { data, error: removeError } = await supabase
+		.from('squares')
+		.update({ player_name: null, player_name_lower: null, claimed_at: null })
+		.eq('party_id', currentParty.id)
+		.eq('player_name_lower', playerNameLower)
+		.select('id');
+
+	if (removeError) {
+		return { success: false, removedCount: 0, error: removeError.message };
+	}
+
+	const removedCount = data?.length || 0;
+
+	// Update local state
+	squares.update((current) =>
+		current.map((s) =>
+			s.player_name_lower === playerNameLower
+				? { ...s, player_name: null, player_name_lower: null, claimed_at: null }
+				: s
+		)
+	);
+
+	return { success: true, removedCount };
+}
+
 export async function deleteParty(pin: string): Promise<{ success: boolean; error?: string }> {
 	const currentParty = get(party);
 	if (!currentParty) return { success: false, error: 'No party loaded' };
