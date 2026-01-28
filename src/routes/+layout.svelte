@@ -20,17 +20,10 @@
 					const { registerSW } = await import('virtual:pwa-register');
 					registerSW({
 						immediate: true,
-						onRegistered(r: ServiceWorkerRegistration | undefined) {
-							console.log('SW registered:', r);
-						},
-						onOfflineReady() {
-							console.log('PWA ready for offline use');
-						},
 					});
 				}
-			} catch (e) {
+			} catch {
 				// PWA not available in dev mode
-				console.log('PWA not available');
 			}
 		}
 	});

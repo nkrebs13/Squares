@@ -192,8 +192,7 @@ export async function loadParty(code: string) {
 
 		isLoading.set(false);
 		return true;
-	} catch (e) {
-		console.error('Error loading party:', e);
+	} catch {
 		error.set('Failed to load party');
 		isLoading.set(false);
 		return false;
@@ -842,7 +841,6 @@ export async function claimSquaresBatch(
 	});
 
 	if (claimError) {
-		console.error('Batch claim error:', claimError);
 		toast.error('Failed to claim squares');
 		return 0;
 	}
@@ -886,7 +884,7 @@ export async function lockParty(pin: string): Promise<{ success: boolean; error?
 	});
 
 	if (lockError) {
-		return { success: false, error: lockError.message };
+		return { success: false, error: 'Failed to lock party. Please try again.' };
 	}
 
 	if (!data) {
@@ -911,7 +909,7 @@ export async function startGame(pin: string): Promise<{ success: boolean; error?
 	});
 
 	if (startError) {
-		return { success: false, error: startError.message };
+		return { success: false, error: 'Failed to start game. Please try again.' };
 	}
 
 	if (!data) {
@@ -941,7 +939,7 @@ export async function updateScore(
 	});
 
 	if (scoreError) {
-		return { success: false, error: scoreError.message };
+		return { success: false, error: 'Failed to update score. Please try again.' };
 	}
 
 	if (!data) {
@@ -984,7 +982,7 @@ export async function updatePayoutStructure(
 		.eq('host_pin', pin);
 
 	if (updateError) {
-		return { success: false, error: updateError.message };
+		return { success: false, error: 'Failed to update payout structure. Please try again.' };
 	}
 
 	// Update local state
@@ -1031,7 +1029,7 @@ export async function removePlayer(
 		.select('id');
 
 	if (removeError) {
-		return { success: false, removedCount: 0, error: removeError.message };
+		return { success: false, removedCount: 0, error: 'Failed to remove player. Please try again.' };
 	}
 
 	const removedCount = data?.length || 0;
@@ -1067,7 +1065,7 @@ export async function deleteParty(pin: string): Promise<{ success: boolean; erro
 		.eq('host_pin', pin);
 
 	if (deleteError) {
-		return { success: false, error: deleteError.message };
+		return { success: false, error: 'Failed to delete party. Please try again.' };
 	}
 
 	return { success: true };
@@ -1107,7 +1105,6 @@ export async function verifyHostPin(code: string, pin: string): Promise<boolean>
 	});
 
 	if (error) {
-		console.error('Error verifying host PIN:', error);
 		return false;
 	}
 
