@@ -12,7 +12,7 @@
 		isPressed?: boolean;
 		pressProgress?: number;
 		isPending?: boolean;
-		winner?: Winner | null;
+		winners?: Winner[];
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointerenter?: () => void;
 		onpointerup?: () => void;
@@ -28,11 +28,19 @@
 		isPressed = false,
 		pressProgress = 0,
 		isPending = false,
-		winner = null,
+		winners = [],
 		onpointerdown,
 		onpointerenter,
 		onpointerup
 	}: Props = $props();
+
+	// Quarter display labels
+	const quarterLabels: Record<string, string> = {
+		q1: '1',
+		q2: '2',
+		q3: '3',
+		final: 'F'
+	};
 
 	// Get initials from a name (e.g., "John Doe" -> "JD", "john" -> "J")
 	function getInitials(name: string): string {
@@ -80,7 +88,7 @@
 		$userName && square.player_name_lower === normalizePlayerName($userName)
 	);
 
-	let isWinner = $derived(winner !== null);
+	let isWinner = $derived(winners.length > 0);
 
 	let initials = $derived(
 		square.player_name ? getInitials(square.player_name) : ''
@@ -111,7 +119,8 @@
 			: '';
 
 		if (isWinner) {
-			return `${position}Winning square claimed by ${square.player_name || 'unknown player'}.`;
+			const quarters = winners.map(w => w.quarter === 'final' ? 'Final' : `Q${w.quarter.slice(1)}`).join(', ');
+			return `${position}Winner for ${quarters}, claimed by ${square.player_name || 'unknown player'}.`;
 		}
 		if (isMine) {
 			return `${position}Your square. Press to unclaim.`;
@@ -144,6 +153,15 @@
 		>
 			{initials}
 		</span>
+	{/if}
+
+	<!-- Quarter badges for winning squares -->
+	{#if winners.length > 0}
+		<div class="quarter-badges">
+			{#each winners as w}
+				<span class="quarter-badge">{quarterLabels[w.quarter]}</span>
+			{/each}
+		</div>
 	{/if}
 
 	<!-- Progress ring for long-press feedback - scales with button size -->
@@ -199,5 +217,23 @@
 		position: relative;
 		overflow: hidden;
 		touch-action: manipulation; /* Prevent 300ms tap delay and double-tap-to-zoom interference */
+	}
+
+	.quarter-badges {
+		position: absolute;
+		bottom: 2px;
+		right: 2px;
+		display: flex;
+		gap: 1px;
+	}
+
+	.quarter-badge {
+		font-size: 8px;
+		font-weight: bold;
+		line-height: 1;
+		padding: 1px 3px;
+		background: rgba(0, 0, 0, 0.5);
+		color: white;
+		border-radius: 2px;
 	}
 </style>

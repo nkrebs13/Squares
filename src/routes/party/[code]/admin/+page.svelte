@@ -4,11 +4,11 @@
 	import { browser } from '$app/environment';
 	import {
 		party,
+		scores,
 		isGridFull,
 		filledCount,
 		loadParty,
 		lockParty,
-		startGame,
 		updateScore,
 		updatePayoutStructure,
 		deleteParty,
@@ -24,7 +24,6 @@
 	let enteredPin = $state('');
 	let isAuthorized = $state(false);
 	let isLocking = $state(false);
-	let isStarting = $state(false);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
 
@@ -48,6 +47,40 @@
 	// Player removal
 	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
 	let isRemovingPlayer = $state(false);
+
+	// Determine the next quarter that needs scores entered
+	let nextQuarter = $derived.by(() => {
+		if (!$scores) return 'q1' as Quarter;
+		if ($scores.q1_row_score === null) return 'q1' as Quarter;
+		if ($scores.q2_row_score === null) return 'q2' as Quarter;
+		if ($scores.q3_row_score === null) return 'q3' as Quarter;
+		return 'final' as Quarter;
+	});
+
+	// Get scores for the currently selected quarter
+	function getScoresForQuarter(quarter: Quarter): { row: number; col: number } {
+		if (!$scores) return { row: 0, col: 0 };
+		switch (quarter) {
+			case 'q1': return { row: $scores.q1_row_score ?? 0, col: $scores.q1_col_score ?? 0 };
+			case 'q2': return { row: $scores.q2_row_score ?? 0, col: $scores.q2_col_score ?? 0 };
+			case 'q3': return { row: $scores.q3_row_score ?? 0, col: $scores.q3_col_score ?? 0 };
+			case 'final': return { row: $scores.final_row_score ?? 0, col: $scores.final_col_score ?? 0 };
+		}
+	}
+
+	// Update manualScores when quarter changes or scores change
+	$effect(() => {
+		const currentScores = getScoresForQuarter(manualScores.quarter);
+		manualScores.rowScore = currentScores.row;
+		manualScores.colScore = currentScores.col;
+	});
+
+	// Set initial quarter to next one needing entry
+	$effect(() => {
+		if ($party?.status === 'active' && $scores) {
+			manualScores.quarter = nextQuarter;
+		}
+	});
 
 	onMount(async () => {
 		if (browser) {
@@ -102,32 +135,12 @@
 		const result = await lockParty(storedPin);
 
 		if (result.success) {
-			success = 'Grid locked! Numbers have been assigned.';
-			await loadParty(code);
+			// Redirect to game - grid is now locked and game is active
+			goto(`/party/${code}`);
 		} else {
 			error = result.error || 'Failed to lock grid';
+			isLocking = false;
 		}
-
-		isLocking = false;
-	}
-
-	async function handleStartGame() {
-		if (!storedPin) return;
-
-		isStarting = true;
-		error = null;
-		success = null;
-
-		const result = await startGame(storedPin);
-
-		if (result.success) {
-			success = 'Game started!';
-			await loadParty(code);
-		} else {
-			error = result.error || 'Failed to start game';
-		}
-
-		isStarting = false;
 	}
 
 	async function handleUpdateScore() {
@@ -308,16 +321,23 @@
 							{#each $playerSummary as player}
 								<div class="flex items-center justify-between p-3 rounded-lg" style="background: rgba(255, 255, 255, 0.04);">
 									<div>
-										<div class="font-medium">{player.name}</div>
+										<div class="font-medium">
+											{player.name}
+											{#if player.normalizedName === $party?.host_name_lower}
+												<span class="text-xs ml-1" style="color: var(--text-muted)">(host)</span>
+											{/if}
+										</div>
 										<div class="text-sm" style="color: var(--text-secondary)">{player.count} square{player.count !== 1 ? 's' : ''}</div>
 									</div>
-									<button
-										onclick={() => playerToRemove = player}
-										class="btn btn-sm"
-										style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
-									>
-										Remove
-									</button>
+									{#if player.normalizedName !== $party?.host_name_lower}
+										<button
+											onclick={() => playerToRemove = player}
+											class="btn btn-sm"
+											style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
+										>
+											Remove
+										</button>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -435,19 +455,6 @@
 							></div>
 						</div>
 					{/if}
-				</div>
-			{/if}
-
-			<!-- Locked Phase Controls -->
-			{#if $party.status === 'locked'}
-				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Start Game</h2>
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Grid is locked and numbers are assigned. Start the game when ready.
-					</p>
-					<button onclick={handleStartGame} class="btn btn-success w-full" disabled={isStarting}>
-						{isStarting ? 'Starting...' : 'Start Game'}
-					</button>
 				</div>
 			{/if}
 

@@ -111,14 +111,14 @@
 	});
 
 	let winnerMap = $derived.by(() => {
-		if (!$numbers) return new Map<string, Winner>();
-		const map = new Map<string, Winner>();
+		if (!$numbers) return new Map<string, Winner[]>();
+		const map = new Map<string, Winner[]>();
 		for (const w of $winners) {
-			const row = $numbers.row_numbers.indexOf(w.winning_row);
-			const col = $numbers.col_numbers.indexOf(w.winning_col);
-			if (row !== -1 && col !== -1) {
-				map.set(`${row}-${col}`, w);
-			}
+			// winning_row and winning_col are grid positions (0-9), not header numbers
+			const key = `${w.winning_row}-${w.winning_col}`;
+			const existing = map.get(key) || [];
+			existing.push(w);
+			map.set(key, existing);
 		}
 		return map;
 	});
@@ -127,8 +127,8 @@
 		return squareMap.get(`${row}-${col}`);
 	}
 
-	function getWinner(row: number, col: number): Winner | null {
-		return winnerMap.get(`${row}-${col}`) || null;
+	function getWinners(row: number, col: number): Winner[] {
+		return winnerMap.get(`${row}-${col}`) || [];
 	}
 
 	function cellKey(row: number, col: number): string {
@@ -393,7 +393,7 @@
 										isLocked={$party?.status !== 'filling'}
 										isSelected={selectedCells.has(cellKey(row, col))}
 									isPending={isSquarePending(row, col)}
-									winner={getWinner(row, col)}
+									winners={getWinners(row, col)}
 										onpointerdown={(e) => handlePointerDown(row, col, e)}
 										onpointerenter={() => handlePointerMove(row, col)}
 										onpointerup={() => handlePointerUp(row, col)}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { winners, party } from '$lib/stores/game';
+	import { winners, party, scores } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 
 	const quarterLabels: Record<Quarter, string> = {
@@ -14,6 +14,37 @@
 			style: 'currency',
 			currency: 'USD'
 		}).format(amount);
+	}
+
+	function getScoreForQuarter(quarter: Quarter): string {
+		if (!$scores || !$party) return '';
+		const teamRow = $party.team_row_name;
+		const teamCol = $party.team_col_name;
+
+		let rowScore: number | null = null;
+		let colScore: number | null = null;
+
+		switch (quarter) {
+			case 'q1':
+				rowScore = $scores.q1_row_score;
+				colScore = $scores.q1_col_score;
+				break;
+			case 'q2':
+				rowScore = $scores.q2_row_score;
+				colScore = $scores.q2_col_score;
+				break;
+			case 'q3':
+				rowScore = $scores.q3_row_score;
+				colScore = $scores.q3_col_score;
+				break;
+			case 'final':
+				rowScore = $scores.final_row_score;
+				colScore = $scores.final_col_score;
+				break;
+		}
+
+		if (rowScore === null || colScore === null) return '';
+		return `${teamRow} ${rowScore} - ${teamCol} ${colScore}`;
 	}
 </script>
 
@@ -33,7 +64,7 @@
 					</div>
 				</div>
 				<div class="mt-2 text-xs" style="color: var(--text-muted)">
-					Square [{winner.winning_row}, {winner.winning_col}]
+					{getScoreForQuarter(winner.quarter)}
 				</div>
 			</div>
 		{/each}
