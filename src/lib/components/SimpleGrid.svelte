@@ -579,9 +579,10 @@
 		position: sticky;
 		left: 0;
 		z-index: 20;
-		background: var(--bg-secondary);
+		background: var(--team-row-color, #69BE28);
 		width: var(--row-header-width);
 		height: var(--header-height);
+		border-top-left-radius: 6px;
 	}
 
 	.col-header {
@@ -608,6 +609,7 @@
 		font-weight: bold;
 		color: white;
 		background: var(--team-row-color, #69BE28);
+		box-shadow: -8px 0 0 var(--team-row-color, #69BE28);
 	}
 
 	.team-col-bg {
