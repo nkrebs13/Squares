@@ -3,8 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import Grid from '$lib/components/Grid.svelte';
-	import ScrollGrid from '$lib/components/ScrollGrid.svelte';
+	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 	import ScoreBoard from '$lib/components/ScoreBoard.svelte';
 	import Winners from '$lib/components/Winners.svelte';
 	import PartyCode from '$lib/components/PartyCode.svelte';
@@ -20,7 +19,6 @@
 		isGridFull
 	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
-	import { gridMode } from '$lib/stores/settings';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
 	import type { RecentParty } from '$lib/types';
 
@@ -146,22 +144,7 @@
 
 				<!-- Main Grid -->
 				<div class="mb-4 lg:mb-0">
-					<!-- Grid Mode Toggle (dev feature for comparison) -->
-					<div class="flex justify-end mb-2">
-						<button
-							class="text-xs px-2 py-1 rounded-md transition-colors"
-							style="background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-muted);"
-							onclick={() => gridMode.update(m => m === 'panzoom' ? 'scroll' : 'panzoom')}
-						>
-							Mode: {$gridMode}
-						</button>
-					</div>
-
-					{#if $gridMode === 'scroll'}
-						<ScrollGrid />
-					{:else}
-						<Grid />
-					{/if}
+					<SimpleGrid />
 				</div>
 
 				<!-- Mobile-only sections below grid -->
@@ -335,7 +318,7 @@
 		}
 
 		/* Grid wrapper needs to expand */
-		.main-content > div:has(.grid-outer-container) {
+		.main-content > div:has(.grid-wrapper) {
 			flex: 1;
 			display: flex;
 			flex-direction: column;
