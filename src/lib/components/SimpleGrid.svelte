@@ -2,21 +2,48 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
-	import { squares, numbers, party, winners, claimSquare, claimSquaresBatch, unclaimSquare, mySquareCount, amountOwed } from '$lib/stores/game';
+	import { squares, numbers, party, winners, claimSquare, claimSquaresBatch, unclaimSquare, mySquareCount, amountOwed, playerSummary, availableCount } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName } from '$lib/stores/user';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
-	const MIN_CELL_SIZE_DESKTOP = 44; // Apple HIG minimum touch target (desktop only)
-	const MIN_CELL_SIZE_MOBILE = 28; // Allow smaller cells on mobile to fit screen
+	const MIN_CELL_SIZE_DESKTOP = 44;
+	const MIN_CELL_SIZE_MOBILE = 28;
 	const ZOOMED_CELL_SIZE = 64;
-	const ROW_HEADER_WIDTH = 28; // Slightly smaller header for mobile fit
+	const ROW_HEADER_WIDTH = 28;
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
 	const NUM_GAPS = NUM_COLS - 1;
-	const TEAM_LABEL_WIDTH = 36; // Width of vertical team label (32px) + gap (4px)
-	const SCROLL_CONTAINER_PADDING = 8; // 0.25rem * 2 sides
+	const TEAM_LABEL_WIDTH = 36;
+	const SCROLL_CONTAINER_PADDING = 8;
+
+	// Player colors (same as Square.svelte)
+	const playerColors = [
+		{ bg: 'rgba(100, 180, 255, 0.22)', text: 'rgba(120, 190, 255, 0.95)' },
+		{ bg: 'rgba(255, 110, 110, 0.22)', text: 'rgba(255, 130, 130, 0.95)' },
+		{ bg: 'rgba(100, 230, 100, 0.22)', text: 'rgba(120, 240, 120, 0.95)' },
+		{ bg: 'rgba(255, 230, 100, 0.22)', text: 'rgba(255, 235, 130, 0.98)' },
+		{ bg: 'rgba(180, 100, 255, 0.22)', text: 'rgba(190, 120, 255, 0.95)' },
+		{ bg: 'rgba(255, 150, 80, 0.22)', text: 'rgba(255, 170, 110, 0.98)' },
+		{ bg: 'rgba(100, 230, 230, 0.22)', text: 'rgba(120, 240, 240, 0.95)' },
+		{ bg: 'rgba(255, 100, 170, 0.22)', text: 'rgba(255, 130, 185, 0.95)' },
+		{ bg: 'rgba(190, 255, 100, 0.22)', text: 'rgba(200, 255, 130, 0.98)' },
+		{ bg: 'rgba(255, 130, 220, 0.22)', text: 'rgba(255, 150, 230, 0.95)' },
+		{ bg: 'rgba(100, 255, 190, 0.22)', text: 'rgba(120, 255, 200, 0.95)' },
+		{ bg: 'rgba(230, 190, 150, 0.22)', text: 'rgba(245, 210, 175, 0.98)' },
+		{ bg: 'rgba(130, 200, 200, 0.22)', text: 'rgba(150, 220, 220, 0.95)' },
+		{ bg: 'rgba(200, 160, 255, 0.22)', text: 'rgba(210, 175, 255, 0.95)' },
+		{ bg: 'rgba(255, 200, 150, 0.22)', text: 'rgba(255, 215, 175, 0.98)' },
+	];
+
+	function getPlayerColor(name: string): { bg: string; text: string } {
+		let hash = 0;
+		for (let i = 0; i < name.length; i++) {
+			hash = name.charCodeAt(i) + ((hash << 5) - hash);
+		}
+		return playerColors[Math.abs(hash) % playerColors.length];
+	}
 
 	// DOM refs
 	let scrollContainer: HTMLDivElement;
@@ -24,7 +51,6 @@
 
 	// Sizing state
 	let containerWidth = $state(0);
-	let isTouchDevice = $state(false);
 	let zoomState = $state<'fit' | 'zoomed'>('fit');
 
 	// Selection state
@@ -33,8 +59,14 @@
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
+	// Player filter state
+	let selectedPlayerFilter = $state<string | null>(null);
+	let isPlayersExpanded = $state(false);
+	let hasInteractedWithPlayers = $state(false);
+
 	// Track pointer start for mobile tap detection
 	let pointerStartCell: { row: number; col: number } | null = null;
+	let isPointerTouch = false; // Track if current interaction is touch-based
 
 	// Lifecycle guards
 	let isMounted = false;
@@ -44,23 +76,30 @@
 	function calculateFitCellSize(): number {
 		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
 		const gapTotal = NUM_GAPS * GAP_SIZE;
-		// Account for: row header, gaps between cells, scroll container padding
 		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
 		return Math.floor(availableWidth / NUM_COLS);
 	}
 
-	// Minimum cell size depends on device
-	let minCellSize = $derived(isTouchDevice ? MIN_CELL_SIZE_MOBILE : MIN_CELL_SIZE_DESKTOP);
+	// Calculate fit cell size
+	let fitCellSize = $derived(Math.max(MIN_CELL_SIZE_MOBILE, calculateFitCellSize()));
 
 	// Effective cell size based on zoom state
 	let effectiveCellSize = $derived(
-		zoomState === 'zoomed'
-			? ZOOMED_CELL_SIZE
-			: Math.max(minCellSize, calculateFitCellSize())
+		zoomState === 'zoomed' ? ZOOMED_CELL_SIZE : fitCellSize
 	);
+
+	// Show zoom control when zooming would cause horizontal scroll
+	let showZoomControl = $derived(fitCellSize < ZOOMED_CELL_SIZE);
 
 	// Header height scales with cell size
 	let headerHeight = $derived(Math.max(Math.floor(effectiveCellSize * 0.7), 24));
+
+	// Auto-expand players list if few players
+	$effect(() => {
+		if ($playerSummary.length > 0 && $playerSummary.length <= 4) {
+			isPlayersExpanded = true;
+		}
+	});
 
 	// Derived lookup maps for O(1) access
 	let squareMap = $derived.by(() => {
@@ -102,9 +141,28 @@
 		return square !== undefined && square.player_name === null;
 	}
 
-	// Toggle zoom
-	function toggleZoom() {
-		zoomState = zoomState === 'fit' ? 'zoomed' : 'fit';
+	// Check if a square should be highlighted based on player filter
+	function isSquareHighlighted(square: SquareType): boolean {
+		if (!selectedPlayerFilter) return false;
+		return square.player_name_lower === selectedPlayerFilter;
+	}
+
+	// Check if a square should be dimmed
+	function isSquareDimmed(square: SquareType): boolean {
+		if (!selectedPlayerFilter) return false;
+		return square.player_name_lower !== selectedPlayerFilter;
+	}
+
+	// Toggle player filter
+	function togglePlayerFilter(normalizedName: string) {
+		hasInteractedWithPlayers = true;
+		selectedPlayerFilter = selectedPlayerFilter === normalizedName ? null : normalizedName;
+	}
+
+	// Handle players section toggle
+	function handlePlayersToggle() {
+		hasInteractedWithPlayers = true;
+		isPlayersExpanded = !isPlayersExpanded;
 	}
 
 	// Pointer handlers
@@ -113,19 +171,18 @@
 		if (e.button !== 0) return;
 
 		pointerStartCell = { row, col };
+		isPointerTouch = e.pointerType === 'touch';
 
-		// Desktop - immediate drag selection
-		if (!isTouchDevice && canSelectCell(row, col)) {
+		// Mouse/pen - immediate drag selection (not touch)
+		if (!isPointerTouch && canSelectCell(row, col)) {
 			isDragging = true;
 			dragStartCell = { row, col };
 			selectedCells = new Set([cellKey(row, col)]);
 		}
-		// Mobile - just track start cell, claim on pointer up
 	}
 
 	function handlePointerMove(row: number, col: number) {
-		// Desktop only - extend selection during drag
-		if (!isTouchDevice && isDragging && dragStartCell) {
+		if (!isPointerTouch && isDragging && dragStartCell) {
 			handleDragExtend(row, col);
 		}
 	}
@@ -150,13 +207,13 @@
 	}
 
 	function handlePointerUp(row: number, col: number) {
-		if (isTouchDevice) {
-			// Mobile - tap to claim single cell
+		if (isPointerTouch) {
+			// Touch - single tap to claim/unclaim
 			if (pointerStartCell && pointerStartCell.row === row && pointerStartCell.col === col) {
 				handleSquareClick(row, col);
 			}
 		} else {
-			// Desktop - end drag selection
+			// Mouse/pen - end drag selection
 			if (isDragging) {
 				handleDragEnd();
 			}
@@ -212,21 +269,16 @@
 	onMount(() => {
 		isMounted = true;
 
-		if (browser) {
-			isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+		if (browser && gridWrapper) {
+			containerWidth = gridWrapper.clientWidth;
 
-			// Measure container width
-			if (gridWrapper) {
-				containerWidth = gridWrapper.clientWidth;
-
-				resizeObserver = new ResizeObserver((entries) => {
-					if (!isMounted) return;
-					for (const entry of entries) {
-						containerWidth = entry.contentRect.width;
-					}
-				});
-				resizeObserver.observe(gridWrapper);
-			}
+			resizeObserver = new ResizeObserver((entries) => {
+				if (!isMounted) return;
+				for (const entry of entries) {
+					containerWidth = entry.contentRect.width;
+				}
+			});
+			resizeObserver.observe(gridWrapper);
 		}
 	});
 
@@ -266,7 +318,7 @@
 
 	<!-- Grid Wrapper -->
 	<div class="grid-wrapper" bind:this={gridWrapper}>
-		<!-- Column Team Label (horizontal, above grid) -->
+		<!-- Column Team Label -->
 		<div class="team-label-col">
 			<img
 				src="/logos/patriots.svg"
@@ -280,7 +332,7 @@
 		</div>
 
 		<div class="grid-with-row-label">
-			<!-- Row Team Label (vertical, left of grid) -->
+			<!-- Row Team Label -->
 			<div class="team-label-row">
 				<img
 					src="/logos/seahawks.svg"
@@ -303,39 +355,40 @@
 				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px; --row-header-width: {ROW_HEADER_WIDTH}px;"
 			>
 				<div class="grid-11x11">
-					<!-- Corner cell (empty) -->
 					<div class="corner-cell"></div>
 
-					<!-- Column headers (score digits) -->
 					{#each cols as col}
 						<div class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9 ? 'rounded-tr' : ''}">
 							{$numbers ? $numbers.col_numbers[col] : '?'}
 						</div>
 					{/each}
 
-					<!-- Grid rows (row header + 10 squares per row) -->
 					{#each rows as row}
-						<!-- Row header (sticky) -->
 						<div class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9 ? 'rounded-bl' : ''}">
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
 
-						<!-- Squares for this row -->
 						{#each cols as col}
 							{@const square = getSquare(row, col)}
 							{#if square}
-								<Square
-									{square}
-									size={effectiveCellSize}
-									rowNumber={$numbers?.row_numbers[row]}
-									colNumber={$numbers?.col_numbers[col]}
-									isLocked={$party?.status !== 'filling'}
-									isSelected={selectedCells.has(cellKey(row, col))}
-									winner={getWinner(row, col)}
-									onpointerdown={(e) => handlePointerDown(row, col, e)}
-									onpointerenter={() => handlePointerMove(row, col)}
-									onpointerup={() => handlePointerUp(row, col)}
-								/>
+								<div
+									class="square-wrapper"
+									class:highlighted={isSquareHighlighted(square)}
+									class:dimmed={isSquareDimmed(square)}
+								>
+									<Square
+										{square}
+										size={effectiveCellSize}
+										rowNumber={$numbers?.row_numbers[row]}
+										colNumber={$numbers?.col_numbers[col]}
+										isLocked={$party?.status !== 'filling'}
+										isSelected={selectedCells.has(cellKey(row, col))}
+										winner={getWinner(row, col)}
+										onpointerdown={(e) => handlePointerDown(row, col, e)}
+										onpointerenter={() => handlePointerMove(row, col)}
+										onpointerup={() => handlePointerUp(row, col)}
+									/>
+								</div>
 							{/if}
 						{/each}
 					{/each}
@@ -344,49 +397,109 @@
 		</div>
 	</div>
 
-	<!-- Zoom FAB (mobile only) -->
-	{#if isTouchDevice}
-		<button
-			class="zoom-fab"
-			onclick={toggleZoom}
-			aria-label={zoomState === 'fit' ? 'Zoom in' : 'Fit to screen'}
-		>
-			{#if zoomState === 'fit'}
-				<!-- Zoom in icon -->
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<circle cx="11" cy="11" r="8"></circle>
-					<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-					<line x1="11" y1="8" x2="11" y2="14"></line>
-					<line x1="8" y1="11" x2="14" y2="11"></line>
-				</svg>
-			{:else}
-				<!-- Fit to screen icon -->
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
-					<path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
-					<path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
-					<path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
-				</svg>
-			{/if}
-		</button>
-	{/if}
+	<!-- Expanded Legend / Control Center -->
+	<div class="grid-control-center">
+		<!-- Top Row: Legend + Zoom Toggle -->
+		<div class="control-top-row">
+			<div class="legend-items">
+				<div class="legend-item">
+					<div class="legend-swatch legend-available"></div>
+					<span>Available</span>
+				</div>
+				{#if $userName}
+					<div class="legend-item">
+						<div class="legend-swatch legend-mine"></div>
+						<span>Yours</span>
+					</div>
+				{/if}
+				<div class="legend-item">
+					<div class="legend-swatch legend-winner"></div>
+					<span>Winner</span>
+				</div>
+			</div>
 
-	<!-- Grid Legend -->
-	<div class="grid-legend">
-		<div class="legend-item">
-			<div class="legend-swatch legend-available"></div>
-			<span>Available</span>
+			<!-- Zoom Toggle (shown when horizontal scroll would occur) -->
+			{#if showZoomControl}
+				<button
+					class="zoom-toggle-btn"
+					onclick={() => zoomState = zoomState === 'fit' ? 'zoomed' : 'fit'}
+					aria-label={zoomState === 'fit' ? 'Zoom in for larger squares' : 'Fit grid to screen'}
+				>
+					{#if zoomState === 'fit'}
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="11" cy="11" r="8"/>
+							<path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+						</svg>
+						<span>Zoom</span>
+					{:else}
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+						</svg>
+						<span>Fit</span>
+					{/if}
+				</button>
+			{/if}
 		</div>
-		{#if $userName}
-			<div class="legend-item">
-				<div class="legend-swatch legend-mine"></div>
-				<span>Yours</span>
+
+		<!-- Players Section -->
+		{#if $playerSummary.length > 0}
+			<div class="players-section">
+				<!-- Players Header / Toggle -->
+				<button
+					class="players-toggle"
+					class:has-indicator={!hasInteractedWithPlayers && $playerSummary.length > 1}
+					onclick={handlePlayersToggle}
+				>
+					<span class="players-label">
+						Players ({$playerSummary.length})
+						{#if selectedPlayerFilter}
+							<span class="filter-badge">filtering</span>
+						{:else if !hasInteractedWithPlayers && isPlayersExpanded}
+							<span class="hint-badge">tap to highlight</span>
+						{/if}
+					</span>
+					<svg
+						class="chevron"
+						class:expanded={isPlayersExpanded}
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="6 9 12 15 18 9"></polyline>
+					</svg>
+				</button>
+
+				<!-- Expanded Player List -->
+				{#if isPlayersExpanded}
+					<div class="players-grid">
+						{#each $playerSummary as player}
+							{@const color = getPlayerColor(player.name)}
+							<button
+								class="player-pill"
+								class:selected={selectedPlayerFilter === player.normalizedName}
+								style="--player-bg: {color.bg}; --player-text: {color.text};"
+								onclick={() => togglePlayerFilter(player.normalizedName)}
+							>
+								<div class="player-dot" style="background: {color.text};"></div>
+								<span class="player-name">{player.name}</span>
+								<span class="player-count">{player.count}</span>
+							</button>
+						{/each}
+						{#if $party?.status === 'filling' && $availableCount > 0}
+							<div class="available-count">
+								{$availableCount} squares available
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		{/if}
-		<div class="legend-item">
-			<div class="legend-swatch legend-winner"></div>
-			<span>Winner</span>
-		</div>
 	</div>
 
 	<!-- Selection indicator during drag -->
@@ -420,7 +533,7 @@
 
 	.grid-with-row-label {
 		display: flex;
-		gap: 0.25rem; /* Minimal gap for mobile fit */
+		gap: 0.25rem;
 	}
 
 	.team-label-row {
@@ -430,10 +543,9 @@
 		gap: 0.25rem;
 		padding: 0.25rem 0;
 		flex-shrink: 0;
-		width: 32px; /* Compact width for mobile */
+		width: 32px;
 	}
 
-	/* Scrollable container - horizontal scroll only */
 	.scroll-container {
 		flex: 1;
 		overflow-x: auto;
@@ -446,7 +558,6 @@
 		padding: 0.25rem;
 	}
 
-	/* 11x11 CSS Grid layout */
 	.grid-11x11 {
 		display: grid;
 		grid-template-columns: var(--row-header-width) repeat(10, var(--cell-size));
@@ -455,7 +566,6 @@
 		width: fit-content;
 	}
 
-	/* Corner cell (top-left) */
 	.corner-cell {
 		position: sticky;
 		left: 0;
@@ -465,7 +575,6 @@
 		height: var(--header-height);
 	}
 
-	/* Column headers (score digits) */
 	.col-header {
 		display: flex;
 		align-items: center;
@@ -477,13 +586,6 @@
 		color: white;
 	}
 
-	@media (min-width: 640px) {
-		.col-header {
-			font-size: 0.875rem;
-		}
-	}
-
-	/* Row headers (sticky during horizontal scroll) */
 	.row-header {
 		position: sticky;
 		left: 0;
@@ -499,13 +601,6 @@
 		background: var(--team-row-color, #69BE28);
 	}
 
-	@media (min-width: 640px) {
-		.row-header {
-			font-size: 0.875rem;
-		}
-	}
-
-	/* Team color backgrounds */
 	.team-col-bg {
 		background: var(--team-col-color, #C60C30);
 	}
@@ -514,59 +609,48 @@
 		background: var(--team-row-color, #69BE28);
 	}
 
-	/* Border radius helpers */
-	.rounded-tl {
-		border-top-left-radius: 6px;
-	}
-	.rounded-tr {
-		border-top-right-radius: 6px;
-	}
-	.rounded-bl {
-		border-bottom-left-radius: 6px;
+	.rounded-tl { border-top-left-radius: 6px; }
+	.rounded-tr { border-top-right-radius: 6px; }
+	.rounded-bl { border-bottom-left-radius: 6px; }
+
+	/* Square wrapper for highlight/dim effects */
+	.square-wrapper {
+		transition: opacity 200ms ease, transform 200ms ease;
 	}
 
-	/* Zoom FAB */
-	.zoom-fab {
-		position: fixed;
-		bottom: calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 1rem);
-		right: max(1rem, env(safe-area-inset-right, 0px));
-		width: 56px;
-		height: 56px;
+	.square-wrapper.highlighted {
+		z-index: 5;
+		transform: scale(1.05);
+		filter: drop-shadow(0 0 8px var(--player-text, rgba(100, 210, 200, 0.6)));
+	}
+
+	.square-wrapper.dimmed {
+		opacity: 0.35;
+	}
+
+	/* Control Center (Expanded Legend) */
+	.grid-control-center {
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: rgba(26, 26, 36, 0.9);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		border-radius: 16px;
-		color: var(--text-primary);
-		cursor: pointer;
-		z-index: 100;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-		transition: all 200ms ease;
-		touch-action: manipulation;
-	}
-
-	.zoom-fab:hover {
-		background: rgba(26, 26, 36, 0.95);
-		border-color: rgba(100, 210, 200, 0.3);
-	}
-
-	.zoom-fab:active {
-		transform: scale(0.95);
-	}
-
-	/* Grid Legend */
-	.grid-legend {
-		display: flex;
-		justify-content: center;
-		gap: 1rem;
+		flex-direction: column;
+		gap: 0.75rem;
 		padding: 0.75rem;
-		margin-top: 0.75rem;
 		background: rgba(255, 255, 255, 0.03);
-		border-radius: 10px;
+		border-radius: 12px;
 		border: 1px solid var(--border-color);
+	}
+
+	.control-top-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.legend-items {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 
 	.legend-item {
@@ -604,10 +688,197 @@
 		box-shadow: 0 0 8px rgba(100, 200, 130, 0.4);
 	}
 
+	/* Zoom Toggle Button */
+	.zoom-toggle-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 150ms ease;
+		min-height: 36px;
+	}
+
+	.zoom-toggle-btn svg {
+		opacity: 0.8;
+		flex-shrink: 0;
+	}
+
+	.zoom-toggle-btn:hover {
+		background: rgba(255, 255, 255, 0.08);
+		color: var(--text-primary);
+	}
+
+	.zoom-toggle-btn:active {
+		transform: scale(0.96);
+	}
+
+	/* Players Section */
+	.players-section {
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		padding-top: 0.75rem;
+	}
+
+	.players-toggle {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	/* Pulse indicator for undiscovered feature */
+	.players-toggle.has-indicator::after {
+		content: '';
+		position: absolute;
+		top: -3px;
+		right: -3px;
+		width: 8px;
+		height: 8px;
+		background: rgba(100, 210, 200, 0.9);
+		border-radius: 50%;
+		animation: pulse-indicator 2s ease-in-out infinite;
+	}
+
+	@keyframes pulse-indicator {
+		0%, 100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.5;
+			transform: scale(1.3);
+		}
+	}
+
+	.players-toggle:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--text-primary);
+	}
+
+	.players-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.filter-badge {
+		font-size: 0.625rem;
+		padding: 0.125rem 0.375rem;
+		background: rgba(100, 210, 200, 0.2);
+		color: rgba(100, 210, 200, 0.95);
+		border-radius: 4px;
+	}
+
+	.hint-badge {
+		font-size: 0.625rem;
+		padding: 0.125rem 0.375rem;
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--text-secondary);
+		border-radius: 4px;
+	}
+
+	.chevron {
+		transition: transform 200ms ease;
+	}
+
+	.chevron.expanded {
+		transform: rotate(180deg);
+	}
+
+	/* Players Grid */
+	.players-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+		margin-top: 0.75rem;
+	}
+
+	.player-pill {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.625rem 0.75rem;
+		background: rgba(255, 255, 255, 0.04);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+		font-size: 0.8125rem;
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+		min-height: 44px; /* Apple HIG touch target */
+		width: 100%;
+	}
+
+	.player-pill:hover {
+		background: rgba(255, 255, 255, 0.06);
+		transform: translateY(-1px);
+	}
+
+	.player-pill.selected {
+		background: var(--player-bg);
+		border-color: var(--player-text);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--player-text) 30%, transparent);
+	}
+
+	.player-pill.selected .player-name,
+	.player-pill.selected .player-count {
+		color: var(--player-text);
+		font-weight: 600;
+	}
+
+	.player-pill:active {
+		transform: scale(0.97);
+	}
+
+	.player-dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.player-name {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 500;
+	}
+
+	.player-count {
+		font-weight: 600;
+		opacity: 0.8;
+	}
+
+	.available-count {
+		grid-column: 1 / -1;
+		text-align: center;
+		padding: 0.5rem;
+		font-size: 0.7rem;
+		color: var(--text-secondary);
+		opacity: 0.7;
+	}
+
 	/* Selection indicator */
 	.selection-indicator {
 		position: fixed;
-		bottom: calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 80px);
+		bottom: calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 1rem);
 		left: 50%;
 		transform: translateX(-50%);
 		padding: 0.5rem 1rem;
@@ -620,5 +891,55 @@
 		font-weight: 600;
 		color: var(--text-primary);
 		z-index: 100;
+	}
+
+	/* Mobile: Sticky control center */
+	@media (max-width: 639px) {
+		.grid-control-center {
+			position: sticky;
+			bottom: 0;
+			z-index: 30;
+			margin-top: 0.5rem;
+			background: var(--bg-primary);
+			border-top: 1px solid var(--border-color);
+			border-radius: 12px 12px 0 0;
+			box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+		}
+	}
+
+	@media (min-width: 640px) {
+		.col-header, .row-header {
+			font-size: 0.875rem;
+		}
+
+		/* Multi-column player grid on larger screens */
+		.players-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+			gap: 0.5rem;
+		}
+
+		.player-pill {
+			width: auto;
+		}
+	}
+
+	/* Reduced motion support */
+	@media (prefers-reduced-motion: reduce) {
+		.square-wrapper,
+		.player-pill,
+		.chevron,
+		.zoom-btn {
+			transition: none;
+		}
+
+		.players-toggle.has-indicator::after {
+			animation: none;
+		}
+
+		.square-wrapper.highlighted {
+			filter: none;
+			outline: 2px solid var(--player-text);
+		}
 	}
 </style>

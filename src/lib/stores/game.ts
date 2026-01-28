@@ -49,6 +49,37 @@ export const amountOwed = derived([mySquareCount, party], ([$count, $party]) => 
 	return $count * $party.square_price;
 });
 
+// Player summary for legend display
+export interface PlayerSummary {
+	name: string;
+	normalizedName: string;
+	count: number;
+}
+
+export const playerSummary = derived(squares, ($squares) => {
+	const playerMap = new Map<string, PlayerSummary>();
+
+	for (const square of $squares) {
+		if (square.player_name && square.player_name_lower) {
+			if (!playerMap.has(square.player_name_lower)) {
+				playerMap.set(square.player_name_lower, {
+					name: square.player_name,
+					normalizedName: square.player_name_lower,
+					count: 0
+				});
+			}
+			playerMap.get(square.player_name_lower)!.count++;
+		}
+	}
+
+	// Sort by count descending
+	return Array.from(playerMap.values()).sort((a, b) => b.count - a.count);
+});
+
+export const availableCount = derived(squares, ($squares) =>
+	$squares.filter((s) => s.player_name === null).length
+);
+
 // Channel management
 let channel: RealtimeChannel | null = null;
 
