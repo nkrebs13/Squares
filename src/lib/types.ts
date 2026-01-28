@@ -81,13 +81,13 @@ export const SPLIT_PRESETS: SplitPreset[] = [
 	{ name: 'Rising', q1: 10, q2: 20, q3: 30, final: 40 },
 	{ name: 'Equal', q1: 25, q2: 25, q3: 25, final: 25 },
 	{ name: 'Big Finish', q1: 20, q2: 20, q3: 20, final: 40 },
-	{ name: 'Custom', q1: 0, q2: 0, q3: 0, final: 0 }
+	{ name: 'Custom', q1: 0, q2: 0, q3: 0, final: 0 },
 ];
 
 // Super Bowl Teams
 export const DEFAULT_TEAMS = {
 	row: { name: 'Seahawks', color: '#69BE28' },
-	col: { name: 'Patriots', color: '#C60C30' }
+	col: { name: 'Patriots', color: '#C60C30' },
 };
 
 export interface RecentParty {

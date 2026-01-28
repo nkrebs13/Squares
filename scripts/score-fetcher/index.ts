@@ -93,9 +93,7 @@ async function fetchScores(): Promise<void> {
 			return;
 		}
 
-		console.log(
-			`Game: ${awayTeam.team.displayName} @ ${homeTeam.team.displayName}`
-		);
+		console.log(`Game: ${awayTeam.team.displayName} @ ${homeTeam.team.displayName}`);
 		console.log(
 			`Score: ${awayTeam.score} - ${homeTeam.score} (Period: ${competition.status.period})`
 		);
@@ -141,12 +139,16 @@ async function fetchScores(): Promise<void> {
 			if (homeLinescores.length >= 2) {
 				// Q2 score is cumulative at halftime
 				scoreUpdate.q2_row_score = homeLinescores.slice(0, 2).reduce((a, b) => a + b.value, 0);
-				scoreUpdate.q2_col_score = awayLinescores.slice(0, 2).reduce((a, b) => a + (b?.value ?? 0), 0);
+				scoreUpdate.q2_col_score = awayLinescores
+					.slice(0, 2)
+					.reduce((a, b) => a + (b?.value ?? 0), 0);
 			}
 
 			if (homeLinescores.length >= 3) {
 				scoreUpdate.q3_row_score = homeLinescores.slice(0, 3).reduce((a, b) => a + b.value, 0);
-				scoreUpdate.q3_col_score = awayLinescores.slice(0, 3).reduce((a, b) => a + (b?.value ?? 0), 0);
+				scoreUpdate.q3_col_score = awayLinescores
+					.slice(0, 3)
+					.reduce((a, b) => a + (b?.value ?? 0), 0);
 			}
 
 			if (isComplete || period > 4) {

@@ -9,8 +9,8 @@
 			await navigator.clipboard.writeText($party.code);
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
-		} catch (e) {
-			console.error('Failed to copy:', e);
+		} catch {
+			// Copy failed silently - user can retry
 		}
 	}
 
@@ -19,7 +19,7 @@
 		const shareData = {
 			title: 'Football Squares',
 			text: `Join my Football Squares party!`,
-			url: `${window.location.origin}/join?code=${$party.code}`
+			url: `${window.location.origin}/join?code=${$party.code}`,
 		};
 
 		if (navigator.share) {
@@ -43,9 +43,7 @@
 			<button onclick={copyCode} class="btn btn-secondary text-sm">
 				{copied ? 'Copied!' : 'Copy'}
 			</button>
-			<button onclick={shareCode} class="btn btn-primary text-sm">
-				Share
-			</button>
+			<button onclick={shareCode} class="btn btn-primary text-sm"> Share </button>
 		</div>
 	</div>
 {/if}

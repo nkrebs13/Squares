@@ -7,28 +7,35 @@
 	import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
 
 	let squarePriceInput = $state('1');
-	let squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
-	let isValidPrice = $derived(isValidUsdAmount(squarePriceInput));
+	const squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
+	const isValidPrice = $derived(isValidUsdAmount(squarePriceInput));
 	let selectedPreset = $state<SplitPreset>(SPLIT_PRESETS[0]);
-	let customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
+	const customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
 	let hostName = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
 
-	let isCustom = $derived(selectedPreset.name === 'Custom');
+	const isCustom = $derived(selectedPreset.name === 'Custom');
 
-	let currentSplit = $derived(
+	const currentSplit = $derived(
 		isCustom
 			? customSplit
-			: { q1: selectedPreset.q1, q2: selectedPreset.q2, q3: selectedPreset.q3, final: selectedPreset.final }
+			: {
+					q1: selectedPreset.q1,
+					q2: selectedPreset.q2,
+					q3: selectedPreset.q3,
+					final: selectedPreset.final,
+				}
 	);
 
-	let splitTotal = $derived(currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final);
-	let isValidSplit = $derived(splitTotal === 100);
-	let isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
-	let isValidHostName = $derived(hostName.trim().length > 0);
-	let canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
+	const splitTotal = $derived(
+		currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final
+	);
+	const isValidSplit = $derived(splitTotal === 100);
+	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
+	const isValidHostName = $derived(hostName.trim().length > 0);
+	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
 
 	function generateCode(): string {
 		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -66,7 +73,7 @@
 					team_col_name: DEFAULT_TEAMS.col.name,
 					team_row_color: DEFAULT_TEAMS.row.color,
 					team_col_color: DEFAULT_TEAMS.col.color,
-					expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+					expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 				})
 				.select()
 				.single();
@@ -82,7 +89,7 @@
 					squares.push({
 						party_id: partyData.id,
 						row_num: row,
-						col_num: col
+						col_num: col,
 					});
 				}
 			}
@@ -121,7 +128,10 @@
 	</header>
 
 	<form
-		onsubmit={(e) => { e.preventDefault(); createParty(); }}
+		onsubmit={(e) => {
+			e.preventDefault();
+			createParty();
+		}}
 		class="space-y-6 max-w-md mx-auto"
 	>
 		<!-- Square Price -->
@@ -157,7 +167,8 @@
 				{#each SPLIT_PRESETS as preset}
 					<button
 						type="button"
-						class="p-2 rounded-lg text-sm font-medium transition-all {selectedPreset.name === preset.name
+						class="p-2 rounded-lg text-sm font-medium transition-all {selectedPreset.name ===
+						preset.name
 							? 'btn-primary'
 							: 'btn-secondary'}"
 						onclick={() => (selectedPreset = preset)}
@@ -170,7 +181,9 @@
 			<div class="mt-4 grid grid-cols-4 gap-3">
 				{#each ['q1', 'q2', 'q3', 'final'] as quarter}
 					<div class="text-center">
-						<div class="text-xs uppercase" style="color: var(--text-muted)">{quarter === 'final' ? 'Final' : quarter.toUpperCase()}</div>
+						<div class="text-xs uppercase" style="color: var(--text-muted)">
+							{quarter === 'final' ? 'Final' : quarter.toUpperCase()}
+						</div>
 						{#if isCustom}
 							<input
 								type="number"
@@ -180,7 +193,9 @@
 								class="input mt-1 text-center p-2"
 							/>
 						{:else}
-							<div class="mt-1 text-lg font-bold">{currentSplit[quarter as keyof typeof currentSplit]}%</div>
+							<div class="mt-1 text-lg font-bold">
+								{currentSplit[quarter as keyof typeof currentSplit]}%
+							</div>
 						{/if}
 					</div>
 				{/each}
@@ -236,11 +251,7 @@
 			</div>
 		{/if}
 
-		<button
-			type="submit"
-			class="btn btn-primary w-full"
-			disabled={!canCreate || isCreating}
-		>
+		<button type="submit" class="btn btn-primary w-full" disabled={!canCreate || isCreating}>
 			{isCreating ? 'Creating...' : 'Create Party'}
 		</button>
 	</form>

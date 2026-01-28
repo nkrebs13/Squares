@@ -1,13 +1,23 @@
 import { writable, derived, get } from 'svelte/store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabaseClient } from '$lib/supabase';
-import type { Party, Square, Numbers, Scores, Winner, GridState, OptimisticOperation, BroadcastMessage } from '$lib/types';
+import type {
+	Party,
+	Square,
+	Numbers,
+	Scores,
+	Winner,
+	GridState,
+	OptimisticOperation,
+	BroadcastMessage,
+} from '$lib/types';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 import { toast } from './toast';
 
 // Unique client ID per browser tab (for broadcast deduplication)
-const clientId = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+const clientId =
+	typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
 // Core state stores
 export const party = writable<Party | null>(null);
@@ -28,13 +38,14 @@ export const gridState = derived(
 			squares: $squares,
 			numbers: $numbers,
 			scores: $scores,
-			winners: $winners
+			winners: $winners,
 		} as GridState;
 	}
 );
 
-export const filledCount = derived(squares, ($squares) =>
-	$squares.filter((s) => s.player_name !== null).length
+export const filledCount = derived(
+	squares,
+	($squares) => $squares.filter((s) => s.player_name !== null).length
 );
 
 export const isGridFull = derived(filledCount, ($count) => $count === 100);
@@ -68,7 +79,7 @@ export const playerSummary = derived(squares, ($squares) => {
 				playerMap.set(square.player_name_lower, {
 					name: square.player_name,
 					normalizedName: square.player_name_lower,
-					count: 0
+					count: 0,
 				});
 			}
 			playerMap.get(square.player_name_lower)!.count++;
@@ -79,9 +90,13 @@ export const playerSummary = derived(squares, ($squares) => {
 	return Array.from(playerMap.values()).sort((a, b) => b.count - a.count);
 });
 
-export const availableCount = derived(squares, ($squares) =>
-	$squares.filter((s) => s.player_name === null).length
+export const availableCount = derived(
+	squares,
+	($squares) => $squares.filter((s) => s.player_name === null).length
 );
+
+// Player filter for highlighting squares by player (shared between sidebar and grid)
+export const selectedPlayerFilter = writable<string | null>(null);
 
 // Channel management
 let channel: RealtimeChannel | null = null;
@@ -133,7 +148,7 @@ export async function loadParty(code: string) {
 			rowColor: partyData.team_row_color,
 			colColor: partyData.team_col_color,
 			rowName: partyData.team_row_name,
-			colName: partyData.team_col_name
+			colName: partyData.team_col_name,
 		});
 
 		// Fetch squares
@@ -177,8 +192,7 @@ export async function loadParty(code: string) {
 
 		isLoading.set(false);
 		return true;
-	} catch (e) {
-		console.error('Error loading party:', e);
+	} catch {
 		error.set('Failed to load party');
 		isLoading.set(false);
 		return false;
@@ -214,8 +228,8 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 				originalState: {
 					player_name: existingSquare.player_name,
 					player_name_lower: existingSquare.player_name_lower,
-					claimed_at: existingSquare.claimed_at
-				}
+					claimed_at: existingSquare.claimed_at,
+				},
 			});
 			return newOps;
 		});
@@ -228,7 +242,7 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 							...s,
 							player_name: message.playerName,
 							player_name_lower: message.playerName.toLowerCase(),
-							claimed_at: new Date().toISOString()
+							claimed_at: new Date().toISOString(),
 						}
 					: s
 			)
@@ -250,7 +264,7 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 									...s,
 									player_name: op.originalState.player_name,
 									player_name_lower: op.originalState.player_name_lower,
-									claimed_at: op.originalState.claimed_at
+									claimed_at: op.originalState.claimed_at,
 								}
 							: s
 					)
@@ -299,7 +313,7 @@ export function subscribeToParty(partyId: string) {
 				event: '*',
 				schema: 'public',
 				table: 'squares',
-				filter: `party_id=eq.${partyId}`
+				filter: `party_id=eq.${partyId}`,
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
@@ -315,9 +329,7 @@ export function subscribeToParty(partyId: string) {
 					});
 
 					// Update with confirmed state from database
-					squares.update((current) =>
-						current.map((s) => (s.id === newSquare.id ? newSquare : s))
-					);
+					squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
 				}
 			}
 		)
@@ -327,7 +339,7 @@ export function subscribeToParty(partyId: string) {
 				event: '*',
 				schema: 'public',
 				table: 'parties',
-				filter: `id=eq.${partyId}`
+				filter: `id=eq.${partyId}`,
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
@@ -341,7 +353,7 @@ export function subscribeToParty(partyId: string) {
 				event: '*',
 				schema: 'public',
 				table: 'numbers',
-				filter: `party_id=eq.${partyId}`
+				filter: `party_id=eq.${partyId}`,
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -355,7 +367,7 @@ export function subscribeToParty(partyId: string) {
 				event: '*',
 				schema: 'public',
 				table: 'scores',
-				filter: `party_id=eq.${partyId}`
+				filter: `party_id=eq.${partyId}`,
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
@@ -369,7 +381,7 @@ export function subscribeToParty(partyId: string) {
 				event: 'INSERT',
 				schema: 'public',
 				table: 'winners',
-				filter: `party_id=eq.${partyId}`
+				filter: `party_id=eq.${partyId}`,
 			},
 			(payload) => {
 				winners.update((current) => [...current, payload.new as Winner]);
@@ -392,7 +404,7 @@ function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clientId'>)
 	broadcastChannel.send({
 		type: 'broadcast',
 		event: 'square_update',
-		payload: { ...message, clientId }
+		payload: { ...message, clientId },
 	});
 }
 
@@ -421,7 +433,7 @@ function schedulePendingTimeout(key: string) {
 									...s,
 									player_name: op.originalState.player_name,
 									player_name_lower: op.originalState.player_name_lower,
-									claimed_at: op.originalState.claimed_at
+									claimed_at: op.originalState.claimed_at,
 								}
 							: s
 					)
@@ -477,8 +489,8 @@ export function claimSquareOptimistic(row: number, col: number): void {
 		originalState: {
 			player_name: existingSquare.player_name,
 			player_name_lower: existingSquare.player_name_lower,
-			claimed_at: existingSquare.claimed_at
-		}
+			claimed_at: existingSquare.claimed_at,
+		},
 	};
 
 	pendingOperations.update((ops) => {
@@ -495,7 +507,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 						...s,
 						player_name: currentUser,
 						player_name_lower: normalizePlayerName(currentUser),
-						claimed_at: new Date().toISOString()
+						claimed_at: new Date().toISOString(),
 					}
 				: s
 		)
@@ -506,7 +518,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 		type: 'claim_intent',
 		squareKey: key,
 		playerName: currentUser,
-		timestamp
+		timestamp,
 	});
 
 	// 4. Schedule timeout cleanup
@@ -520,7 +532,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 			p_party_id: currentParty.id,
 			p_row: row,
 			p_col: col,
-			p_player_name: currentUser
+			p_player_name: currentUser,
 		})
 		.then(({ error: claimError }) => {
 			if (claimError) {
@@ -539,7 +551,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 											...s,
 											player_name: op.originalState.player_name,
 											player_name_lower: op.originalState.player_name_lower,
-											claimed_at: op.originalState.claimed_at
+											claimed_at: op.originalState.claimed_at,
 										}
 									: s
 							)
@@ -550,7 +562,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 							type: 'claim_rejected',
 							squareKey: key,
 							playerName: currentUser,
-							timestamp
+							timestamp,
 						});
 
 						return newOps;
@@ -597,8 +609,8 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 		originalState: {
 			player_name: existingSquare.player_name,
 			player_name_lower: existingSquare.player_name_lower,
-			claimed_at: existingSquare.claimed_at
-		}
+			claimed_at: existingSquare.claimed_at,
+		},
 	};
 
 	pendingOperations.update((ops) => {
@@ -621,7 +633,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 		type: 'unclaim_intent',
 		squareKey: key,
 		playerName: currentUser,
-		timestamp
+		timestamp,
 	});
 
 	// 4. Schedule timeout cleanup
@@ -635,7 +647,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 			p_party_id: currentParty.id,
 			p_row: row,
 			p_col: col,
-			p_player_name: currentUser
+			p_player_name: currentUser,
 		})
 		.then(({ error: unclaimError }) => {
 			if (unclaimError) {
@@ -654,7 +666,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 											...s,
 											player_name: op.originalState.player_name,
 											player_name_lower: op.originalState.player_name_lower,
-											claimed_at: op.originalState.claimed_at
+											claimed_at: op.originalState.claimed_at,
 										}
 									: s
 							)
@@ -711,9 +723,9 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 					originalState: {
 						player_name: existingSquare.player_name,
 						player_name_lower: existingSquare.player_name_lower,
-						claimed_at: existingSquare.claimed_at
-					}
-				}
+						claimed_at: existingSquare.claimed_at,
+					},
+				},
 			};
 		}
 	);
@@ -735,7 +747,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 						...s,
 						player_name: currentUser,
 						player_name_lower: normalizePlayerName(currentUser),
-						claimed_at: new Date().toISOString()
+						claimed_at: new Date().toISOString(),
 					}
 				: s
 		)
@@ -747,7 +759,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 			type: 'claim_intent',
 			squareKey: squareKey(cell.row, cell.col),
 			playerName: currentUser,
-			timestamp
+			timestamp,
 		});
 	}
 
@@ -763,7 +775,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 		.rpc('claim_squares_batch', {
 			p_party_id: currentParty.id,
 			p_player_name: currentUser,
-			p_cells: claimableCells
+			p_cells: claimableCells,
 		})
 		.then(({ data, error: claimError }) => {
 			if (claimError) {
@@ -800,7 +812,7 @@ export async function claimSquare(row: number, col: number): Promise<boolean> {
 		p_party_id: currentParty.id,
 		p_row: row,
 		p_col: col,
-		p_player_name: currentUser
+		p_player_name: currentUser,
 	});
 
 	if (claimError) {
@@ -811,7 +823,9 @@ export async function claimSquare(row: number, col: number): Promise<boolean> {
 	return true;
 }
 
-export async function claimSquaresBatch(cells: Array<{ row: number; col: number }>): Promise<number> {
+export async function claimSquaresBatch(
+	cells: Array<{ row: number; col: number }>
+): Promise<number> {
 	const currentParty = get(party);
 	const currentUser = get(userName);
 
@@ -823,11 +837,10 @@ export async function claimSquaresBatch(cells: Array<{ row: number; col: number 
 	const { data, error: claimError } = await supabase.rpc('claim_squares_batch', {
 		p_party_id: currentParty.id,
 		p_player_name: currentUser,
-		p_cells: cells
+		p_cells: cells,
 	});
 
 	if (claimError) {
-		console.error('Batch claim error:', claimError);
 		toast.error('Failed to claim squares');
 		return 0;
 	}
@@ -853,7 +866,7 @@ export async function unclaimSquare(row: number, col: number): Promise<boolean> 
 		p_party_id: currentParty.id,
 		p_row: row,
 		p_col: col,
-		p_player_name: currentUser
+		p_player_name: currentUser,
 	});
 
 	return !unclaimError;
@@ -867,15 +880,18 @@ export async function lockParty(pin: string): Promise<{ success: boolean; error?
 
 	const { data, error: lockError } = await supabase.rpc('lock_party', {
 		p_party_id: currentParty.id,
-		p_pin: pin
+		p_pin: pin,
 	});
 
 	if (lockError) {
-		return { success: false, error: lockError.message };
+		return { success: false, error: 'Failed to lock party. Please try again.' };
 	}
 
 	if (!data) {
-		return { success: false, error: 'Failed to lock - check PIN and ensure all squares are filled' };
+		return {
+			success: false,
+			error: 'Failed to lock - check PIN and ensure all squares are filled',
+		};
 	}
 
 	return { success: true };
@@ -889,11 +905,11 @@ export async function startGame(pin: string): Promise<{ success: boolean; error?
 
 	const { data, error: startError } = await supabase.rpc('start_game', {
 		p_party_id: currentParty.id,
-		p_pin: pin
+		p_pin: pin,
 	});
 
 	if (startError) {
-		return { success: false, error: startError.message };
+		return { success: false, error: 'Failed to start game. Please try again.' };
 	}
 
 	if (!data) {
@@ -919,11 +935,11 @@ export async function updateScore(
 		p_pin: pin,
 		p_quarter: quarter,
 		p_row_score: rowScore,
-		p_col_score: colScore
+		p_col_score: colScore,
 	});
 
 	if (scoreError) {
-		return { success: false, error: scoreError.message };
+		return { success: false, error: 'Failed to update score. Please try again.' };
 	}
 
 	if (!data) {
@@ -960,13 +976,13 @@ export async function updatePayoutStructure(
 			split_q1: splits.q1,
 			split_q2: splits.q2,
 			split_q3: splits.q3,
-			split_final: splits.final
+			split_final: splits.final,
 		})
 		.eq('id', currentParty.id)
 		.eq('host_pin', pin);
 
 	if (updateError) {
-		return { success: false, error: updateError.message };
+		return { success: false, error: 'Failed to update payout structure. Please try again.' };
 	}
 
 	// Update local state
@@ -977,7 +993,7 @@ export async function updatePayoutStructure(
 					split_q1: splits.q1,
 					split_q2: splits.q2,
 					split_q3: splits.q3,
-					split_final: splits.final
+					split_final: splits.final,
 				}
 			: null
 	);
@@ -1013,7 +1029,7 @@ export async function removePlayer(
 		.select('id');
 
 	if (removeError) {
-		return { success: false, removedCount: 0, error: removeError.message };
+		return { success: false, removedCount: 0, error: 'Failed to remove player. Please try again.' };
 	}
 
 	const removedCount = data?.length || 0;
@@ -1049,7 +1065,7 @@ export async function deleteParty(pin: string): Promise<{ success: boolean; erro
 		.eq('host_pin', pin);
 
 	if (deleteError) {
-		return { success: false, error: deleteError.message };
+		return { success: false, error: 'Failed to delete party. Please try again.' };
 	}
 
 	return { success: true };
@@ -1085,11 +1101,10 @@ export async function verifyHostPin(code: string, pin: string): Promise<boolean>
 
 	const { data, error } = await supabase.rpc('verify_host_pin', {
 		p_party_code: code,
-		p_pin: pin
+		p_pin: pin,
 	});
 
 	if (error) {
-		console.error('Error verifying host PIN:', error);
 		return false;
 	}
 

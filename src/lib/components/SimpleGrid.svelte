@@ -2,7 +2,21 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
-	import { squares, numbers, party, winners, claimSquareOptimistic, claimSquaresBatchOptimistic, unclaimSquareOptimistic, pendingOperations, mySquareCount, amountOwed, playerSummary, availableCount } from '$lib/stores/game';
+	import {
+		squares,
+		numbers,
+		party,
+		winners,
+		claimSquareOptimistic,
+		claimSquaresBatchOptimistic,
+		unclaimSquareOptimistic,
+		pendingOperations,
+		mySquareCount,
+		amountOwed,
+		playerSummary,
+		availableCount,
+		selectedPlayerFilter,
+	} from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { formatPrice } from '$lib/utils/format';
@@ -60,8 +74,7 @@
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
-	// Player filter state
-	let selectedPlayerFilter = $state<string | null>(null);
+	// Player filter state (using shared store)
 	let isPlayersExpanded = $state(false);
 	let hasInteractedWithPlayers = $state(false);
 
@@ -77,23 +90,22 @@
 	function calculateFitCellSize(): number {
 		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
 		const gapTotal = NUM_GAPS * GAP_SIZE;
-		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
+		const availableWidth =
+			containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
 		return Math.floor(availableWidth / NUM_COLS);
 	}
 
 	// Calculate fit cell size
-	let fitCellSize = $derived(Math.max(MIN_CELL_SIZE_MOBILE, calculateFitCellSize()));
+	const fitCellSize = $derived(Math.max(MIN_CELL_SIZE_MOBILE, calculateFitCellSize()));
 
 	// Effective cell size based on zoom state
-	let effectiveCellSize = $derived(
-		zoomState === 'zoomed' ? ZOOMED_CELL_SIZE : fitCellSize
-	);
+	const effectiveCellSize = $derived(zoomState === 'zoomed' ? ZOOMED_CELL_SIZE : fitCellSize);
 
 	// Show zoom control when zooming would cause horizontal scroll
-	let showZoomControl = $derived(fitCellSize < ZOOMED_CELL_SIZE);
+	const showZoomControl = $derived(fitCellSize < ZOOMED_CELL_SIZE);
 
 	// Header height scales with cell size
-	let headerHeight = $derived(Math.max(Math.floor(effectiveCellSize * 0.7), 24));
+	const headerHeight = $derived(Math.max(Math.floor(effectiveCellSize * 0.7), 24));
 
 	// Auto-expand players list if few players
 	$effect(() => {
@@ -103,7 +115,7 @@
 	});
 
 	// Derived lookup maps for O(1) access
-	let squareMap = $derived.by(() => {
+	const squareMap = $derived.by(() => {
 		const map = new Map<string, SquareType>();
 		for (const s of $squares) {
 			map.set(`${s.row_num}-${s.col_num}`, s);
@@ -111,7 +123,7 @@
 		return map;
 	});
 
-	let winnerMap = $derived.by(() => {
+	const winnerMap = $derived.by(() => {
 		if (!$numbers) return new Map<string, Winner[]>();
 		const map = new Map<string, Winner[]>();
 		for (const w of $winners) {
@@ -144,20 +156,20 @@
 
 	// Check if a square should be highlighted based on player filter
 	function isSquareHighlighted(square: SquareType): boolean {
-		if (!selectedPlayerFilter) return false;
-		return square.player_name_lower === selectedPlayerFilter;
+		if (!$selectedPlayerFilter) return false;
+		return square.player_name_lower === $selectedPlayerFilter;
 	}
 
 	// Check if a square should be dimmed
 	function isSquareDimmed(square: SquareType): boolean {
-		if (!selectedPlayerFilter) return false;
-		return square.player_name_lower !== selectedPlayerFilter;
+		if (!$selectedPlayerFilter) return false;
+		return square.player_name_lower !== $selectedPlayerFilter;
 	}
 
 	// Toggle player filter
 	function togglePlayerFilter(normalizedName: string) {
 		hasInteractedWithPlayers = true;
-		selectedPlayerFilter = selectedPlayerFilter === normalizedName ? null : normalizedName;
+		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
 	}
 
 	// Handle players section toggle
@@ -303,10 +315,7 @@
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 </script>
 
-<svelte:window
-	onpointerup={handleGlobalPointerUp}
-	onpointercancel={handleGlobalPointerCancel}
-/>
+<svelte:window onpointerup={handleGlobalPointerUp} onpointercancel={handleGlobalPointerCancel} />
 
 <div class="space-y-4">
 	<!-- Player Stats Bar -->
@@ -319,7 +328,9 @@
 			{#if $party && $party.square_price > 0}
 				<div class="flex items-center gap-2">
 					<span class="text-sm" style="color: var(--text-secondary)">You owe:</span>
-					<span class="font-bold text-lg" style="color: var(--color-accent)">{formatPrice($amountOwed)}</span>
+					<span class="font-bold text-lg" style="color: var(--color-accent)"
+						>{formatPrice($amountOwed)}</span
+					>
 				</div>
 			{/if}
 		</div>
@@ -333,7 +344,7 @@
 				src="/logos/patriots.svg"
 				alt={$theme.colName}
 				class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-				onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
+				onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
 			/>
 			<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
 				{$theme.colName}
@@ -347,7 +358,7 @@
 					src="/logos/seahawks.svg"
 					alt={$theme.rowName}
 					class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-					onerror={(e) => (e.currentTarget as HTMLElement).style.display = 'none'}
+					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
 				/>
 				<span
 					class="font-bold text-sm sm:text-base writing-vertical flex-1 flex items-center"
@@ -368,13 +379,21 @@
 					<div class="corner-cell"></div>
 
 					{#each cols as col}
-						<div class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9 ? 'rounded-tr' : ''}">
+						<div
+							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
+								? 'rounded-tr'
+								: ''}"
+						>
 							{$numbers ? $numbers.col_numbers[col] : '?'}
 						</div>
 					{/each}
 
 					{#each rows as row}
-						<div class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9 ? 'rounded-bl' : ''}">
+						<div
+							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
+								? 'rounded-bl'
+								: ''}"
+						>
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
 
@@ -393,8 +412,8 @@
 										colNumber={$numbers?.col_numbers[col]}
 										isLocked={$party?.status !== 'filling'}
 										isSelected={selectedCells.has(cellKey(row, col))}
-									isPending={isSquarePending(row, col)}
-									winners={getWinners(row, col)}
+										isPending={isSquarePending(row, col)}
+										winners={getWinners(row, col)}
 										onpointerdown={(e) => handlePointerDown(row, col, e)}
 										onpointerenter={() => handlePointerMove(row, col)}
 										onpointerup={() => handlePointerUp(row, col)}
@@ -433,18 +452,36 @@
 			{#if showZoomControl}
 				<button
 					class="zoom-toggle-btn"
-					onclick={() => zoomState = zoomState === 'fit' ? 'zoomed' : 'fit'}
+					onclick={() => (zoomState = zoomState === 'fit' ? 'zoomed' : 'fit')}
 					aria-label={zoomState === 'fit' ? 'Zoom in for larger squares' : 'Fit grid to screen'}
 				>
 					{#if zoomState === 'fit'}
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="11" cy="11" r="8"/>
-							<path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="11" cy="11" r="8" />
+							<path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
 						</svg>
 						<span>Zoom</span>
 					{:else}
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
 						</svg>
 						<span>Fit</span>
 					{/if}
@@ -452,9 +489,9 @@
 			{/if}
 		</div>
 
-		<!-- Players Section -->
+		<!-- Players Section (mobile only - desktop uses sidebar) -->
 		{#if $playerSummary.length > 0}
-			<div class="players-section">
+			<div class="players-section lg:hidden">
 				<!-- Players Header / Toggle -->
 				<button
 					class="players-toggle"
@@ -463,7 +500,7 @@
 				>
 					<span class="players-label">
 						Players ({$playerSummary.length})
-						{#if selectedPlayerFilter}
+						{#if $selectedPlayerFilter}
 							<span class="filter-badge">filtering</span>
 						{:else if !hasInteractedWithPlayers && isPlayersExpanded}
 							<span class="hint-badge">tap to highlight</span>
@@ -493,7 +530,7 @@
 							{@const color = getPlayerColor(player.name)}
 							<button
 								class="player-pill"
-								class:selected={selectedPlayerFilter === player.normalizedName}
+								class:selected={$selectedPlayerFilter === player.normalizedName}
 								style="--player-bg: {color.bg}; --player-text: {color.text};"
 								onclick={() => togglePlayerFilter(player.normalizedName)}
 							>
@@ -588,7 +625,9 @@
 		background: var(--bg-secondary);
 		width: var(--row-header-width);
 		height: var(--header-height);
-		box-shadow: -8px 0 0 var(--bg-secondary), 0 -8px 0 var(--bg-secondary);
+		box-shadow:
+			-8px 0 0 var(--bg-secondary),
+			0 -8px 0 var(--bg-secondary);
 	}
 
 	.col-header {
@@ -614,25 +653,36 @@
 		font-size: 0.75rem;
 		font-weight: bold;
 		color: white;
-		background: var(--team-row-color, #69BE28);
-		box-shadow: -8px 0 0 var(--team-row-color, #69BE28), 0 -1px 0 var(--team-row-color, #69BE28), 0 1px 0 var(--team-row-color, #69BE28);
+		background: var(--team-row-color, #69be28);
+		box-shadow:
+			-8px 0 0 var(--team-row-color, #69be28),
+			0 -1px 0 var(--team-row-color, #69be28),
+			0 1px 0 var(--team-row-color, #69be28);
 	}
 
 	.team-col-bg {
-		background: var(--team-col-color, #C60C30);
+		background: var(--team-col-color, #c60c30);
 	}
 
 	.team-row-bg {
-		background: var(--team-row-color, #69BE28);
+		background: var(--team-row-color, #69be28);
 	}
 
-	.rounded-tl { border-top-left-radius: 6px; }
-	.rounded-tr { border-top-right-radius: 6px; }
-	.rounded-bl { border-bottom-left-radius: 6px; }
+	.rounded-tl {
+		border-top-left-radius: 6px;
+	}
+	.rounded-tr {
+		border-top-right-radius: 6px;
+	}
+	.rounded-bl {
+		border-bottom-left-radius: 6px;
+	}
 
 	/* Square wrapper for highlight/dim effects */
 	.square-wrapper {
-		transition: opacity 200ms ease, transform 200ms ease;
+		transition:
+			opacity 200ms ease,
+			transform 200ms ease;
 	}
 
 	.square-wrapper.highlighted {
@@ -773,7 +823,8 @@
 	}
 
 	@keyframes pulse-indicator {
-		0%, 100% {
+		0%,
+		100% {
 			opacity: 1;
 			transform: scale(1);
 		}
@@ -918,7 +969,8 @@
 	}
 
 	@media (min-width: 640px) {
-		.col-header, .row-header {
+		.col-header,
+		.row-header {
 			font-size: 0.875rem;
 		}
 

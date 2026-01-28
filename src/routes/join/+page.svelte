@@ -133,7 +133,10 @@
 	</header>
 
 	<form
-		onsubmit={(e) => { e.preventDefault(); handleJoin(); }}
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleJoin();
+		}}
 		class="space-y-6 max-w-md mx-auto"
 	>
 		<div class="card">
@@ -194,7 +197,10 @@
 			</p>
 
 			<form
-				onsubmit={(e) => { e.preventDefault(); verifyPin(); }}
+				onsubmit={(e) => {
+					e.preventDefault();
+					verifyPin();
+				}}
 				class="space-y-4"
 			>
 				<div>
@@ -220,11 +226,7 @@
 				{/if}
 
 				<div class="flex gap-3">
-					<button
-						type="button"
-						class="btn btn-secondary flex-1"
-						onclick={cancelPinChallenge}
-					>
+					<button type="button" class="btn btn-secondary flex-1" onclick={cancelPinChallenge}>
 						Use Different Name
 					</button>
 					<button

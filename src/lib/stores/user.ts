@@ -9,7 +9,7 @@ function createUserStore() {
 
 	// Async initialization from IndexedDB
 	if (browser) {
-		getUserName().then(name => {
+		getUserName().then((name) => {
 			if (name) {
 				set(name);
 				// Also update localStorage as sync fallback
@@ -41,7 +41,7 @@ function createUserStore() {
 				localStorage.removeItem('squares_user_name');
 			}
 			await clearUserName();
-		}
+		},
 	};
 }
 
