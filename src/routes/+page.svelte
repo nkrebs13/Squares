@@ -51,7 +51,7 @@
 	</div>
 
 	<p class="text-sm text-center mt-8" style="color: var(--text-muted)">
-		Join multiple games — they'll all appear below
+		Join multiple parties — they'll all appear below
 	</p>
 
 	<RecentParties />
