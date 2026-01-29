@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
 	import type { RecentParty } from '$lib/types';
@@ -11,12 +11,19 @@
 	let editingCode = $state<string | null>(null);
 	let editValue = $state('');
 	let inputElement = $state<HTMLInputElement | null>(null);
+	let blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
 		recentParties = await getRecentParties();
 		// Show only top 5
 		recentParties = recentParties.slice(0, 5);
 		isLoading = false;
+	});
+
+	onDestroy(() => {
+		if (blurTimeoutId) {
+			clearTimeout(blurTimeoutId);
+		}
 	});
 
 	function getStatusBadge(status: string) {
@@ -97,9 +104,19 @@
 	}
 
 	function handleBlur() {
+		// Capture current editing code to prevent race condition when switching between edits
+		const codeBeingEdited = editingCode;
+
+		// Clear any existing timeout
+		if (blurTimeoutId) {
+			clearTimeout(blurTimeoutId);
+		}
+
 		// Small delay to allow button clicks to register
-		setTimeout(() => {
-			if (editingCode) {
+		blurTimeoutId = setTimeout(() => {
+			blurTimeoutId = null;
+			// Only save if we're still editing the same party
+			if (editingCode && editingCode === codeBeingEdited) {
 				saveEdit();
 			}
 		}, 100);
