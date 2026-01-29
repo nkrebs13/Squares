@@ -455,18 +455,18 @@
 				</div>
 
 				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Lock Grid</h2>
+					<h2 class="text-lg font-semibold mb-4">Start Game</h2>
 					{#if $isGridFull}
 						<p class="text-sm mb-4" style="color: var(--text-secondary)">
-							All 100 squares are filled. Lock the grid to assign random numbers.
+							All 100 squares are filled. Lock the grid, assign random numbers, and start the game.
 						</p>
 						<button onclick={handleLockGrid} class="btn btn-success w-full" disabled={isLocking}>
-							{isLocking ? 'Locking...' : 'Lock Grid & Assign Numbers'}
+							{isLocking ? 'Starting...' : 'Lock Grid & Start Game'}
 						</button>
 					{:else}
 						<p class="text-sm" style="color: var(--text-secondary)">
 							Grid is not full yet ({$filledCount}/100). Wait for all squares to be claimed before
-							locking.
+							starting.
 						</p>
 						<div class="mt-4 progress-bar">
 							<div class="progress-bar-fill" style="width: {$filledCount}%"></div>
