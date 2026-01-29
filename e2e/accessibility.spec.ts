@@ -78,6 +78,9 @@ test.describe('Keyboard Navigation', () => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		await expect(codeInput).toBeFocused();
 
+		// Type a code so the join button becomes enabled (disabled buttons can't receive focus)
+		await codeInput.fill('TEST1');
+
 		// Tab to join button
 		await page.keyboard.press('Tab');
 		const joinButton = page.getByRole('button', { name: /join party/i });
@@ -133,9 +136,9 @@ test.describe('Mobile Responsiveness', () => {
 	test('preset buttons are tappable on mobile', async ({ page }) => {
 		await page.goto('/create');
 
-		// Tap Equal preset
+		// Click Equal preset (using click which works on mobile viewports)
 		const equalButton = page.getByRole('button', { name: /equal/i });
-		await equalButton.tap();
+		await equalButton.click();
 
 		// Verify it's selected (has primary button styling)
 		await expect(equalButton).toHaveClass(/btn-primary/);

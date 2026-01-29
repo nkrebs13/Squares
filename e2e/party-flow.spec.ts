@@ -132,6 +132,9 @@ async function setupSupabaseMocks(page: Page) {
 }
 
 async function setUserName(page: Page, name: string) {
+	// Navigate to the app origin first so localStorage is accessible
+	// (accessing localStorage on about:blank throws a SecurityError)
+	await page.goto('/');
 	await page.evaluate((userName) => {
 		localStorage.setItem('squares_userName', userName);
 	}, name);
@@ -218,9 +221,7 @@ test.describe('Party Page - Error States', () => {
 			});
 		});
 
-		await page.evaluate(() => {
-			localStorage.setItem('squares_userName', 'TestPlayer');
-		});
+		await setUserName(page, 'TestPlayer');
 
 		await page.goto('/party/INVALID');
 
