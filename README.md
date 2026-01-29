@@ -78,16 +78,16 @@ The app will be available at `http://localhost:5173`.
 
 ## Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development server with hot reload |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build locally |
-| `npm run check` | Type-check TypeScript and Svelte files |
-| `npm run lint` | Check code for linting errors |
-| `npm run lint:fix` | Auto-fix linting issues |
-| `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check if code is formatted correctly |
+| Script                 | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `npm run dev`          | Start development server with hot reload |
+| `npm run build`        | Build for production                     |
+| `npm run preview`      | Preview production build locally         |
+| `npm run check`        | Type-check TypeScript and Svelte files   |
+| `npm run lint`         | Check code for linting errors            |
+| `npm run lint:fix`     | Auto-fix linting issues                  |
+| `npm run format`       | Format code with Prettier                |
+| `npm run format:check` | Check if code is formatted correctly     |
 
 ## Project Structure
 
