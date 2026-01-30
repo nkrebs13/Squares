@@ -341,7 +341,7 @@
 		<!-- Column Team Label -->
 		<div class="team-label-col">
 			<img
-				src="/logos/patriots.svg"
+				src="/logos/patriots.png"
 				alt={$theme.colName}
 				class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
 				onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
@@ -355,7 +355,7 @@
 			<!-- Row Team Label -->
 			<div class="team-label-row">
 				<img
-					src="/logos/seahawks.svg"
+					src="/logos/seahawks.png"
 					alt={$theme.rowName}
 					class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
 					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
