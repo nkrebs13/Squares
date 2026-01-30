@@ -136,7 +136,7 @@ async function setUserName(page: Page, name: string) {
 	// (accessing localStorage on about:blank throws a SecurityError)
 	await page.goto('/');
 	await page.evaluate((userName) => {
-		localStorage.setItem('squares_userName', userName);
+		localStorage.setItem('squares_user_name', userName);
 	}, name);
 }
 
