@@ -130,21 +130,19 @@ body {
 }
 
 .square-mine {
-	background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
-	outline: 3px solid rgba(244, 143, 177, 0.7);
+	outline: 3px solid var(--mine-outline, rgba(244, 143, 177, 0.7));
 	outline-offset: -1px;
-	border-color: rgba(244, 143, 177, 0.5);
-	box-shadow: 0 0 12px rgba(244, 143, 177, 0.25);
+	box-shadow: 0 0 12px var(--mine-glow, rgba(244, 143, 177, 0.25));
 	animation: pulse-mine 4s ease-in-out infinite;
 }
 
 @keyframes pulse-mine {
 	0%,
 	100% {
-		box-shadow: 0 0 12px rgba(244, 143, 177, 0.25);
+		box-shadow: 0 0 12px var(--mine-glow, rgba(244, 143, 177, 0.25));
 	}
 	50% {
-		box-shadow: 0 0 18px rgba(244, 143, 177, 0.4);
+		box-shadow: 0 0 18px var(--mine-glow-strong, rgba(244, 143, 177, 0.4));
 	}
 }
 

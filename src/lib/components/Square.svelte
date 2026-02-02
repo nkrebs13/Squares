@@ -90,9 +90,7 @@
 
 	const initials = $derived(square.player_name ? getInitials(square.player_name) : '');
 
-	const playerColor = $derived(
-		square.player_name && !isMine ? getPlayerColor(square.player_name) : null
-	);
+	const playerColor = $derived(square.player_name ? getPlayerColor(square.player_name) : null);
 
 	const classes = $derived(
 		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''} ${isPending ? 'square-pending' : ''}`
@@ -139,6 +137,8 @@
 	style="width: {size}px; height: {size}px; min-width: {size}px; min-height: {size}px; {playerColor &&
 	!isWinner
 		? `background: ${playerColor.bg}; border-color: ${playerColor.text.replace(/0\.9[58]/g, '0.35')};`
+		: ''}{isMine && playerColor
+		? ` --mine-outline: ${playerColor.text.replace(/0\.9[58]/g, '0.7')}; --mine-glow: ${playerColor.text.replace(/0\.9[58]/g, '0.25')}; --mine-glow-strong: ${playerColor.text.replace(/0\.9[58]/g, '0.4')};`
 		: ''} {isPressed ? `transform: scale(${pressScale});` : ''}"
 	{onpointerdown}
 	{onpointerenter}
@@ -151,7 +151,7 @@
 	{#if initials}
 		<span
 			class="font-bold text-xs"
-			style={playerColor && !isWinner && !isMine ? `color: ${playerColor.text}` : ''}
+			style={playerColor && !isWinner ? `color: ${playerColor.text}` : ''}
 		>
 			{initials}
 		</span>
