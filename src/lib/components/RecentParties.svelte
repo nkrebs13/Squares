@@ -12,6 +12,7 @@
 	let editValue = $state('');
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	let confirmingRemoveCode = $state<string | null>(null);
 
 	onMount(async () => {
 		recentParties = await getRecentParties();
@@ -55,10 +56,21 @@
 		goto(`/party/${code}`);
 	}
 
-	async function handleRemove(e: Event, code: string) {
+	function handleRemove(e: Event, code: string) {
+		e.stopPropagation();
+		confirmingRemoveCode = code;
+	}
+
+	async function confirmRemove(e: Event, code: string) {
 		e.stopPropagation();
 		await removeRecentParty(code);
 		recentParties = recentParties.filter((p) => p.code !== code);
+		confirmingRemoveCode = null;
+	}
+
+	function cancelRemove(e: Event) {
+		e.stopPropagation();
+		confirmingRemoveCode = null;
 	}
 
 	async function startEdit(e: Event, party: RecentParty) {
@@ -184,27 +196,43 @@
 						</div>
 					</div>
 					<div class="party-meta">
-						<span class="status-badge {badge.class}">{badge.text}</span>
-						<button
-							class="remove-btn"
-							onclick={(e) => handleRemove(e, party.code)}
-							aria-label="Remove from recent"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
+						{#if confirmingRemoveCode === party.code}
+							<div class="confirm-remove">
+								<span class="confirm-label">Remove?</span>
+								<button
+									class="confirm-yes-btn"
+									onclick={(e) => confirmRemove(e, party.code)}
+									aria-label="Confirm remove"
+								>
+									Yes
+								</button>
+								<button class="confirm-no-btn" onclick={cancelRemove} aria-label="Cancel remove">
+									No
+								</button>
+							</div>
+						{:else}
+							<span class="status-badge {badge.class}">{badge.text}</span>
+							<button
+								class="remove-btn"
+								onclick={(e) => handleRemove(e, party.code)}
+								aria-label="Remove from recent"
 							>
-								<line x1="18" y1="6" x2="6" y2="18"></line>
-								<line x1="6" y1="6" x2="18" y2="18"></line>
-							</svg>
-						</button>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<line x1="18" y1="6" x2="6" y2="18"></line>
+									<line x1="6" y1="6" x2="18" y2="18"></line>
+								</svg>
+							</button>
+						{/if}
 					</div>
 				</div>
 			{/each}
@@ -427,5 +455,48 @@
 		opacity: 1;
 		background: rgba(255, 255, 255, 0.1);
 		color: var(--text-primary);
+	}
+
+	/* Confirmation inline UI */
+	.confirm-remove {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.confirm-label {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+		white-space: nowrap;
+	}
+
+	.confirm-yes-btn,
+	.confirm-no-btn {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		padding: 0.125rem 0.5rem;
+		border-radius: 4px;
+		border: none;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.confirm-yes-btn {
+		background: rgba(239, 68, 68, 0.15);
+		color: #ef4444;
+	}
+
+	.confirm-yes-btn:hover {
+		background: rgba(239, 68, 68, 0.3);
+	}
+
+	.confirm-no-btn {
+		background: rgba(148, 163, 184, 0.15);
+		color: var(--text-secondary);
+	}
+
+	.confirm-no-btn:hover {
+		background: rgba(148, 163, 184, 0.3);
 	}
 </style>
