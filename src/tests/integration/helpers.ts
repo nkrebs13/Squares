@@ -117,9 +117,9 @@ export async function fillAllSquares(client: SupabaseClient, partyId: string): P
  * Delete a test party and all cascaded children (squares, numbers, scores, winners).
  */
 export async function cleanupParty(client: SupabaseClient, partyId: string): Promise<void> {
-	// Clean up audit_log entries referencing this party first (FK is ON DELETE SET NULL but we clean up anyway)
-	await client.from('audit_log').delete().eq('party_id', partyId);
-	await client.from('parties').delete().eq('id', partyId);
+	// Use the delete_party RPC (SECURITY DEFINER) — direct DELETE is blocked by RLS
+	// (no DELETE policy on parties table). The RPC cascades to squares, numbers, scores, winners.
+	await client.rpc('delete_party', { p_party_id: partyId, p_pin: '1234' });
 }
 
 /**
@@ -138,9 +138,9 @@ export async function cleanupAllTestParties(): Promise<void> {
 		.lt('created_at', oneHourAgo);
 
 	if (staleParties && staleParties.length > 0) {
-		const ids = staleParties.map((p) => p.id);
-		await client.from('audit_log').delete().in('party_id', ids);
-		await client.from('parties').delete().in('id', ids);
+		for (const p of staleParties) {
+			await client.rpc('delete_party', { p_party_id: p.id, p_pin: '1234' });
+		}
 	}
 }
 
