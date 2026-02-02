@@ -14,6 +14,7 @@
 		deleteParty,
 		removePlayer,
 		playerSummary,
+		verifyHostPin,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS } from '$lib/types';
@@ -121,11 +122,29 @@
 		}
 	});
 
-	function verifyPin() {
-		if (enteredPin.length === 4) {
-			sessionStorage.setItem(`squares_pin_${code}`, enteredPin);
-			storedPin = enteredPin;
-			isAuthorized = true;
+	let isVerifyingPin = $state(false);
+	let pinError = $state<string | null>(null);
+
+	async function verifyPin() {
+		if (enteredPin.length !== 4) return;
+
+		isVerifyingPin = true;
+		pinError = null;
+
+		try {
+			const isValid = await verifyHostPin(code, enteredPin);
+			if (isValid) {
+				sessionStorage.setItem(`squares_pin_${code}`, enteredPin);
+				storedPin = enteredPin;
+				isAuthorized = true;
+			} else {
+				pinError = 'Incorrect PIN. Please try again.';
+				enteredPin = '';
+			}
+		} catch {
+			pinError = 'Unable to verify PIN. Please try again.';
+		} finally {
+			isVerifyingPin = false;
 		}
 	}
 
@@ -290,8 +309,17 @@
 					inputmode="numeric"
 					class="input text-center text-2xl tracking-widest mb-4"
 				/>
-				<button type="submit" class="btn btn-primary w-full" disabled={enteredPin.length !== 4}>
-					Verify
+				{#if pinError}
+					<div class="message-error mb-4">
+						{pinError}
+					</div>
+				{/if}
+				<button
+					type="submit"
+					class="btn btn-primary w-full"
+					disabled={enteredPin.length !== 4 || isVerifyingPin}
+				>
+					{isVerifyingPin ? 'Verifying...' : 'Verify'}
 				</button>
 			</form>
 		</div>
