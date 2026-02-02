@@ -133,12 +133,17 @@ jobs:
       - name: Run integration tests
         if: steps.check-integration.outputs.has_tests == 'true'
         run: |
-          export TEST_SUPABASE_URL=$(supabase status --output json | jq -r '.API_URL')
-          export TEST_SUPABASE_KEY=$(supabase status --output json | jq -r '.ANON_KEY')
+          # Use env output format — designed for scripts, avoids JSON field name drift
+          eval "$(supabase status -o env 2>/dev/null)"
+          export TEST_SUPABASE_URL="${API_URL:-http://127.0.0.1:54321}"
+          export TEST_SUPABASE_KEY="${ANON_KEY}"
 
-          if [ -z "$TEST_SUPABASE_URL" ] || [ -z "$TEST_SUPABASE_KEY" ]; then
-            echo "Error: Failed to extract Supabase credentials"
+          if [ -z "$TEST_SUPABASE_KEY" ] || [ "$TEST_SUPABASE_KEY" = "null" ]; then
+            echo "::error::Failed to extract Supabase ANON_KEY"
+            echo "--- supabase status ---"
             supabase status
+            echo "--- supabase status -o env ---"
+            supabase status -o env 2>/dev/null || true
             exit 1
           fi
 
