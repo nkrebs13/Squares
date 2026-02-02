@@ -68,13 +68,13 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 
 		await page.goto('/party/TEST1');
 		// Wait for the grid to load
-		await expect(page.locator('[class*="grid"], [class*="square"]').first()).toBeVisible({
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({
 			timeout: 10000,
 		});
 
 		// ── Step 3: Verify grid renders ──
 		// The grid should show square elements
-		const gridArea = page.locator('[class*="grid"]').first();
+		const gridArea = page.locator('.grid-wrapper').first();
 		await expect(gridArea).toBeVisible();
 
 		// ── Step 4: Mock active state with numbers ──
@@ -107,7 +107,7 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 
 		// Reload to get active state
 		await page.goto('/party/TEST1');
-		await expect(page.locator('[class*="grid"], [class*="square"]').first()).toBeVisible({
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({
 			timeout: 10000,
 		});
 
@@ -122,7 +122,7 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 		});
 
 		await page.goto('/party/TEST1');
-		await expect(page.locator('[class*="grid"], [class*="square"]').first()).toBeVisible({
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({
 			timeout: 10000,
 		});
 
@@ -135,7 +135,7 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 			pageContent!.includes('Alice') ||
 			pageContent!.includes('Bob') ||
 			pageContent!.includes('Charlie') ||
-			pageContent!.includes('Diana');
+			pageContent!.includes('Dana');
 		expect(hasWinnerContent).toBe(true);
 	});
 });
