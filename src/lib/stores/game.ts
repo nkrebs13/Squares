@@ -394,6 +394,10 @@ export function subscribeToParty(partyId: string) {
 			channel.unsubscribe();
 			channel = null;
 		}
+		if (broadcastChannel) {
+			broadcastChannel.unsubscribe();
+			broadcastChannel = null;
+		}
 	};
 }
 

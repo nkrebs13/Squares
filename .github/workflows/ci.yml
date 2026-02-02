@@ -123,7 +123,8 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           # Pin to v2.44.0: v2.45.5+ removed ANON_KEY from `supabase status` JSON output
-          # (supabase/cli#4211). Fix PR #4320 not yet merged. Unpin when resolved.
+          # (supabase/cli#4211). TODO: Unpin once https://github.com/supabase/cli/pull/4320
+          # is merged and available in supabase/setup-cli.
           version: 2.44.0
 
       - name: Start local Supabase
@@ -137,6 +138,11 @@ jobs:
           eval "$(supabase status -o env 2>/dev/null)"
           export TEST_SUPABASE_URL="${API_URL:-http://127.0.0.1:54321}"
           export TEST_SUPABASE_KEY="${ANON_KEY}"
+
+          # Also set VITE_ vars — vitest test.env only applies to test workers,
+          # but globalSetup.ts runs in the main process and reads VITE_ directly
+          export VITE_SUPABASE_URL="${TEST_SUPABASE_URL}"
+          export VITE_SUPABASE_ANON_KEY="${TEST_SUPABASE_KEY}"
 
           if [ -z "$TEST_SUPABASE_KEY" ] || [ "$TEST_SUPABASE_KEY" = "null" ]; then
             echo "::error::Failed to extract Supabase ANON_KEY"

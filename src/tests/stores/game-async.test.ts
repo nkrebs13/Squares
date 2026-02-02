@@ -5,8 +5,6 @@ import {
 	party,
 	squares,
 	numbers,
-	scores,
-	winners,
 	isLoading,
 	error,
 	verifyHostPin,

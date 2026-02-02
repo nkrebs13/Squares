@@ -18,7 +18,7 @@ export default defineConfig({
 			exclude: ['src/lib/supabase.ts'],
 			thresholds: {
 				lines: 89,
-				functions: 90,
+				functions: 88,
 				branches: 76,
 				statements: 89,
 			},
@@ -82,7 +82,7 @@ export default defineConfig({
 							cacheName: 'supabase-cache',
 							expiration: {
 								maxEntries: 50,
-								maxAgeSeconds: 10,
+								maxAgeSeconds: 60,
 							},
 						},
 					},

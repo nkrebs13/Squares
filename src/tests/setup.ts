@@ -72,6 +72,41 @@ vi.mock('$lib/supabase', () => ({
 	getSupabaseClient: vi.fn(() => mockSupabaseClient),
 }));
 
+// Shared helper to restore mock defaults after vi.resetAllMocks()
+function restoreMockDefaults() {
+	mockSupabaseChannel.on.mockImplementation(
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		(event: string, filter: unknown, callback?: Function) => {
+			const cb = callback || (typeof filter === 'function' ? filter : undefined);
+			if (typeof cb === 'function') {
+				const key =
+					typeof filter === 'object' && filter !== null
+						? `${event}:${(filter as Record<string, string>).table || (filter as Record<string, string>).event || 'default'}`
+						: event;
+				mockChannelHandlers[key] = cb;
+			}
+			return mockSupabaseChannel;
+		}
+	);
+	mockSupabaseChannel.subscribe.mockReturnThis();
+
+	mockSupabaseClient.from.mockImplementation(() => ({
+		select: vi.fn().mockReturnThis(),
+		insert: vi.fn().mockReturnThis(),
+		update: vi.fn().mockReturnThis(),
+		delete: vi.fn().mockReturnThis(),
+		eq: vi.fn().mockReturnThis(),
+		order: vi.fn().mockReturnThis(),
+		single: vi.fn().mockResolvedValue({ data: null, error: null }),
+	}));
+	mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
+	mockSupabaseClient.channel.mockImplementation(() => mockSupabaseChannel);
+
+	for (const key in mockChannelHandlers) {
+		delete mockChannelHandlers[key];
+	}
+}
+
 // Mock crypto.randomUUID for consistent client IDs
 vi.stubGlobal(
 	'crypto',
@@ -142,41 +177,7 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 // Reset mocks before each test
 beforeEach(() => {
 	vi.resetAllMocks();
-
-	// Restore mockSupabaseChannel defaults after reset
-	mockSupabaseChannel.on.mockImplementation(
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-		(event: string, filter: unknown, callback?: Function) => {
-			const cb = callback || (typeof filter === 'function' ? filter : undefined);
-			if (typeof cb === 'function') {
-				const key =
-					typeof filter === 'object' && filter !== null
-						? `${event}:${(filter as Record<string, string>).table || (filter as Record<string, string>).event || 'default'}`
-						: event;
-				mockChannelHandlers[key] = cb;
-			}
-			return mockSupabaseChannel;
-		}
-	);
-	mockSupabaseChannel.subscribe.mockReturnThis();
-
-	// Restore mockSupabaseClient defaults after reset
-	mockSupabaseClient.from.mockImplementation(() => ({
-		select: vi.fn().mockReturnThis(),
-		insert: vi.fn().mockReturnThis(),
-		update: vi.fn().mockReturnThis(),
-		delete: vi.fn().mockReturnThis(),
-		eq: vi.fn().mockReturnThis(),
-		order: vi.fn().mockReturnThis(),
-		single: vi.fn().mockResolvedValue({ data: null, error: null }),
-	}));
-	mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
-	mockSupabaseClient.channel.mockImplementation(() => mockSupabaseChannel);
-
-	// Clear captured handlers
-	for (const key in mockChannelHandlers) {
-		delete mockChannelHandlers[key];
-	}
+	restoreMockDefaults();
 	localStorageMock.clear();
 	sessionStorageMock.clear();
 });

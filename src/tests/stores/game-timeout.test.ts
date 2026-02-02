@@ -162,21 +162,14 @@ describe('subscription cleanup', () => {
 		expect(unsubsAfter - unsubsBefore).toBeGreaterThanOrEqual(2);
 	});
 
-	// TODO: When the broadcastChannel cleanup bug is fixed, change the expect below
-	// to `toHaveBeenCalledTimes(2)` and remove this test — the test above
-	// ('cleanup unsubscribes both channels') already expects `>= 2` and will pass.
-	it('subscribeToParty cleanup only unsubscribes channel, NOT broadcastChannel (known bug)', () => {
-		// This test documents the known bug: the returned cleanup function
-		// only unsubscribes `channel` but NOT `broadcastChannel`
+	it('subscribeToParty cleanup unsubscribes both channel and broadcastChannel', () => {
 		const cleanupFn = subscribeToParty('test-party-id');
 
-		// Reset unsubscribe call count
 		mockSupabaseChannel.unsubscribe.mockClear();
 
 		cleanupFn();
 
-		// The bug: only 1 unsubscribe call (channel), not 2 (channel + broadcastChannel)
-		// When this bug is fixed, this test should be updated to expect 2
-		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(1);
+		// Both channel and broadcastChannel should be unsubscribed
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(2);
 	});
 });

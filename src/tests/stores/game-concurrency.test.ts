@@ -10,7 +10,7 @@ import {
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square, BroadcastMessage } from '$lib/types';
+import type { Party, Square } from '$lib/types';
 import { mockSupabaseClient, mockChannelHandlers } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {

@@ -1,13 +1,28 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const { mockPage } = vi.hoisted(() => {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { writable } = require('svelte/store');
+	// Manual writable implementation to avoid CJS/ESM inconsistency
+	type Subscriber<T> = (value: T) => void;
+	function createWritable<T>(initial: T) {
+		let value = initial;
+		const subs = new Set<Subscriber<T>>();
+		return {
+			set(v: T) {
+				value = v;
+				subs.forEach((s) => s(value));
+			},
+			subscribe(fn: Subscriber<T>) {
+				fn(value);
+				subs.add(fn);
+				return () => subs.delete(fn);
+			},
+		};
+	}
 	return {
-		mockPage: writable({
+		mockPage: createWritable({
 			url: new URL('http://localhost/party/ABC123'),
 			params: {},
 			route: { id: '/party/[code]' },
@@ -29,7 +44,7 @@ vi.mock('$app/stores', () => ({
 import FloatingHomeButton from '$lib/components/FloatingHomeButton.svelte';
 
 describe('FloatingHomeButton', () => {
-	it('renders home link on non-home pages', () => {
+	beforeEach(() => {
 		mockPage.set({
 			url: new URL('http://localhost/party/ABC123'),
 			params: {},
@@ -40,41 +55,21 @@ describe('FloatingHomeButton', () => {
 			form: null,
 			state: {},
 		});
+	});
 
+	it('renders home link on non-home pages', () => {
 		const { container } = render(FloatingHomeButton);
 		const link = container.querySelector('a[href="/"]');
 		expect(link).toBeTruthy();
 	});
 
 	it('has correct aria-label', () => {
-		mockPage.set({
-			url: new URL('http://localhost/party/ABC123'),
-			params: {},
-			route: { id: '/party/[code]' },
-			status: 200,
-			error: null,
-			data: {},
-			form: null,
-			state: {},
-		});
-
 		const { container } = render(FloatingHomeButton);
 		const link = container.querySelector('a');
 		expect(link?.getAttribute('aria-label')).toBe('Return to home');
 	});
 
 	it('renders SVG icon', () => {
-		mockPage.set({
-			url: new URL('http://localhost/party/ABC123'),
-			params: {},
-			route: { id: '/party/[code]' },
-			status: 200,
-			error: null,
-			data: {},
-			form: null,
-			state: {},
-		});
-
 		const { container } = render(FloatingHomeButton);
 		expect(container.querySelector('svg')).toBeTruthy();
 	});
