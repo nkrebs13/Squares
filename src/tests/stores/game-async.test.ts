@@ -5,13 +5,14 @@ import {
 	party,
 	squares,
 	numbers,
-	scores,
-	winners,
 	isLoading,
 	error,
 	verifyHostPin,
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
+	claimSquare,
+	claimSquaresBatch,
+	unclaimSquare,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
@@ -268,6 +269,142 @@ describe('verifyHostPin', () => {
 	it('returns false when data is not true', async () => {
 		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
 		const result = await verifyHostPin('TEST123', 'wrong');
+		expect(result).toBe(false);
+	});
+});
+
+describe('claimSquare (legacy)', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('returns false when no party loaded', async () => {
+		const result = await claimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+
+	it('returns false when no user name', async () => {
+		await userName.clear();
+		party.set(createMockParty());
+		const result = await claimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+
+	it('returns false when party status is not filling', async () => {
+		party.set(createMockParty({ status: 'active' }));
+		const result = await claimSquare(0, 0);
+		expect(result).toBe(false);
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+
+	it('returns true on RPC success', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		const result = await claimSquare(0, 0);
+		expect(result).toBe(true);
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+			p_party_id: 'test-party-id',
+			p_row: 0,
+			p_col: 0,
+			p_player_name: 'Alice',
+		});
+	});
+
+	it('returns false on RPC error', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'Already claimed' },
+		});
+		const result = await claimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+});
+
+describe('claimSquaresBatch (legacy)', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('returns 0 when no party loaded', async () => {
+		const result = await claimSquaresBatch([{ row: 0, col: 0 }]);
+		expect(result).toBe(0);
+	});
+
+	it('returns 0 when cells array is empty', async () => {
+		party.set(createMockParty());
+		const result = await claimSquaresBatch([]);
+		expect(result).toBe(0);
+	});
+
+	it('returns 0 when party status is not filling', async () => {
+		party.set(createMockParty({ status: 'active' }));
+		const result = await claimSquaresBatch([{ row: 0, col: 0 }]);
+		expect(result).toBe(0);
+	});
+
+	it('returns claimed count on success', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 3, error: null });
+		const result = await claimSquaresBatch([
+			{ row: 0, col: 0 },
+			{ row: 0, col: 1 },
+			{ row: 0, col: 2 },
+		]);
+		expect(result).toBe(3);
+	});
+
+	it('returns 0 on RPC error', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'Error' },
+		});
+		const result = await claimSquaresBatch([{ row: 0, col: 0 }]);
+		expect(result).toBe(0);
+	});
+});
+
+describe('unclaimSquare (legacy)', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('returns false when no party loaded', async () => {
+		const result = await unclaimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+
+	it('returns false when no user name', async () => {
+		await userName.clear();
+		party.set(createMockParty());
+		const result = await unclaimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+
+	it('returns false when party status is not filling', async () => {
+		party.set(createMockParty({ status: 'active' }));
+		const result = await unclaimSquare(0, 0);
+		expect(result).toBe(false);
+	});
+
+	it('returns true on RPC success', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		const result = await unclaimSquare(0, 0);
+		expect(result).toBe(true);
+	});
+
+	it('returns false on RPC error', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'Error' },
+		});
+		const result = await unclaimSquare(0, 0);
 		expect(result).toBe(false);
 	});
 });

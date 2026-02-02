@@ -1,0 +1,32 @@
+{
+	"permissions": {
+		"allow": [
+			"Bash(npm run test*)",
+			"Bash(npm run check*)",
+			"Bash(npm run lint*)",
+			"Bash(npm run build)",
+			"Bash(npm run format*)",
+			"Bash(npm run dev)",
+			"Bash(npm run preview)",
+			"Bash(npx vitest*)",
+			"Bash(npx playwright*)",
+			"Bash(npx svelte-check*)",
+			"Bash(supabase status)",
+			"Bash(supabase migration list)"
+		]
+	},
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write",
+				"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -qE \"\\.(ts|svelte)\" && npx svelte-check --tsconfig ./tsconfig.json || true'"
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Edit",
+				"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"supabase/migrations/0\" && echo \"BLOCKED: Do not modify existing migrations. Create a new migration file instead.\" && exit 1 || true'"
+			}
+		]
+	}
+}

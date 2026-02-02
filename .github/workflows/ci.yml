@@ -89,6 +89,74 @@ jobs:
       - name: Build
         run: npm run build
 
+  integration-tests:
+    name: Integration Tests (Supabase)
+    runs-on: ubuntu-latest
+    needs: [lint-and-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for integration tests
+        id: check-integration
+        run: |
+          if ls src/tests/integration/*.test.ts 1>/dev/null 2>&1; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+            echo "No integration tests found — skipping"
+          fi
+
+      - name: Setup Supabase CLI
+        if: steps.check-integration.outputs.has_tests == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          # Pin to v2.44.0: v2.45.5+ removed ANON_KEY from `supabase status` JSON output
+          # (supabase/cli#4211). TODO: Unpin once https://github.com/supabase/cli/pull/4320
+          # is merged and available in supabase/setup-cli.
+          version: 2.44.0
+
+      - name: Start local Supabase
+        if: steps.check-integration.outputs.has_tests == 'true'
+        run: supabase init || true && supabase start
+
+      - name: Run integration tests
+        if: steps.check-integration.outputs.has_tests == 'true'
+        run: |
+          # Use env output format — designed for scripts, avoids JSON field name drift
+          eval "$(supabase status -o env 2>/dev/null)"
+          export TEST_SUPABASE_URL="${API_URL:-http://127.0.0.1:54321}"
+          export TEST_SUPABASE_KEY="${ANON_KEY}"
+
+          # Also set VITE_ vars — vitest test.env only applies to test workers,
+          # but globalSetup.ts runs in the main process and reads VITE_ directly
+          export VITE_SUPABASE_URL="${TEST_SUPABASE_URL}"
+          export VITE_SUPABASE_ANON_KEY="${TEST_SUPABASE_KEY}"
+
+          if [ -z "$TEST_SUPABASE_KEY" ] || [ "$TEST_SUPABASE_KEY" = "null" ]; then
+            echo "::error::Failed to extract Supabase ANON_KEY"
+            echo "--- supabase status ---"
+            supabase status
+            echo "--- supabase status -o env ---"
+            supabase status -o env 2>/dev/null || true
+            exit 1
+          fi
+
+          npm run test:integration:ci
+
+      - name: Stop local Supabase
+        if: steps.check-integration.outputs.has_tests == 'true' && always()
+        run: supabase stop
+
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest

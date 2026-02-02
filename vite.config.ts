@@ -9,6 +9,7 @@ export default defineConfig({
 		environment: 'jsdom',
 		setupFiles: ['./src/tests/setup.ts'],
 		include: ['src/**/*.{test,spec}.{js,ts}'],
+		exclude: ['src/tests/integration/**'],
 		globals: true,
 		coverage: {
 			provider: 'v8',
@@ -16,10 +17,10 @@ export default defineConfig({
 			include: ['src/lib/**/*.{ts,svelte}'],
 			exclude: ['src/lib/supabase.ts'],
 			thresholds: {
-				lines: 66,
-				functions: 72,
-				branches: 51,
-				statements: 69,
+				lines: 89,
+				functions: 88,
+				branches: 76,
+				statements: 89,
 			},
 		},
 	},
@@ -71,13 +72,17 @@ export default defineConfig({
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
 				runtimeCaching: [
 					{
+						urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/rpc\/.*/i,
+						handler: 'NetworkOnly', // RPCs must always hit server
+					},
+					{
 						urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
 						handler: 'NetworkFirst',
 						options: {
 							cacheName: 'supabase-cache',
 							expiration: {
 								maxEntries: 50,
-								maxAgeSeconds: 60 * 5, // 5 minutes
+								maxAgeSeconds: 60,
 							},
 						},
 					},
