@@ -1,6 +1,6 @@
-import { get, set, del, keys } from 'idb-keyval';
+import { get, set, del } from 'idb-keyval';
 import { browser } from '$app/environment';
-import type { RecentParty, PartyStatus } from './types';
+import type { RecentParty } from './types';
 
 const STORAGE_KEYS = {
 	userName: 'squares_user_name',
@@ -93,11 +93,18 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 	try {
 		let parties = await getRecentParties();
 
+		// Find existing entry to preserve nickname
+		const existingParty = parties.find((p) => p.code === party.code);
+		const partyWithNickname = {
+			...party,
+			nickname: party.nickname ?? existingParty?.nickname,
+		};
+
 		// Remove existing entry for this party code
 		parties = parties.filter((p) => p.code !== party.code);
 
 		// Add new entry at the beginning
-		parties.unshift(party);
+		parties.unshift(partyWithNickname);
 
 		// Keep only MAX_RECENT_PARTIES
 		parties = parties.slice(0, MAX_RECENT_PARTIES);
@@ -107,8 +114,13 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 		// Fallback to localStorage
 		try {
 			let parties = await getRecentParties();
+			const existingParty = parties.find((p) => p.code === party.code);
+			const partyWithNickname = {
+				...party,
+				nickname: party.nickname ?? existingParty?.nickname,
+			};
 			parties = parties.filter((p) => p.code !== party.code);
-			parties.unshift(party);
+			parties.unshift(partyWithNickname);
 			parties = parties.slice(0, MAX_RECENT_PARTIES);
 			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
@@ -129,6 +141,27 @@ export async function removeRecentParty(code: string): Promise<void> {
 		try {
 			let parties = await getRecentParties();
 			parties = parties.filter((p) => p.code !== code);
+			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
+		} catch {
+			// Silently fail
+		}
+	}
+}
+
+export async function updatePartyNickname(code: string, nickname: string): Promise<void> {
+	if (!browser) return;
+
+	const trimmedNickname = nickname.trim() || undefined;
+
+	try {
+		let parties = await getRecentParties();
+		parties = parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p));
+		await set(STORAGE_KEYS.recentParties, parties);
+	} catch {
+		// Fallback to localStorage
+		try {
+			let parties = await getRecentParties();
+			parties = parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p));
 			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
 			// Silently fail
