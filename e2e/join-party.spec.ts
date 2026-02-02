@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupSupabaseMocks } from './fixtures/supabase-mocks';
 
 test.describe('Join Party Page', () => {
 	test.beforeEach(async ({ page }) => {
@@ -106,5 +107,145 @@ test.describe('Join Party Page - With Mocked Supabase', () => {
 		await joinButton.click();
 
 		await expect(page.getByText(/party not found/i)).toBeVisible();
+	});
+});
+
+test.describe('Join Party - Host PIN Challenge', () => {
+	test('shows PIN challenge when name matches host', async ({ page }) => {
+		// Mock party lookup returning host_name_lower = 'host'
+		await page.route('**/rest/v1/parties*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'test-party-id',
+					status: 'filling',
+					host_name_lower: 'host',
+				}),
+			});
+		});
+
+		await page.goto('/join?code=TEST1');
+
+		// Enter the host name (matching 'host')
+		await page.getByPlaceholder(/enter your name/i).fill('Host');
+		await page.getByRole('button', { name: /join party/i }).click();
+
+		// PIN challenge modal should appear
+		await expect(page.getByText(/host name protected/i)).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText(/enter the host pin/i)).toBeVisible();
+	});
+
+	test('correct PIN allows joining', async ({ page }) => {
+		// Mock party lookup
+		await page.route('**/rest/v1/parties*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'test-party-id',
+					status: 'filling',
+					host_name_lower: 'host',
+				}),
+			});
+		});
+
+		// Mock verify_host_pin RPC — returns true
+		await page.route('**/rest/v1/rpc/verify_host_pin', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(true),
+			});
+		});
+
+		// Mock remaining routes for the party page it navigates to
+		await setupSupabaseMocks(page);
+
+		await page.goto('/join?code=TEST1');
+
+		await page.getByPlaceholder(/enter your name/i).fill('Host');
+		await page.getByRole('button', { name: /join party/i }).click();
+
+		// Wait for PIN challenge
+		await expect(page.getByText(/host name protected/i)).toBeVisible({ timeout: 10000 });
+
+		// Enter correct PIN
+		await page.locator('input[type="tel"]').last().fill('1234');
+		await page.getByRole('button', { name: /verify/i }).click();
+
+		// Should navigate to party page
+		await expect(page).toHaveURL('/party/TEST1', { timeout: 10000 });
+	});
+
+	test('incorrect PIN shows error', async ({ page }) => {
+		// Mock party lookup
+		await page.route('**/rest/v1/parties*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'test-party-id',
+					status: 'filling',
+					host_name_lower: 'host',
+				}),
+			});
+		});
+
+		// Mock verify_host_pin RPC — returns false
+		await page.route('**/rest/v1/rpc/verify_host_pin', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(false),
+			});
+		});
+
+		await page.goto('/join?code=TEST1');
+
+		await page.getByPlaceholder(/enter your name/i).fill('Host');
+		await page.getByRole('button', { name: /join party/i }).click();
+
+		// Wait for PIN challenge
+		await expect(page.getByText(/host name protected/i)).toBeVisible({ timeout: 10000 });
+
+		// Enter incorrect PIN
+		await page.locator('input[type="tel"]').last().fill('9999');
+		await page.getByRole('button', { name: /verify/i }).click();
+
+		// Should show error
+		await expect(page.getByText(/incorrect pin/i)).toBeVisible({ timeout: 10000 });
+	});
+
+	test('"Use Different Name" cancels challenge', async ({ page }) => {
+		// Mock party lookup
+		await page.route('**/rest/v1/parties*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'test-party-id',
+					status: 'filling',
+					host_name_lower: 'host',
+				}),
+			});
+		});
+
+		await page.goto('/join?code=TEST1');
+
+		await page.getByPlaceholder(/enter your name/i).fill('Host');
+		await page.getByRole('button', { name: /join party/i }).click();
+
+		// Wait for PIN challenge
+		await expect(page.getByText(/host name protected/i)).toBeVisible({ timeout: 10000 });
+
+		// Click "Use Different Name"
+		await page.getByRole('button', { name: /use different name/i }).click();
+
+		// Modal should close
+		await expect(page.getByText(/host name protected/i)).not.toBeVisible();
+
+		// Name field should be cleared
+		await expect(page.getByPlaceholder(/enter your name/i)).toHaveValue('');
 	});
 });

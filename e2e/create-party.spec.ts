@@ -143,3 +143,156 @@ test.describe('Create Party Page', () => {
 		expect(value.length).toBeLessThanOrEqual(20);
 	});
 });
+
+test.describe('Create Party - Submission', () => {
+	test('valid form creates party and navigates', async ({ page }) => {
+		await page.goto('/create');
+
+		// Fill in form
+		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
+		await page.getByPlaceholder('0000').fill('1234');
+
+		// Mock the 3 sequential API calls
+		let capturedCode = '';
+
+		await page.route('**/rest/v1/parties*', async (route) => {
+			if (route.request().method() === 'POST') {
+				const body = JSON.parse(route.request().postData() || '{}');
+				capturedCode = body.code || 'XTEST';
+				route.fulfill({
+					status: 201,
+					contentType: 'application/json',
+					body: JSON.stringify({
+						id: 'new-party-id',
+						code: capturedCode,
+						status: 'filling',
+						...body,
+					}),
+				});
+			} else {
+				route.fulfill({
+					status: 200,
+					contentType: 'application/json',
+					body: JSON.stringify({
+						id: 'new-party-id',
+						code: capturedCode || 'XTEST',
+						status: 'filling',
+						square_price: 1,
+						split_q1: 10,
+						split_q2: 20,
+						split_q3: 30,
+						split_final: 40,
+						team_row_name: 'Seahawks',
+						team_col_name: 'Patriots',
+						team_row_color: '#69be28',
+						team_col_color: '#c60c30',
+						host_name_lower: 'test host',
+						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+					}),
+				});
+			}
+		});
+
+		await page.route('**/rest/v1/squares*', (route) => {
+			route.fulfill({
+				status: 201,
+				contentType: 'application/json',
+				body: JSON.stringify([]),
+			});
+		});
+
+		await page.route('**/rest/v1/scores*', (route) => {
+			route.fulfill({
+				status: 201,
+				contentType: 'application/json',
+				body: JSON.stringify({ party_id: 'new-party-id' }),
+			});
+		});
+
+		await page.route('**/rest/v1/numbers*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(null),
+			});
+		});
+
+		await page.route('**/rest/v1/winners*', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify([]),
+			});
+		});
+
+		await page.route('**/realtime/**', (route) => {
+			route.abort();
+		});
+
+		// Click create
+		await page.getByRole('button', { name: /create party/i }).click();
+
+		// Should navigate to /party/{code}
+		await expect(page).toHaveURL(/\/party\/[A-Z0-9]{5}/, { timeout: 15000 });
+	});
+
+	test('shows error on creation failure', async ({ page }) => {
+		await page.goto('/create');
+
+		// Fill in form
+		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
+		await page.getByPlaceholder('0000').fill('1234');
+
+		// Mock party creation failure
+		await page.route('**/rest/v1/parties*', (route) => {
+			if (route.request().method() === 'POST') {
+				route.fulfill({
+					status: 409,
+					contentType: 'application/json',
+					body: JSON.stringify({ message: 'Duplicate code' }),
+				});
+			} else {
+				route.continue();
+			}
+		});
+
+		await page.getByRole('button', { name: /create party/i }).click();
+
+		// Should show error message (could be the raw error or generic message)
+		await expect(page.getByText(/something went wrong|failed|duplicate/i)).toBeVisible({
+			timeout: 10000,
+		});
+	});
+
+	test('button shows loading state during submit', async ({ page }) => {
+		await page.goto('/create');
+
+		// Fill in form
+		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
+		await page.getByPlaceholder('0000').fill('1234');
+
+		// Mock with delay to see loading state
+		await page.route('**/rest/v1/parties*', async (route) => {
+			if (route.request().method() === 'POST') {
+				// Delay response to observe loading state
+				await new Promise((r) => setTimeout(r, 2000));
+				route.fulfill({
+					status: 201,
+					contentType: 'application/json',
+					body: JSON.stringify({
+						id: 'new-party-id',
+						code: 'XTEST',
+						status: 'filling',
+					}),
+				});
+			} else {
+				route.continue();
+			}
+		});
+
+		await page.getByRole('button', { name: /create party/i }).click();
+
+		// Button should show loading text
+		await expect(page.getByText(/creating/i)).toBeVisible({ timeout: 5000 });
+	});
+});
