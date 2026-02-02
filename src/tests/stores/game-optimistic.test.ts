@@ -126,7 +126,7 @@ describe('claimSquareOptimistic', () => {
 		// Mock RPC to call the .then callback with error
 		mockSupabaseClient.rpc.mockReturnValue({
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-		then: (cb: Function) => {
+			then: (cb: Function) => {
 				cb({ error: { message: 'Already claimed' } });
 				return { catch: vi.fn() };
 			},
@@ -150,7 +150,7 @@ describe('claimSquareOptimistic', () => {
 		// Since we can't easily set up the broadcastChannel mock, we'll verify the RPC was called
 		mockSupabaseClient.rpc.mockReturnValue({
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-		then: (cb: Function) => {
+			then: (cb: Function) => {
 				cb({ error: { message: 'Already claimed' } });
 				return { catch: vi.fn() };
 			},
@@ -259,7 +259,7 @@ describe('unclaimSquareOptimistic', () => {
 
 		mockSupabaseClient.rpc.mockReturnValue({
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-		then: (cb: Function) => {
+			then: (cb: Function) => {
 				cb({ error: { message: 'Failed' } });
 				return { catch: vi.fn() };
 			},

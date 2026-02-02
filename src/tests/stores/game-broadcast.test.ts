@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import {
-	subscribeToParty,
-	party,
-	squares,
-	pendingOperations,
-	cleanup,
-} from '$lib/stores/game';
+import { subscribeToParty, party, squares, pendingOperations, cleanup } from '$lib/stores/game';
 import type { Party, Square, BroadcastMessage } from '$lib/types';
 import { mockSupabaseClient, mockSupabaseChannel, mockChannelHandlers } from '../setup';
 
@@ -74,9 +68,7 @@ describe('subscribeToParty', () => {
 
 		// Check on was called for squares, parties, numbers, scores, winners
 		const onCalls = mockSupabaseChannel.on.mock.calls;
-		const pgChangesCalls = onCalls.filter(
-			(call: unknown[]) => call[0] === 'postgres_changes'
-		);
+		const pgChangesCalls = onCalls.filter((call: unknown[]) => call[0] === 'postgres_changes');
 
 		const tables = pgChangesCalls.map(
 			(call: unknown[]) => (call[1] as Record<string, string>).table

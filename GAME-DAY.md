@@ -9,12 +9,15 @@
 ## Common Issues
 
 ### Scores not updating in real-time
+
 1. Check Supabase Realtime is enabled for the `scores` and `winners` tables
 2. Verify the PWA service worker isn't caching RPC responses (RPCs now use NetworkOnly)
 3. Have users hard-refresh: pull-to-refresh on mobile or Ctrl+Shift+R on desktop
 
 ### Party stuck in wrong state
+
 Use the Supabase SQL Editor:
+
 ```sql
 -- Check party status
 SELECT id, code, status FROM parties WHERE code = 'XXXXXX';
@@ -27,7 +30,9 @@ UPDATE parties SET status = 'complete' WHERE code = 'XXXXXX';
 ```
 
 ### Missing winner records
+
 If `update_score` RPC fails, manually insert winners:
+
 ```sql
 -- Find the party and its numbers
 SELECT p.id, n.row_numbers, n.col_numbers
@@ -56,20 +61,25 @@ WHERE p.code = 'XXXXXX';
 ```
 
 ### Clear service worker cache
+
 Have users run in browser console:
+
 ```js
-navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
 location.reload();
 ```
 
 ### Check broadcast channel health
+
 In browser console on the party page:
+
 ```js
 // Check if realtime is connected
 document.querySelectorAll('[class*="grid"]').length > 0 && console.log('Grid loaded');
 ```
 
 ## Emergency Contacts
+
 - Supabase status: https://status.supabase.com
 - Cloudflare status: https://www.cloudflarestatus.com

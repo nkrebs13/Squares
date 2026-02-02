@@ -219,9 +219,7 @@ describe('updatePayoutStructure', () => {
 			insert: vi.fn().mockReturnThis(),
 			update: vi.fn().mockReturnThis(),
 			delete: vi.fn().mockReturnThis(),
-			eq: vi
-				.fn()
-				.mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+			eq: vi.fn().mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) }),
 			order: vi.fn().mockReturnThis(),
 			single: vi.fn().mockResolvedValue({ data: null, error: null }),
 		};
@@ -397,9 +395,7 @@ describe('deleteParty', () => {
 			insert: vi.fn().mockReturnThis(),
 			update: vi.fn().mockReturnThis(),
 			delete: vi.fn().mockReturnThis(),
-			eq: vi
-				.fn()
-				.mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+			eq: vi.fn().mockReturnValueOnce({ eq: vi.fn().mockResolvedValue({ error: null }) }),
 			order: vi.fn().mockReturnThis(),
 			single: vi.fn().mockResolvedValue({ data: null, error: null }),
 		};
@@ -419,11 +415,9 @@ describe('deleteParty', () => {
 			insert: vi.fn().mockReturnThis(),
 			update: vi.fn().mockReturnThis(),
 			delete: vi.fn().mockReturnThis(),
-			eq: vi
-				.fn()
-				.mockReturnValueOnce({
-					eq: vi.fn().mockResolvedValue({ error: { message: 'DB error' } }),
-				}),
+			eq: vi.fn().mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: 'DB error' } }),
+			}),
 			order: vi.fn().mockReturnThis(),
 			single: vi.fn().mockResolvedValue({ data: null, error: null }),
 		};

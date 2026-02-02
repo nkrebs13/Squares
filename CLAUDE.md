@@ -45,15 +45,15 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 ## RPC Signatures
 
-| RPC | Parameters | Returns |
-|---|---|---|
-| `claim_square` | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)` | `BOOLEAN` |
-| `unclaim_square` | same pattern | `BOOLEAN` |
-| `claim_squares_batch` | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` | `INTEGER` |
-| `lock_party` | `p_party_id UUID, p_pin VARCHAR(4)` | `BOOLEAN` |
-| `update_score` | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT` | `BOOLEAN` |
-| `verify_host_pin` | `p_party_code VARCHAR(6), p_pin VARCHAR(4)` | `BOOLEAN` |
-| `delete_party` | `p_party_id UUID, p_pin VARCHAR(4)` | `BOOLEAN` |
+| RPC                   | Parameters                                                                                   | Returns   |
+| --------------------- | -------------------------------------------------------------------------------------------- | --------- |
+| `claim_square`        | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                           | `BOOLEAN` |
+| `unclaim_square`      | same pattern                                                                                 | `BOOLEAN` |
+| `claim_squares_batch` | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                  | `INTEGER` |
+| `lock_party`          | `p_party_id UUID, p_pin VARCHAR(4)`                                                          | `BOOLEAN` |
+| `update_score`        | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT` | `BOOLEAN` |
+| `verify_host_pin`     | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                  | `BOOLEAN` |
+| `delete_party`        | `p_party_id UUID, p_pin VARCHAR(4)`                                                          | `BOOLEAN` |
 
 ## BroadcastMessage Wire Protocol
 
