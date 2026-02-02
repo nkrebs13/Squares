@@ -73,7 +73,7 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 All changes must pass `npm run test && npm run check && npm run lint`. Test files mirror source under `src/tests/`. See `src/tests/setup.ts` for available mocks.
 
-Exported mocks from setup.ts: `mockSupabaseClient`, `mockSupabaseChannel`, `localStorageMock`, `sessionStorageMock`.
+Exported mocks from setup.ts: `mockSupabaseClient`, `mockSupabaseChannel`, `mockChannelHandlers`, `localStorageMock`, `sessionStorageMock`.
 
 Factory functions in test files: `createMockParty()`, `createMockSquare()`, `createEmptyGrid()`.
 

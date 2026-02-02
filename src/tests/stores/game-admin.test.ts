@@ -10,7 +10,6 @@ import {
 	squares,
 	cleanup,
 } from '$lib/stores/game';
-import { userName } from '$lib/stores/user';
 import type { Party, Square } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 

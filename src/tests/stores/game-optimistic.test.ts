@@ -11,7 +11,7 @@ import {
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Party, Square } from '$lib/types';
-import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
+import { mockSupabaseClient } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {

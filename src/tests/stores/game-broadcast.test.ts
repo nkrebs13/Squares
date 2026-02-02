@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { subscribeToParty, party, squares, pendingOperations, cleanup } from '$lib/stores/game';
 import type { Party, Square, BroadcastMessage } from '$lib/types';

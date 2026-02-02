@@ -9,7 +9,7 @@ export default defineConfig({
 		hookTimeout: 30000,
 		env: {
 			VITE_SUPABASE_URL: process.env.TEST_SUPABASE_URL || 'http://127.0.0.1:54321',
-			VITE_SUPABASE_ANON_KEY: process.env.TEST_SUPABASE_KEY || '',
+			VITE_SUPABASE_ANON_KEY: process.env.TEST_SUPABASE_KEY || 'not-set',
 		},
 	},
 });

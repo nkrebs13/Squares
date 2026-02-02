@@ -4,7 +4,6 @@ import {
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
 	subscribeToParty,
-	loadParty,
 	party,
 	squares,
 	pendingOperations,
@@ -12,7 +11,7 @@ import {
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Party, Square, BroadcastMessage } from '$lib/types';
-import { mockSupabaseClient, mockSupabaseChannel, mockChannelHandlers } from '../setup';
+import { mockSupabaseClient, mockChannelHandlers } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {

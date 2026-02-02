@@ -162,6 +162,9 @@ describe('subscription cleanup', () => {
 		expect(unsubsAfter - unsubsBefore).toBeGreaterThanOrEqual(2);
 	});
 
+	// TODO: When the broadcastChannel cleanup bug is fixed, change the expect below
+	// to `toHaveBeenCalledTimes(2)` and remove this test — the test above
+	// ('cleanup unsubscribes both channels') already expects `>= 2` and will pass.
 	it('subscribeToParty cleanup only unsubscribes channel, NOT broadcastChannel (known bug)', () => {
 		// This test documents the known bug: the returned cleanup function
 		// only unsubscribes `channel` but NOT `broadcastChannel`
