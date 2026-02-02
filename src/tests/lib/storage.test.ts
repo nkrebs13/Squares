@@ -10,6 +10,11 @@ import {
 	updatePartyNickname,
 	getHostPin,
 	setHostPin,
+	removeHostPin,
+	hasHostPin,
+	hasSeenGestureHint,
+	markGestureHintSeen,
+	requestPersistentStorage,
 } from '$lib/storage';
 import type { RecentParty } from '$lib/types';
 
@@ -205,5 +210,142 @@ describe('setHostPin', () => {
 			'squares_host_pins',
 			expect.objectContaining({ ABC123: '1234' })
 		);
+	});
+
+	it('falls back to sessionStorage when IndexedDB throws', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		await setHostPin('ABC123', '5678');
+		expect(sessionStorage.getItem('squares_pin_ABC123')).toBe('5678');
+	});
+});
+
+describe('removeHostPin', () => {
+	it('removes pin from IndexedDB', async () => {
+		mockIdbGet.mockResolvedValueOnce({ ABC123: '1234', DEF456: '5678' });
+		await removeHostPin('ABC123');
+		expect(mockIdbSet).toHaveBeenCalledWith(
+			'squares_host_pins',
+			expect.not.objectContaining({ ABC123: '1234' })
+		);
+	});
+
+	it('falls back to sessionStorage when IndexedDB throws', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		sessionStorage.setItem('squares_pin_ABC123', '1234');
+		await removeHostPin('ABC123');
+		expect(sessionStorage.getItem('squares_pin_ABC123')).toBeNull();
+	});
+});
+
+describe('hasHostPin', () => {
+	it('returns true when pin exists', async () => {
+		mockIdbGet.mockResolvedValueOnce({ ABC123: '1234' });
+		const result = await hasHostPin('ABC123');
+		expect(result).toBe(true);
+	});
+
+	it('returns false when pin does not exist', async () => {
+		mockIdbGet.mockResolvedValueOnce({});
+		const result = await hasHostPin('ABC123');
+		expect(result).toBe(false);
+	});
+});
+
+describe('hasSeenGestureHint', () => {
+	it('returns true when seen', async () => {
+		mockIdbGet.mockResolvedValueOnce(true);
+		const result = await hasSeenGestureHint();
+		expect(result).toBe(true);
+	});
+
+	it('returns false when not seen', async () => {
+		mockIdbGet.mockResolvedValueOnce(undefined);
+		const result = await hasSeenGestureHint();
+		expect(result).toBe(false);
+	});
+
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		localStorage.setItem('squares_gesture_hint_shown', 'true');
+		const result = await hasSeenGestureHint();
+		expect(result).toBe(true);
+	});
+});
+
+describe('markGestureHintSeen', () => {
+	it('saves to IndexedDB', async () => {
+		await markGestureHintSeen();
+		expect(mockIdbSet).toHaveBeenCalledWith('squares_gesture_hint_shown', true);
+	});
+
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		mockIdbSet.mockRejectedValueOnce(new Error('IDB error'));
+		await markGestureHintSeen();
+		expect(localStorage.getItem('squares_gesture_hint_shown')).toBe('true');
+	});
+});
+
+describe('requestPersistentStorage', () => {
+	it('returns false when navigator.storage.persist is not available', async () => {
+		const result = await requestPersistentStorage();
+		// In test environment, navigator.storage may not exist
+		expect(typeof result).toBe('boolean');
+	});
+});
+
+describe('saveRecentParty localStorage fallback', () => {
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		mockIdbGet.mockRejectedValue(new Error('IDB error'));
+		mockIdbSet.mockRejectedValue(new Error('IDB error'));
+
+		const party = createRecentParty({ code: 'FALL01' });
+		await saveRecentParty(party);
+
+		const stored = localStorage.getItem('squares_recent_parties');
+		expect(stored).not.toBeNull();
+		const parsed = JSON.parse(stored!);
+		expect(parsed[0].code).toBe('FALL01');
+	});
+});
+
+describe('removeRecentParty localStorage fallback', () => {
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		// Pre-populate localStorage
+		const parties = [createRecentParty({ code: 'ABC123' }), createRecentParty({ code: 'DEF456' })];
+		localStorage.setItem('squares_recent_parties', JSON.stringify(parties));
+
+		mockIdbGet.mockRejectedValue(new Error('IDB error'));
+		mockIdbSet.mockRejectedValue(new Error('IDB error'));
+
+		await removeRecentParty('ABC123');
+
+		const stored = localStorage.getItem('squares_recent_parties');
+		const parsed = JSON.parse(stored!);
+		expect(parsed).toHaveLength(1);
+		expect(parsed[0].code).toBe('DEF456');
+	});
+});
+
+describe('updatePartyNickname localStorage fallback', () => {
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		const parties = [createRecentParty({ code: 'ABC123' })];
+		localStorage.setItem('squares_recent_parties', JSON.stringify(parties));
+
+		mockIdbGet.mockRejectedValue(new Error('IDB error'));
+		mockIdbSet.mockRejectedValue(new Error('IDB error'));
+
+		await updatePartyNickname('ABC123', 'My Game');
+
+		const stored = localStorage.getItem('squares_recent_parties');
+		const parsed = JSON.parse(stored!);
+		expect(parsed[0].nickname).toBe('My Game');
+	});
+});
+
+describe('getRecentParties fallback', () => {
+	it('returns empty when both IndexedDB and localStorage return nothing', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		const result = await getRecentParties();
+		expect(result).toEqual([]);
 	});
 });

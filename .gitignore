@@ -32,3 +32,8 @@ coverage/
 
 # Supabase temp files
 supabase/.temp/
+
+# Claude Code
+.claude/plans/
+.claude/tasks/
+.claude/settings.local.json
