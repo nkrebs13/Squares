@@ -151,10 +151,7 @@ describe('Square Component', () => {
 				player_name: 'Multi Winner',
 				player_name_lower: 'multi winner',
 			});
-			const winners = [
-				createMockWinner({ quarter: 'q1' }),
-				createMockWinner({ quarter: 'q3' }),
-			];
+			const winners = [createMockWinner({ quarter: 'q1' }), createMockWinner({ quarter: 'q3' })];
 
 			render(Square, {
 				props: {
@@ -375,7 +372,10 @@ describe('Square Component', () => {
 			});
 
 			const button = screen.getByRole('button');
-			expect(button).toHaveAttribute('aria-label', 'Row 1, Column 1. Your square. Press to unclaim.');
+			expect(button).toHaveAttribute(
+				'aria-label',
+				'Row 1, Column 1. Your square. Press to unclaim.'
+			);
 		});
 
 		it('has proper aria-label for winner square', () => {
@@ -383,10 +383,7 @@ describe('Square Component', () => {
 				player_name: 'Winner',
 				player_name_lower: 'winner',
 			});
-			const winners = [
-				createMockWinner({ quarter: 'q1' }),
-				createMockWinner({ quarter: 'final' }),
-			];
+			const winners = [createMockWinner({ quarter: 'q1' }), createMockWinner({ quarter: 'final' })];
 
 			render(Square, {
 				props: {
