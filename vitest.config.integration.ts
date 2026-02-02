@@ -2,9 +2,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		environment: 'jsdom',
+		environment: 'node',
 		include: ['src/tests/integration/**/*.{test,spec}.{js,ts}'],
 		globals: true,
+		fileParallelism: false,
+		globalSetup: ['src/tests/integration/globalSetup.ts'],
 		testTimeout: 30000,
 		hookTimeout: 30000,
 		env: {

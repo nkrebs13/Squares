@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import {
 	getUserName,
@@ -347,5 +347,37 @@ describe('getRecentParties fallback', () => {
 		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
 		const result = await getRecentParties();
 		expect(result).toEqual([]);
+	});
+
+	it('returns empty when both IndexedDB throws and localStorage has invalid JSON', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		localStorage.setItem('squares_recent_parties', 'not-json');
+		const result = await getRecentParties();
+		expect(result).toEqual([]);
+	});
+});
+
+describe('clearUserName fallback', () => {
+	it('falls back to localStorage.removeItem when IndexedDB throws', async () => {
+		mockIdbDel.mockRejectedValueOnce(new Error('IDB error'));
+		await clearUserName();
+		expect(localStorage.removeItem).toHaveBeenCalledWith('squares_user_name');
+	});
+});
+
+describe('setUserName fallback', () => {
+	it('falls back to localStorage when IndexedDB throws', async () => {
+		mockIdbSet.mockRejectedValueOnce(new Error('IDB error'));
+		await setUserName('Fallback');
+		expect(localStorage.getItem('squares_user_name')).toBe('Fallback');
+	});
+});
+
+describe('hasHostPin error handling', () => {
+	it('returns false when getHostPin falls back and finds no pin', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		// sessionStorage has no pin
+		const result = await hasHostPin('NOPIN1');
+		expect(result).toBe(false);
 	});
 });

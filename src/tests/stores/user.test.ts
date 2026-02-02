@@ -66,6 +66,50 @@ describe('userName store', () => {
 	});
 });
 
+describe('userName async IndexedDB initialization', () => {
+	it('does not overwrite store when IndexedDB returns null', async () => {
+		// Set localStorage value, but IndexedDB returns nothing
+		localStorage.setItem('squares_user_name', 'FromLocal');
+		vi.resetModules();
+
+		// Mock getUserName to return null
+		const idbGetMock = vi.mocked((await import('idb-keyval')).get);
+		idbGetMock.mockResolvedValueOnce(undefined);
+
+		const mod = await import('$lib/stores/user');
+		// Wait for the async initialization to complete
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		// Store should still have the localStorage value since IndexedDB had nothing
+		expect(get(mod.userName)).toBe('FromLocal');
+	});
+
+	it('setName works when setUserName throws (IndexedDB error)', async () => {
+		const idbSetMock = vi.mocked((await import('idb-keyval')).set);
+		idbSetMock.mockRejectedValueOnce(new Error('IDB write failed'));
+
+		// setUserName in storage.ts catches the error and falls back to localStorage
+		await userName.setName('Charlie');
+
+		// Store should still be updated (set() is called before await)
+		expect(get(userName)).toBe('Charlie');
+		expect(localStorage.getItem('squares_user_name')).toBe('Charlie');
+	});
+
+	it('clear works when clearUserName throws (IndexedDB error)', async () => {
+		const idbDelMock = vi.mocked((await import('idb-keyval')).del);
+		idbDelMock.mockRejectedValueOnce(new Error('IDB delete failed'));
+
+		await userName.setName('Dave');
+
+		// clearUserName in storage.ts catches the error and falls back to localStorage
+		await userName.clear();
+
+		expect(get(userName)).toBeNull();
+		expect(localStorage.removeItem).toHaveBeenCalledWith('squares_user_name');
+	});
+});
+
 describe('normalizePlayerName', () => {
 	beforeEach(async () => {
 		vi.resetModules();
