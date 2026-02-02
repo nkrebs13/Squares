@@ -4,7 +4,7 @@ export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
 export interface Party {
 	id: string;
 	code: string;
-	host_pin: string;
+	host_pin?: string;
 	host_name_lower: string | null;
 	square_price: number;
 	split_q1: number;

@@ -128,10 +128,12 @@ export async function loadParty(code: string) {
 	try {
 		const supabase = getSupabaseClient();
 
-		// Fetch party
+		// Fetch party (exclude host_pin — it should never reach the client)
 		const { data: partyData, error: partyError } = await supabase
 			.from('parties')
-			.select('*')
+			.select(
+				'id, code, host_name_lower, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at'
+			)
 			.eq('code', code.toUpperCase())
 			.single();
 
@@ -961,11 +963,6 @@ export async function updatePayoutStructure(
 	if (!currentParty) return { success: false, error: 'No party loaded' };
 	if (currentParty.status !== 'filling') return { success: false, error: 'Grid is already locked' };
 
-	// Verify PIN matches
-	if (pin !== currentParty.host_pin) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
 	// Verify splits add up to 100
 	const total = splits.q1 + splits.q2 + splits.q3 + splits.final;
 	if (total !== 100) {
@@ -974,7 +971,8 @@ export async function updatePayoutStructure(
 
 	const supabase = getSupabaseClient();
 
-	const { error: updateError } = await supabase
+	// PIN is validated server-side via the WHERE clause
+	const { data, error: updateError } = await supabase
 		.from('parties')
 		.update({
 			split_q1: splits.q1,
@@ -983,10 +981,15 @@ export async function updatePayoutStructure(
 			split_final: splits.final,
 		})
 		.eq('id', currentParty.id)
-		.eq('host_pin', pin);
+		.eq('host_pin', pin)
+		.select('id');
 
 	if (updateError) {
 		return { success: false, error: 'Failed to update payout structure. Please try again.' };
+	}
+
+	if (!data || data.length === 0) {
+		return { success: false, error: 'Invalid PIN' };
 	}
 
 	// Update local state
@@ -1017,17 +1020,18 @@ export async function removePlayer(
 		return { success: false, removedCount: 0, error: 'Cannot remove players after grid is locked' };
 	}
 
-	// Verify PIN matches
-	if (pin !== currentParty.host_pin) {
+	// Verify PIN server-side before modifying squares
+	const supabase = getSupabaseClient();
+	const pinValid = await verifyHostPin(currentParty.code, pin);
+	if (!pinValid) {
 		return { success: false, removedCount: 0, error: 'Invalid PIN' };
 	}
 
-	const supabase = getSupabaseClient();
-
 	// Remove all squares owned by this player
+	// Note: player_name_lower is GENERATED ALWAYS — only set player_name and claimed_at
 	const { data, error: removeError } = await supabase
 		.from('squares')
-		.update({ player_name: null, player_name_lower: null, claimed_at: null })
+		.update({ player_name: null, claimed_at: null })
 		.eq('party_id', currentParty.id)
 		.eq('player_name_lower', playerNameLower)
 		.select('id');
@@ -1054,22 +1058,19 @@ export async function deleteParty(pin: string): Promise<{ success: boolean; erro
 	const currentParty = get(party);
 	if (!currentParty) return { success: false, error: 'No party loaded' };
 
-	// Verify PIN matches
-	if (pin !== currentParty.host_pin) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
 	const supabase = getSupabaseClient();
 
-	// Delete party (cascades to squares, numbers, scores, winners)
-	const { error: deleteError } = await supabase
-		.from('parties')
-		.delete()
-		.eq('id', currentParty.id)
-		.eq('host_pin', pin);
+	const { data, error: deleteError } = await supabase.rpc('delete_party', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+	});
 
 	if (deleteError) {
 		return { success: false, error: 'Failed to delete party. Please try again.' };
+	}
+
+	if (!data) {
+		return { success: false, error: 'Invalid PIN' };
 	}
 
 	return { success: true };
