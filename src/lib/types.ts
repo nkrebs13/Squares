@@ -92,6 +92,7 @@ export const DEFAULT_TEAMS = {
 
 export interface RecentParty {
 	code: string;
+	nickname?: string; // user-defined nickname for easy identification
 	teamRowName: string;
 	teamColName: string;
 	lastVisited: number; // timestamp

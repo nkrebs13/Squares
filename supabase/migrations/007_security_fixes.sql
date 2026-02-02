@@ -273,8 +273,9 @@ BEGIN
     INSERT INTO numbers (party_id, row_numbers, col_numbers)
     VALUES (p_party_id, v_row_nums, v_col_nums);
 
+    -- Set directly to 'active' - lock and start in one action
     UPDATE parties
-    SET status = 'locked'
+    SET status = 'active'
     WHERE id = p_party_id;
 
     INSERT INTO scores (party_id)

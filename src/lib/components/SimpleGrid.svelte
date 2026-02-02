@@ -341,7 +341,7 @@
 		<!-- Column Team Label -->
 		<div class="team-label-col">
 			<img
-				src="/logos/patriots.svg"
+				src="/logos/patriots.png"
 				alt={$theme.colName}
 				class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
 				onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
@@ -354,18 +354,18 @@
 		<div class="grid-with-row-label">
 			<!-- Row Team Label -->
 			<div class="team-label-row">
-				<img
-					src="/logos/seahawks.svg"
-					alt={$theme.rowName}
-					class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-				/>
 				<span
-					class="font-bold text-sm sm:text-base writing-vertical flex-1 flex items-center"
+					class="font-bold text-sm sm:text-base writing-vertical flex items-center"
 					style="color: {$theme.rowColor}"
 				>
 					{$theme.rowName}
 				</span>
+				<img
+					src="/logos/seahawks.png"
+					alt={$theme.rowName}
+					class="row-logo w-6 h-6 sm:w-7 sm:h-7 object-contain"
+					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
+				/>
 			</div>
 
 			<!-- Scrollable Grid Container -->
@@ -588,10 +588,14 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		gap: 0.25rem;
 		padding: 0.25rem 0;
 		flex-shrink: 0;
 		width: 32px;
+	}
+
+	.row-logo {
 	}
 
 	.scroll-container {
