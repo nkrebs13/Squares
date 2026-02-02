@@ -81,10 +81,10 @@ test.describe('Keyboard Navigation', () => {
 		// Type a code so the join button becomes enabled (disabled buttons can't receive focus)
 		await codeInput.fill('TEST1');
 
-		// Tab to join button
+		// Tab to join button and wait for focus to settle
 		await page.keyboard.press('Tab');
 		const joinButton = page.getByRole('button', { name: /join party/i });
-		await expect(joinButton).toBeFocused();
+		await expect(joinButton).toBeFocused({ timeout: 5000 });
 	});
 
 	test('can submit join form with Enter key', async ({ page }) => {
@@ -92,6 +92,9 @@ test.describe('Keyboard Navigation', () => {
 
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		await codeInput.fill('TEST1');
+
+		// Wait for submit button to be enabled after Svelte reactivity
+		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
 
 		// Press Enter to submit
 		await page.keyboard.press('Enter');
@@ -149,13 +152,10 @@ test.describe('Visual Regression Prevention', () => {
 	test('landing page renders correctly', async ({ page }) => {
 		await page.goto('/');
 
-		// Wait for animations to complete
-		await page.waitForTimeout(500);
-
-		// Check key visual elements
+		// Wait for key visual elements to be rendered and stable
 		await expect(page.locator('.logo-title')).toBeVisible();
-		await expect(page.locator('.btn-primary')).toBeVisible();
-		await expect(page.locator('.btn-secondary')).toBeVisible();
+		await expect(page.getByRole('link', { name: /create party/i })).toBeVisible();
+		await expect(page.getByRole('button', { name: /join party/i })).toBeVisible();
 	});
 
 	test('create page form sections render correctly', async ({ page }) => {

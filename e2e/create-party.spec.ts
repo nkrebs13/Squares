@@ -69,8 +69,7 @@ test.describe('Create Party Page', () => {
 		await equalButton.click();
 
 		// Equal preset should show 25% for each quarter
-		const percentages = page.locator('text=25%');
-		await expect(percentages.first()).toBeVisible();
+		await expect(page.getByText('25%').first()).toBeVisible();
 	});
 
 	test('shows custom inputs when Custom preset is selected', async ({ page }) => {
@@ -86,9 +85,11 @@ test.describe('Create Party Page', () => {
 		const customButton = page.getByRole('button', { name: /custom/i });
 		await customButton.click();
 
-		// Change one of the values to make total != 100
+		// Wait for custom inputs to appear
 		const firstInput = page.locator('input[type="number"]').first();
-		await firstInput.clear();
+		await expect(firstInput).toBeVisible();
+
+		// Change one of the values to make total != 100
 		await firstInput.fill('50');
 
 		await expect(page.getByText(/must total 100%/i)).toBeVisible();
