@@ -12,9 +12,15 @@ export default defineConfig({
 		globals: true,
 		coverage: {
 			provider: 'v8',
-			reporter: ['text', 'json', 'html'],
+			reporter: ['text', 'json', 'html', 'json-summary'],
 			include: ['src/lib/**/*.{ts,svelte}'],
 			exclude: ['src/lib/supabase.ts'],
+			thresholds: {
+				lines: 66,
+				functions: 72,
+				branches: 51,
+				statements: 69,
+			},
 		},
 	},
 	plugins: [

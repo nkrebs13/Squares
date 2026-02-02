@@ -111,6 +111,19 @@ const sessionStorageMock = (() => {
 
 vi.stubGlobal('sessionStorage', sessionStorageMock);
 
+// Mock ResizeObserver
+class ResizeObserverMock {
+	callback: ResizeObserverCallback;
+	constructor(callback: ResizeObserverCallback) {
+		this.callback = callback;
+	}
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 // Reset mocks before each test
 beforeEach(() => {
 	vi.clearAllMocks();
