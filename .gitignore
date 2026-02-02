@@ -27,5 +27,8 @@ vite.config.ts.timestamp-*
 playwright-report/
 test-results/
 
+# Vitest
+coverage/
+
 # Supabase temp files
 supabase/.temp/
