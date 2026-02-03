@@ -51,7 +51,7 @@
 {#if $winners.length > 0}
 	<div class="space-y-3">
 		<h3 class="text-lg font-semibold">Winners</h3>
-		{#each $winners as winner}
+		{#each $winners as winner (winner.id)}
 			<div class="winner-banner animate-fade-in">
 				<div class="flex justify-between items-center">
 					<div>

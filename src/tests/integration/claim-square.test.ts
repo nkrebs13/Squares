@@ -34,8 +34,8 @@ describe('claim_square RPC', () => {
 			.eq('col_num', 0)
 			.single();
 
-		expect(square!.player_name).toBe('Alice');
-		expect(square!.claimed_at).not.toBeNull();
+		expect(square?.player_name).toBe('Alice');
+		expect(square?.claimed_at).not.toBeNull();
 	});
 
 	it('rejects claim on already-claimed square', async () => {
@@ -64,7 +64,7 @@ describe('claim_square RPC', () => {
 			.eq('col_num', 1)
 			.single();
 
-		expect(square!.player_name).toBe('Alice');
+		expect(square?.player_name).toBe('Alice');
 	});
 
 	it('rejects claim when party status is active', async () => {
@@ -121,8 +121,8 @@ describe('claim_square RPC', () => {
 			.eq('col_num', 3)
 			.single();
 
-		expect(square!.player_name).toBe('Alice McName');
-		expect(square!.player_name_lower).toBe('alice mcname');
+		expect(square?.player_name).toBe('Alice McName');
+		expect(square?.player_name_lower).toBe('alice mcname');
 	});
 
 	it('handles concurrent claims — exactly one succeeds', async () => {
@@ -154,6 +154,6 @@ describe('claim_square RPC', () => {
 			.eq('col_num', 5)
 			.single();
 
-		expect(['Alice', 'Bob']).toContain(square!.player_name);
+		expect(['Alice', 'Bob']).toContain(square?.player_name);
 	});
 });

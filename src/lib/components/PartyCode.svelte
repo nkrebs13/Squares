@@ -25,7 +25,7 @@
 		if (navigator.share) {
 			try {
 				await navigator.share(shareData);
-			} catch (e) {
+			} catch {
 				// User cancelled or share failed
 			}
 		} else {

@@ -5,7 +5,7 @@ import { getUserName, setUserName, clearUserName } from '$lib/storage';
 function createUserStore() {
 	// Initialize with localStorage value synchronously (for SSR compatibility)
 	const stored = browser ? localStorage.getItem('squares_user_name') : null;
-	const { subscribe, set, update } = writable<string | null>(stored);
+	const { subscribe, set } = writable<string | null>(stored);
 
 	// Async initialization from IndexedDB
 	if (browser) {

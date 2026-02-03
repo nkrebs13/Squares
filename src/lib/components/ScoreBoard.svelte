@@ -69,7 +69,7 @@
 
 	{#if isGameInProgress($party?.status) || $party?.status === 'complete'}
 		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
-			{#each quarterScores as qs}
+			{#each quarterScores as qs (qs.quarter)}
 				<div class="quarter-score-box">
 					<div class="font-medium" style="color: var(--text-secondary)">{qs.label}</div>
 					<div class="font-mono">

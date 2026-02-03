@@ -80,7 +80,7 @@ describe('postgres_changes: parties handler', () => {
 			new: updatedParty,
 		});
 
-		expect(get(party)!.status).toBe('active');
+		expect(get(party)?.status).toBe('active');
 	});
 
 	it('UPDATE sets party store on active→complete transition', () => {
@@ -96,7 +96,7 @@ describe('postgres_changes: parties handler', () => {
 			new: updatedParty,
 		});
 
-		expect(get(party)!.status).toBe('complete');
+		expect(get(party)?.status).toBe('complete');
 	});
 
 	it('ignores non-UPDATE events', () => {
@@ -112,7 +112,7 @@ describe('postgres_changes: parties handler', () => {
 			new: createMockParty({ status: 'active' }),
 		});
 
-		expect(get(party)!.status).toBe('filling');
+		expect(get(party)?.status).toBe('filling');
 	});
 });
 
@@ -267,8 +267,8 @@ describe('postgres_changes: scores handler', () => {
 		});
 
 		expect(get(scores)).toEqual(updatedScores);
-		expect(get(scores)!.q2_row_score).toBe(14);
-		expect(get(scores)!.q2_col_score).toBe(10);
+		expect(get(scores)?.q2_row_score).toBe(14);
+		expect(get(scores)?.q2_col_score).toBe(10);
 	});
 });
 

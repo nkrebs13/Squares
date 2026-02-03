@@ -443,12 +443,12 @@ describe('SimpleGrid Component', () => {
 
 			const alicePill = screen.getByText('Alice').closest('button');
 			expect(alicePill).toBeInTheDocument();
-			await fireEvent.click(alicePill!);
+			if (alicePill) await fireEvent.click(alicePill);
 
 			expect(document.querySelectorAll('.square-wrapper.highlighted').length).toBe(1);
 
 			// Click again to deselect
-			await fireEvent.click(alicePill!);
+			if (alicePill) await fireEvent.click(alicePill);
 			expect(document.querySelectorAll('.square-wrapper.highlighted').length).toBe(0);
 		});
 

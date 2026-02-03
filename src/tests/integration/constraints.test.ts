@@ -26,7 +26,7 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/split_total|check/i);
+		expect(error?.message).toMatch(/split_total|check/i);
 	});
 
 	it('square row_num must be 0-9 (row=10 fails)', async () => {
@@ -37,7 +37,7 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/check|row_num/i);
+		expect(error?.message).toMatch(/check|row_num/i);
 	});
 
 	it('square (party_id, row_num, col_num) is UNIQUE', async () => {
@@ -49,7 +49,7 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/duplicate|unique|violates/i);
+		expect(error?.message).toMatch(/duplicate|unique|violates/i);
 	});
 
 	it('winner (party_id, quarter) is UNIQUE', async () => {
@@ -76,7 +76,7 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/duplicate|unique|violates/i);
+		expect(error?.message).toMatch(/duplicate|unique|violates/i);
 	});
 
 	it('winner quarter must be in (q1, q2, q3, final)', async () => {
@@ -90,7 +90,7 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/check|quarter/i);
+		expect(error?.message).toMatch(/check|quarter/i);
 	});
 
 	it('numbers arrays must have exactly 10 elements', async () => {
@@ -101,6 +101,6 @@ describe('database constraints', () => {
 		});
 
 		expect(error).not.toBeNull();
-		expect(error!.message).toMatch(/check|array_length/i);
+		expect(error?.message).toMatch(/check|array_length/i);
 	});
 });

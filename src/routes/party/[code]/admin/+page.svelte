@@ -163,7 +163,7 @@
 				await loadParty(code);
 				success =
 					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
-			} catch (e) {
+			} catch {
 				error = 'Game started, but failed to reload the latest game data. Please refresh the page.';
 			}
 		} else {
@@ -194,25 +194,6 @@
 		}
 
 		isUpdatingScore = false;
-	}
-
-	async function handleEndGame() {
-		if (!storedPin) return;
-
-		// Use the final quarter update to mark game complete
-		const result = await updateScore(
-			storedPin,
-			'final',
-			manualScores.rowScore,
-			manualScores.colScore
-		);
-
-		if (result.success) {
-			success = 'Game marked complete!';
-			await loadParty(code);
-		} else {
-			error = result.error || 'Failed to end game';
-		}
 	}
 
 	const quarters: { value: Quarter; label: string }[] = [
@@ -367,7 +348,7 @@
 						</p>
 
 						<div class="space-y-2">
-							{#each $playerSummary as player}
+							{#each $playerSummary as player (player.normalizedName)}
 								<div
 									class="flex items-center justify-between p-3 rounded-lg"
 									style="background: rgba(255, 255, 255, 0.04);"
@@ -406,7 +387,7 @@
 					</p>
 
 					<div class="flex gap-2 mb-4 flex-wrap">
-						{#each SPLIT_PRESETS as preset}
+						{#each SPLIT_PRESETS as preset (preset.name)}
 							<button
 								class="btn btn-sm {selectedPreset === preset.name
 									? 'btn-primary'
@@ -525,7 +506,7 @@
 								>Quarter</label
 							>
 							<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
-								{#each quarters as q}
+								{#each quarters as q (q.value)}
 									<option value={q.value}>{q.label}</option>
 								{/each}
 							</select>

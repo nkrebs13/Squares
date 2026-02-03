@@ -132,10 +132,10 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 
 		// Verify winner names from mockWinnersAll are present on the page
 		const hasWinnerContent =
-			pageContent!.includes('Alice') ||
-			pageContent!.includes('Bob') ||
-			pageContent!.includes('Charlie') ||
-			pageContent!.includes('Dana');
+			pageContent?.includes('Alice') ||
+			pageContent?.includes('Bob') ||
+			pageContent?.includes('Charlie') ||
+			pageContent?.includes('Dana');
 		expect(hasWinnerContent).toBe(true);
 	});
 });

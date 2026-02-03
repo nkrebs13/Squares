@@ -38,7 +38,7 @@ describe('lock_party RPC', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(updatedParty!.status).toBe('active');
+		expect(updatedParty?.status).toBe('active');
 
 		// Numbers should be generated
 		const { data: numbers } = await client
@@ -48,8 +48,8 @@ describe('lock_party RPC', () => {
 			.single();
 
 		expect(numbers).not.toBeNull();
-		expect(numbers!.row_numbers).toHaveLength(10);
-		expect(numbers!.col_numbers).toHaveLength(10);
+		expect(numbers?.row_numbers).toHaveLength(10);
+		expect(numbers?.col_numbers).toHaveLength(10);
 
 		// Scores record should exist
 		const { data: scores } = await client
@@ -78,7 +78,7 @@ describe('lock_party RPC', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(unchanged!.status).toBe('filling');
+		expect(unchanged?.status).toBe('filling');
 	});
 
 	it('logs audit event on wrong PIN', async () => {
@@ -96,8 +96,8 @@ describe('lock_party RPC', () => {
 			.eq('event_type', 'lock_party_failed');
 
 		expect(logs).not.toBeNull();
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
-		expect(logs![0].details).toMatchObject({ reason: 'invalid_pin' });
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.[0]?.details).toMatchObject({ reason: 'invalid_pin' });
 	});
 
 	it('rejects incomplete grid (99/100 filled)', async () => {
@@ -144,8 +144,9 @@ describe('lock_party RPC', () => {
 			.eq('party_id', party.id)
 			.single();
 
-		const rowSorted = [...numbers!.row_numbers].sort((a, b) => a - b);
-		const colSorted = [...numbers!.col_numbers].sort((a, b) => a - b);
+		expect(numbers).toBeDefined();
+		const rowSorted = [...(numbers?.row_numbers ?? [])].sort((a, b) => a - b);
+		const colSorted = [...(numbers?.col_numbers ?? [])].sort((a, b) => a - b);
 
 		expect(rowSorted).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 		expect(colSorted).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -162,6 +163,6 @@ describe('lock_party RPC', () => {
 			.eq('event_type', 'lock_party_success');
 
 		expect(logs).not.toBeNull();
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
 	});
 });

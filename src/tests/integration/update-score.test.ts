@@ -53,8 +53,8 @@ describe('update_score RPC', () => {
 			.eq('party_id', party.id)
 			.single();
 
-		expect(scores!.q1_row_score).toBe(7);
-		expect(scores!.q1_col_score).toBe(3);
+		expect(scores?.q1_row_score).toBe(7);
+		expect(scores?.q1_col_score).toBe(3);
 
 		// Verify winner was created
 		const { data: winner } = await client
@@ -65,7 +65,7 @@ describe('update_score RPC', () => {
 			.single();
 
 		expect(winner).not.toBeNull();
-		expect(winner!.player_name).toBeTruthy();
+		expect(winner?.player_name).toBeTruthy();
 	});
 
 	it('updates Q2 and Q3 scores', async () => {
@@ -91,10 +91,10 @@ describe('update_score RPC', () => {
 			.eq('party_id', party.id)
 			.single();
 
-		expect(scores!.q2_row_score).toBe(14);
-		expect(scores!.q2_col_score).toBe(10);
-		expect(scores!.q3_row_score).toBe(21);
-		expect(scores!.q3_col_score).toBe(17);
+		expect(scores?.q2_row_score).toBe(14);
+		expect(scores?.q2_col_score).toBe(10);
+		expect(scores?.q3_row_score).toBe(21);
+		expect(scores?.q3_col_score).toBe(17);
 
 		// Both quarters should have winners
 		const { data: winners } = await client
@@ -102,7 +102,7 @@ describe('update_score RPC', () => {
 			.select('quarter')
 			.eq('party_id', party.id);
 
-		const quarters = winners!.map((w) => w.quarter);
+		const quarters = winners?.map((w) => w.quarter);
 		expect(quarters).toContain('q2');
 		expect(quarters).toContain('q3');
 	});
@@ -124,7 +124,7 @@ describe('update_score RPC', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(updatedParty!.status).toBe('complete');
+		expect(updatedParty?.status).toBe('complete');
 	});
 
 	it('rejects negative scores', async () => {
@@ -184,7 +184,7 @@ describe('update_score RPC', () => {
 			.single();
 
 		// Total pot = 5 * 100 = 500, split_q1 = 25, prize = 500 * 25 / 100 = 125
-		expect(Number(winner!.amount)).toBe(125);
+		expect(Number(winner?.amount)).toBe(125);
 	});
 
 	it('re-scoring same quarter updates winner via ON CONFLICT', async () => {
@@ -230,7 +230,7 @@ describe('update_score RPC', () => {
 		expect(allQ1).toHaveLength(1);
 
 		// Winner name may or may not have changed depending on numbers, but record exists
-		expect(second!.player_name).toBeTruthy();
+		expect(second?.player_name).toBeTruthy();
 		// Verify this is testing ON CONFLICT - if scores differ, the player_name or position could differ
 		expect(first).not.toBeNull();
 	});
@@ -245,8 +245,9 @@ describe('update_score RPC', () => {
 
 		// Score 27 → digit 7, score 13 → digit 3
 		// Find which row index maps to digit 7 and which col index maps to digit 3
-		const rowIdx = numbers!.row_numbers.indexOf(7);
-		const colIdx = numbers!.col_numbers.indexOf(3);
+		expect(numbers).toBeDefined();
+		const rowIdx = numbers?.row_numbers.indexOf(7);
+		const colIdx = numbers?.col_numbers.indexOf(3);
 
 		await client.rpc('update_score', {
 			p_party_id: party.id,
@@ -263,10 +264,10 @@ describe('update_score RPC', () => {
 			.eq('quarter', 'q1')
 			.single();
 
-		expect(winner!.winning_row).toBe(rowIdx);
-		expect(winner!.winning_col).toBe(colIdx);
+		expect(winner?.winning_row).toBe(rowIdx);
+		expect(winner?.winning_col).toBe(colIdx);
 
 		// The player should be the one at that grid position
-		expect(winner!.player_name).toBe(`Player-R${rowIdx}C${colIdx}`);
+		expect(winner?.player_name).toBe(`Player-R${rowIdx}C${colIdx}`);
 	});
 });

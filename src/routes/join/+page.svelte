@@ -85,7 +85,7 @@
 			userName.setName(name.trim());
 			storeNickname(upperCode);
 			goto(`/party/${upperCode}`);
-		} catch (e) {
+		} catch {
 			error = 'Something went wrong. Please try again.';
 		} finally {
 			isChecking = false;
@@ -115,7 +115,7 @@
 				pinError = 'Incorrect PIN. Please try again.';
 				pinInput = '';
 			}
-		} catch (e) {
+		} catch {
 			pinError = 'Unable to verify PIN. Please try again.';
 		} finally {
 			isVerifyingPin = false;
