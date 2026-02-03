@@ -43,8 +43,8 @@ describe('unclaim_square RPC', () => {
 			.eq('col_num', 0)
 			.single();
 
-		expect(square!.player_name).toBeNull();
-		expect(square!.claimed_at).toBeNull();
+		expect(square?.player_name).toBeNull();
+		expect(square?.claimed_at).toBeNull();
 	});
 
 	it('rejects unclaim when name does not match', async () => {
@@ -73,7 +73,7 @@ describe('unclaim_square RPC', () => {
 			.eq('col_num', 1)
 			.single();
 
-		expect(square!.player_name).toBe('Alice');
+		expect(square?.player_name).toBe('Alice');
 	});
 
 	it('supports case-insensitive name matching', async () => {

@@ -101,8 +101,8 @@ describe('delete_party RPC', () => {
 			.eq('party_id', party.id)
 			.eq('event_type', 'delete_party_failed');
 
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
-		expect(logs![0].details).toMatchObject({ reason: 'invalid_pin' });
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.[0]?.details).toMatchObject({ reason: 'invalid_pin' });
 	});
 
 	it('cascades deletion to squares, numbers, scores, and winners', async () => {
@@ -161,9 +161,9 @@ describe('delete_party RPC', () => {
 			.eq('event_type', 'delete_party_success')
 			.contains('details', { deleted_party_id: partyId });
 
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
 		// party_id should be NULL since it's logged before delete with NULL
-		expect(logs![0].party_id).toBeNull();
-		expect(logs![0].details.code).toBe(partyCode);
+		expect(logs?.[0]?.party_id).toBeNull();
+		expect(logs?.[0]?.details?.code).toBe(partyCode);
 	});
 });

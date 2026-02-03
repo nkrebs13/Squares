@@ -170,7 +170,7 @@
 			<span class="text-sm" style="color: var(--text-secondary)">Prize split</span>
 
 			<div class="mt-3 grid grid-cols-4 gap-2">
-				{#each SPLIT_PRESETS as preset}
+				{#each SPLIT_PRESETS as preset (preset.name)}
 					<button
 						type="button"
 						class="p-2 rounded-lg text-sm font-medium transition-all {selectedPreset.name ===
@@ -185,7 +185,7 @@
 			</div>
 
 			<div class="mt-4 grid grid-cols-4 gap-3">
-				{#each ['q1', 'q2', 'q3', 'final'] as quarter}
+				{#each ['q1', 'q2', 'q3', 'final'] as quarter (quarter)}
 					<div class="text-center">
 						<div class="text-xs uppercase" style="color: var(--text-muted)">
 							{quarter === 'final' ? 'Final' : quarter.toUpperCase()}

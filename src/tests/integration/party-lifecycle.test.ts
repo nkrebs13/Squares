@@ -24,8 +24,8 @@ describe('full party lifecycle', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(created!.status).toBe('filling');
-		expect(Number(created!.square_price)).toBe(2);
+		expect(created?.status).toBe('filling');
+		expect(Number(created?.square_price)).toBe(2);
 
 		// Verify 100 empty squares exist
 		const { data: emptySquares } = await client
@@ -82,7 +82,7 @@ describe('full party lifecycle', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(activeParty!.status).toBe('active');
+		expect(activeParty?.status).toBe('active');
 
 		// Verify numbers generated
 		const { data: numbers } = await client
@@ -91,8 +91,8 @@ describe('full party lifecycle', () => {
 			.eq('party_id', party.id)
 			.single();
 
-		expect(numbers!.row_numbers).toHaveLength(10);
-		expect(numbers!.col_numbers).toHaveLength(10);
+		expect(numbers?.row_numbers).toHaveLength(10);
+		expect(numbers?.col_numbers).toHaveLength(10);
 
 		// ─── Step 4: Enter Q1 score ───
 		const { data: q1Result } = await client.rpc('update_score', {
@@ -114,9 +114,9 @@ describe('full party lifecycle', () => {
 			.single();
 
 		expect(q1Winner).not.toBeNull();
-		expect(q1Winner!.player_name).toBeTruthy();
+		expect(q1Winner?.player_name).toBeTruthy();
 		// Prize = (2 * 100) * 25 / 100 = 50
-		expect(Number(q1Winner!.amount)).toBe(50);
+		expect(Number(q1Winner?.amount)).toBe(50);
 
 		// ─── Step 5: Enter Q2, Q3 scores ───
 		await client.rpc('update_score', {
@@ -153,7 +153,7 @@ describe('full party lifecycle', () => {
 			.eq('id', party.id)
 			.single();
 
-		expect(completeParty!.status).toBe('complete');
+		expect(completeParty?.status).toBe('complete');
 
 		// Verify all 4 winners exist
 		const { data: allWinners } = await client
@@ -162,7 +162,7 @@ describe('full party lifecycle', () => {
 			.eq('party_id', party.id);
 
 		expect(allWinners).toHaveLength(4);
-		const quarters = allWinners!.map((w) => w.quarter).sort();
+		const quarters = allWinners?.map((w) => w.quarter).sort();
 		expect(quarters).toEqual(['final', 'q1', 'q2', 'q3']);
 
 		// ─── Step 7: Delete party → cascade cleanup ───

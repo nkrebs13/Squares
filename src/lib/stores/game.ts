@@ -82,7 +82,8 @@ export const playerSummary = derived(squares, ($squares) => {
 					count: 0,
 				});
 			}
-			playerMap.get(square.player_name_lower)!.count++;
+			const playerEntry = playerMap.get(square.player_name_lower);
+			if (playerEntry) playerEntry.count++;
 		}
 	}
 
@@ -710,14 +711,15 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 	if (claimableCells.length === 0) return;
 
 	// 1. Create pending operations for all cells
-	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(
-		(cell) => {
-			const key = squareKey(cell.row, cell.col);
-			const existingSquare = currentSquares.find(
-				(s) => s.row_num === cell.row && s.col_num === cell.col
-			)!;
+	const operations = claimableCells.flatMap((cell) => {
+		const key = squareKey(cell.row, cell.col);
+		const existingSquare = currentSquares.find(
+			(s) => s.row_num === cell.row && s.col_num === cell.col
+		);
+		if (!existingSquare) return [];
 
-			return {
+		return [
+			{
 				key,
 				operation: {
 					id: `${clientId}-${key}-${timestamp}`,
@@ -732,9 +734,9 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 						claimed_at: existingSquare.claimed_at,
 					},
 				},
-			};
-		}
-	);
+			},
+		];
+	});
 
 	pendingOperations.update((ops) => {
 		const newOps = new Map(ops);
