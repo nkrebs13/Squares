@@ -140,9 +140,13 @@
 
 		if (result.success) {
 			// Reload party data so the page reactively shows score entry controls
-			await loadParty(code);
-			success =
-				'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
+			try {
+				await loadParty(code);
+				success =
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
+			} catch (e) {
+				error = 'Game started, but failed to reload the latest game data. Please refresh the page.';
+			}
 		} else {
 			error = result.error || 'Failed to lock grid';
 		}
