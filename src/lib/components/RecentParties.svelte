@@ -164,28 +164,30 @@
 								onclick={(e) => e.stopPropagation()}
 							/>
 						{:else}
-							<button
-								class="nickname-text"
-								onclick={(e) => startEdit(e, party)}
-								aria-label={party.nickname ? `Edit nickname: ${party.nickname}` : 'Add nickname'}
-							>
+							<span class="nickname-text">
 								<span class="nickname-label">{getDisplayName(party)}</span>
-								<svg
-									class="edit-icon"
-									xmlns="http://www.w3.org/2000/svg"
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
+								<button
+									class="edit-btn"
+									onclick={(e) => startEdit(e, party)}
+									aria-label={party.nickname ? `Edit nickname: ${party.nickname}` : 'Add nickname'}
 								>
-									<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-									<path d="m15 5 4 4" />
-								</svg>
-							</button>
+									<svg
+										class="edit-icon"
+										xmlns="http://www.w3.org/2000/svg"
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+										<path d="m15 5 4 4" />
+									</svg>
+								</button>
+							</span>
 						{/if}
 						<div class="party-code-line">
 							<span class="party-code-small">{party.code}</span>
@@ -298,29 +300,13 @@
 		min-width: 0;
 	}
 
-	/* Nickname display button */
+	/* Nickname display */
 	.nickname-text {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.375rem;
-		background: transparent;
-		border: none;
-		padding: 0;
-		cursor: pointer;
-		text-align: left;
 		color: var(--text-primary);
-		transition: color 150ms ease;
 		max-width: 100%;
-	}
-
-	.nickname-text:hover {
-		color: rgba(100, 210, 200, 0.9);
-	}
-
-	.nickname-text:focus-visible {
-		outline: 2px solid rgba(100, 210, 200, 0.5);
-		outline-offset: 2px;
-		border-radius: 4px;
 	}
 
 	.nickname-label {
@@ -329,6 +315,30 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	/* Edit button (pencil icon only) */
+	.edit-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border: none;
+		padding: 0.25rem;
+		margin: -0.25rem;
+		cursor: pointer;
+		color: inherit;
+		border-radius: 4px;
+		flex-shrink: 0;
+	}
+
+	.edit-btn:hover {
+		color: rgba(100, 210, 200, 0.9);
+	}
+
+	.edit-btn:focus-visible {
+		outline: 2px solid rgba(100, 210, 200, 0.5);
+		outline-offset: 2px;
 	}
 
 	.edit-icon {
@@ -343,8 +353,12 @@
 			opacity: 0;
 		}
 
-		.nickname-text:hover .edit-icon,
-		.nickname-text:focus .edit-icon {
+		.party-card:hover .edit-icon {
+			opacity: 0.6;
+		}
+
+		.edit-btn:hover .edit-icon,
+		.edit-btn:focus .edit-icon {
 			opacity: 0.6;
 		}
 	}
