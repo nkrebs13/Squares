@@ -22,6 +22,7 @@
 	import { userName } from '$lib/stores/user';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
 	import { formatPrice } from '$lib/utils/format';
+	import { isGameInProgress } from '$lib/types';
 	import type { RecentParty } from '$lib/types';
 
 	const code = $derived($page.params.code ?? '');
@@ -119,11 +120,7 @@
 							<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
 						{/if}
 					</div>
-				{:else if $party.status === 'locked'}
-					<div class="mb-4 status-banner status-banner-locked lg:hidden">
-						Grid locked — waiting for game to start
-					</div>
-				{:else if $party.status === 'active'}
+				{:else if isGameInProgress($party.status)}
 					<div class="mb-4 lg:hidden">
 						<ScoreBoard />
 					</div>
@@ -132,7 +129,7 @@
 				{/if}
 
 				<!-- Winners (mobile only) -->
-				{#if $party.status === 'active' || $party.status === 'complete'}
+				{#if isGameInProgress($party.status) || $party.status === 'complete'}
 					<div class="mb-4 lg:hidden">
 						<Winners />
 					</div>
@@ -198,11 +195,7 @@
 								<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
 							{/if}
 						</div>
-					{:else if $party.status === 'locked'}
-						<div class="mb-4 status-banner status-banner-locked">
-							Grid locked — waiting for game to start
-						</div>
-					{:else if $party.status === 'active'}
+					{:else if isGameInProgress($party.status)}
 						<div class="mb-4">
 							<ScoreBoard />
 						</div>
@@ -211,7 +204,7 @@
 					{/if}
 
 					<!-- Winners -->
-					{#if $party.status === 'active' || $party.status === 'complete'}
+					{#if isGameInProgress($party.status) || $party.status === 'complete'}
 						<div class="mb-4">
 							<Winners />
 						</div>

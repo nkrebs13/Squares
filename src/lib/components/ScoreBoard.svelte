@@ -66,7 +66,7 @@
 		</div>
 	</div>
 
-	{#if $party?.status === 'active' || $party?.status === 'complete'}
+	{#if $party?.status === 'active' || $party?.status === 'locked' || $party?.status === 'complete'}
 		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
 			{#each quarterScores as qs}
 				<div class="quarter-score-box">
