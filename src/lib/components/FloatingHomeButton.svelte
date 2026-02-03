@@ -51,6 +51,12 @@
 		border-color: rgba(100, 210, 200, 0.3);
 	}
 
+	.floating-home-btn:focus-visible {
+		outline: 2px solid rgba(100, 210, 200, 0.9);
+		outline-offset: 2px;
+		box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.25);
+	}
+
 	.floating-home-btn:active {
 		transform: scale(0.95);
 	}

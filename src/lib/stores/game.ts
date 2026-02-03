@@ -903,28 +903,6 @@ export async function lockParty(pin: string): Promise<{ success: boolean; error?
 	return { success: true };
 }
 
-export async function startGame(pin: string): Promise<{ success: boolean; error?: string }> {
-	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
-
-	const supabase = getSupabaseClient();
-
-	const { data, error: startError } = await supabase.rpc('start_game', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-	});
-
-	if (startError) {
-		return { success: false, error: 'Failed to start game. Please try again.' };
-	}
-
-	if (!data) {
-		return { success: false, error: 'Failed to start game - check PIN' };
-	}
-
-	return { success: true };
-}
-
 export async function updateScore(
 	pin: string,
 	quarter: 'q1' | 'q2' | 'q3' | 'final',

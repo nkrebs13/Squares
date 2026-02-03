@@ -281,6 +281,13 @@ body {
 	border-radius: 12px;
 }
 
+/* Accessibility: visible focus state for keyboard navigation */
+.btn:focus-visible {
+	outline: 2px solid rgba(100, 210, 200, 0.9);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.25);
+}
+
 .btn-primary {
 	background: linear-gradient(135deg, rgba(100, 210, 200, 0.4), rgba(100, 170, 230, 0.4));
 	color: var(--text-primary);
