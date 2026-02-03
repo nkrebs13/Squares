@@ -629,9 +629,7 @@
 		background: var(--bg-secondary);
 		width: var(--row-header-width);
 		height: var(--header-height);
-		box-shadow:
-			-8px 0 0 var(--bg-secondary),
-			0 -8px 0 var(--bg-secondary);
+		box-shadow: 0 0 0 4px var(--bg-secondary);
 	}
 
 	.col-header {
@@ -658,10 +656,7 @@
 		font-weight: bold;
 		color: white;
 		background: var(--team-row-color, #69be28);
-		box-shadow:
-			-8px 0 0 var(--team-row-color, #69be28),
-			0 -1px 0 var(--team-row-color, #69be28),
-			0 1px 0 var(--team-row-color, #69be28);
+		box-shadow: 0 0 0 3px var(--bg-secondary);
 	}
 
 	.team-col-bg {
