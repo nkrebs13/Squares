@@ -185,9 +185,8 @@ describe('RecentParties Component', () => {
 	});
 
 	describe('Remove Party', () => {
-		it('removes party when remove button is clicked', async () => {
+		it('shows confirmation when remove button is clicked', async () => {
 			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'DEL001' })]);
-			mockRemoveRecentParty.mockResolvedValue(undefined);
 			render(RecentParties);
 
 			await vi.waitFor(() => {
@@ -197,9 +196,58 @@ describe('RecentParties Component', () => {
 			const removeBtn = screen.getByLabelText('Remove from recent');
 			await fireEvent.click(removeBtn);
 
+			// Should show confirmation UI instead of immediately removing
+			expect(screen.getByText('Remove?')).toBeInTheDocument();
+			expect(screen.getByLabelText('Confirm remove')).toBeInTheDocument();
+			expect(screen.getByLabelText('Cancel remove')).toBeInTheDocument();
+			// Party should still be visible
+			expect(screen.getByText('DEL001')).toBeInTheDocument();
+			// Should not have called removeRecentParty yet
+			expect(mockRemoveRecentParty).not.toHaveBeenCalled();
+		});
+
+		it('removes party when confirmation is accepted', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'DEL001' })]);
+			mockRemoveRecentParty.mockResolvedValue(undefined);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('DEL001')).toBeInTheDocument();
+			});
+
+			// Click remove button to trigger confirmation
+			const removeBtn = screen.getByLabelText('Remove from recent');
+			await fireEvent.click(removeBtn);
+
+			// Confirm the removal
+			const confirmBtn = screen.getByLabelText('Confirm remove');
+			await fireEvent.click(confirmBtn);
+
 			expect(mockRemoveRecentParty).toHaveBeenCalledWith('DEL001');
 			// Party should be removed from the list
 			expect(screen.queryByText('DEL001')).not.toBeInTheDocument();
+		});
+
+		it('cancels removal when cancel button is clicked', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'DEL001' })]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('DEL001')).toBeInTheDocument();
+			});
+
+			// Click remove button to trigger confirmation
+			const removeBtn = screen.getByLabelText('Remove from recent');
+			await fireEvent.click(removeBtn);
+
+			// Cancel the removal
+			const cancelBtn = screen.getByLabelText('Cancel remove');
+			await fireEvent.click(cancelBtn);
+
+			// Party should still be visible and confirmation UI gone
+			expect(screen.getByText('DEL001')).toBeInTheDocument();
+			expect(screen.queryByText('Remove?')).not.toBeInTheDocument();
+			expect(mockRemoveRecentParty).not.toHaveBeenCalled();
 		});
 
 		it('does not navigate when remove button is clicked', async () => {
@@ -213,6 +261,24 @@ describe('RecentParties Component', () => {
 
 			const removeBtn = screen.getByLabelText('Remove from recent');
 			await fireEvent.click(removeBtn);
+
+			expect(mockGoto).not.toHaveBeenCalled();
+		});
+
+		it('does not navigate when confirm remove is clicked', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'RMV001' })]);
+			mockRemoveRecentParty.mockResolvedValue(undefined);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('RMV001')).toBeInTheDocument();
+			});
+
+			const removeBtn = screen.getByLabelText('Remove from recent');
+			await fireEvent.click(removeBtn);
+
+			const confirmBtn = screen.getByLabelText('Confirm remove');
+			await fireEvent.click(confirmBtn);
 
 			expect(mockGoto).not.toHaveBeenCalled();
 		});
