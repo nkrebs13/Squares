@@ -158,12 +158,18 @@
 		const result = await lockParty(storedPin);
 
 		if (result.success) {
-			// Redirect to game - grid is now locked and game is active
-			goto(`/party/${code}`);
+			// Reload party data so the page reactively shows score entry controls
+			try {
+				await loadParty(code);
+				success =
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
+			} catch (e) {
+				error = 'Game started, but failed to reload the latest game data. Please refresh the page.';
+			}
 		} else {
 			error = result.error || 'Failed to lock grid';
-			isLocking = false;
 		}
+		isLocking = false;
 	}
 
 	async function handleUpdateScore() {
