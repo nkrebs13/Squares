@@ -34,6 +34,29 @@ test.describe('Join Party Page', () => {
 		await expect(page.getByText(/use the same name/i)).toBeVisible();
 	});
 
+	test('has optional game nickname field', async ({ page }) => {
+		await expect(page.getByText(/game nickname/i)).toBeVisible();
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		await expect(nicknameInput).toBeVisible();
+		await expect(page.getByText(/helps you tell games apart/i)).toBeVisible();
+	});
+
+	test('game nickname has max length of 30', async ({ page }) => {
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		const longName = 'A'.repeat(35);
+		await nicknameInput.fill(longName);
+		const value = await nicknameInput.inputValue();
+		expect(value.length).toBeLessThanOrEqual(30);
+	});
+
+	test('Join Party button is enabled without nickname', async ({ page }) => {
+		await page.getByPlaceholder('ABCD12').fill('TEST1');
+		await page.getByPlaceholder(/enter your name/i).fill('Test Player');
+
+		const joinButton = page.getByRole('button', { name: /join party/i });
+		await expect(joinButton).toBeEnabled();
+	});
+
 	test('Join Party button is disabled until form is filled', async ({ page }) => {
 		const joinButton = page.getByRole('button', { name: /join party/i });
 		await expect(joinButton).toBeDisabled();
@@ -81,6 +104,83 @@ test.describe('Join Party Page', () => {
 
 		const value = await nameInput.inputValue();
 		expect(value.length).toBeLessThanOrEqual(20);
+	});
+});
+
+test.describe('Join Party - Nickname Flow', () => {
+	test('nickname is stored and shown in recent parties', async ({ page }) => {
+		// Mock party lookup
+		await page.route('**/rest/v1/parties*', (route) => {
+			if (route.request().method() === 'GET') {
+				route.fulfill({
+					status: 200,
+					contentType: 'application/json',
+					body: JSON.stringify({
+						id: 'test-party-id',
+						code: 'NICK1',
+						status: 'filling',
+						square_price: 5,
+						split_q1: 10,
+						split_q2: 20,
+						split_q3: 30,
+						split_final: 40,
+						team_row_name: 'Eagles',
+						team_col_name: 'Chiefs',
+						team_row_color: '#004c54',
+						team_col_color: '#e31837',
+						host_name_lower: 'host',
+						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+					}),
+				});
+			} else {
+				route.continue();
+			}
+		});
+
+		await setupSupabaseMocks(page);
+
+		await page.goto('/join?code=NICK1');
+
+		// Fill in name and nickname
+		await page.getByPlaceholder(/enter your name/i).fill('Player');
+		await page.getByPlaceholder(/work pool/i).fill('Office Pool');
+
+		await page.getByRole('button', { name: /join party/i }).click();
+
+		// Wait for party page to fully load
+		await expect(page.getByText('Eagles vs Chiefs')).toBeVisible({ timeout: 10000 });
+
+		// Wait for saveToRecentParties() IDB write to complete before navigating away.
+		// The heading renders when $party is set inside loadParty(), but
+		// saveToRecentParties() is the next awaited call in onMount — a full-page
+		// navigation via page.goto() could abort the in-flight IDB transaction.
+		await page.waitForFunction(
+			() =>
+				new Promise((resolve) => {
+					const req = indexedDB.open('keyval-store', 1);
+					req.onsuccess = () => {
+						const db = req.result;
+						const tx = db.transaction('keyval', 'readonly');
+						const store = tx.objectStore('keyval');
+						const get = store.get('squares_recent_parties');
+						get.onsuccess = () => {
+							const parties = get.result;
+							resolve(
+								Array.isArray(parties) &&
+									parties.some((p: { nickname?: string }) => p.nickname === 'Office Pool')
+							);
+						};
+						get.onerror = () => resolve(false);
+					};
+					req.onerror = () => resolve(false);
+				}),
+			null,
+			{ timeout: 10000 }
+		);
+
+		// Navigate home and check recent parties shows the nickname
+		await page.goto('/');
+		await expect(page.getByText('Office Pool')).toBeVisible({ timeout: 10000 });
 	});
 });
 

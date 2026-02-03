@@ -293,6 +293,46 @@ describe('requestPersistentStorage', () => {
 	});
 });
 
+describe('saveRecentParty with nickname', () => {
+	it('saves nickname when provided', async () => {
+		mockIdbGet.mockResolvedValueOnce([]);
+		const party = createRecentParty({ code: 'ABC123', nickname: 'Work Pool' });
+		await saveRecentParty(party);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('Work Pool');
+	});
+
+	it('new nickname overrides existing nickname', async () => {
+		const existing = createRecentParty({ code: 'ABC123', nickname: 'Old Name' });
+		mockIdbGet.mockResolvedValueOnce([existing]);
+		const updated = createRecentParty({ code: 'ABC123', nickname: 'New Name' });
+		await saveRecentParty(updated);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('New Name');
+	});
+
+	it('preserves existing nickname when new entry has no nickname', async () => {
+		const existing = createRecentParty({ code: 'ABC123', nickname: 'My Game' });
+		mockIdbGet.mockResolvedValueOnce([existing]);
+		const updated = createRecentParty({ code: 'ABC123' }); // no nickname
+		await saveRecentParty(updated);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('My Game');
+	});
+
+	it('does not set nickname when neither existing nor new has one', async () => {
+		mockIdbGet.mockResolvedValueOnce([]);
+		const party = createRecentParty({ code: 'ABC123' });
+		await saveRecentParty(party);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBeUndefined();
+	});
+});
+
 describe('saveRecentParty localStorage fallback', () => {
 	it('falls back to localStorage when IndexedDB throws', async () => {
 		mockIdbGet.mockRejectedValue(new Error('IDB error'));

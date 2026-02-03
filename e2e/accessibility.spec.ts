@@ -163,6 +163,6 @@ test.describe('Visual Regression Prevention', () => {
 
 		// Check form cards are visible
 		const cards = page.locator('.card');
-		await expect(cards).toHaveCount(4); // Price, Split, Name, PIN
+		await expect(cards).toHaveCount(5); // Price, Split, Name, PIN, Nickname
 	});
 });

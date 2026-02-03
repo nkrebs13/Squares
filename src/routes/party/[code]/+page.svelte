@@ -41,8 +41,19 @@
 	async function saveToRecentParties() {
 		if (!$party) return;
 
+		// Check for nickname set during create/join flow
+		let nickname: string | undefined;
+		if (browser) {
+			const nicknameKey = `squares_nickname_${$party.code}`;
+			nickname = sessionStorage.getItem(nicknameKey) || undefined;
+			if (nickname) {
+				sessionStorage.removeItem(nicknameKey);
+			}
+		}
+
 		const recentParty: RecentParty = {
 			code: $party.code,
+			nickname,
 			teamRowName: $party.team_row_name,
 			teamColName: $party.team_col_name,
 			lastVisited: Date.now(),
