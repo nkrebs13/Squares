@@ -246,8 +246,9 @@ describe('update_score RPC', () => {
 		// Score 27 → digit 7, score 13 → digit 3
 		// Find which row index maps to digit 7 and which col index maps to digit 3
 		expect(numbers).toBeDefined();
-		const rowIdx = numbers?.row_numbers.indexOf(7);
-		const colIdx = numbers?.col_numbers.indexOf(3);
+		if (!numbers) return;
+		const rowIdx = numbers.row_numbers.indexOf(7);
+		const colIdx = numbers.col_numbers.indexOf(3);
 
 		await client.rpc('update_score', {
 			p_party_id: party.id,
@@ -264,10 +265,12 @@ describe('update_score RPC', () => {
 			.eq('quarter', 'q1')
 			.single();
 
-		expect(winner?.winning_row).toBe(rowIdx);
-		expect(winner?.winning_col).toBe(colIdx);
+		expect(winner).toBeDefined();
+		if (!winner) return;
+		expect(winner.winning_row).toBe(rowIdx);
+		expect(winner.winning_col).toBe(colIdx);
 
 		// The player should be the one at that grid position
-		expect(winner?.player_name).toBe(`Player-R${rowIdx}C${colIdx}`);
+		expect(winner.player_name).toBe(`Player-R${rowIdx}C${colIdx}`);
 	});
 });

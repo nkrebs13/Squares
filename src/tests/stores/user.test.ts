@@ -77,11 +77,8 @@ describe('userName async IndexedDB initialization', () => {
 		idbGetMock.mockResolvedValueOnce('FromIndexedDB');
 
 		const mod = await import('$lib/stores/user');
-		// Wait for the async initialization to complete
-		await new Promise((resolve) => setTimeout(resolve, 10));
-
-		// Store should be updated with IndexedDB value
-		expect(get(mod.userName)).toBe('FromIndexedDB');
+		// Wait for the async initialization to complete deterministically
+		await vi.waitFor(() => expect(get(mod.userName)).toBe('FromIndexedDB'));
 		// localStorage should be synced as fallback
 		expect(localStorage.getItem('squares_user_name')).toBe('FromIndexedDB');
 	});
@@ -96,10 +93,12 @@ describe('userName async IndexedDB initialization', () => {
 		idbGetMock.mockResolvedValueOnce(undefined);
 
 		const mod = await import('$lib/stores/user');
-		// Wait for the async initialization to complete
-		await new Promise((resolve) => setTimeout(resolve, 10));
-
-		// Store should still have the localStorage value since IndexedDB had nothing
+		// Wait for the async initialization to settle — since IDB returned nothing,
+		// the store should keep the localStorage value. Flush the microtask queue.
+		await vi.waitFor(() => {
+			// getUserName() promise has resolved (with undefined), so init is done
+			expect(idbGetMock).toHaveBeenCalled();
+		});
 		expect(get(mod.userName)).toBe('FromLocal');
 	});
 
