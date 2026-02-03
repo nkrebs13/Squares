@@ -13,16 +13,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify lockfile integrity
+        run: git diff --exit-code package-lock.json
 
       - name: Check formatting (Prettier)
         run: npm run format:check
@@ -35,7 +38,6 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
-        continue-on-error: true
 
   unit-tests:
     name: Unit Tests
@@ -43,10 +45,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -58,7 +60,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: coverage-report
@@ -75,10 +77,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -89,6 +91,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check bundle size
+        run: |
+          # Fail if any individual JS chunk exceeds 150KB gzipped
+          MAX_GZIP_BYTES=153600
+          oversized=0
+          for f in $(find .svelte-kit/output build -name '*.js' 2>/dev/null); do
+            size=$(gzip -c "$f" | wc -c)
+            if [ "$size" -gt "$MAX_GZIP_BYTES" ]; then
+              echo "::error::Bundle too large: $f ($(( size / 1024 ))KB gzipped, max $(( MAX_GZIP_BYTES / 1024 ))KB)"
+              oversized=1
+            fi
+          done
+          if [ "$oversized" -eq 1 ]; then
+            exit 1
+          fi
+          echo "All JS chunks are within the 150KB gzipped budget"
+
   integration-tests:
     name: Integration Tests (Supabase)
     runs-on: ubuntu-latest
@@ -96,9 +115,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -118,7 +138,7 @@ jobs:
 
       - name: Setup Supabase CLI
         if: steps.check-integration.outputs.has_tests == 'true'
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1
         with:
           # Pin to v2.44.0: v2.45.5+ removed ANON_KEY from `supabase status` JSON output
           # (supabase/cli#4211). TODO: Unpin once https://github.com/supabase/cli/pull/4320
@@ -127,7 +147,17 @@ jobs:
 
       - name: Start local Supabase
         if: steps.check-integration.outputs.has_tests == 'true'
-        run: supabase init || true && supabase start
+        run: |
+          supabase init || true
+          supabase start
+
+      - name: Verify migrations applied cleanly
+        if: steps.check-integration.outputs.has_tests == 'true'
+        run: |
+          eval "$(supabase status -o env 2>/dev/null)"
+          # Reset applies all migrations from scratch — verifies they're idempotent
+          supabase db reset
+          echo "All migrations applied successfully"
 
       - name: Run integration tests
         if: steps.check-integration.outputs.has_tests == 'true'
@@ -163,15 +193,18 @@ jobs:
     needs: [lint-and-check, unit-tests]
 
     env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      # E2E tests use Playwright route mocking (page.route) to intercept all Supabase
+      # API calls — no real Supabase instance is needed. Placeholder values satisfy
+      # the Vite build which bakes these into the client bundle.
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_ANON_KEY: placeholder-key-for-e2e
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -181,7 +214,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -198,7 +231,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
