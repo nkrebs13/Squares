@@ -309,6 +309,9 @@
 		}
 	});
 
+	// Current user's player color for the legend swatch
+	const myColor = $derived($userName ? getPlayerColor($userName) : null);
+
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 </script>
@@ -434,9 +437,15 @@
 					<div class="legend-swatch legend-available"></div>
 					<span>Available</span>
 				</div>
-				{#if $userName}
+				{#if $userName && myColor}
 					<div class="legend-item">
-						<div class="legend-swatch legend-mine"></div>
+						<div
+							class="legend-swatch legend-mine"
+							style="background: {myColor.bg}; border-color: {myColor.text.replace(
+								/0\.9[58]/g,
+								'0.5'
+							)}; outline-color: {myColor.text.replace(/0\.9[58]/g, '0.7')};"
+						></div>
 						<span>Yours</span>
 					</div>
 				{/if}
@@ -742,9 +751,8 @@
 	}
 
 	.legend-mine {
-		background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
-		border-color: rgba(244, 143, 177, 0.5);
-		outline: 2px solid rgba(244, 143, 177, 0.7);
+		outline-style: solid;
+		outline-width: 2px;
 		outline-offset: -1px;
 	}
 
