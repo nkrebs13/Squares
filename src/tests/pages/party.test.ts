@@ -8,12 +8,10 @@ import {
 	winners,
 	isLoading,
 	error,
-	filledCount,
-	isGridFull,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square, Winner } from '$lib/types';
+import type { Party, Square } from '$lib/types';
 import { sessionStorageMock } from '../setup';
 
 // Mock $app/stores
