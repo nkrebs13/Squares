@@ -125,6 +125,30 @@ test.describe('Create Party Page', () => {
 		await expect(createButton).toBeEnabled();
 	});
 
+	test('has optional game nickname field', async ({ page }) => {
+		await expect(page.getByText(/game nickname/i)).toBeVisible();
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		await expect(nicknameInput).toBeVisible();
+		await expect(page.getByText(/helps you tell games apart/i)).toBeVisible();
+	});
+
+	test('game nickname has max length of 30', async ({ page }) => {
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		const longName = 'A'.repeat(35);
+		await nicknameInput.fill(longName);
+		const value = await nicknameInput.inputValue();
+		expect(value.length).toBeLessThanOrEqual(30);
+	});
+
+	test('Create Party button is enabled without nickname', async ({ page }) => {
+		// Fill in only required fields (name + PIN), leave nickname empty
+		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
+		await page.getByPlaceholder('0000').fill('1234');
+
+		const createButton = page.getByRole('button', { name: /create party/i });
+		await expect(createButton).toBeEnabled();
+	});
+
 	test('PIN only accepts 4 digits', async ({ page }) => {
 		const pinInput = page.getByPlaceholder('0000');
 
