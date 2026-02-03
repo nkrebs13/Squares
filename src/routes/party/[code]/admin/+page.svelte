@@ -330,7 +330,7 @@
 				<button
 					type="submit"
 					class="btn btn-primary w-full"
-					disabled={enteredPin.length !== 4 || isVerifyingPin}
+					disabled={enteredPin.length !== 4 || isVerifyingPin || pinAttempts >= 5}
 				>
 					{isVerifyingPin ? 'Verifying...' : 'Verify'}
 				</button>

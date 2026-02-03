@@ -1,9 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_PUBLIC_KEY = Deno.env.get('VITE_VAPID_PUBLIC_KEY')!;
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Validate required environment variables at startup
+function requireEnv(name: string): string {
+	const value = Deno.env.get(name);
+	if (!value) throw new Error(`Missing required environment variable: ${name}`);
+	return value;
+}
+
+const VAPID_PRIVATE_KEY = requireEnv('VAPID_PRIVATE_KEY');
+const VAPID_PUBLIC_KEY = requireEnv('VITE_VAPID_PUBLIC_KEY');
+const SUPABASE_URL = requireEnv('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 interface PushPayload {
 	party_id: string;
@@ -125,7 +132,9 @@ function derToRaw(der: Uint8Array): Uint8Array {
 	return raw;
 }
 
-// Encrypt payload using Web Push encryption (RFC 8291 - aes128gcm)
+// Encrypt payload using Web Push encryption (aesgcm content encoding)
+// Note: This uses the older aesgcm scheme (draft-ietf-webpush-encryption), not
+// the newer aes128gcm scheme defined in RFC 8291. Both are widely supported.
 async function encryptPayload(
 	payload: string,
 	p256dhKey: string,
