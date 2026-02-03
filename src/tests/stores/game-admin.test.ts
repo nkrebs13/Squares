@@ -229,15 +229,15 @@ describe('updatePayoutStructure', () => {
 
 	it('updates local state on success', async () => {
 		party.set(createMockParty());
-		// Chain: .from().update().eq().eq().select() — returns updated row
+		// verifyHostPin RPC returns true
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		// Chain: .from().update().eq().select() — returns updated row
 		const mockChain = {
 			update: vi.fn().mockReturnValue({
 				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: [{ id: 'test-party-id' }],
-							error: null,
-						}),
+					select: vi.fn().mockResolvedValue({
+						data: [{ id: 'test-party-id' }],
+						error: null,
 					}),
 				}),
 			}),
@@ -263,15 +263,15 @@ describe('updatePayoutStructure', () => {
 
 	it('returns error on Supabase error', async () => {
 		party.set(createMockParty());
-		// Chain: .from().update().eq().eq().select() — returns error
+		// verifyHostPin RPC returns true
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		// Chain: .from().update().eq().select() — returns error
 		const mockChain = {
 			update: vi.fn().mockReturnValue({
 				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: null,
-							error: { message: 'DB error' },
-						}),
+					select: vi.fn().mockResolvedValue({
+						data: null,
+						error: { message: 'DB error' },
 					}),
 				}),
 			}),
@@ -290,6 +290,25 @@ describe('updatePayoutStructure', () => {
 		expect(result).toEqual({
 			success: false,
 			error: 'Failed to update payout structure. Please try again.',
+		});
+	});
+
+	it('returns error when PIN is wrong', async () => {
+		party.set(createMockParty());
+		// verifyHostPin RPC returns false
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+
+		const result = await updatePayoutStructure('9999', {
+			q1: 10,
+			q2: 20,
+			q3: 30,
+			final: 40,
+		});
+
+		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
+			p_party_code: 'TEST123',
+			p_pin: '9999',
 		});
 	});
 });

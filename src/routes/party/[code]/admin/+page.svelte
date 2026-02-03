@@ -127,7 +127,7 @@
 	let pinAttempts = $state(0);
 
 	async function verifyPin() {
-		if (enteredPin.length !== 4) return;
+		if (enteredPin.length !== 4 || pinAttempts >= 5) return;
 
 		isVerifyingPin = true;
 		pinError = null;

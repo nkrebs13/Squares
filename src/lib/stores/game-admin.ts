@@ -84,7 +84,12 @@ export async function updatePayoutStructure(
 
 	const supabase = getSupabaseClient();
 
-	// PIN is validated server-side via the WHERE clause
+	// Verify PIN via RPC (rate-limited by check_pin_lockout)
+	const pinValid = await verifyHostPin(currentParty.code, pin);
+	if (!pinValid) {
+		return { success: false, error: 'Invalid PIN' };
+	}
+
 	const { data, error: updateError } = await supabase
 		.from('parties')
 		.update({
@@ -94,7 +99,6 @@ export async function updatePayoutStructure(
 			split_final: splits.final,
 		})
 		.eq('id', currentParty.id)
-		.eq('host_pin', pin)
 		.select('id');
 
 	if (updateError) {
