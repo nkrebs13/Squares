@@ -17,7 +17,7 @@
 		verifyHostPin,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
-	import { SPLIT_PRESETS } from '$lib/types';
+	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
 	import { goto } from '$app/navigation';
 
 	const code = $derived($page.params.code ?? '');
@@ -82,7 +82,7 @@
 
 	// Set initial quarter to next one needing entry
 	$effect(() => {
-		if ($party?.status === 'active' && $scores) {
+		if (isGameInProgress($party?.status) && $scores) {
 			manualScores.quarter = nextQuarter;
 		}
 	});
@@ -334,7 +334,9 @@
 			<!-- Current Status -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-2">Party Status</h2>
-				<div class="text-2xl font-bold capitalize">{$party.status}</div>
+				<div class="text-2xl font-bold capitalize">
+					{$party.status === 'locked' ? 'Active' : $party.status}
+				</div>
 				{#if $party.status === 'filling'}
 					<p class="text-sm mt-2" style="color: var(--text-secondary)">
 						{$filledCount}/100 squares filled
@@ -510,7 +512,7 @@
 			{/if}
 
 			<!-- Active Phase Controls -->
-			{#if $party.status === 'active'}
+			{#if isGameInProgress($party.status)}
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
 					<p class="text-sm mb-4" style="color: var(--text-secondary)">

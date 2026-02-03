@@ -1,6 +1,11 @@
 export type PartyStatus = 'filling' | 'locked' | 'active' | 'complete';
 export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
 
+/** Status values where the game is in progress (grid locked, scores can be entered) */
+export function isGameInProgress(status: PartyStatus | undefined): boolean {
+	return status === 'active' || status === 'locked';
+}
+
 export interface Party {
 	id: string;
 	code: string;

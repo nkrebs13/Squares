@@ -131,6 +131,21 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.getByText('Game Complete')).toBeInTheDocument();
 		});
+
+		it('REGRESSION: shows score entry section when party status is locked', () => {
+			renderAuthorizedAdmin({ status: 'locked' });
+
+			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+			expect(
+				screen.getByRole('button', { name: /Update Score & Calculate Winner/i })
+			).toBeInTheDocument();
+		});
+
+		it('REGRESSION: displays "Active" instead of "Locked" in status display', () => {
+			renderAuthorizedAdmin({ status: 'locked' });
+
+			expect(screen.getByText('Active')).toBeInTheDocument();
+		});
 	});
 
 	describe('Score Entry Form Elements', () => {
@@ -226,6 +241,16 @@ describe('Admin Page - Score Entry', () => {
 
 			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
 			expect(select.value).toBe('final');
+		});
+
+		it('REGRESSION: quarter auto-advancement works when status is locked', () => {
+			renderAuthorizedAdmin(
+				{ status: 'locked' },
+				createMockScores({ q1_row_score: 7, q1_col_score: 3 })
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('q2');
 		});
 	});
 
@@ -402,6 +427,74 @@ describe('Admin Page - Score Entry', () => {
 		});
 	});
 
+	describe('Lock-to-Score-Entry with Locked Status (Regression)', () => {
+		it('REGRESSION: shows score entry when loadParty returns locked status', async () => {
+			// This mimics the exact production scenario: lock_party RPC sets status to 'locked'
+			// (old migration 002 behavior), then loadParty returns 'locked'
+			party.set(createMockParty({ status: 'filling' }));
+			squares.set(createFullGrid());
+			scores.set(createMockScores());
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			render(AdminPage);
+
+			// Mock lockParty RPC to succeed
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			// Mock loadParty chain — returns 'locked' instead of 'active' (production bug)
+			mockSupabaseClient.from
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: createMockParty({ status: 'locked' }),
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					order: vi.fn().mockReturnValue({
+						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: {
+							party_id: 'test-party-id',
+							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+						},
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: createMockScores(),
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					order: vi.fn().mockResolvedValue({ data: [], error: null }),
+				} as ReturnType<typeof mockSupabaseClient.from>);
+
+			const user = userEvent.setup();
+			const lockButton = screen.getByRole('button', { name: /Lock Grid & Start Game/i });
+			await user.click(lockButton);
+
+			// Score entry should be visible even when status is 'locked'
+			await waitFor(() => {
+				expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+			});
+		});
+	});
+
 	describe('Score Update Flow', () => {
 		it('calls updateScore RPC with correct parameters when form is submitted', async () => {
 			renderAuthorizedAdmin(
@@ -541,6 +634,87 @@ describe('Admin Page - Score Entry', () => {
 
 			await waitFor(() => {
 				expect(screen.getByText(/Score updated for Q1!/)).toBeInTheDocument();
+			});
+		});
+
+		it('REGRESSION: score update flow works when status is locked', async () => {
+			renderAuthorizedAdmin(
+				{ status: 'locked', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				createMockScores()
+			);
+
+			// Mock the RPC call for updateScore
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			// Mock loadParty chain for after-update reload
+			mockSupabaseClient.from
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: createMockParty({ status: 'locked' }),
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					order: vi.fn().mockReturnValue({
+						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: {
+							party_id: 'test-party-id',
+							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+						},
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					single: vi.fn().mockResolvedValue({
+						data: createMockScores({ q1_row_score: 14, q1_col_score: 7 }),
+						error: null,
+					}),
+				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockReturnThis(),
+					order: vi.fn().mockResolvedValue({ data: [], error: null }),
+				} as ReturnType<typeof mockSupabaseClient.from>);
+
+			const user = userEvent.setup();
+
+			// Set row score
+			const rowInput = screen.getByLabelText('Eagles');
+			await user.clear(rowInput);
+			await user.type(rowInput, '14');
+
+			// Set col score
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(colInput);
+			await user.type(colInput, '7');
+
+			// Submit
+			const submitButton = screen.getByRole('button', {
+				name: /Update Score & Calculate Winner/i,
+			});
+			await user.click(submitButton);
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_score', {
+					p_party_id: 'test-party-id',
+					p_pin: '1234',
+					p_quarter: 'q1',
+					p_row_score: 14,
+					p_col_score: 7,
+				});
 			});
 		});
 

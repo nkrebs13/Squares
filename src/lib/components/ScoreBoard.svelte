@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { scores, party } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
+	import { isGameInProgress } from '$lib/types';
 	import type { Quarter } from '$lib/types';
 
 	interface QuarterScore {
@@ -66,7 +67,7 @@
 		</div>
 	</div>
 
-	{#if $party?.status === 'active' || $party?.status === 'complete'}
+	{#if isGameInProgress($party?.status) || $party?.status === 'complete'}
 		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
 			{#each quarterScores as qs}
 				<div class="quarter-score-box">
