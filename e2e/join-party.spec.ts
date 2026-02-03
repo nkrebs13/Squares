@@ -147,8 +147,36 @@ test.describe('Join Party - Nickname Flow', () => {
 
 		await page.getByRole('button', { name: /join party/i }).click();
 
-		// Should navigate to party page
-		await expect(page).toHaveURL('/party/NICK1', { timeout: 10000 });
+		// Wait for party page to fully load
+		await expect(page.getByText('Eagles vs Chiefs')).toBeVisible({ timeout: 10000 });
+
+		// Wait for saveToRecentParties() IDB write to complete before navigating away.
+		// The heading renders when $party is set inside loadParty(), but
+		// saveToRecentParties() is the next awaited call in onMount — a full-page
+		// navigation via page.goto() could abort the in-flight IDB transaction.
+		await page.waitForFunction(
+			() =>
+				new Promise((resolve) => {
+					const req = indexedDB.open('keyval-store', 1);
+					req.onsuccess = () => {
+						const db = req.result;
+						const tx = db.transaction('keyval', 'readonly');
+						const store = tx.objectStore('keyval');
+						const get = store.get('squares_recent_parties');
+						get.onsuccess = () => {
+							const parties = get.result;
+							resolve(
+								Array.isArray(parties) &&
+									parties.some((p: { nickname?: string }) => p.nickname === 'Office Pool')
+							);
+						};
+						get.onerror = () => resolve(false);
+					};
+					req.onerror = () => resolve(false);
+				}),
+			null,
+			{ timeout: 10000 }
+		);
 
 		// Navigate home and check recent parties shows the nickname
 		await page.goto('/');
