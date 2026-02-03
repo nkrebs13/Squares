@@ -155,6 +155,10 @@ test.describe('Recent Parties', () => {
 		const removeButtons = page.locator('.remove-btn');
 		await removeButtons.last().click();
 
+		// Confirm the removal in the inline confirmation
+		const confirmBtn = page.getByLabel('Confirm remove');
+		await confirmBtn.click();
+
 		// Should have one fewer card
 		await expect(cards).toHaveCount(2);
 	});
