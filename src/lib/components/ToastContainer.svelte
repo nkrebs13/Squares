@@ -4,7 +4,7 @@
 </script>
 
 {#if $toast.length > 0}
-	<div class="toast-container">
+	<div class="toast-container" role="status" aria-live="polite">
 		{#each $toast as t (t.id)}
 			<Toast
 				message={t.message}

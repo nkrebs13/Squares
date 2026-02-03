@@ -49,6 +49,16 @@ describe('ToastContainer Component', () => {
 		expect(messages[1].textContent).toBe('Second toast');
 	});
 
+	it('has aria-live="polite" and role="status" for screen readers', async () => {
+		render(ToastContainer);
+		toast.show('Accessible toast');
+		await tick();
+
+		const container = document.querySelector('.toast-container');
+		expect(container).toHaveAttribute('role', 'status');
+		expect(container).toHaveAttribute('aria-live', 'polite');
+	});
+
 	it('removes toast from store when removed', async () => {
 		render(ToastContainer);
 		const id = toast.show('Temporary', 'info', 1000);
