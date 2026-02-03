@@ -51,6 +51,11 @@ BEGIN
     col_numbers = EXCLUDED.col_numbers,
     assigned_at = NOW();
 
+  -- Insert scores row (idempotent via ON CONFLICT)
+  INSERT INTO scores (party_id)
+  VALUES (p_party_id)
+  ON CONFLICT (party_id) DO NOTHING;
+
   -- Update party status to active
   UPDATE parties SET status = 'active', updated_at = NOW() WHERE id = p_party_id;
 

@@ -97,7 +97,7 @@ describe('lock_party RPC', () => {
 
 		expect(logs).not.toBeNull();
 		expect(logs!.length).toBeGreaterThanOrEqual(1);
-		expect(logs![0].details).toMatchObject({ reason: 'invalid_pin' });
+		expect(logs![0].details).toMatchObject({ reason: 'invalid_pin_or_lockout' });
 	});
 
 	it('rejects incomplete grid (99/100 filled)', async () => {
