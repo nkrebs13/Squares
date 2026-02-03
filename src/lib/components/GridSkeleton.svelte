@@ -88,7 +88,7 @@
 	}
 
 	.skeleton-corner {
-		width: 1.75rem;
+		width: 2.75rem;
 		height: 1.75rem;
 		flex-shrink: 0;
 	}
@@ -114,7 +114,7 @@
 	}
 
 	.skeleton-row .skeleton-number {
-		width: 1.75rem;
+		width: 2.75rem;
 		height: 2.75rem;
 	}
 
@@ -140,7 +140,7 @@
 		}
 
 		.skeleton-row .skeleton-number {
-			width: 2rem;
+			width: 3rem;
 			height: 3rem;
 		}
 
