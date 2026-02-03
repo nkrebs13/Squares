@@ -751,11 +751,8 @@
 	}
 
 	.legend-mine {
-		background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
-		border-color: rgba(244, 143, 177, 0.5);
 		outline-style: solid;
 		outline-width: 2px;
-		outline-color: rgba(244, 143, 177, 0.7);
 		outline-offset: -1px;
 	}
 
