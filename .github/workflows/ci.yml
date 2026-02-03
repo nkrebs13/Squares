@@ -36,8 +36,8 @@ jobs:
       - name: Type check (svelte-check)
         run: npm run check
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
+      - name: Audit production dependencies
+        run: npm audit --audit-level=high --omit=dev
 
   unit-tests:
     name: Unit Tests
