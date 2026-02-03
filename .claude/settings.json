@@ -19,13 +19,23 @@
 		"PostToolUse": [
 			{
 				"matcher": "Edit|Write",
-				"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -qE \"\\.(ts|svelte)\" && npx svelte-check --tsconfig ./tsconfig.json || true'"
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -qE \"\\.(ts|svelte)\" && npx svelte-check --tsconfig ./tsconfig.json || true'"
+					}
+				]
 			}
 		],
 		"PreToolUse": [
 			{
 				"matcher": "Edit",
-				"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"supabase/migrations/0\" && echo \"BLOCKED: Do not modify existing migrations. Create a new migration file instead.\" && exit 1 || true'"
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash -c 'echo \"$CLAUDE_TOOL_INPUT\" | grep -q \"supabase/migrations/0\" && echo \"BLOCKED: Do not modify existing migrations. Create a new migration file instead.\" && exit 1 || true'"
+					}
+				]
 			}
 		]
 	}
