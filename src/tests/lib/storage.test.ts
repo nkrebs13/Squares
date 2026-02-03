@@ -343,7 +343,8 @@ describe('saveRecentParty localStorage fallback', () => {
 
 		const stored = localStorage.getItem('squares_recent_parties');
 		expect(stored).not.toBeNull();
-		const parsed = JSON.parse(stored ?? '');
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed[0].code).toBe('FALL01');
 	});
 });
@@ -360,7 +361,9 @@ describe('removeRecentParty localStorage fallback', () => {
 		await removeRecentParty('ABC123');
 
 		const stored = localStorage.getItem('squares_recent_parties');
-		const parsed = JSON.parse(stored ?? '');
+		expect(stored).not.toBeNull();
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed).toHaveLength(1);
 		expect(parsed[0].code).toBe('DEF456');
 	});
@@ -377,7 +380,9 @@ describe('updatePartyNickname localStorage fallback', () => {
 		await updatePartyNickname('ABC123', 'My Game');
 
 		const stored = localStorage.getItem('squares_recent_parties');
-		const parsed = JSON.parse(stored ?? '');
+		expect(stored).not.toBeNull();
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed[0].nickname).toBe('My Game');
 	});
 });
