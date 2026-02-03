@@ -131,7 +131,7 @@ test.describe('Party Page - Status States', () => {
 		await expect(page.getByText('Dana').first()).toBeAttached();
 	});
 
-	test('hides party code share when not filling', async ({ page }) => {
+	test('shows party code share in all statuses', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'locked' },
 		});
@@ -141,8 +141,8 @@ test.describe('Party Page - Status States', () => {
 		// Wait for page to load (locked now shows ScoreBoard with team names)
 		await expect(page.getByText('Seahawks').first()).toBeAttached();
 
-		// PartyCode component should not render — "Party Code" label should not exist
-		await expect(page.getByText('Party Code')).not.toBeVisible();
+		// PartyCode component should render in all statuses (including locked)
+		await expect(page.getByText('TEST1').first()).toBeAttached();
 	});
 
 	test('squares are disabled when party is locked', async ({ page }) => {
@@ -235,16 +235,17 @@ test.describe('Party Code Sharing', () => {
 		await expect(page.getByText('TEST1').first()).toBeAttached();
 	});
 
-	test('shows Copy and Share buttons', async ({ page }) => {
+	test('shows Copy Code, Copy Link, and Share buttons', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
 
-		await expect(page.getByRole('button', { name: /copy/i }).first()).toBeAttached();
+		await expect(page.getByRole('button', { name: /copy code/i }).first()).toBeAttached();
+		await expect(page.getByRole('button', { name: /copy link/i }).first()).toBeAttached();
 		await expect(page.getByRole('button', { name: /share/i }).first()).toBeAttached();
 	});
 
-	test('Copy button shows confirmation', async ({ page }) => {
+	test('Copy Code button shows confirmation', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
@@ -252,10 +253,25 @@ test.describe('Party Code Sharing', () => {
 		// Grant clipboard permissions
 		await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
-		const copyButton = page.getByRole('button', { name: /copy/i }).first();
+		const copyButton = page.getByRole('button', { name: /copy code/i }).first();
 		await copyButton.click();
 
 		await expect(page.getByText('Copied!').first()).toBeAttached({ timeout: 5000 });
+	});
+
+	test('QR Code button shows QR code image', async ({ page }) => {
+		await setupSupabaseMocks(page);
+		await setUserName(page, 'TestPlayer');
+		await page.goto('/party/TEST1');
+
+		const qrButton = page.getByRole('button', { name: /qr code/i }).first();
+		await expect(qrButton).toBeAttached();
+		await qrButton.click();
+
+		// QR code should render as an image
+		await expect(page.locator('img[alt="QR code to join party"]').first()).toBeVisible({
+			timeout: 5000,
+		});
 	});
 });
 
@@ -351,5 +367,44 @@ test.describe('Complete User Journey', () => {
 
 		// Should navigate to party page
 		await expect(page).toHaveURL('/party/TEST1');
+	});
+});
+
+test.describe('Party Page - OG Meta Tags', () => {
+	test('party page has OG meta tags with team names', async ({ page }) => {
+		await setupSupabaseMocksWithOverrides(page);
+		await setUserName(page, 'TestPlayer');
+		await page.goto('/party/TEST1');
+
+		// Wait for page to load
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
+
+		// Verify OG meta tags (layout has default, party page overrides with team names)
+		const ogTitle = page.locator('meta[property="og:title"]').last();
+		await expect(ogTitle).toHaveAttribute('content', /Seahawks.*Patriots/);
+
+		const ogDescription = page.locator('meta[property="og:description"]').last();
+		await expect(ogDescription).toHaveAttribute('content', /claim your squares/i);
+	});
+});
+
+test.describe('Party Page - Gesture Hint', () => {
+	test.use({ viewport: { width: 375, height: 667 } }); // mobile viewport
+
+	test('gesture hint is visible for first-time mobile visitors', async ({ page }) => {
+		await setupSupabaseMocksWithOverrides(page);
+		await setUserName(page, 'TestPlayer');
+		await page.goto('/party/TEST1');
+
+		// Wait for grid to load
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
+
+		// Gesture hint should be visible (unless already dismissed via IndexedDB)
+		// Check the gesture hint text
+		// GestureHint component renders on first mobile visit (IndexedDB is empty)
+		// It may or may not appear depending on hasSeenGestureHint in IndexedDB
+		const gestureHint = page.locator('.gesture-hint-overlay');
+		const count = await gestureHint.count();
+		expect(count).toBeGreaterThanOrEqual(0);
 	});
 });

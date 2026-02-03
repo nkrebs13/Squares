@@ -53,7 +53,7 @@
 						<line x1="8" y1="11" x2="14" y2="11"></line>
 					</svg>
 				</span>
-				<span>Double-tap to zoom</span>
+				<span>Tap Zoom to enlarge grid</span>
 			</div>
 			<div class="hint-row">
 				<span class="hint-icon">
