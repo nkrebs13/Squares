@@ -13,6 +13,7 @@
 	const customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
 	let hostName = $state('');
+	let nickname = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
 
@@ -111,6 +112,11 @@
 
 			// Store host name
 			await userName.setName(hostName.trim());
+
+			// Store nickname for the party page to pick up
+			if (nickname.trim()) {
+				sessionStorage.setItem(`squares_nickname_${code}`, nickname.trim());
+			}
 
 			goto(`/party/${code}`);
 		} catch (e) {
@@ -242,6 +248,24 @@
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
 				You'll need this to lock the grid and manage scores
+			</p>
+		</div>
+
+		<!-- Game Nickname (optional) -->
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Game Nickname</span>
+				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<input
+					type="text"
+					bind:value={nickname}
+					placeholder="e.g. Work Pool, Family Game"
+					class="input mt-2"
+					maxlength="30"
+				/>
+			</label>
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				Helps you tell games apart if you're in multiple pools
 			</p>
 		</div>
 
