@@ -141,8 +141,10 @@ BEGIN
     FROM squares
     WHERE party_id = p_party_id AND row_num = v_winning_row AND col_num = v_winning_col;
 
-    -- Safety check: winner square must have a player
+    -- Safety check: winner square must have a player (indicates data integrity issue if triggered)
     IF v_winner_name IS NULL THEN
+      PERFORM log_audit_event('update_score_failed', p_party_id,
+        jsonb_build_object('reason', 'null_winner', 'row', v_winning_row, 'col', v_winning_col));
       RETURN FALSE;
     END IF;
 

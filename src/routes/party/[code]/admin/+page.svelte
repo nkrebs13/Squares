@@ -670,12 +670,18 @@
 					</div>
 				</div>
 			{/if}
-			{#snippet failed(error)}
+			{#snippet failed(error, reset)}
 				<div class="card max-w-md mx-auto" style="border: 1px solid rgba(239, 68, 68, 0.3);">
 					<p class="text-sm" style="color: #f87171;">The admin panel encountered an error.</p>
-					<button class="btn btn-secondary btn-sm mt-2" onclick={() => window.location.reload()}
-						>Reload</button
-					>
+					<div class="flex gap-2 mt-2">
+						<button class="btn btn-secondary btn-sm" type="button" onclick={reset}>Try again</button
+						>
+						<button
+							class="btn btn-secondary btn-sm"
+							type="button"
+							onclick={() => window.location.reload()}>Reload</button
+						>
+					</div>
 				</div>
 			{/snippet}
 		</svelte:boundary>

@@ -31,7 +31,7 @@ CREATE POLICY "Anon can read own party subscriptions" ON push_subscriptions
 CREATE POLICY "Anyone can unsubscribe by endpoint" ON push_subscriptions
   FOR DELETE USING (true);
 
--- Add subscription limit per party (100 players max)
+-- Add subscription limit per party (200 subscriptions max — players may have multiple devices)
 CREATE OR REPLACE FUNCTION check_push_subscription_limit()
 RETURNS TRIGGER AS $$
 BEGIN

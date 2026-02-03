@@ -34,6 +34,9 @@ self.addEventListener('notificationclick', (event) => {
 	// Only allow relative paths — reject absolute/protocol-relative URLs
 	const rawUrl = event.notification.data?.url || '/';
 	const url = (rawUrl.startsWith('/') && !rawUrl.startsWith('//')) ? rawUrl : '/';
+	if (url !== rawUrl) {
+		console.warn('Push notification had invalid URL, falling back to /:', rawUrl);
+	}
 
 	event.waitUntil(
 		// Try to focus existing window, otherwise open new one

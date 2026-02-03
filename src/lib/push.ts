@@ -38,6 +38,10 @@ export async function subscribeToPush(
 			return { success: false, error: 'Permission denied' };
 		}
 
+		if (!VAPID_PUBLIC_KEY) {
+			return { success: false, error: 'Push notifications not configured' };
+		}
+
 		const registration = await navigator.serviceWorker.ready;
 		const subscription = await registration.pushManager.subscribe({
 			userVisibleOnly: true,

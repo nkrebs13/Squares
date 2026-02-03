@@ -391,20 +391,19 @@ test.describe('Party Page - OG Meta Tags', () => {
 test.describe('Party Page - Gesture Hint', () => {
 	test.use({ viewport: { width: 375, height: 667 } }); // mobile viewport
 
-	test('gesture hint is visible for first-time mobile visitors', async ({ page }) => {
+	test('gesture hint overlay renders on first mobile visit', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
+
+		// Clear IndexedDB to ensure first-visit behavior
+		await page.evaluate(() => indexedDB.deleteDatabase('football-squares'));
+
 		await page.goto('/party/TEST1');
 
 		// Wait for grid to load
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
-		// Gesture hint should be visible (unless already dismissed via IndexedDB)
-		// Check the gesture hint text
-		// GestureHint component renders on first mobile visit (IndexedDB is empty)
-		// It may or may not appear depending on hasSeenGestureHint in IndexedDB
-		const gestureHint = page.locator('.gesture-hint-overlay');
-		const count = await gestureHint.count();
-		expect(count).toBeGreaterThanOrEqual(0);
+		// GestureHint should be visible on first mobile visit (IndexedDB cleared above)
+		await expect(page.locator('.gesture-hint-overlay')).toBeVisible({ timeout: 5000 });
 	});
 });

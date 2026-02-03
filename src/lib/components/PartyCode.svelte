@@ -46,8 +46,8 @@
 						light: '#1a1a24',
 					},
 				});
-			} catch {
-				// QR generation failed silently
+			} catch (err) {
+				console.error('QR generation failed:', err);
 			}
 		}
 	}
