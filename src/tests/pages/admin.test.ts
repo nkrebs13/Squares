@@ -230,7 +230,7 @@ describe('Admin Page - Score Entry', () => {
 	});
 
 	describe('Lock Grid → Score Entry Transition (Regression)', () => {
-		it('does NOT redirect after successful lock — host stays on admin page', async () => {
+		it('shows score entry without redirecting after successful lock', async () => {
 			const { goto } = await import('$app/navigation');
 
 			// Set up: filling party with full grid
