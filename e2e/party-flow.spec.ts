@@ -83,14 +83,16 @@ test.describe('Party Page - Mocked Flow', () => {
 });
 
 test.describe('Party Page - Status States', () => {
-	test('shows locked status banner', async ({ page }) => {
+	test('shows scoreboard when locked (same as active)', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'locked' },
 		});
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
 
-		await expect(page.getByText(/grid locked/i).first()).toBeAttached();
+		// Locked now shows ScoreBoard instead of "grid locked" banner
+		await expect(page.getByText('Seahawks').first()).toBeAttached();
+		await expect(page.getByText('Patriots').first()).toBeAttached();
 	});
 
 	test('shows scoreboard when active', async ({ page }) => {
@@ -136,8 +138,8 @@ test.describe('Party Page - Status States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
 
-		// Wait for page to load
-		await expect(page.getByText(/grid locked/i).first()).toBeAttached();
+		// Wait for page to load (locked now shows ScoreBoard with team names)
+		await expect(page.getByText('Seahawks').first()).toBeAttached();
 
 		// PartyCode component should not render — "Party Code" label should not exist
 		await expect(page.getByText('Party Code')).not.toBeVisible();
