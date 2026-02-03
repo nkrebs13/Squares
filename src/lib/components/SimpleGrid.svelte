@@ -23,13 +23,10 @@
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
-	const MIN_CELL_SIZE_DESKTOP = 44;
 	const MIN_CELL_SIZE_MOBILE = 28;
 	const ZOOMED_CELL_SIZE = 64;
-	const ROW_HEADER_WIDTH = 28;
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
-	const NUM_GAPS = NUM_COLS - 1;
 	const TEAM_LABEL_WIDTH = 36;
 	const SCROLL_CONTAINER_PADDING = 8;
 
@@ -89,10 +86,11 @@
 	// Calculate fit-to-width cell size
 	function calculateFitCellSize(): number {
 		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
-		const gapTotal = NUM_GAPS * GAP_SIZE;
-		const availableWidth =
-			containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
-		return Math.floor(availableWidth / NUM_COLS);
+		const totalColumns = NUM_COLS + 1; // 10 data + 1 row header
+		const totalGaps = totalColumns - 1;
+		const gapTotal = totalGaps * GAP_SIZE;
+		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
+		return Math.floor(availableWidth / totalColumns);
 	}
 
 	// Calculate fit cell size
@@ -373,7 +371,7 @@
 				class="scroll-container"
 				class:fit-mode={zoomState === 'fit'}
 				bind:this={scrollContainer}
-				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px; --row-header-width: {ROW_HEADER_WIDTH}px;"
+				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px;"
 			>
 				<div class="grid-11x11">
 					<div class="corner-cell"></div>
@@ -616,7 +614,7 @@
 
 	.grid-11x11 {
 		display: grid;
-		grid-template-columns: var(--row-header-width) repeat(10, var(--cell-size));
+		grid-template-columns: repeat(11, var(--cell-size));
 		grid-template-rows: var(--header-height) repeat(10, var(--cell-size));
 		gap: 2px;
 		width: fit-content;
@@ -627,9 +625,11 @@
 		left: 0;
 		z-index: 20;
 		background: var(--bg-secondary);
-		width: var(--row-header-width);
+		width: var(--cell-size);
 		height: var(--header-height);
-		box-shadow: 0 0 0 4px var(--bg-secondary);
+		box-shadow:
+			0 0 0 2px var(--bg-secondary),
+			-6px 0 0 0 var(--bg-secondary);
 	}
 
 	.col-header {
@@ -650,13 +650,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--row-header-width);
+		width: var(--cell-size);
 		height: var(--cell-size);
 		font-size: 0.75rem;
 		font-weight: bold;
 		color: white;
 		background: var(--team-row-color, #69be28);
-		box-shadow: 0 0 0 3px var(--bg-secondary);
+		box-shadow:
+			0 0 0 2px var(--bg-secondary),
+			-6px 0 0 0 var(--bg-secondary);
 	}
 
 	.team-col-bg {
