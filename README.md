@@ -54,10 +54,6 @@ Create a `.env.local` file in the project root:
 # Supabase Configuration
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
-
-# For score fetcher (server-side only, optional)
-SUPABASE_SERVICE_KEY=your-service-key-here
-SUPER_BOWL_EVENT_ID=
 ```
 
 ### Database Setup
