@@ -67,6 +67,25 @@ describe('userName store', () => {
 });
 
 describe('userName async IndexedDB initialization', () => {
+	it('overwrites store with IndexedDB value when available', async () => {
+		// Start with a localStorage value
+		localStorage.setItem('squares_user_name', 'FromLocal');
+		vi.resetModules();
+
+		// Mock getUserName to return a value from IndexedDB
+		const idbGetMock = vi.mocked((await import('idb-keyval')).get);
+		idbGetMock.mockResolvedValueOnce('FromIndexedDB');
+
+		const mod = await import('$lib/stores/user');
+		// Wait for the async initialization to complete
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		// Store should be updated with IndexedDB value
+		expect(get(mod.userName)).toBe('FromIndexedDB');
+		// localStorage should be synced as fallback
+		expect(localStorage.getItem('squares_user_name')).toBe('FromIndexedDB');
+	});
+
 	it('does not overwrite store when IndexedDB returns null', async () => {
 		// Set localStorage value, but IndexedDB returns nothing
 		localStorage.setItem('squares_user_name', 'FromLocal');
