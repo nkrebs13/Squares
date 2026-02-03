@@ -23,7 +23,6 @@
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
-	const MIN_CELL_SIZE_DESKTOP = 44;
 	const MIN_CELL_SIZE_MOBILE = 28;
 	const ZOOMED_CELL_SIZE = 64;
 	const GAP_SIZE = 2;
