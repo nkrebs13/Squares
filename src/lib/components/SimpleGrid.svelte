@@ -20,6 +20,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { formatPrice } from '$lib/utils/format';
+	import { getPlayerColor } from '$lib/utils/colors';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -32,33 +33,6 @@
 	const NUM_GAPS = NUM_COLS - 1;
 	const TEAM_LABEL_WIDTH = 36;
 	const SCROLL_CONTAINER_PADDING = 8;
-
-	// Player colors (same as Square.svelte)
-	const playerColors = [
-		{ bg: 'rgba(100, 180, 255, 0.22)', text: 'rgba(120, 190, 255, 0.95)' },
-		{ bg: 'rgba(255, 110, 110, 0.22)', text: 'rgba(255, 130, 130, 0.95)' },
-		{ bg: 'rgba(100, 230, 100, 0.22)', text: 'rgba(120, 240, 120, 0.95)' },
-		{ bg: 'rgba(255, 230, 100, 0.22)', text: 'rgba(255, 235, 130, 0.98)' },
-		{ bg: 'rgba(180, 100, 255, 0.22)', text: 'rgba(190, 120, 255, 0.95)' },
-		{ bg: 'rgba(255, 150, 80, 0.22)', text: 'rgba(255, 170, 110, 0.98)' },
-		{ bg: 'rgba(100, 230, 230, 0.22)', text: 'rgba(120, 240, 240, 0.95)' },
-		{ bg: 'rgba(255, 100, 170, 0.22)', text: 'rgba(255, 130, 185, 0.95)' },
-		{ bg: 'rgba(190, 255, 100, 0.22)', text: 'rgba(200, 255, 130, 0.98)' },
-		{ bg: 'rgba(255, 130, 220, 0.22)', text: 'rgba(255, 150, 230, 0.95)' },
-		{ bg: 'rgba(100, 255, 190, 0.22)', text: 'rgba(120, 255, 200, 0.95)' },
-		{ bg: 'rgba(230, 190, 150, 0.22)', text: 'rgba(245, 210, 175, 0.98)' },
-		{ bg: 'rgba(130, 200, 200, 0.22)', text: 'rgba(150, 220, 220, 0.95)' },
-		{ bg: 'rgba(200, 160, 255, 0.22)', text: 'rgba(210, 175, 255, 0.95)' },
-		{ bg: 'rgba(255, 200, 150, 0.22)', text: 'rgba(255, 215, 175, 0.98)' },
-	];
-
-	function getPlayerColor(name: string): { bg: string; text: string } {
-		let hash = 0;
-		for (let i = 0; i < name.length; i++) {
-			hash = name.charCodeAt(i) + ((hash << 5) - hash);
-		}
-		return playerColors[Math.abs(hash) % playerColors.length];
-	}
 
 	// DOM refs
 	let scrollContainer: HTMLDivElement;
