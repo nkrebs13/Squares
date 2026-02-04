@@ -52,7 +52,7 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint);
 			await vi.waitFor(() => {
-				expect(screen.getByText('Double-tap to zoom')).toBeInTheDocument();
+				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
 				expect(screen.getByText('Tap to claim')).toBeInTheDocument();
 				expect(screen.getByText('Hold to select multiple')).toBeInTheDocument();
 			});

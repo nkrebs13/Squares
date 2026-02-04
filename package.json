@@ -67,7 +67,9 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.49.0",
+		"@types/qrcode": "^1.5.6",
 		"idb-keyval": "^6.2.2",
-		"panzoom": "^9.4.3"
+		"panzoom": "^9.4.3",
+		"qrcode": "^1.5.4"
 	}
 }

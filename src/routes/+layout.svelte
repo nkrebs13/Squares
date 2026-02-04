@@ -34,6 +34,20 @@
 	<meta name="theme-color" content="#1a2744" />
 	<link rel="manifest" href="/manifest.webmanifest" />
 
+	<!-- Default OG tags -->
+	<meta property="og:title" content="Football Squares" />
+	<meta
+		property="og:description"
+		content="Real-time Super Bowl squares pool. Claim your squares for the big game!"
+	/>
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Football Squares" />
+	<meta
+		name="twitter:description"
+		content="Real-time Super Bowl squares pool. Claim your squares for the big game!"
+	/>
+
 	<!-- Favicons - best practices -->
 	<link rel="icon" href="/favicon.ico" sizes="32x32" />
 	<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />

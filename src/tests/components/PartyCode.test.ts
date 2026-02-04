@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+
+vi.mock('qrcode', () => ({
+	default: {
+		toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,mock'),
+	},
+}));
+
 import PartyCode from '$lib/components/PartyCode.svelte';
 import { party } from '$lib/stores/game';
 import type { Party } from '$lib/types';
@@ -68,14 +75,16 @@ describe('PartyCode Component', () => {
 		expect(screen.getByText('Party Code')).toBeInTheDocument();
 	});
 
-	it('shows Copy and Share buttons', () => {
+	it('shows Copy Code, Copy Link, Share, and QR Code buttons', () => {
 		party.set(createMockParty());
 		render(PartyCode);
-		expect(screen.getByText('Copy')).toBeInTheDocument();
+		expect(screen.getByText('Copy Code')).toBeInTheDocument();
+		expect(screen.getByText('Copy Link')).toBeInTheDocument();
 		expect(screen.getByText('Share')).toBeInTheDocument();
+		expect(screen.getByText('QR Code')).toBeInTheDocument();
 	});
 
-	it('Copy button calls clipboard writeText', async () => {
+	it('Copy Code button calls clipboard writeText with code', async () => {
 		party.set(createMockParty());
 		const mockWriteText = vi.fn().mockResolvedValue(undefined);
 
@@ -86,13 +95,12 @@ describe('PartyCode Component', () => {
 		});
 
 		render(PartyCode);
-		await fireEvent.click(screen.getByText('Copy'));
+		await fireEvent.click(screen.getByText('Copy Code'));
 
 		// Allow async handler to complete
 		await vi.waitFor(() => {
 			expect(mockWriteText).toHaveBeenCalledWith('TEST123');
 		});
-		expect(screen.getByText('Copied!')).toBeInTheDocument();
 	});
 
 	it('Share button calls navigator.share when available', async () => {
@@ -116,7 +124,7 @@ describe('PartyCode Component', () => {
 		);
 	});
 
-	it('falls back to copy when share is not available', async () => {
+	it('falls back to copy link when share is not available', async () => {
 		party.set(createMockParty());
 		Object.defineProperty(navigator, 'share', {
 			value: undefined,
@@ -132,7 +140,7 @@ describe('PartyCode Component', () => {
 		await fireEvent.click(screen.getByText('Share'));
 
 		await vi.waitFor(() => {
-			expect(mockWriteText).toHaveBeenCalledWith('TEST123');
+			expect(mockWriteText).toHaveBeenCalledWith(expect.stringContaining('/join?code=TEST123'));
 		});
 	});
 });

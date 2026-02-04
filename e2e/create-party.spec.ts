@@ -74,6 +74,7 @@ test.describe('Create Party Page', () => {
 
 	test('shows custom inputs when Custom preset is selected', async ({ page }) => {
 		const customButton = page.getByRole('button', { name: /custom/i });
+		await customButton.scrollIntoViewIfNeeded();
 		await customButton.click();
 
 		// Should show number inputs for custom splits
@@ -83,6 +84,7 @@ test.describe('Create Party Page', () => {
 
 	test('shows validation error when custom split does not total 100%', async ({ page }) => {
 		const customButton = page.getByRole('button', { name: /custom/i });
+		await customButton.scrollIntoViewIfNeeded();
 		await customButton.click();
 
 		// Wait for custom inputs to appear

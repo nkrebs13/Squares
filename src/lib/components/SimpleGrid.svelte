@@ -342,12 +342,6 @@
 	<div class="grid-wrapper" bind:this={gridWrapper}>
 		<!-- Column Team Label -->
 		<div class="team-label-col">
-			<img
-				src="/logos/patriots.png"
-				alt={$theme.colName}
-				class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-				onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-			/>
 			<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
 				{$theme.colName}
 			</span>
@@ -362,12 +356,6 @@
 				>
 					{$theme.rowName}
 				</span>
-				<img
-					src="/logos/seahawks.png"
-					alt={$theme.rowName}
-					class="row-logo w-6 h-6 sm:w-7 sm:h-7 object-contain"
-					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-				/>
 			</div>
 
 			<!-- Scrollable Grid Container -->
@@ -601,9 +589,6 @@
 		padding: 0.25rem 0;
 		flex-shrink: 0;
 		width: 32px;
-	}
-
-	.row-logo {
 	}
 
 	.scroll-container {

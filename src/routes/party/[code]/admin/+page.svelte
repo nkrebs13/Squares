@@ -124,9 +124,10 @@
 
 	let isVerifyingPin = $state(false);
 	let pinError = $state<string | null>(null);
+	let pinAttempts = $state(0);
 
 	async function verifyPin() {
-		if (enteredPin.length !== 4) return;
+		if (enteredPin.length !== 4 || pinAttempts >= 5) return;
 
 		isVerifyingPin = true;
 		pinError = null;
@@ -137,8 +138,14 @@
 				sessionStorage.setItem(`squares_pin_${code}`, enteredPin);
 				storedPin = enteredPin;
 				isAuthorized = true;
+				pinAttempts = 0;
 			} else {
-				pinError = 'Incorrect PIN. Please try again.';
+				pinAttempts++;
+				if (pinAttempts >= 5) {
+					pinError = 'Too many attempts. Try again later.';
+				} else {
+					pinError = 'Incorrect PIN. Please try again.';
+				}
 				enteredPin = '';
 			}
 		} catch {
@@ -304,344 +311,361 @@
 				<button
 					type="submit"
 					class="btn btn-primary w-full"
-					disabled={enteredPin.length !== 4 || isVerifyingPin}
+					disabled={enteredPin.length !== 4 || isVerifyingPin || pinAttempts >= 5}
 				>
 					{isVerifyingPin ? 'Verifying...' : 'Verify'}
 				</button>
 			</form>
 		</div>
 	{:else if $party}
-		<div class="space-y-6 max-w-md mx-auto">
-			<!-- Current Status -->
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-2">Party Status</h2>
-				<div class="text-2xl font-bold capitalize">
-					{$party.status === 'locked' ? 'Active' : $party.status}
+		<svelte:boundary>
+			<div class="space-y-6 max-w-md mx-auto">
+				<!-- Current Status -->
+				<div class="card">
+					<h2 class="text-lg font-semibold mb-2">Party Status</h2>
+					<div class="text-2xl font-bold capitalize">
+						{$party.status === 'locked' ? 'Active' : $party.status}
+					</div>
+					{#if $party.status === 'filling'}
+						<p class="text-sm mt-2" style="color: var(--text-secondary)">
+							{$filledCount}/100 squares filled
+						</p>
+					{/if}
 				</div>
-				{#if $party.status === 'filling'}
-					<p class="text-sm mt-2" style="color: var(--text-secondary)">
-						{$filledCount}/100 squares filled
-					</p>
+
+				{#if error}
+					<div class="message-error">
+						{error}
+					</div>
 				{/if}
-			</div>
 
-			{#if error}
-				<div class="message-error">
-					{error}
-				</div>
-			{/if}
+				{#if success}
+					<div class="message-success">
+						{success}
+					</div>
+				{/if}
 
-			{#if success}
-				<div class="message-success">
-					{success}
-				</div>
-			{/if}
+				<!-- Filling Phase Controls -->
+				{#if $party.status === 'filling'}
+					<!-- Manage Players -->
+					{#if $playerSummary.length > 0}
+						<div class="card">
+							<h2 class="text-lg font-semibold mb-4">Manage Players</h2>
+							<p class="text-sm mb-4" style="color: var(--text-secondary)">
+								Remove a player to free up their squares for others to claim.
+							</p>
 
-			<!-- Filling Phase Controls -->
-			{#if $party.status === 'filling'}
-				<!-- Manage Players -->
-				{#if $playerSummary.length > 0}
+							<div class="space-y-2">
+								{#each $playerSummary as player (player.normalizedName)}
+									<div
+										class="flex items-center justify-between p-3 rounded-lg"
+										style="background: rgba(255, 255, 255, 0.04);"
+									>
+										<div>
+											<div class="font-medium">
+												{player.name}
+												{#if player.normalizedName === $party?.host_name_lower}
+													<span class="text-xs ml-1" style="color: var(--text-muted)">(host)</span>
+												{/if}
+											</div>
+											<div class="text-sm" style="color: var(--text-secondary)">
+												{player.count} square{player.count !== 1 ? 's' : ''}
+											</div>
+										</div>
+										{#if player.normalizedName !== $party?.host_name_lower}
+											<button
+												onclick={() => (playerToRemove = player)}
+												class="btn btn-sm"
+												style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
+											>
+												Remove
+											</button>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Payout Structure -->
 					<div class="card">
-						<h2 class="text-lg font-semibold mb-4">Manage Players</h2>
+						<h2 class="text-lg font-semibold mb-4">Payout Structure</h2>
 						<p class="text-sm mb-4" style="color: var(--text-secondary)">
-							Remove a player to free up their squares for others to claim.
+							Adjust how the pot is split between quarters. Must total 100%.
 						</p>
 
-						<div class="space-y-2">
-							{#each $playerSummary as player (player.normalizedName)}
-								<div
-									class="flex items-center justify-between p-3 rounded-lg"
-									style="background: rgba(255, 255, 255, 0.04);"
+						<div class="flex gap-2 mb-4 flex-wrap">
+							{#each SPLIT_PRESETS as preset (preset.name)}
+								<button
+									class="btn btn-sm {selectedPreset === preset.name
+										? 'btn-primary'
+										: 'btn-secondary'}"
+									onclick={() => applyPreset(preset.name)}
 								>
-									<div>
-										<div class="font-medium">
-											{player.name}
-											{#if player.normalizedName === $party?.host_name_lower}
-												<span class="text-xs ml-1" style="color: var(--text-muted)">(host)</span>
-											{/if}
-										</div>
-										<div class="text-sm" style="color: var(--text-secondary)">
-											{player.count} square{player.count !== 1 ? 's' : ''}
-										</div>
-									</div>
-									{#if player.normalizedName !== $party?.host_name_lower}
-										<button
-											onclick={() => (playerToRemove = player)}
-											class="btn btn-sm"
-											style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
-										>
-											Remove
-										</button>
-									{/if}
-								</div>
+									{preset.name}
+								</button>
 							{/each}
 						</div>
+
+						<div class="grid grid-cols-1 gap-3 mb-4">
+							<div>
+								<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
+								<div class="flex items-center gap-1">
+									<input
+										type="number"
+										bind:value={payoutSplits.q1}
+										min="0"
+										max="100"
+										class="input mt-1"
+										onchange={() => (selectedPreset = 'Custom')}
+									/>
+									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+								</div>
+							</div>
+							<div>
+								<label class="text-sm" style="color: var(--text-secondary)">Q2</label>
+								<div class="flex items-center gap-1">
+									<input
+										type="number"
+										bind:value={payoutSplits.q2}
+										min="0"
+										max="100"
+										class="input mt-1"
+										onchange={() => (selectedPreset = 'Custom')}
+									/>
+									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+								</div>
+							</div>
+							<div>
+								<label class="text-sm" style="color: var(--text-secondary)">Q3</label>
+								<div class="flex items-center gap-1">
+									<input
+										type="number"
+										bind:value={payoutSplits.q3}
+										min="0"
+										max="100"
+										class="input mt-1"
+										onchange={() => (selectedPreset = 'Custom')}
+									/>
+									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+								</div>
+							</div>
+							<div>
+								<label class="text-sm" style="color: var(--text-secondary)">Final</label>
+								<div class="flex items-center gap-1">
+									<input
+										type="number"
+										bind:value={payoutSplits.final}
+										min="0"
+										max="100"
+										class="input mt-1"
+										onchange={() => (selectedPreset = 'Custom')}
+									/>
+									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="text-sm mb-4 {splitTotal === 100 ? '' : 'text-red-400'}">
+							Total: {splitTotal}% {splitTotal !== 100 ? '(must be 100%)' : '✓'}
+						</div>
+
+						<button
+							onclick={handleUpdatePayout}
+							class="btn btn-primary w-full"
+							disabled={isUpdatingPayout || splitTotal !== 100}
+						>
+							{isUpdatingPayout ? 'Saving...' : 'Save Payout Structure'}
+						</button>
+					</div>
+
+					<div class="card">
+						<h2 class="text-lg font-semibold mb-4">Start Game</h2>
+						{#if $isGridFull}
+							<p class="text-sm mb-4" style="color: var(--text-secondary)">
+								All 100 squares are filled. Lock the grid, assign random numbers, and start the
+								game.
+							</p>
+							<button onclick={handleLockGrid} class="btn btn-success w-full" disabled={isLocking}>
+								{isLocking ? 'Starting...' : 'Lock Grid & Start Game'}
+							</button>
+						{:else}
+							<p class="text-sm" style="color: var(--text-secondary)">
+								Grid is not full yet ({$filledCount}/100). Wait for all squares to be claimed before
+								starting.
+							</p>
+							<div class="mt-4 progress-bar">
+								<div class="progress-bar-fill" style="width: {$filledCount}%"></div>
+							</div>
+						{/if}
 					</div>
 				{/if}
 
-				<!-- Payout Structure -->
-				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Payout Structure</h2>
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Adjust how the pot is split between quarters. Must total 100%.
-					</p>
-
-					<div class="flex gap-2 mb-4 flex-wrap">
-						{#each SPLIT_PRESETS as preset (preset.name)}
-							<button
-								class="btn btn-sm {selectedPreset === preset.name
-									? 'btn-primary'
-									: 'btn-secondary'}"
-								onclick={() => applyPreset(preset.name)}
-							>
-								{preset.name}
-							</button>
-						{/each}
-					</div>
-
-					<div class="grid grid-cols-1 gap-3 mb-4">
-						<div>
-							<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
-							<div class="flex items-center gap-1">
-								<input
-									type="number"
-									bind:value={payoutSplits.q1}
-									min="0"
-									max="100"
-									class="input mt-1"
-									onchange={() => (selectedPreset = 'Custom')}
-								/>
-								<span class="text-sm" style="color: var(--text-secondary)">%</span>
-							</div>
-						</div>
-						<div>
-							<label class="text-sm" style="color: var(--text-secondary)">Q2</label>
-							<div class="flex items-center gap-1">
-								<input
-									type="number"
-									bind:value={payoutSplits.q2}
-									min="0"
-									max="100"
-									class="input mt-1"
-									onchange={() => (selectedPreset = 'Custom')}
-								/>
-								<span class="text-sm" style="color: var(--text-secondary)">%</span>
-							</div>
-						</div>
-						<div>
-							<label class="text-sm" style="color: var(--text-secondary)">Q3</label>
-							<div class="flex items-center gap-1">
-								<input
-									type="number"
-									bind:value={payoutSplits.q3}
-									min="0"
-									max="100"
-									class="input mt-1"
-									onchange={() => (selectedPreset = 'Custom')}
-								/>
-								<span class="text-sm" style="color: var(--text-secondary)">%</span>
-							</div>
-						</div>
-						<div>
-							<label class="text-sm" style="color: var(--text-secondary)">Final</label>
-							<div class="flex items-center gap-1">
-								<input
-									type="number"
-									bind:value={payoutSplits.final}
-									min="0"
-									max="100"
-									class="input mt-1"
-									onchange={() => (selectedPreset = 'Custom')}
-								/>
-								<span class="text-sm" style="color: var(--text-secondary)">%</span>
-							</div>
-						</div>
-					</div>
-
-					<div class="text-sm mb-4 {splitTotal === 100 ? '' : 'text-red-400'}">
-						Total: {splitTotal}% {splitTotal !== 100 ? '(must be 100%)' : '✓'}
-					</div>
-
-					<button
-						onclick={handleUpdatePayout}
-						class="btn btn-primary w-full"
-						disabled={isUpdatingPayout || splitTotal !== 100}
-					>
-						{isUpdatingPayout ? 'Saving...' : 'Save Payout Structure'}
-					</button>
-				</div>
-
-				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Start Game</h2>
-					{#if $isGridFull}
+				<!-- Active Phase Controls -->
+				{#if isGameInProgress($party.status)}
+					<div class="card">
+						<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
 						<p class="text-sm mb-4" style="color: var(--text-secondary)">
-							All 100 squares are filled. Lock the grid, assign random numbers, and start the game.
+							Enter scores and calculate winners for each quarter.
 						</p>
-						<button onclick={handleLockGrid} class="btn btn-success w-full" disabled={isLocking}>
-							{isLocking ? 'Starting...' : 'Lock Grid & Start Game'}
+
+						<div class="space-y-4">
+							<div>
+								<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
+									>Quarter</label
+								>
+								<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
+									{#each quarters as q (q.value)}
+										<option value={q.value}>{q.label}</option>
+									{/each}
+								</select>
+							</div>
+
+							<div class="grid grid-cols-2 gap-4">
+								<div>
+									<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
+										>{$party.team_row_name}</label
+									>
+									<input
+										id="row-score"
+										type="number"
+										bind:value={manualScores.rowScore}
+										min="0"
+										class="input mt-1"
+									/>
+								</div>
+								<div>
+									<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
+										>{$party.team_col_name}</label
+									>
+									<input
+										id="col-score"
+										type="number"
+										bind:value={manualScores.colScore}
+										min="0"
+										class="input mt-1"
+									/>
+								</div>
+							</div>
+
+							<button
+								onclick={handleUpdateScore}
+								class="btn btn-primary w-full"
+								disabled={isUpdatingScore}
+							>
+								{isUpdatingScore ? 'Updating...' : 'Update Score & Calculate Winner'}
+							</button>
+						</div>
+					</div>
+
+					<div class="card">
+						<h2 class="text-lg font-semibold mb-4">Game Info</h2>
+						<p class="text-sm" style="color: var(--text-secondary)">
+							Enter scores for each quarter as they complete. The winning square will be
+							automatically highlighted based on the last digit of each team's score.
+						</p>
+					</div>
+				{/if}
+
+				<!-- Complete Phase -->
+				{#if $party.status === 'complete'}
+					<div class="card text-center">
+						<h2 class="text-lg font-semibold mb-2">Game Complete</h2>
+						<p class="text-sm" style="color: var(--text-secondary)">
+							The game is over. All winners have been determined. Check the main game view to see
+							results.
+						</p>
+					</div>
+				{/if}
+
+				<!-- Danger Zone - Delete Party -->
+				<div class="card border border-red-500/30">
+					<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
+					{#if !showDeleteConfirm}
+						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+							Permanently delete this party and all associated data.
+						</p>
+						<button
+							onclick={() => (showDeleteConfirm = true)}
+							class="btn w-full"
+							style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
+						>
+							Delete Party
 						</button>
 					{:else}
-						<p class="text-sm" style="color: var(--text-secondary)">
-							Grid is not full yet ({$filledCount}/100). Wait for all squares to be claimed before
-							starting.
+						<p class="text-sm mb-4 text-red-400">
+							Are you sure? This action cannot be undone. All squares, numbers, and winners will be
+							permanently deleted.
 						</p>
-						<div class="mt-4 progress-bar">
-							<div class="progress-bar-fill" style="width: {$filledCount}%"></div>
+						<div class="flex gap-2">
+							<button
+								onclick={() => (showDeleteConfirm = false)}
+								class="btn btn-secondary flex-1"
+								disabled={isDeleting}
+							>
+								Cancel
+							</button>
+							<button
+								onclick={handleDeleteParty}
+								class="btn flex-1"
+								style="background: #ef4444; color: white;"
+								disabled={isDeleting}
+							>
+								{isDeleting ? 'Deleting...' : 'Yes, Delete'}
+							</button>
 						</div>
 					{/if}
 				</div>
-			{/if}
+			</div>
 
-			<!-- Active Phase Controls -->
-			{#if isGameInProgress($party.status)}
-				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Enter scores and calculate winners for each quarter.
-					</p>
-
-					<div class="space-y-4">
-						<div>
-							<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
-								>Quarter</label
+			<!-- Remove Player Confirmation Dialog -->
+			{#if playerToRemove}
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center p-4"
+					style="background: rgba(0, 0, 0, 0.7);"
+				>
+					<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+						<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
+						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+							Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
+							up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others
+							to claim.
+						</p>
+						<div class="flex gap-2">
+							<button
+								onclick={() => (playerToRemove = null)}
+								class="btn btn-secondary flex-1"
+								disabled={isRemovingPlayer}
 							>
-							<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
-								{#each quarters as q (q.value)}
-									<option value={q.value}>{q.label}</option>
-								{/each}
-							</select>
+								Cancel
+							</button>
+							<button
+								onclick={handleRemovePlayer}
+								class="btn flex-1"
+								style="background: #ef4444; color: white;"
+								disabled={isRemovingPlayer}
+							>
+								{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
+							</button>
 						</div>
-
-						<div class="grid grid-cols-2 gap-4">
-							<div>
-								<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
-									>{$party.team_row_name}</label
-								>
-								<input
-									id="row-score"
-									type="number"
-									bind:value={manualScores.rowScore}
-									min="0"
-									class="input mt-1"
-								/>
-							</div>
-							<div>
-								<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
-									>{$party.team_col_name}</label
-								>
-								<input
-									id="col-score"
-									type="number"
-									bind:value={manualScores.colScore}
-									min="0"
-									class="input mt-1"
-								/>
-							</div>
-						</div>
-
-						<button
-							onclick={handleUpdateScore}
-							class="btn btn-primary w-full"
-							disabled={isUpdatingScore}
-						>
-							{isUpdatingScore ? 'Updating...' : 'Update Score & Calculate Winner'}
-						</button>
 					</div>
-				</div>
-
-				<div class="card">
-					<h2 class="text-lg font-semibold mb-4">Game Info</h2>
-					<p class="text-sm" style="color: var(--text-secondary)">
-						Enter scores for each quarter as they complete. The winning square will be automatically
-						highlighted based on the last digit of each team's score.
-					</p>
 				</div>
 			{/if}
-
-			<!-- Complete Phase -->
-			{#if $party.status === 'complete'}
-				<div class="card text-center">
-					<h2 class="text-lg font-semibold mb-2">Game Complete</h2>
-					<p class="text-sm" style="color: var(--text-secondary)">
-						The game is over. All winners have been determined. Check the main game view to see
-						results.
-					</p>
-				</div>
-			{/if}
-
-			<!-- Danger Zone - Delete Party -->
-			<div class="card border border-red-500/30">
-				<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
-				{#if !showDeleteConfirm}
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Permanently delete this party and all associated data.
-					</p>
-					<button
-						onclick={() => (showDeleteConfirm = true)}
-						class="btn w-full"
-						style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
-					>
-						Delete Party
-					</button>
-				{:else}
-					<p class="text-sm mb-4 text-red-400">
-						Are you sure? This action cannot be undone. All squares, numbers, and winners will be
-						permanently deleted.
-					</p>
-					<div class="flex gap-2">
-						<button
-							onclick={() => (showDeleteConfirm = false)}
-							class="btn btn-secondary flex-1"
-							disabled={isDeleting}
+			{#snippet failed(_error, reset)}
+				<div class="card max-w-md mx-auto" style="border: 1px solid rgba(239, 68, 68, 0.3);">
+					<p class="text-sm" style="color: #f87171;">The admin panel encountered an error.</p>
+					<div class="flex gap-2 mt-2">
+						<button class="btn btn-secondary btn-sm" type="button" onclick={reset}>Try again</button
 						>
-							Cancel
-						</button>
 						<button
-							onclick={handleDeleteParty}
-							class="btn flex-1"
-							style="background: #ef4444; color: white;"
-							disabled={isDeleting}
+							class="btn btn-secondary btn-sm"
+							type="button"
+							onclick={() => window.location.reload()}>Reload</button
 						>
-							{isDeleting ? 'Deleting...' : 'Yes, Delete'}
-						</button>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Remove Player Confirmation Dialog -->
-		{#if playerToRemove}
-			<div
-				class="fixed inset-0 z-50 flex items-center justify-center p-4"
-				style="background: rgba(0, 0, 0, 0.7);"
-			>
-				<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
-					<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
-					<p class="text-sm mb-4" style="color: var(--text-secondary)">
-						Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
-						up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to
-						claim.
-					</p>
-					<div class="flex gap-2">
-						<button
-							onclick={() => (playerToRemove = null)}
-							class="btn btn-secondary flex-1"
-							disabled={isRemovingPlayer}
-						>
-							Cancel
-						</button>
-						<button
-							onclick={handleRemovePlayer}
-							class="btn flex-1"
-							style="background: #ef4444; color: white;"
-							disabled={isRemovingPlayer}
-						>
-							{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
-						</button>
 					</div>
 				</div>
-			</div>
-		{/if}
+			{/snippet}
+		</svelte:boundary>
 	{/if}
 </div>
 

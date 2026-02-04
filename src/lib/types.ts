@@ -1,3 +1,5 @@
+// 'locked' exists in the DB CHECK constraint and frontend rendering but is never
+// set by current RPCs — lock_party jumps directly to 'active'. Do not remove it.
 export type PartyStatus = 'filling' | 'locked' | 'active' | 'complete';
 export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
 
