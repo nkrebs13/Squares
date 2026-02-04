@@ -113,7 +113,7 @@
 	{onpointerup}
 	disabled={isLocked || (square.player_name !== null && !isMine)}
 	aria-label={ariaLabel()}
-	aria-selected={isSelected}
+	aria-pressed={isSelected}
 	title={square.player_name || undefined}
 >
 	{#if initials}

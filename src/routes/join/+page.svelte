@@ -16,9 +16,16 @@
 	// PIN challenge state
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
+	let pinInputEl = $state<HTMLInputElement | null>(null);
 	let pinError = $state<string | null>(null);
 	let isVerifyingPin = $state(false);
 	let pendingPartyCode = $state('');
+
+	$effect(() => {
+		if (showPinChallenge && pinInputEl) {
+			pinInputEl.focus();
+		}
+	});
 
 	onMount(() => {
 		const urlCode = $page.url.searchParams.get('code');
@@ -236,12 +243,12 @@
 						<input
 							type="tel"
 							bind:value={pinInput}
+							bind:this={pinInputEl}
 							placeholder="0000"
 							maxlength="4"
 							pattern="[0-9]*"
 							inputmode="numeric"
 							class="input mt-2 text-center text-2xl tracking-widest"
-							autofocus
 						/>
 					</label>
 				</div>

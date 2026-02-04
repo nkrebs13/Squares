@@ -409,9 +409,11 @@
 
 						<div class="grid grid-cols-1 gap-3 mb-4">
 							<div>
-								<label class="text-sm" style="color: var(--text-secondary)">Q1</label>
+								<label for="split-q1" class="text-sm" style="color: var(--text-secondary)">Q1</label
+								>
 								<div class="flex items-center gap-1">
 									<input
+										id="split-q1"
 										type="number"
 										bind:value={payoutSplits.q1}
 										min="0"
@@ -423,9 +425,11 @@
 								</div>
 							</div>
 							<div>
-								<label class="text-sm" style="color: var(--text-secondary)">Q2</label>
+								<label for="split-q2" class="text-sm" style="color: var(--text-secondary)">Q2</label
+								>
 								<div class="flex items-center gap-1">
 									<input
+										id="split-q2"
 										type="number"
 										bind:value={payoutSplits.q2}
 										min="0"
@@ -437,9 +441,11 @@
 								</div>
 							</div>
 							<div>
-								<label class="text-sm" style="color: var(--text-secondary)">Q3</label>
+								<label for="split-q3" class="text-sm" style="color: var(--text-secondary)">Q3</label
+								>
 								<div class="flex items-center gap-1">
 									<input
+										id="split-q3"
 										type="number"
 										bind:value={payoutSplits.q3}
 										min="0"
@@ -451,9 +457,12 @@
 								</div>
 							</div>
 							<div>
-								<label class="text-sm" style="color: var(--text-secondary)">Final</label>
+								<label for="split-final" class="text-sm" style="color: var(--text-secondary)"
+									>Final</label
+								>
 								<div class="flex items-center gap-1">
 									<input
+										id="split-final"
 										type="number"
 										bind:value={payoutSplits.final}
 										min="0"

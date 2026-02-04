@@ -249,7 +249,7 @@ describe('Square Component', () => {
 
 			const button = screen.getByRole('button');
 			expect(button).toHaveClass('square-selected');
-			expect(button).toHaveAttribute('aria-selected', 'true');
+			expect(button).toHaveAttribute('aria-pressed', 'true');
 		});
 
 		it('applies pending class when isPending is true', () => {

@@ -960,7 +960,7 @@
 		.square-wrapper,
 		.player-pill,
 		.chevron,
-		.zoom-btn {
+		.zoom-toggle-btn {
 			transition: none;
 		}
 

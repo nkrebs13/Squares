@@ -271,7 +271,7 @@ describe('SimpleGrid Component', () => {
 			// The selection indicator shouldn't appear until drag moves
 			// But isDragging should be set
 			// We verify by checking class changes
-			expect(emptySquares[0]).toHaveAttribute('aria-selected', 'true');
+			expect(emptySquares[0]).toHaveAttribute('aria-pressed', 'true');
 		});
 
 		it('does not start drag on right-click', async () => {
