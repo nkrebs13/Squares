@@ -224,7 +224,7 @@
 						</div>
 					</div>
 				</div>
-				{#snippet failed(error, reset)}
+				{#snippet failed(_error, reset)}
 					<div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3);">
 						<p class="text-sm" style="color: #f87171;">This section encountered an error.</p>
 						<div class="flex gap-2 mt-2">
@@ -319,7 +319,7 @@
 						</div>
 					</div>
 				</aside>
-				{#snippet failed(error, reset)}
+				{#snippet failed(_error, reset)}
 					<aside class="sidebar hidden lg:block">
 						<div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3);">
 							<p class="text-sm" style="color: #f87171;">This section encountered an error.</p>

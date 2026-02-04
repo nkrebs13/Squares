@@ -79,7 +79,8 @@ export const playerSummary = derived(squares, ($squares) => {
 					count: 0,
 				});
 			}
-			playerMap.get(square.player_name_lower)!.count++;
+			const entry = playerMap.get(square.player_name_lower);
+			if (entry) entry.count++;
 		}
 	}
 

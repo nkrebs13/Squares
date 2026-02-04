@@ -47,6 +47,7 @@
 					},
 				});
 			} catch (err) {
+				// eslint-disable-next-line no-console
 				console.error('QR generation failed:', err);
 			}
 		}

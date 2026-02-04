@@ -57,6 +57,13 @@ export default ts.config(
 		},
 	},
 	{
+		// Service workers and edge functions use console as their only logging mechanism
+		files: ['static/push-sw.js', 'supabase/functions/**/index.ts'],
+		rules: {
+			'no-console': 'off',
+		},
+	},
+	{
 		ignores: ['.svelte-kit/', 'build/', 'dist/', 'node_modules/', '*.config.js', '*.config.ts'],
 	}
 );

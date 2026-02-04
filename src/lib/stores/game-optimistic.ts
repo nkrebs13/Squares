@@ -255,6 +255,8 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(
 		(cell) => {
 			const key = squareKey(cell.row, cell.col);
+			// Square is guaranteed to exist — claimableCells is filtered from currentSquares
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const existingSquare = currentSquares.find(
 				(s) => s.row_num === cell.row && s.col_num === cell.col
 			)!;
