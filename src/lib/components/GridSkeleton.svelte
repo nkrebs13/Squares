@@ -16,16 +16,16 @@
 		<!-- Column numbers -->
 		<div class="skeleton-col-numbers">
 			<div class="skeleton-corner"></div>
-			{#each cols as col}
+			{#each cols as _, i (i)}
 				<div class="skeleton-number"></div>
 			{/each}
 		</div>
 
 		<!-- Grid rows -->
-		{#each rows as row}
+		{#each rows as row (row)}
 			<div class="skeleton-row">
 				<div class="skeleton-number"></div>
-				{#each cols as col}
+				{#each cols as col (col)}
 					<div class="skeleton-square" style="animation-delay: {(row * 10 + col) * 20}ms"></div>
 				{/each}
 			</div>
@@ -88,7 +88,7 @@
 	}
 
 	.skeleton-corner {
-		width: 1.75rem;
+		width: 2.75rem;
 		height: 1.75rem;
 		flex-shrink: 0;
 	}
@@ -114,7 +114,7 @@
 	}
 
 	.skeleton-row .skeleton-number {
-		width: 1.75rem;
+		width: 2.75rem;
 		height: 2.75rem;
 	}
 
@@ -140,7 +140,7 @@
 		}
 
 		.skeleton-row .skeleton-number {
-			width: 2rem;
+			width: 3rem;
 			height: 3rem;
 		}
 

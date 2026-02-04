@@ -10,7 +10,7 @@ interface TeamColors {
 }
 
 function createThemeStore() {
-	const { subscribe, set, update } = writable<TeamColors>({
+	const { subscribe, set } = writable<TeamColors>({
 		rowColor: DEFAULT_TEAMS.row.color,
 		colColor: DEFAULT_TEAMS.col.color,
 		rowName: DEFAULT_TEAMS.row.name,

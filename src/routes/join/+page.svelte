@@ -9,6 +9,7 @@
 
 	let code = $state('');
 	let name = $state('');
+	let nickname = $state('');
 	let isChecking = $state(false);
 	let error = $state<string | null>(null);
 
@@ -66,6 +67,7 @@
 					if (isValid) {
 						// Stored PIN is valid, proceed directly
 						userName.setName(name.trim());
+						storeNickname(upperCode);
 						goto(`/party/${upperCode}`);
 						return;
 					}
@@ -81,8 +83,9 @@
 
 			// Not the host name, proceed normally
 			userName.setName(name.trim());
+			storeNickname(upperCode);
 			goto(`/party/${upperCode}`);
-		} catch (e) {
+		} catch {
 			error = 'Something went wrong. Please try again.';
 		} finally {
 			isChecking = false;
@@ -105,16 +108,23 @@
 
 				// Proceed to party
 				userName.setName(name.trim());
+				storeNickname(pendingPartyCode);
 				showPinChallenge = false;
 				goto(`/party/${pendingPartyCode}`);
 			} else {
 				pinError = 'Incorrect PIN. Please try again.';
 				pinInput = '';
 			}
-		} catch (e) {
+		} catch {
 			pinError = 'Unable to verify PIN. Please try again.';
 		} finally {
 			isVerifyingPin = false;
+		}
+	}
+
+	function storeNickname(partyCode: string) {
+		if (nickname.trim()) {
+			sessionStorage.setItem(`squares_nickname_${partyCode}`, nickname.trim());
 		}
 	}
 
@@ -168,6 +178,23 @@
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
 				Use the same name to claim more squares later
+			</p>
+		</div>
+
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Game Nickname</span>
+				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<input
+					type="text"
+					bind:value={nickname}
+					placeholder="e.g. Work Pool, Family Game"
+					class="input mt-2"
+					maxlength="30"
+				/>
+			</label>
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				Helps you tell games apart if you're in multiple pools
 			</p>
 		</div>
 

@@ -41,14 +41,14 @@ describe('verify_host_pin RPC', () => {
 		expect(data).toBe(false);
 	});
 
-	it('returns null for non-existent code', async () => {
+	it('returns false for non-existent code', async () => {
 		const { data } = await client.rpc('verify_host_pin', {
 			p_party_code: 'ZZZZZ9',
 			p_pin: '1234',
 		});
 
-		// When party doesn't exist, v_host_pin is NULL, so (NULL = '1234') → NULL
-		expect(data).toBeNull();
+		// When party doesn't exist, check_pin_lockout returns FALSE
+		expect(data).toBe(false);
 	});
 });
 
@@ -101,8 +101,8 @@ describe('delete_party RPC', () => {
 			.eq('party_id', party.id)
 			.eq('event_type', 'delete_party_failed');
 
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
-		expect(logs![0].details).toMatchObject({ reason: 'invalid_pin' });
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.[0]?.details).toMatchObject({ reason: 'invalid_pin_or_lockout' });
 	});
 
 	it('cascades deletion to squares, numbers, scores, and winners', async () => {
@@ -161,9 +161,9 @@ describe('delete_party RPC', () => {
 			.eq('event_type', 'delete_party_success')
 			.contains('details', { deleted_party_id: partyId });
 
-		expect(logs!.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.length).toBeGreaterThanOrEqual(1);
 		// party_id should be NULL since it's logged before delete with NULL
-		expect(logs![0].party_id).toBeNull();
-		expect(logs![0].details.code).toBe(partyCode);
+		expect(logs?.[0]?.party_id).toBeNull();
+		expect(logs?.[0]?.details?.code).toBe(partyCode);
 	});
 });

@@ -25,7 +25,7 @@ describe('GridSkeleton', () => {
 		const colNumbers = container.querySelector('.skeleton-col-numbers');
 		expect(colNumbers).toBeTruthy();
 		// Should have 10 number elements plus the corner
-		const numbers = colNumbers!.querySelectorAll('.skeleton-number');
+		const numbers = colNumbers?.querySelectorAll('.skeleton-number');
 		expect(numbers).toHaveLength(10);
 	});
 
@@ -40,6 +40,6 @@ describe('GridSkeleton', () => {
 		const firstSquare = container.querySelector('.skeleton-square');
 		expect(firstSquare).toBeTruthy();
 		// First square should have animation-delay: 0ms
-		expect(firstSquare!.getAttribute('style')).toContain('animation-delay');
+		expect(firstSquare?.getAttribute('style')).toContain('animation-delay');
 	});
 });

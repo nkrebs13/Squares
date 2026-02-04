@@ -139,8 +139,9 @@ test.describe('Mobile Responsiveness', () => {
 	test('preset buttons are tappable on mobile', async ({ page }) => {
 		await page.goto('/create');
 
-		// Click Equal preset (using click which works on mobile viewports)
+		// Scroll preset into view first (may be below fold on small mobile viewports)
 		const equalButton = page.getByRole('button', { name: /equal/i });
+		await equalButton.scrollIntoViewIfNeeded();
 		await equalButton.click();
 
 		// Verify it's selected (has primary button styling)
@@ -163,6 +164,6 @@ test.describe('Visual Regression Prevention', () => {
 
 		// Check form cards are visible
 		const cards = page.locator('.card');
-		await expect(cards).toHaveCount(4); // Price, Split, Name, PIN
+		await expect(cards).toHaveCount(5); // Price, Split, Name, PIN, Nickname
 	});
 });

@@ -74,6 +74,7 @@ test.describe('Create Party Page', () => {
 
 	test('shows custom inputs when Custom preset is selected', async ({ page }) => {
 		const customButton = page.getByRole('button', { name: /custom/i });
+		await customButton.scrollIntoViewIfNeeded();
 		await customButton.click();
 
 		// Should show number inputs for custom splits
@@ -83,6 +84,7 @@ test.describe('Create Party Page', () => {
 
 	test('shows validation error when custom split does not total 100%', async ({ page }) => {
 		const customButton = page.getByRole('button', { name: /custom/i });
+		await customButton.scrollIntoViewIfNeeded();
 		await customButton.click();
 
 		// Wait for custom inputs to appear
@@ -120,6 +122,30 @@ test.describe('Create Party Page', () => {
 		// Fill in PIN
 		const pinInput = page.getByPlaceholder('0000');
 		await pinInput.fill('1234');
+
+		const createButton = page.getByRole('button', { name: /create party/i });
+		await expect(createButton).toBeEnabled();
+	});
+
+	test('has optional game nickname field', async ({ page }) => {
+		await expect(page.getByText(/game nickname/i)).toBeVisible();
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		await expect(nicknameInput).toBeVisible();
+		await expect(page.getByText(/helps you tell games apart/i)).toBeVisible();
+	});
+
+	test('game nickname has max length of 30', async ({ page }) => {
+		const nicknameInput = page.getByPlaceholder(/work pool/i);
+		const longName = 'A'.repeat(35);
+		await nicknameInput.fill(longName);
+		const value = await nicknameInput.inputValue();
+		expect(value.length).toBeLessThanOrEqual(30);
+	});
+
+	test('Create Party button is enabled without nickname', async ({ page }) => {
+		// Fill in only required fields (name + PIN), leave nickname empty
+		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
+		await page.getByPlaceholder('0000').fill('1234');
 
 		const createButton = page.getByRole('button', { name: /create party/i });
 		await expect(createButton).toBeEnabled();

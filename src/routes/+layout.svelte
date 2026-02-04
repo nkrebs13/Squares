@@ -13,10 +13,10 @@
 			requestPersistentStorage();
 
 			try {
-				// @ts-ignore - PWA virtual modules are generated at build time
+				// @ts-expect-error PWA virtual modules are generated at build time, not available to TypeScript
 				const { pwaInfo } = await import('virtual:pwa-info');
 				if (pwaInfo) {
-					// @ts-ignore
+					// @ts-expect-error PWA virtual module generated at build time
 					const { registerSW } = await import('virtual:pwa-register');
 					registerSW({
 						immediate: true,
@@ -33,6 +33,20 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<meta name="theme-color" content="#1a2744" />
 	<link rel="manifest" href="/manifest.webmanifest" />
+
+	<!-- Default OG tags -->
+	<meta property="og:title" content="Football Squares" />
+	<meta
+		property="og:description"
+		content="Real-time Super Bowl squares pool. Claim your squares for the big game!"
+	/>
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Football Squares" />
+	<meta
+		name="twitter:description"
+		content="Real-time Super Bowl squares pool. Claim your squares for the big game!"
+	/>
 
 	<!-- Favicons - best practices -->
 	<link rel="icon" href="/favicon.ico" sizes="32x32" />

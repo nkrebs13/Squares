@@ -293,6 +293,46 @@ describe('requestPersistentStorage', () => {
 	});
 });
 
+describe('saveRecentParty with nickname', () => {
+	it('saves nickname when provided', async () => {
+		mockIdbGet.mockResolvedValueOnce([]);
+		const party = createRecentParty({ code: 'ABC123', nickname: 'Work Pool' });
+		await saveRecentParty(party);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('Work Pool');
+	});
+
+	it('new nickname overrides existing nickname', async () => {
+		const existing = createRecentParty({ code: 'ABC123', nickname: 'Old Name' });
+		mockIdbGet.mockResolvedValueOnce([existing]);
+		const updated = createRecentParty({ code: 'ABC123', nickname: 'New Name' });
+		await saveRecentParty(updated);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('New Name');
+	});
+
+	it('preserves existing nickname when new entry has no nickname', async () => {
+		const existing = createRecentParty({ code: 'ABC123', nickname: 'My Game' });
+		mockIdbGet.mockResolvedValueOnce([existing]);
+		const updated = createRecentParty({ code: 'ABC123' }); // no nickname
+		await saveRecentParty(updated);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBe('My Game');
+	});
+
+	it('does not set nickname when neither existing nor new has one', async () => {
+		mockIdbGet.mockResolvedValueOnce([]);
+		const party = createRecentParty({ code: 'ABC123' });
+		await saveRecentParty(party);
+
+		const savedList = mockIdbSet.mock.calls[0][1] as RecentParty[];
+		expect(savedList[0].nickname).toBeUndefined();
+	});
+});
+
 describe('saveRecentParty localStorage fallback', () => {
 	it('falls back to localStorage when IndexedDB throws', async () => {
 		mockIdbGet.mockRejectedValue(new Error('IDB error'));
@@ -303,7 +343,8 @@ describe('saveRecentParty localStorage fallback', () => {
 
 		const stored = localStorage.getItem('squares_recent_parties');
 		expect(stored).not.toBeNull();
-		const parsed = JSON.parse(stored!);
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed[0].code).toBe('FALL01');
 	});
 });
@@ -320,7 +361,9 @@ describe('removeRecentParty localStorage fallback', () => {
 		await removeRecentParty('ABC123');
 
 		const stored = localStorage.getItem('squares_recent_parties');
-		const parsed = JSON.parse(stored!);
+		expect(stored).not.toBeNull();
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed).toHaveLength(1);
 		expect(parsed[0].code).toBe('DEF456');
 	});
@@ -337,7 +380,9 @@ describe('updatePartyNickname localStorage fallback', () => {
 		await updatePartyNickname('ABC123', 'My Game');
 
 		const stored = localStorage.getItem('squares_recent_parties');
-		const parsed = JSON.parse(stored!);
+		expect(stored).not.toBeNull();
+		if (!stored) return;
+		const parsed = JSON.parse(stored);
 		expect(parsed[0].nickname).toBe('My Game');
 	});
 });

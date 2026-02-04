@@ -113,12 +113,12 @@ describe('Party Page', () => {
 	});
 
 	describe('Loading State', () => {
-		it('shows loading state when isLoading is true', () => {
+		it('shows loading skeleton when isLoading is true', () => {
 			isLoading.set(true);
 			party.set(null);
-			render(PartyPage);
+			const { container } = render(PartyPage);
 
-			expect(screen.getByText('Loading party...')).toBeInTheDocument();
+			expect(container.querySelector('.grid-skeleton')).toBeInTheDocument();
 		});
 	});
 

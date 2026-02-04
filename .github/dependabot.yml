@@ -1,0 +1,58 @@
+version: 2
+
+updates:
+  # npm dependencies
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 10
+    groups:
+      # Group minor/patch updates to reduce PR noise
+      production-deps:
+        patterns:
+          - '@supabase/*'
+          - 'idb-keyval'
+          - 'panzoom'
+        update-types:
+          - 'minor'
+          - 'patch'
+      dev-deps-testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - '@testing-library/*'
+          - '@playwright/test'
+        update-types:
+          - 'minor'
+          - 'patch'
+      dev-deps-build:
+        patterns:
+          - 'vite'
+          - '@sveltejs/*'
+          - 'svelte'
+          - 'svelte-check'
+          - 'tailwindcss'
+          - '@tailwindcss/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      dev-deps-lint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - 'typescript-eslint'
+          - 'prettier'
+          - 'prettier-*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5

@@ -10,8 +10,8 @@
 		"prepare": "svelte-kit sync || true && husky",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "eslint .",
-		"lint:fix": "eslint . --fix",
+		"lint": "eslint . --max-warnings 0",
+		"lint:fix": "eslint . --fix --max-warnings 0",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "vitest run",
@@ -36,9 +36,9 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.2",
-		"@playwright/test": "^1.58.0",
+		"@playwright/test": "^1.58.1",
 		"@sveltejs/adapter-cloudflare": "^7.0.0",
-		"@sveltejs/kit": "^2.50.1",
+		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.0.0",
 		"@testing-library/jest-dom": "^6.9.1",
@@ -48,15 +48,15 @@
 		"@vitest/coverage-v8": "^4.0.18",
 		"eslint": "^9.39.2",
 		"eslint-plugin-svelte": "^3.14.0",
-		"globals": "^17.2.0",
+		"globals": "^17.3.0",
 		"husky": "^9.1.7",
-		"jsdom": "^27.4.0",
+		"jsdom": "^28.0.0",
 		"lint-staged": "^16.2.7",
-		"pg": "^8.17.2",
+		"pg": "^8.18.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
-		"svelte": "^5.48.2",
-		"svelte-check": "^4.3.5",
+		"svelte": "^5.49.1",
+		"svelte-check": "^4.3.6",
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.54.0",
@@ -66,8 +66,10 @@
 		"workbox-window": "^7.4.0"
 	},
 	"dependencies": {
-		"@supabase/supabase-js": "^2.49.0",
+		"@supabase/supabase-js": "^2.94.0",
+		"@types/qrcode": "^1.5.6",
 		"idb-keyval": "^6.2.2",
-		"panzoom": "^9.4.3"
+		"panzoom": "^9.4.3",
+		"qrcode": "^1.5.4"
 	}
 }

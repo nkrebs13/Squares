@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
 	import {
@@ -24,13 +25,10 @@
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
-	const MIN_CELL_SIZE_DESKTOP = 44;
 	const MIN_CELL_SIZE_MOBILE = 28;
 	const ZOOMED_CELL_SIZE = 64;
-	const ROW_HEADER_WIDTH = 28;
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
-	const NUM_GAPS = NUM_COLS - 1;
 	const TEAM_LABEL_WIDTH = 36;
 	const SCROLL_CONTAINER_PADDING = 8;
 
@@ -44,7 +42,7 @@
 
 	// Selection state
 	let isDragging = $state(false);
-	let selectedCells = $state<Set<string>>(new Set());
+	const selectedCells = new SvelteSet<string>();
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
@@ -63,10 +61,11 @@
 	// Calculate fit-to-width cell size
 	function calculateFitCellSize(): number {
 		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
-		const gapTotal = NUM_GAPS * GAP_SIZE;
-		const availableWidth =
-			containerWidth - TEAM_LABEL_WIDTH - ROW_HEADER_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
-		return Math.floor(availableWidth / NUM_COLS);
+		const totalColumns = NUM_COLS + 1; // 10 data + 1 row header
+		const totalGaps = totalColumns - 1;
+		const gapTotal = totalGaps * GAP_SIZE;
+		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
+		return Math.floor(availableWidth / totalColumns);
 	}
 
 	// Calculate fit cell size
@@ -90,7 +89,7 @@
 
 	// Derived lookup maps for O(1) access
 	const squareMap = $derived.by(() => {
-		const map = new Map<string, SquareType>();
+		const map = new SvelteMap<string, SquareType>();
 		for (const s of $squares) {
 			map.set(`${s.row_num}-${s.col_num}`, s);
 		}
@@ -98,8 +97,8 @@
 	});
 
 	const winnerMap = $derived.by(() => {
-		if (!$numbers) return new Map<string, Winner[]>();
-		const map = new Map<string, Winner[]>();
+		if (!$numbers) return new SvelteMap<string, Winner[]>();
+		const map = new SvelteMap<string, Winner[]>();
 		for (const w of $winners) {
 			// winning_row and winning_col are grid positions (0-9), not header numbers
 			const key = `${w.winning_row}-${w.winning_col}`;
@@ -164,7 +163,8 @@
 		if (!isPointerTouch && canSelectCell(row, col)) {
 			isDragging = true;
 			dragStartCell = { row, col };
-			selectedCells = new Set([cellKey(row, col)]);
+			selectedCells.clear();
+			selectedCells.add(cellKey(row, col));
 		}
 	}
 
@@ -182,15 +182,14 @@
 		const minCol = Math.min(dragStartCell.col, col);
 		const maxCol = Math.max(dragStartCell.col, col);
 
-		const newSelection = new Set<string>();
+		selectedCells.clear();
 		for (let r = minRow; r <= maxRow; r++) {
 			for (let c = minCol; c <= maxCol; c++) {
 				if (canSelectCell(r, c)) {
-					newSelection.add(cellKey(r, c));
+					selectedCells.add(cellKey(r, c));
 				}
 			}
 		}
-		selectedCells = newSelection;
 	}
 
 	function handlePointerUp(row: number, col: number) {
@@ -222,7 +221,7 @@
 			});
 			// Non-blocking optimistic batch claim
 			claimSquaresBatchOptimistic(cells);
-			selectedCells = new Set();
+			selectedCells.clear();
 			isProcessing = false;
 		}
 	}
@@ -257,7 +256,7 @@
 	function handleGlobalPointerCancel() {
 		isDragging = false;
 		dragStartCell = null;
-		selectedCells = new Set();
+		selectedCells.clear();
 		pointerStartCell = null;
 	}
 
@@ -284,6 +283,9 @@
 			resizeObserver.disconnect();
 		}
 	});
+
+	// Current user's player color for the legend swatch
+	const myColor = $derived($userName ? getPlayerColor($userName) : null);
 
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
@@ -314,12 +316,6 @@
 	<div class="grid-wrapper" bind:this={gridWrapper}>
 		<!-- Column Team Label -->
 		<div class="team-label-col">
-			<img
-				src="/logos/patriots.png"
-				alt={$theme.colName}
-				class="w-6 h-6 sm:w-7 sm:h-7 object-contain"
-				onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-			/>
 			<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
 				{$theme.colName}
 			</span>
@@ -334,12 +330,6 @@
 				>
 					{$theme.rowName}
 				</span>
-				<img
-					src="/logos/seahawks.png"
-					alt={$theme.rowName}
-					class="row-logo w-6 h-6 sm:w-7 sm:h-7 object-contain"
-					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-				/>
 			</div>
 
 			<!-- Scrollable Grid Container -->
@@ -347,12 +337,12 @@
 				class="scroll-container"
 				class:fit-mode={zoomState === 'fit'}
 				bind:this={scrollContainer}
-				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px; --row-header-width: {ROW_HEADER_WIDTH}px;"
+				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px;"
 			>
 				<div class="grid-11x11">
 					<div class="corner-cell"></div>
 
-					{#each cols as col}
+					{#each cols as col (col)}
 						<div
 							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
 								? 'rounded-tr'
@@ -362,7 +352,7 @@
 						</div>
 					{/each}
 
-					{#each rows as row}
+					{#each rows as row (row)}
 						<div
 							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
 								? 'rounded-bl'
@@ -371,7 +361,7 @@
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
 
-						{#each cols as col}
+						{#each cols as col (col)}
 							{@const square = getSquare(row, col)}
 							{#if square}
 								<div
@@ -410,9 +400,15 @@
 					<div class="legend-swatch legend-available"></div>
 					<span>Available</span>
 				</div>
-				{#if $userName}
+				{#if $userName && myColor}
 					<div class="legend-item">
-						<div class="legend-swatch legend-mine"></div>
+						<div
+							class="legend-swatch legend-mine"
+							style="background: {myColor.bg}; border-color: {myColor.text.replace(
+								/0\.9[58]/g,
+								'0.5'
+							)}; outline-color: {myColor.text.replace(/0\.9[58]/g, '0.7')};"
+						></div>
 						<span>Yours</span>
 					</div>
 				{/if}
@@ -500,7 +496,7 @@
 				<!-- Expanded Player List -->
 				{#if isPlayersExpanded}
 					<div class="players-grid">
-						{#each $playerSummary as player}
+						{#each $playerSummary as player (player.normalizedName)}
 							{@const color = getPlayerColor(player.name)}
 							<button
 								class="player-pill"
@@ -569,9 +565,6 @@
 		width: 32px;
 	}
 
-	.row-logo {
-	}
-
 	.scroll-container {
 		flex: 1;
 		overflow-x: auto;
@@ -590,7 +583,7 @@
 
 	.grid-11x11 {
 		display: grid;
-		grid-template-columns: var(--row-header-width) repeat(10, var(--cell-size));
+		grid-template-columns: repeat(11, var(--cell-size));
 		grid-template-rows: var(--header-height) repeat(10, var(--cell-size));
 		gap: 2px;
 		width: fit-content;
@@ -601,9 +594,11 @@
 		left: 0;
 		z-index: 20;
 		background: var(--bg-secondary);
-		width: var(--row-header-width);
+		width: var(--cell-size);
 		height: var(--header-height);
-		box-shadow: 0 0 0 4px var(--bg-secondary);
+		box-shadow:
+			0 0 0 2px var(--bg-secondary),
+			-6px 0 0 0 var(--bg-secondary);
 	}
 
 	.col-header {
@@ -624,13 +619,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--row-header-width);
+		width: var(--cell-size);
 		height: var(--cell-size);
 		font-size: 0.75rem;
 		font-weight: bold;
 		color: white;
 		background: var(--team-row-color, #69be28);
-		box-shadow: 0 0 0 3px var(--bg-secondary);
+		box-shadow:
+			0 0 0 2px var(--bg-secondary),
+			-6px 0 0 0 var(--bg-secondary);
 	}
 
 	.team-col-bg {
@@ -714,9 +711,8 @@
 	}
 
 	.legend-mine {
-		background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
-		border-color: rgba(244, 143, 177, 0.5);
-		outline: 2px solid rgba(244, 143, 177, 0.7);
+		outline-style: solid;
+		outline-width: 2px;
 		outline-offset: -1px;
 	}
 

@@ -39,7 +39,7 @@ describe('claim_squares_batch RPC', () => {
 			.in('col_num', [0, 1, 2]);
 
 		expect(squares).toHaveLength(3);
-		squares!.forEach((s) => expect(s.player_name).toBe('Alice'));
+		squares?.forEach((s) => expect(s.player_name).toBe('Alice'));
 	});
 
 	it('skips already-claimed squares and returns partial count', async () => {
@@ -75,7 +75,7 @@ describe('claim_squares_batch RPC', () => {
 			.eq('col_num', 0)
 			.single();
 
-		expect(bobSquare!.player_name).toBe('Bob');
+		expect(bobSquare?.player_name).toBe('Bob');
 	});
 
 	it('returns 0 when party is not filling', async () => {
