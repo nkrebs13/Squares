@@ -174,6 +174,7 @@
 					class="input mt-2"
 					maxlength="20"
 					autocomplete="name"
+					onblur={() => (name = name.trim())}
 				/>
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
