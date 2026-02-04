@@ -16,7 +16,7 @@ export const PLAYER_COLORS: readonly PlayerColor[] = [
 	{ bg: 'rgba(180, 100, 255, 0.22)', text: 'rgba(190, 120, 255, 0.95)' }, // Violet (270°)
 
 	// Secondary - fill hue gaps
-	{ bg: 'rgba(255, 150, 80, 0.22)', text: 'rgba(255, 170, 110, 0.98)' }, // Orange (30°)
+	{ bg: 'rgba(255, 150, 80, 0.22)', text: 'rgba(255, 170, 110, 0.98)' }, // Orange (30°) - brightened
 	{ bg: 'rgba(100, 230, 230, 0.22)', text: 'rgba(120, 240, 240, 0.95)' }, // Cyan (180°)
 	{ bg: 'rgba(255, 100, 170, 0.22)', text: 'rgba(255, 130, 185, 0.95)' }, // Magenta (330°)
 	{ bg: 'rgba(190, 255, 100, 0.22)', text: 'rgba(200, 255, 130, 0.98)' }, // Chartreuse (80°) - brightened
