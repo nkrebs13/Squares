@@ -164,7 +164,7 @@ describe('RecentParties Component', () => {
 			});
 
 			const card = screen.getByText('NAV001').closest('[role="button"]');
-			await fireEvent.click(card!);
+			if (card) await fireEvent.click(card);
 
 			expect(mockGoto).toHaveBeenCalledWith('/party/NAV001');
 		});
@@ -178,7 +178,7 @@ describe('RecentParties Component', () => {
 			});
 
 			const card = screen.getByText('KEY001').closest('[role="button"]');
-			await fireEvent.keyDown(card!, { key: 'Enter' });
+			if (card) await fireEvent.keyDown(card, { key: 'Enter' });
 
 			expect(mockGoto).toHaveBeenCalledWith('/party/KEY001');
 		});
@@ -358,7 +358,7 @@ describe('RecentParties Component', () => {
 
 			// Click the card area
 			const card = screen.getByLabelText('Party nickname').closest('[role="button"]');
-			await fireEvent.click(card!);
+			if (card) await fireEvent.click(card);
 
 			expect(mockGoto).not.toHaveBeenCalled();
 		});

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
 	import {
@@ -67,7 +68,7 @@
 
 	// Selection state
 	let isDragging = $state(false);
-	let selectedCells = $state<Set<string>>(new Set());
+	const selectedCells = new SvelteSet<string>();
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
@@ -114,7 +115,7 @@
 
 	// Derived lookup maps for O(1) access
 	const squareMap = $derived.by(() => {
-		const map = new Map<string, SquareType>();
+		const map = new SvelteMap<string, SquareType>();
 		for (const s of $squares) {
 			map.set(`${s.row_num}-${s.col_num}`, s);
 		}
@@ -122,8 +123,8 @@
 	});
 
 	const winnerMap = $derived.by(() => {
-		if (!$numbers) return new Map<string, Winner[]>();
-		const map = new Map<string, Winner[]>();
+		if (!$numbers) return new SvelteMap<string, Winner[]>();
+		const map = new SvelteMap<string, Winner[]>();
 		for (const w of $winners) {
 			// winning_row and winning_col are grid positions (0-9), not header numbers
 			const key = `${w.winning_row}-${w.winning_col}`;
@@ -188,7 +189,8 @@
 		if (!isPointerTouch && canSelectCell(row, col)) {
 			isDragging = true;
 			dragStartCell = { row, col };
-			selectedCells = new Set([cellKey(row, col)]);
+			selectedCells.clear();
+			selectedCells.add(cellKey(row, col));
 		}
 	}
 
@@ -206,15 +208,14 @@
 		const minCol = Math.min(dragStartCell.col, col);
 		const maxCol = Math.max(dragStartCell.col, col);
 
-		const newSelection = new Set<string>();
+		selectedCells.clear();
 		for (let r = minRow; r <= maxRow; r++) {
 			for (let c = minCol; c <= maxCol; c++) {
 				if (canSelectCell(r, c)) {
-					newSelection.add(cellKey(r, c));
+					selectedCells.add(cellKey(r, c));
 				}
 			}
 		}
-		selectedCells = newSelection;
 	}
 
 	function handlePointerUp(row: number, col: number) {
@@ -246,7 +247,7 @@
 			});
 			// Non-blocking optimistic batch claim
 			claimSquaresBatchOptimistic(cells);
-			selectedCells = new Set();
+			selectedCells.clear();
 			isProcessing = false;
 		}
 	}
@@ -281,7 +282,7 @@
 	function handleGlobalPointerCancel() {
 		isDragging = false;
 		dragStartCell = null;
-		selectedCells = new Set();
+		selectedCells.clear();
 		pointerStartCell = null;
 	}
 
@@ -308,6 +309,9 @@
 			resizeObserver.disconnect();
 		}
 	});
+
+	// Current user's player color for the legend swatch
+	const myColor = $derived($userName ? getPlayerColor($userName) : null);
 
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
@@ -364,7 +368,7 @@
 				<div class="grid-11x11">
 					<div class="corner-cell"></div>
 
-					{#each cols as col}
+					{#each cols as col (col)}
 						<div
 							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
 								? 'rounded-tr'
@@ -374,7 +378,7 @@
 						</div>
 					{/each}
 
-					{#each rows as row}
+					{#each rows as row (row)}
 						<div
 							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
 								? 'rounded-bl'
@@ -383,7 +387,7 @@
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
 
-						{#each cols as col}
+						{#each cols as col (col)}
 							{@const square = getSquare(row, col)}
 							{#if square}
 								<div
@@ -422,9 +426,15 @@
 					<div class="legend-swatch legend-available"></div>
 					<span>Available</span>
 				</div>
-				{#if $userName}
+				{#if $userName && myColor}
 					<div class="legend-item">
-						<div class="legend-swatch legend-mine"></div>
+						<div
+							class="legend-swatch legend-mine"
+							style="background: {myColor.bg}; border-color: {myColor.text.replace(
+								/0\.9[58]/g,
+								'0.5'
+							)}; outline-color: {myColor.text.replace(/0\.9[58]/g, '0.7')};"
+						></div>
 						<span>Yours</span>
 					</div>
 				{/if}
@@ -512,7 +522,7 @@
 				<!-- Expanded Player List -->
 				{#if isPlayersExpanded}
 					<div class="players-grid">
-						{#each $playerSummary as player}
+						{#each $playerSummary as player (player.normalizedName)}
 							{@const color = getPlayerColor(player.name)}
 							<button
 								class="player-pill"
@@ -727,9 +737,8 @@
 	}
 
 	.legend-mine {
-		background: linear-gradient(135deg, rgba(244, 143, 177, 0.3), rgba(180, 130, 200, 0.3));
-		border-color: rgba(244, 143, 177, 0.5);
-		outline: 2px solid rgba(244, 143, 177, 0.7);
+		outline-style: solid;
+		outline-width: 2px;
 		outline-offset: -1px;
 	}
 

@@ -16,16 +16,16 @@
 		<!-- Column numbers -->
 		<div class="skeleton-col-numbers">
 			<div class="skeleton-corner"></div>
-			{#each cols as col}
+			{#each cols as _, i (i)}
 				<div class="skeleton-number"></div>
 			{/each}
 		</div>
 
 		<!-- Grid rows -->
-		{#each rows as row}
+		{#each rows as row (row)}
 			<div class="skeleton-row">
 				<div class="skeleton-number"></div>
-				{#each cols as col}
+				{#each cols as col (col)}
 					<div class="skeleton-square" style="animation-delay: {(row * 10 + col) * 20}ms"></div>
 				{/each}
 			</div>

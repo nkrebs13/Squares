@@ -160,7 +160,7 @@
 	<!-- Quarter badges for winning squares -->
 	{#if winners.length > 0}
 		<div class="quarter-badges">
-			{#each winners as w}
+			{#each winners as w (w.quarter)}
 				<span class="quarter-badge">{quarterLabels[w.quarter]}</span>
 			{/each}
 		</div>
