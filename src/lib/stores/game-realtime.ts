@@ -413,16 +413,19 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 		if (channel) {
 			channel.unsubscribe();
 			channel = null;
+			channelStates.party.channel = null;
 			resetReconnectState('party');
 		}
 		if (broadcastChannel) {
 			broadcastChannel.unsubscribe();
 			broadcastChannel = null;
+			channelStates.broadcast.channel = null;
 			resetReconnectState('broadcast');
 		}
 		if (gameChannel) {
 			gameChannel.unsubscribe();
 			gameChannel = null;
+			channelStates.game.channel = null;
 			resetReconnectState('game');
 		}
 	};
@@ -444,16 +447,19 @@ export function cleanupChannels() {
 	if (channel) {
 		channel.unsubscribe();
 		channel = null;
+		channelStates.party.channel = null;
 		resetReconnectState('party');
 	}
 	if (broadcastChannel) {
 		broadcastChannel.unsubscribe();
 		broadcastChannel = null;
+		channelStates.broadcast.channel = null;
 		resetReconnectState('broadcast');
 	}
 	if (gameChannel) {
 		gameChannel.unsubscribe();
 		gameChannel = null;
+		channelStates.game.channel = null;
 		resetReconnectState('game');
 	}
 }

@@ -1,5 +1,5 @@
 -- ============================================================
--- 017: Remove live score fan-out
+-- 018: Remove live score fan-out
 --
 -- The frontend now reads game_scores directly via a separate
 -- realtime channel, so the per-party live_* columns and the
@@ -57,3 +57,6 @@ BEGIN
   END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Restrict backfill function to service role only (called by admin, not public)
+REVOKE EXECUTE ON FUNCTION backfill_party_scores(UUID) FROM PUBLIC;
