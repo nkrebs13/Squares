@@ -385,7 +385,9 @@ function setupGameChannel(gameId: string) {
 }
 
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
-	// Unsubscribe from previous channels and clear reconnect state
+	// Unsubscribe from previous channels and clear reconnect state.
+	// IMPORTANT: resetReconnectState() must be called BEFORE setting up new channels
+	// to cancel any pending reconnect timeouts that might capture stale partyId/gameId.
 	if (channel) {
 		channel.unsubscribe();
 		resetReconnectState('party');
