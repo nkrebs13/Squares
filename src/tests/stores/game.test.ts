@@ -6,6 +6,8 @@ import {
 	numbers,
 	scores,
 	winners,
+	gameScores,
+	liveScores,
 	isLoading,
 	error,
 	gridState,
@@ -21,7 +23,7 @@ import {
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square, Numbers, Scores, Winner } from '$lib/types';
+import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
 
 // Helpers to create mock data
 function createMockParty(overrides: Partial<Party> = {}): Party {
@@ -43,6 +45,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+		game_id: null,
+		home_team_is_row: null,
 		...overrides,
 	};
 }
@@ -90,6 +94,34 @@ function createMockScores(overrides: Partial<Scores> = {}): Scores {
 		q3_col_score: null,
 		final_row_score: null,
 		final_col_score: null,
+		...overrides,
+	};
+}
+
+function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
+	return {
+		game_id: 'test-game-id',
+		sport: 'nfl',
+		home_team_abbrev: 'PHI',
+		away_team_abbrev: 'KC',
+		home_team_name: 'Eagles',
+		away_team_name: 'Chiefs',
+		home_score: 0,
+		away_score: 0,
+		game_clock: '',
+		game_quarter: 0,
+		game_status: 'pregame',
+		q1_home: null,
+		q1_away: null,
+		q2_home: null,
+		q2_away: null,
+		q3_home: null,
+		q3_away: null,
+		q4_home: null,
+		q4_away: null,
+		final_home: null,
+		final_away: null,
+		updated_at: new Date().toISOString(),
 		...overrides,
 	};
 }
@@ -505,6 +537,90 @@ describe('Game Store', () => {
 		});
 	});
 
+	describe('gameScores store', () => {
+		it('initializes as null', () => {
+			expect(get(gameScores)).toBeNull();
+		});
+
+		it('can be set to a game scores row', () => {
+			const mockGs = createMockGameScores({ home_score: 14, away_score: 7 });
+			gameScores.set(mockGs);
+			expect(get(gameScores)?.home_score).toBe(14);
+			expect(get(gameScores)?.away_score).toBe(7);
+		});
+	});
+
+	describe('liveScores derived store', () => {
+		it('returns null when gameScores is null', () => {
+			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: true }));
+			gameScores.set(null);
+			expect(get(liveScores)).toBeNull();
+		});
+
+		it('returns null when party is null', () => {
+			party.set(null);
+			gameScores.set(createMockGameScores({ home_score: 14, away_score: 7 }));
+			expect(get(liveScores)).toBeNull();
+		});
+
+		it('maps home to row when home_team_is_row is true', () => {
+			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: true }));
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 7,
+					game_clock: '5:30',
+					game_quarter: 2,
+					game_status: 'in_progress',
+				})
+			);
+
+			const live = get(liveScores);
+			expect(live).not.toBeNull();
+			if (live) {
+				expect(live.rowScore).toBe(14);
+				expect(live.colScore).toBe(7);
+				expect(live.clock).toBe('5:30');
+				expect(live.quarter).toBe(2);
+				expect(live.status).toBe('in_progress');
+			}
+		});
+
+		it('maps away to row when home_team_is_row is false', () => {
+			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: false }));
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 7,
+				})
+			);
+
+			const live = get(liveScores);
+			expect(live).not.toBeNull();
+			if (live) {
+				expect(live.rowScore).toBe(7);
+				expect(live.colScore).toBe(14);
+			}
+		});
+
+		it('defaults home_team_is_row to true when null', () => {
+			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: null }));
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 7,
+				})
+			);
+
+			const live = get(liveScores);
+			expect(live).not.toBeNull();
+			if (live) {
+				expect(live.rowScore).toBe(14);
+				expect(live.colScore).toBe(7);
+			}
+		});
+	});
+
 	describe('cleanup function', () => {
 		it('resets all stores to initial state', () => {
 			// Set up some state
@@ -513,6 +629,7 @@ describe('Game Store', () => {
 			numbers.set(createMockNumbers());
 			scores.set(createMockScores());
 			winners.set([createMockWinner()]);
+			gameScores.set(createMockGameScores());
 			error.set('Some error');
 			pendingOperations.update((ops) => {
 				const newOps = new Map(ops);
@@ -541,6 +658,7 @@ describe('Game Store', () => {
 			expect(get(numbers)).toBeNull();
 			expect(get(scores)).toBeNull();
 			expect(get(winners)).toEqual([]);
+			expect(get(gameScores)).toBeNull();
 			expect(get(isLoading)).toBe(true);
 			expect(get(error)).toBeNull();
 			expect(get(pendingOperations).size).toBe(0);

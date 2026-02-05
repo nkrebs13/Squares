@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
 		party,
 		scores,
+		liveScores,
 		isGridFull,
 		filledCount,
 		loadParty,
@@ -15,9 +16,11 @@
 		removePlayer,
 		playerSummary,
 		verifyHostPin,
+		subscribeToParty,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
+	import { formatQuarterLabel } from '$lib/utils/quarter';
 	import { goto } from '$app/navigation';
 
 	const code = $derived($page.params.code ?? '');
@@ -35,6 +38,7 @@
 		colScore: 0,
 	});
 	let isUpdatingScore = $state(false);
+	let showManualOverride = $state(false);
 
 	// Payout structure editing
 	let payoutSplits = $state({ q1: 10, q2: 20, q3: 30, final: 40 });
@@ -87,6 +91,8 @@
 		}
 	});
 
+	let unsubscribe: (() => void) | null = null;
+
 	onMount(async () => {
 		if (browser) {
 			storedPin = sessionStorage.getItem(`squares_pin_${code}`);
@@ -99,6 +105,11 @@
 			await loadParty(code);
 		}
 
+		// Subscribe to realtime updates (including live scores)
+		if ($party) {
+			unsubscribe = subscribeToParty($party.id, $party.game_id);
+		}
+
 		// Initialize payout splits from party
 		if ($party) {
 			payoutSplits = {
@@ -108,6 +119,10 @@
 				final: $party.split_final,
 			};
 		}
+	});
+
+	onDestroy(() => {
+		if (unsubscribe) unsubscribe();
 	});
 
 	// Keep payout splits in sync with party
@@ -512,68 +527,97 @@
 
 				<!-- Active Phase Controls -->
 				{#if isGameInProgress($party.status)}
-					<div class="card">
-						<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
-						<p class="text-sm mb-4" style="color: var(--text-secondary)">
-							Enter scores and calculate winners for each quarter.
-						</p>
-
-						<div class="space-y-4">
-							<div>
-								<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
-									>Quarter</label
-								>
-								<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
-									{#each quarters as q (q.value)}
-										<option value={q.value}>{q.label}</option>
-									{/each}
-								</select>
+					{#if $liveScores?.status && $liveScores.status !== 'pregame'}
+						<div
+							class="card"
+							style="border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.08);"
+							role="region"
+							aria-label="Live game scores"
+						>
+							<div class="flex items-center justify-between">
+								<p class="text-sm" style="color: rgb(147, 197, 253);" aria-live="polite">
+									<span class="font-semibold">
+										{$party.team_row_name}
+										{$liveScores.rowScore} - {$party.team_col_name}
+										{$liveScores.colScore}
+									</span>
+									{#if $liveScores.status === 'final'}
+										<span class="ml-2" role="status">FINAL</span>
+									{:else if $liveScores.status === 'halftime'}
+										<span class="ml-2" role="status">HALFTIME</span>
+									{:else if $liveScores.clock}
+										<span class="ml-2" role="status">
+											{$liveScores.clock} - {formatQuarterLabel($liveScores.quarter)}
+										</span>
+									{/if}
+								</p>
 							</div>
-
-							<div class="grid grid-cols-2 gap-4">
-								<div>
-									<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
-										>{$party.team_row_name}</label
-									>
-									<input
-										id="row-score"
-										type="number"
-										bind:value={manualScores.rowScore}
-										min="0"
-										class="input mt-1"
-									/>
-								</div>
-								<div>
-									<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
-										>{$party.team_col_name}</label
-									>
-									<input
-										id="col-score"
-										type="number"
-										bind:value={manualScores.colScore}
-										min="0"
-										class="input mt-1"
-									/>
-								</div>
-							</div>
-
 							<button
-								onclick={handleUpdateScore}
-								class="btn btn-primary w-full"
-								disabled={isUpdatingScore}
+								onclick={() => (showManualOverride = !showManualOverride)}
+								class="text-xs mt-2"
+								style="color: rgb(147, 197, 253); opacity: 0.7; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;"
 							>
-								{isUpdatingScore ? 'Updating...' : 'Update Score & Calculate Winner'}
+								{showManualOverride ? 'Hide manual override' : 'Show manual override'}
 							</button>
 						</div>
-					</div>
+					{/if}
 
-					<div class="card">
-						<h2 class="text-lg font-semibold mb-4">Game Info</h2>
-						<p class="text-sm" style="color: var(--text-secondary)">
-							Enter scores for each quarter as they complete. The winning square will be
-							automatically highlighted based on the last digit of each team's score.
-						</p>
-					</div>
+					{#if !$liveScores?.status || $liveScores.status === 'pregame' || showManualOverride}
+						<div class="card">
+							<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
+							<p class="text-sm mb-4" style="color: var(--text-secondary)">
+								Enter scores and calculate winners for each quarter.
+							</p>
+
+							<div class="space-y-4">
+								<div>
+									<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
+										>Quarter</label
+									>
+									<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
+										{#each quarters as q (q.value)}
+											<option value={q.value}>{q.label}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="grid grid-cols-2 gap-4">
+									<div>
+										<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
+											>{$party.team_row_name}</label
+										>
+										<input
+											id="row-score"
+											type="number"
+											bind:value={manualScores.rowScore}
+											min="0"
+											class="input mt-1"
+										/>
+									</div>
+									<div>
+										<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
+											>{$party.team_col_name}</label
+										>
+										<input
+											id="col-score"
+											type="number"
+											bind:value={manualScores.colScore}
+											min="0"
+											class="input mt-1"
+										/>
+									</div>
+								</div>
+
+								<button
+									onclick={handleUpdateScore}
+									class="btn btn-primary w-full"
+									disabled={isUpdatingScore}
+								>
+									{isUpdatingScore ? 'Updating...' : 'Update Score & Calculate Winner'}
+								</button>
+							</div>
+						</div>
+					{/if}
 				{/if}
 
 				<!-- Complete Phase -->

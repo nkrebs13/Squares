@@ -78,7 +78,7 @@
 
 		const success = await loadParty(code);
 		if (success && $party) {
-			unsubscribe = subscribeToParty($party.id);
+			unsubscribe = subscribeToParty($party.id, $party.game_id);
 			// Save to recent parties
 			await saveToRecentParties();
 		}
@@ -152,12 +152,10 @@
 								<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
 							{/if}
 						</div>
-					{:else if isGameInProgress($party.status)}
+					{:else if isGameInProgress($party.status) || $party.status === 'complete'}
 						<div class="mb-4 lg:hidden">
 							<ScoreBoard />
 						</div>
-					{:else if $party.status === 'complete'}
-						<div class="mb-4 status-banner status-banner-success lg:hidden">Game complete!</div>
 					{/if}
 
 					<!-- Winners (mobile only) -->
@@ -253,12 +251,10 @@
 									<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
 								{/if}
 							</div>
-						{:else if isGameInProgress($party.status)}
+						{:else if isGameInProgress($party.status) || $party.status === 'complete'}
 							<div class="mb-4">
 								<ScoreBoard />
 							</div>
-						{:else if $party.status === 'complete'}
-							<div class="mb-4 status-banner status-banner-success">Game complete!</div>
 						{/if}
 
 						<!-- Winners -->

@@ -26,6 +26,8 @@ export interface Party {
 	created_at: string;
 	updated_at: string;
 	expires_at: string;
+	game_id: string | null;
+	home_team_is_row: boolean | null;
 }
 
 export interface Square {
@@ -55,6 +57,39 @@ export interface Scores {
 	q3_col_score: number | null;
 	final_row_score: number | null;
 	final_col_score: number | null;
+}
+
+export interface GameScoresRow {
+	game_id: string;
+	sport: string;
+	home_team_abbrev: string;
+	away_team_abbrev: string;
+	home_team_name: string;
+	away_team_name: string;
+	home_score: number;
+	away_score: number;
+	game_clock: string;
+	game_quarter: number;
+	game_status: string;
+	q1_home: number | null;
+	q1_away: number | null;
+	q2_home: number | null;
+	q2_away: number | null;
+	q3_home: number | null;
+	q3_away: number | null;
+	q4_home: number | null;
+	q4_away: number | null;
+	final_home: number | null;
+	final_away: number | null;
+	updated_at: string;
+}
+
+export interface LiveScores {
+	rowScore: number;
+	colScore: number;
+	clock: string;
+	quarter: number;
+	status: string;
 }
 
 export interface Winner {

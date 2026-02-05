@@ -113,7 +113,7 @@ test.describe('Party Page - Status States', () => {
 		await expect(page.getByText('Alice').first()).toBeAttached();
 	});
 
-	test('shows game complete banner', async ({ page }) => {
+	test('shows game complete state with scoreboard and winners', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'complete' },
 			scoresOverrides: mockCompleteScores,
@@ -122,7 +122,8 @@ test.describe('Party Page - Status States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
 
-		await expect(page.getByText(/game complete/i).first()).toBeAttached();
+		// ScoreBoard is visible in complete state (shows team names)
+		await expect(page.locator('.scoreboard').first()).toBeAttached();
 
 		// All winners should be listed
 		await expect(page.getByText('Alice').first()).toBeAttached();

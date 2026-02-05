@@ -6,6 +6,7 @@ import {
 	numbers,
 	scores,
 	winners,
+	gameScores,
 	pendingOperations,
 	pendingTimeouts,
 	isLoading,
@@ -206,6 +207,7 @@ export function cleanup() {
 	numbers.set(null);
 	scores.set(null);
 	winners.set([]);
+	gameScores.set(null);
 	pendingOperations.set(new Map());
 	isLoading.set(true);
 	error.set(null);

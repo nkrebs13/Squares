@@ -39,6 +39,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+		game_id: null,
+		home_team_is_row: null,
 		...overrides,
 	};
 }
@@ -183,12 +185,12 @@ describe('Admin Page - Score Entry', () => {
 			expect(colInput).toHaveAttribute('type', 'number');
 		});
 
-		it('shows game info section during active phase', () => {
+		it('shows score entry instructions during active phase', () => {
 			renderAuthorizedAdmin({ status: 'active' });
 
-			expect(screen.getByText('Game Info')).toBeInTheDocument();
+			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
 			expect(
-				screen.getByText(/Enter scores for each quarter as they complete/)
+				screen.getByText(/Enter scores and calculate winners for each quarter/)
 			).toBeInTheDocument();
 		});
 	});

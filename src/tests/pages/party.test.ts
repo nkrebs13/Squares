@@ -70,6 +70,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+		game_id: null,
+		home_team_is_row: null,
 		...overrides,
 	};
 }
@@ -243,7 +245,7 @@ describe('Party Page', () => {
 	});
 
 	describe('Complete Status', () => {
-		it('shows "Game complete!" when status is complete', () => {
+		it('shows ScoreBoard when status is complete', () => {
 			isLoading.set(false);
 			error.set(null);
 			party.set(createMockParty({ status: 'complete' }));
@@ -268,7 +270,8 @@ describe('Party Page', () => {
 			});
 			render(PartyPage);
 
-			expect(screen.getAllByText(/Game complete!/).length).toBeGreaterThan(0);
+			// ScoreBoard should be visible in complete status
+			expect(document.querySelector('.scoreboard')).toBeInTheDocument();
 		});
 	});
 

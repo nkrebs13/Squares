@@ -8,10 +8,12 @@ export {
 	numbers,
 	scores,
 	winners,
+	gameScores,
 	isLoading,
 	error,
 	// Derived stores
 	gridState,
+	liveScores,
 	filledCount,
 	isGridFull,
 	mySquares,
