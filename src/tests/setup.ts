@@ -66,6 +66,13 @@ const mockSupabaseChannel = {
 /**
  * Simulate a channel status change for testing reconnection logic.
  * Call after subscribeToParty() to trigger status handlers.
+ *
+ * LIMITATION: This broadcasts the status to ALL captured subscribe callbacks.
+ * When subscribeToParty creates multiple channels (party, broadcast, game),
+ * each channel's callback is triggered simultaneously. This means tests verify
+ * system-wide reconnection behavior rather than per-channel isolation.
+ *
+ * For more granular testing, consider enhancing to allow targeting specific channels.
  */
 function simulateChannelStatus(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') {
 	subscribeCallbacks.forEach((cb) => cb(status));

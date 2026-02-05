@@ -103,9 +103,19 @@ function handleChannelStatus(
 	}
 }
 
-// Legacy aliases for backward compatibility
+/**
+ * Legacy aliases for backward compatibility.
+ *
+ * NOTE: The authoritative source of truth for channel references is `channelStates`.
+ * These variables are maintained only to avoid breaking older code that still
+ * imports them directly. New code MUST use `channelStates` instead.
+ *
+ * @deprecated Use `channelStates.party.channel` instead
+ */
 let channel: RealtimeChannel | null = null;
+/** @deprecated Use `channelStates.broadcast.channel` instead */
 let broadcastChannel: RealtimeChannel | null = null;
+/** @deprecated Use `channelStates.game.channel` instead */
 let gameChannel: RealtimeChannel | null = null;
 
 // Helper to check if an operation is from this client

@@ -3,6 +3,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { isGameInProgress } from '$lib/types';
 	import type { Quarter } from '$lib/types';
+	import { formatQuarterLabel } from '$lib/utils/quarter';
 
 	interface QuarterScore {
 		quarter: Quarter;
@@ -69,8 +70,7 @@
 		const q = $liveScores?.quarter ?? 0;
 		if ($liveScores?.status === 'halftime') return 'HALF';
 		if (q === 0) return '';
-		if (q > 4) return q === 5 ? 'OT' : `${q - 4}OT`;
-		return `Q${q}`;
+		return formatQuarterLabel(q);
 	});
 </script>
 

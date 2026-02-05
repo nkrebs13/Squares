@@ -20,6 +20,7 @@
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
+	import { formatQuarterLabel } from '$lib/utils/quarter';
 	import { goto } from '$app/navigation';
 
 	const code = $derived($page.params.code ?? '');
@@ -521,25 +522,23 @@
 						<div
 							class="card"
 							style="border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.08);"
+							role="region"
+							aria-label="Live game scores"
 						>
 							<div class="flex items-center justify-between">
-								<p class="text-sm" style="color: rgb(147, 197, 253);">
+								<p class="text-sm" style="color: rgb(147, 197, 253);" aria-live="polite">
 									<span class="font-semibold">
 										{$party.team_row_name}
 										{$liveScores.rowScore} - {$party.team_col_name}
 										{$liveScores.colScore}
 									</span>
 									{#if $liveScores.status === 'final'}
-										<span class="ml-2">FINAL</span>
+										<span class="ml-2" role="status">FINAL</span>
 									{:else if $liveScores.status === 'halftime'}
-										<span class="ml-2">HALFTIME</span>
+										<span class="ml-2" role="status">HALFTIME</span>
 									{:else if $liveScores.clock}
-										<span class="ml-2">
-											{$liveScores.clock} - {$liveScores.quarter > 4
-												? $liveScores.quarter === 5
-													? 'OT'
-													: `${$liveScores.quarter - 4}OT`
-												: `Q${$liveScores.quarter}`}
+										<span class="ml-2" role="status">
+											{$liveScores.clock} - {formatQuarterLabel($liveScores.quarter)}
 										</span>
 									{/if}
 								</p>
