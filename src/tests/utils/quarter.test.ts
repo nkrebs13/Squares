@@ -18,4 +18,10 @@ describe('formatQuarterLabel', () => {
 		expect(formatQuarterLabel(7)).toBe('3OT');
 		expect(formatQuarterLabel(8)).toBe('4OT');
 	});
+
+	it('returns empty string for invalid inputs (quarter < 1)', () => {
+		expect(formatQuarterLabel(0)).toBe('');
+		expect(formatQuarterLabel(-1)).toBe('');
+		expect(formatQuarterLabel(-5)).toBe('');
+	});
 });

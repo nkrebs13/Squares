@@ -36,8 +36,6 @@ BEGIN
 
       -- Only fire on first non-null value for this quarter (quarter just ended)
       IF v_new_home IS NOT NULL AND v_old_home IS NULL THEN
-        EXECUTE format('SELECT ($1).%I', v_q || '_away') INTO v_row_score USING NEW;
-
         -- Use COALESCE for safety, even though column is now NOT NULL
         IF COALESCE(v_party.home_team_is_row, TRUE) THEN
           v_row_score := v_new_home;
