@@ -818,4 +818,63 @@ describe('Admin Page - Score Entry', () => {
 			expect(screen.getByText('Danger Zone')).toBeInTheDocument();
 		});
 	});
+
+	describe('Manual Score Entry Visibility with game_id', () => {
+		it('hides manual score entry by default when party has game_id', () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
+
+			expect(screen.queryByText('Manual Score Entry')).not.toBeInTheDocument();
+			expect(screen.getByText(/Live API connected/i)).toBeInTheDocument();
+		});
+
+		it('shows "Waiting for game data" when party has game_id but no live scores', () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
+
+			expect(screen.getByText(/Waiting for game data/i)).toBeInTheDocument();
+		});
+
+		it('shows manual override toggle when party has game_id', () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
+
+			expect(screen.getByRole('button', { name: /show manual override/i })).toBeInTheDocument();
+		});
+
+		it('shows manual score entry when toggle clicked (party has game_id)', async () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: /show manual override/i }));
+
+			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+			expect(screen.getByText(/Override live scores from the API/i)).toBeInTheDocument();
+		});
+
+		it('hides manual score entry when toggle clicked again', async () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
+
+			const user = userEvent.setup();
+			// Show
+			await user.click(screen.getByRole('button', { name: /show manual override/i }));
+			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+
+			// Hide
+			await user.click(screen.getByRole('button', { name: /hide manual override/i }));
+			expect(screen.queryByText('Manual Score Entry')).not.toBeInTheDocument();
+		});
+
+		it('always shows manual score entry when party has no game_id', () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: null });
+
+			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /manual override/i })).not.toBeInTheDocument();
+		});
+
+		it('shows standard instructions when party has no game_id', () => {
+			renderAuthorizedAdmin({ status: 'active', game_id: null });
+
+			expect(
+				screen.getByText(/Enter scores and calculate winners for each quarter/)
+			).toBeInTheDocument();
+		});
+	});
 });
