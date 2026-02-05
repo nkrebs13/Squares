@@ -32,7 +32,13 @@ BEGIN
   LOOP
     FOR v_q IN SELECT unnest(v_quarters) LOOP
       EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_new_home USING NEW;
-      EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_old_home USING OLD;
+
+      -- OLD is only defined for UPDATE operations, not INSERT
+      IF TG_OP = 'UPDATE' THEN
+        EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_old_home USING OLD;
+      ELSE
+        v_old_home := NULL;
+      END IF;
 
       -- Only fire on first non-null value for this quarter (quarter just ended)
       IF v_new_home IS NOT NULL AND v_old_home IS NULL THEN
