@@ -245,7 +245,7 @@ describe('Party Page', () => {
 	});
 
 	describe('Complete Status', () => {
-		it('shows "Game complete!" when status is complete', () => {
+		it('shows ScoreBoard when status is complete', () => {
 			isLoading.set(false);
 			error.set(null);
 			party.set(createMockParty({ status: 'complete' }));
@@ -270,7 +270,8 @@ describe('Party Page', () => {
 			});
 			render(PartyPage);
 
-			expect(screen.getAllByText(/Game complete!/).length).toBeGreaterThan(0);
+			// ScoreBoard should be visible in complete status
+			expect(document.querySelector('.scoreboard')).toBeInTheDocument();
 		});
 	});
 
