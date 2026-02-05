@@ -85,8 +85,8 @@
 
 		<div class="score-middle">
 			{#if isLive}
-				<div class="live-badge">
-					<span class="live-dot"></span>
+				<div class="live-badge" role="status" aria-label="Live game: {quarterLabel}">
+					<span class="live-dot" aria-hidden="true"></span>
 					<span class="live-label">{quarterLabel}</span>
 				</div>
 				{#if $liveScores?.clock}

@@ -194,12 +194,17 @@ export async function loadParty(code: string) {
 
 		// Fetch live game scores if party is linked to a game
 		if (partyData.game_id) {
-			const { data: gameScoresData } = await supabase
+			const { data: gameScoresData, error: gameScoresError } = await supabase
 				.from('game_scores')
 				.select('*')
 				.eq('game_id', partyData.game_id)
 				.single();
 
+			// PGRST116 = "no rows returned" - expected when game hasn't started yet
+			// Other errors are logged but don't fail the page load (live scores are optional)
+			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
+				// Non-critical error - realtime will pick up data when available
+			}
 			gameScores.set(gameScoresData || null);
 		} else {
 			gameScores.set(null);

@@ -25,7 +25,7 @@ CREATE TABLE game_scores (
 -- ============================================================
 -- 2. Link parties to a live game
 -- ============================================================
-ALTER TABLE parties ADD COLUMN game_id VARCHAR(20) REFERENCES game_scores(game_id);
+ALTER TABLE parties ADD COLUMN game_id VARCHAR(20) REFERENCES game_scores(game_id) ON DELETE SET NULL;
 ALTER TABLE parties ADD COLUMN home_team_is_row BOOLEAN DEFAULT TRUE;
 CREATE INDEX idx_parties_game_id ON parties(game_id);
 
@@ -124,6 +124,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Restrict auto_update_score to internal/trigger use only (prevents RPC abuse)
+REVOKE EXECUTE ON FUNCTION auto_update_score(UUID, VARCHAR, INT, INT) FROM PUBLIC;
+
 -- ============================================================
 -- 5. Trigger: propagate quarter-end scores to linked parties
 --    NOTE: deliberately skips q4 — only q1, q2, q3, final have payouts
@@ -150,7 +153,7 @@ BEGIN
     END IF;
 
     -- Only propagate on NULL -> value transition (quarter just completed)
-    IF v_new_home IS NOT NULL AND (v_old_home IS NULL OR TG_OP = 'INSERT') THEN
+    IF v_new_home IS NOT NULL AND v_old_home IS NULL THEN
       EXECUTE format('SELECT ($1).%I', v_q || '_away') INTO v_away USING NEW;
       v_home := v_new_home;
 

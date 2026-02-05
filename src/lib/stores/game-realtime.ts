@@ -44,8 +44,15 @@ const BASE_DELAY = 1000;
 function scheduleReconnect(channelKey: string, setupFn: () => void) {
 	const state = channelStates[channelKey];
 	if (state.reconnectAttempts >= MAX_RECONNECT) {
-		// Max reconnection attempts reached - silent failure, user can refresh
+		// Max reconnection attempts reached - notify user
+		toast.error('Connection lost. Please refresh the page.');
 		return;
+	}
+
+	// Cancel any existing reconnect timeout to prevent race conditions
+	if (state.reconnectTimeout) {
+		clearTimeout(state.reconnectTimeout);
+		state.reconnectTimeout = null;
 	}
 
 	state.reconnectAttempts++;
@@ -333,6 +340,13 @@ function setupPartyChannel(partyId: string) {
 							w.quarter === (payload.new as Winner).quarter
 								? (payload.new as Winner)
 								: w
+						)
+					);
+				} else if (payload.eventType === 'DELETE') {
+					const deleted = payload.old as Winner;
+					winners.update((current) =>
+						current.filter(
+							(w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter)
 						)
 					);
 				}
