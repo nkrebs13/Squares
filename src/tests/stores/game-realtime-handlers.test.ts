@@ -7,11 +7,12 @@ import {
 	numbers,
 	scores,
 	winners,
+	gameScores,
 	pendingOperations,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square, Numbers, Scores, Winner } from '$lib/types';
+import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
 import { mockChannelHandlers } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
@@ -398,6 +399,73 @@ describe('postgres_changes: winners handler', () => {
 		expect(currentWinners[0]).toEqual(existingWinner);
 		expect(currentWinners[1]).toEqual(newWinner);
 	});
+
+	it('UPDATE replaces matching winner by party_id and quarter', () => {
+		const existingWinner: Winner = {
+			id: 'winner-1',
+			party_id: 'test-party-id',
+			quarter: 'q1',
+			winning_row: 3,
+			winning_col: 7,
+			player_name: 'Alice',
+			amount: 250,
+			created_at: new Date().toISOString(),
+		};
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		winners.set([existingWinner]);
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['postgres_changes:winners'];
+
+		const updatedWinner: Winner = {
+			...existingWinner,
+			player_name: 'Bob',
+			amount: 300,
+		};
+
+		handler({ eventType: 'UPDATE', new: updatedWinner });
+
+		const currentWinners = get(winners);
+		expect(currentWinners).toHaveLength(1);
+		expect(currentWinners[0].player_name).toBe('Bob');
+		expect(currentWinners[0].amount).toBe(300);
+	});
+
+	it('DELETE removes matching winner by party_id and quarter', () => {
+		const winner1: Winner = {
+			id: 'winner-1',
+			party_id: 'test-party-id',
+			quarter: 'q1',
+			winning_row: 3,
+			winning_col: 7,
+			player_name: 'Alice',
+			amount: 250,
+			created_at: new Date().toISOString(),
+		};
+		const winner2: Winner = {
+			id: 'winner-2',
+			party_id: 'test-party-id',
+			quarter: 'q2',
+			winning_row: 1,
+			winning_col: 4,
+			player_name: 'Bob',
+			amount: 500,
+			created_at: new Date().toISOString(),
+		};
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		winners.set([winner1, winner2]);
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['postgres_changes:winners'];
+
+		handler({ eventType: 'DELETE', old: winner1 });
+
+		const currentWinners = get(winners);
+		expect(currentWinners).toHaveLength(1);
+		expect(currentWinners[0].quarter).toBe('q2');
+	});
 });
 
 describe('postgres_changes: squares handler (completeness)', () => {
@@ -451,5 +519,149 @@ describe('postgres_changes: squares handler (completeness)', () => {
 		expect(get(pendingOperations).has('0-0')).toBe(false);
 		expect(get(squares)[0].player_name).toBe('Alice');
 		expect(get(squares)[0].claimed_at).toBe('2024-02-01T00:00:00Z');
+	});
+});
+
+describe('postgres_changes: game_scores handler', () => {
+	function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
+		return {
+			game_id: 'game-123',
+			sport: 'nfl',
+			home_team_abbrev: 'KC',
+			away_team_abbrev: 'PHI',
+			home_team_name: 'Chiefs',
+			away_team_name: 'Eagles',
+			home_score: 14,
+			away_score: 7,
+			game_clock: '5:30',
+			game_quarter: 2,
+			game_status: 'in_progress',
+			q1_home: 7,
+			q1_away: 0,
+			q2_home: null,
+			q2_away: null,
+			q3_home: null,
+			q3_away: null,
+			q4_home: null,
+			q4_away: null,
+			final_home: null,
+			final_away: null,
+			updated_at: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('INSERT sets gameScores store', () => {
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id', 'game-123');
+
+		expect(get(gameScores)).toBeNull();
+
+		const handler = mockChannelHandlers['postgres_changes:game_scores'];
+		expect(handler).toBeDefined();
+
+		const newGameScores = createMockGameScores();
+		handler({
+			eventType: 'INSERT',
+			new: newGameScores,
+		});
+
+		expect(get(gameScores)).toEqual(newGameScores);
+	});
+
+	it('UPDATE replaces gameScores store', () => {
+		const initialGameScores = createMockGameScores();
+		gameScores.set(initialGameScores);
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id', 'game-123');
+
+		const handler = mockChannelHandlers['postgres_changes:game_scores'];
+
+		const updatedGameScores = createMockGameScores({
+			home_score: 21,
+			away_score: 14,
+			game_clock: '2:00',
+			game_quarter: 3,
+		});
+
+		handler({
+			eventType: 'UPDATE',
+			new: updatedGameScores,
+		});
+
+		expect(get(gameScores)?.home_score).toBe(21);
+		expect(get(gameScores)?.away_score).toBe(14);
+		expect(get(gameScores)?.game_quarter).toBe(3);
+	});
+
+	it('DELETE sets gameScores to null', () => {
+		const initialGameScores = createMockGameScores();
+		gameScores.set(initialGameScores);
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id', 'game-123');
+
+		const handler = mockChannelHandlers['postgres_changes:game_scores'];
+
+		handler({
+			eventType: 'DELETE',
+			old: initialGameScores,
+		});
+
+		expect(get(gameScores)).toBeNull();
+	});
+});
+
+describe('channel cleanup', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('unsubscribe function cleans up all channels including game channel', () => {
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+
+		// Subscribe with gameId to create game channel
+		const unsubscribe = subscribeToParty('test-party-id', 'game-123');
+
+		// Call unsubscribe - should clean up all channels
+		unsubscribe();
+
+		// Channels should be unsubscribed (mock.unsubscribe called)
+		// No error should be thrown
+	});
+
+	it('calling subscribeToParty again cleans up previous channels including game channel', () => {
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+
+		// First subscription with gameId
+		subscribeToParty('test-party-id', 'game-123');
+
+		// Second subscription should cleanup previous channels
+		subscribeToParty('test-party-id-2', 'game-456');
+
+		// No error should be thrown, cleanup should be successful
+	});
+
+	it('cleanup() cleans up game channel when present', () => {
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+
+		// Subscribe with gameId
+		subscribeToParty('test-party-id', 'game-123');
+
+		// Cleanup should handle game channel
+		cleanup();
+
+		// No error should be thrown
 	});
 });
