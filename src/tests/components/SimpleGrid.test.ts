@@ -52,6 +52,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 86400000).toISOString(),
+		game_id: null,
+		home_team_is_row: null,
 		...overrides,
 	};
 }

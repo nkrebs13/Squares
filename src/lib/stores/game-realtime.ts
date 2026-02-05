@@ -1,7 +1,15 @@
 import { get } from 'svelte/store';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 import { getSupabaseClient } from '$lib/supabase';
-import type { Square, Numbers, Scores, Winner, Party, BroadcastMessage } from '$lib/types';
+import type {
+	Square,
+	Numbers,
+	Scores,
+	Winner,
+	Party,
+	BroadcastMessage,
+	GameScoresRow,
+} from '$lib/types';
 import { toast } from './toast';
 import {
 	clientId,
@@ -10,15 +18,75 @@ import {
 	numbers,
 	scores,
 	winners,
+	gameScores,
 	pendingOperations,
 	pendingTimeouts,
 	squareKey,
 	PENDING_TIMEOUT_MS,
 } from './game-state';
 
-// Channel management
+// Per-channel reconnection state
+interface ChannelState {
+	channel: RealtimeChannel | null;
+	reconnectAttempts: number;
+	reconnectTimeout: ReturnType<typeof setTimeout> | null;
+}
+
+const channelStates: Record<string, ChannelState> = {
+	party: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
+	broadcast: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
+	game: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
+};
+
+const MAX_RECONNECT = 5;
+const BASE_DELAY = 1000;
+
+function scheduleReconnect(channelKey: string, setupFn: () => void) {
+	const state = channelStates[channelKey];
+	if (state.reconnectAttempts >= MAX_RECONNECT) {
+		// Max reconnection attempts reached - silent failure, user can refresh
+		return;
+	}
+
+	state.reconnectAttempts++;
+	// Add jitter to prevent thundering herd
+	const jitter = Math.random() * 500;
+	const delay = Math.min(BASE_DELAY * Math.pow(2, state.reconnectAttempts - 1), 16000) + jitter;
+
+	state.reconnectTimeout = setTimeout(() => {
+		if (state.channel) {
+			state.channel.unsubscribe();
+			state.channel = null;
+		}
+		setupFn();
+	}, delay);
+}
+
+function resetReconnectState(channelKey: string) {
+	const state = channelStates[channelKey];
+	state.reconnectAttempts = 0;
+	if (state.reconnectTimeout) {
+		clearTimeout(state.reconnectTimeout);
+		state.reconnectTimeout = null;
+	}
+}
+
+function handleChannelStatus(
+	channelKey: string,
+	status: `${REALTIME_SUBSCRIBE_STATES}`,
+	setupFn: () => void
+) {
+	if (status === 'SUBSCRIBED') {
+		resetReconnectState(channelKey);
+	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+		scheduleReconnect(channelKey, setupFn);
+	}
+}
+
+// Legacy aliases for backward compatibility
 let channel: RealtimeChannel | null = null;
 let broadcastChannel: RealtimeChannel | null = null;
+let gameChannel: RealtimeChannel | null = null;
 
 // Helper to check if an operation is from this client
 function isOwnBroadcast(message: BroadcastMessage): boolean {
@@ -164,23 +232,19 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 	}
 }
 
-export function subscribeToParty(partyId: string) {
+function setupBroadcastChannel(partyId: string) {
 	const supabase = getSupabaseClient();
-
-	// Unsubscribe from previous channels
-	if (channel) {
-		channel.unsubscribe();
-	}
-	if (broadcastChannel) {
-		broadcastChannel.unsubscribe();
-	}
-
-	// Set up broadcast channel for fast optimistic updates
 	broadcastChannel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
-		.subscribe();
+		.subscribe((status) => {
+			handleChannelStatus('broadcast', status, () => setupBroadcastChannel(partyId));
+		});
+	channelStates.broadcast.channel = broadcastChannel;
+}
 
+function setupPartyChannel(partyId: string) {
+	const supabase = getSupabaseClient();
 	channel = supabase
 		.channel(`party:${partyId}`)
 		.on(
@@ -254,25 +318,98 @@ export function subscribeToParty(partyId: string) {
 		.on(
 			'postgres_changes',
 			{
-				event: 'INSERT',
+				event: '*',
 				schema: 'public',
 				table: 'winners',
 				filter: `party_id=eq.${partyId}`,
 			},
 			(payload) => {
-				winners.update((current) => [...current, payload.new as Winner]);
+				if (payload.eventType === 'INSERT') {
+					winners.update((current) => [...current, payload.new as Winner]);
+				} else if (payload.eventType === 'UPDATE') {
+					winners.update((current) =>
+						current.map((w) =>
+							w.party_id === (payload.new as Winner).party_id &&
+							w.quarter === (payload.new as Winner).quarter
+								? (payload.new as Winner)
+								: w
+						)
+					);
+				}
 			}
 		)
-		.subscribe();
+		.subscribe((status) => {
+			handleChannelStatus('party', status, () => setupPartyChannel(partyId));
+		});
+	channelStates.party.channel = channel;
+}
+
+function setupGameChannel(gameId: string) {
+	const supabase = getSupabaseClient();
+	gameChannel = supabase
+		.channel(`game:${gameId}`)
+		.on(
+			'postgres_changes',
+			{
+				event: '*',
+				schema: 'public',
+				table: 'game_scores',
+				filter: `game_id=eq.${gameId}`,
+			},
+			(payload) => {
+				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+					gameScores.set(payload.new as GameScoresRow);
+				} else if (payload.eventType === 'DELETE') {
+					gameScores.set(null);
+				}
+			}
+		)
+		.subscribe((status) => {
+			handleChannelStatus('game', status, () => setupGameChannel(gameId));
+		});
+	channelStates.game.channel = gameChannel;
+}
+
+export function subscribeToParty(partyId: string, gameId: string | null = null) {
+	// Unsubscribe from previous channels and clear reconnect state
+	if (channel) {
+		channel.unsubscribe();
+		resetReconnectState('party');
+	}
+	if (broadcastChannel) {
+		broadcastChannel.unsubscribe();
+		resetReconnectState('broadcast');
+	}
+	if (gameChannel) {
+		gameChannel.unsubscribe();
+		gameChannel = null;
+		resetReconnectState('game');
+	}
+
+	// Set up channels with reconnection support
+	setupBroadcastChannel(partyId);
+	setupPartyChannel(partyId);
+
+	// Subscribe to live game scores if party is linked to a game
+	if (gameId) {
+		setupGameChannel(gameId);
+	}
 
 	return () => {
 		if (channel) {
 			channel.unsubscribe();
 			channel = null;
+			resetReconnectState('party');
 		}
 		if (broadcastChannel) {
 			broadcastChannel.unsubscribe();
 			broadcastChannel = null;
+			resetReconnectState('broadcast');
+		}
+		if (gameChannel) {
+			gameChannel.unsubscribe();
+			gameChannel = null;
+			resetReconnectState('game');
 		}
 	};
 }
@@ -293,9 +430,16 @@ export function cleanupChannels() {
 	if (channel) {
 		channel.unsubscribe();
 		channel = null;
+		resetReconnectState('party');
 	}
 	if (broadcastChannel) {
 		broadcastChannel.unsubscribe();
 		broadcastChannel = null;
+		resetReconnectState('broadcast');
+	}
+	if (gameChannel) {
+		gameChannel.unsubscribe();
+		gameChannel = null;
+		resetReconnectState('game');
 	}
 }

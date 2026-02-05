@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import ScoreBoard from '$lib/components/ScoreBoard.svelte';
-import { party, scores } from '$lib/stores/game';
+import { party, scores, gameScores } from '$lib/stores/game';
 import { theme } from '$lib/stores/theme';
-import type { Party, Scores } from '$lib/types';
+import type { Party, Scores, GameScoresRow } from '$lib/types';
 
 // Helper to create mock party
 function createMockParty(overrides: Partial<Party> = {}): Party {
@@ -25,6 +25,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+		game_id: null,
+		home_team_is_row: null,
 		...overrides,
 	};
 }
@@ -45,11 +47,41 @@ function createMockScores(overrides: Partial<Scores> = {}): Scores {
 	};
 }
 
+// Helper to create mock game scores
+function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
+	return {
+		game_id: 'test-game-id',
+		sport: 'nfl',
+		home_team_abbrev: 'PHI',
+		away_team_abbrev: 'KC',
+		home_team_name: 'Eagles',
+		away_team_name: 'Chiefs',
+		home_score: 0,
+		away_score: 0,
+		game_clock: '',
+		game_quarter: 0,
+		game_status: 'pregame',
+		q1_home: null,
+		q1_away: null,
+		q2_home: null,
+		q2_away: null,
+		q3_home: null,
+		q3_away: null,
+		q4_home: null,
+		q4_away: null,
+		final_home: null,
+		final_away: null,
+		updated_at: new Date().toISOString(),
+		...overrides,
+	};
+}
+
 describe('ScoreBoard Component', () => {
 	beforeEach(() => {
 		// Reset stores
 		party.set(null);
 		scores.set(null);
+		gameScores.set(null);
 		theme.setTeams({
 			rowColor: '#004C54',
 			colColor: '#E31837',
@@ -217,6 +249,91 @@ describe('ScoreBoard Component', () => {
 			// Quarter grid should show formatted scores
 			expect(screen.getByText('7 - 3')).toBeInTheDocument();
 			expect(screen.getByText('14 - 10')).toBeInTheDocument();
+		});
+	});
+
+	describe('Live Scores via gameScores', () => {
+		it('shows live scores when game is in progress', () => {
+			party.set(
+				createMockParty({ status: 'active', game_id: 'test-game-id', home_team_is_row: true })
+			);
+			scores.set(createMockScores());
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 7,
+					game_status: 'in_progress',
+					game_quarter: 2,
+					game_clock: '5:30',
+				})
+			);
+
+			render(ScoreBoard);
+
+			// Should show live scores (home=row=14, away=col=7)
+			expect(screen.getByText('14')).toBeInTheDocument();
+			expect(screen.getByText('7')).toBeInTheDocument();
+			// Should show live badge with quarter label inside the live-label span
+			const liveLabel = document.querySelector('.live-label');
+			expect(liveLabel).toHaveTextContent('Q2');
+			expect(screen.getByText('5:30')).toBeInTheDocument();
+		});
+
+		it('maps away to row when home_team_is_row is false', () => {
+			party.set(
+				createMockParty({ status: 'active', game_id: 'test-game-id', home_team_is_row: false })
+			);
+			scores.set(createMockScores());
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 7,
+					game_status: 'in_progress',
+					game_quarter: 1,
+					game_clock: '10:00',
+				})
+			);
+
+			render(ScoreBoard);
+
+			// Row=away=7, Col=home=14
+			expect(screen.getByText('7')).toBeInTheDocument();
+			expect(screen.getByText('14')).toBeInTheDocument();
+		});
+
+		it('shows vs when game status is pregame', () => {
+			party.set(
+				createMockParty({ status: 'active', game_id: 'test-game-id', home_team_is_row: true })
+			);
+			scores.set(createMockScores());
+			gameScores.set(
+				createMockGameScores({
+					game_status: 'pregame',
+				})
+			);
+
+			render(ScoreBoard);
+
+			expect(screen.getByText('vs')).toBeInTheDocument();
+		});
+
+		it('shows HALF during halftime', () => {
+			party.set(
+				createMockParty({ status: 'active', game_id: 'test-game-id', home_team_is_row: true })
+			);
+			scores.set(createMockScores());
+			gameScores.set(
+				createMockGameScores({
+					home_score: 14,
+					away_score: 10,
+					game_status: 'halftime',
+					game_quarter: 2,
+				})
+			);
+
+			render(ScoreBoard);
+
+			expect(screen.getByText('HALF')).toBeInTheDocument();
 		});
 	});
 

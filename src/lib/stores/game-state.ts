@@ -8,13 +8,17 @@ import type {
 	Winner,
 	GridState,
 	OptimisticOperation,
+	GameScoresRow,
+	LiveScores,
 } from '$lib/types';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 
 // Unique client ID per browser tab (for broadcast deduplication)
 export const clientId =
-	typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+	typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+		? crypto.randomUUID()
+		: Math.random().toString(36).slice(2);
 
 // Core state stores
 export const party = writable<Party | null>(null);
@@ -22,6 +26,7 @@ export const squares = writable<Square[]>([]);
 export const numbers = writable<Numbers | null>(null);
 export const scores = writable<Scores | null>(null);
 export const winners = writable<Winner[]>([]);
+export const gameScores = writable<GameScoresRow | null>(null);
 export const isLoading = writable(true);
 export const error = writable<string | null>(null);
 
@@ -37,6 +42,21 @@ export const gridState = derived(
 			scores: $scores,
 			winners: $winners,
 		} as GridState;
+	}
+);
+
+export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
+	[gameScores, party],
+	([$gameScores, $party]) => {
+		if (!$gameScores || !$party) return null;
+		const homeIsRow = $party.home_team_is_row ?? true;
+		return {
+			rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
+			colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
+			clock: $gameScores.game_clock,
+			quarter: $gameScores.game_quarter,
+			status: $gameScores.game_status,
+		};
 	}
 );
 
@@ -121,7 +141,7 @@ export async function loadParty(code: string) {
 		const { data: partyData, error: partyError } = await supabase
 			.from('parties')
 			.select(
-				'id, code, host_name_lower, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at'
+				'id, code, host_name_lower, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at, game_id, home_team_is_row'
 			)
 			.eq('code', code.toUpperCase())
 			.single();
@@ -171,6 +191,19 @@ export async function loadParty(code: string) {
 			.single();
 
 		scores.set(scoresData || null);
+
+		// Fetch live game scores if party is linked to a game
+		if (partyData.game_id) {
+			const { data: gameScoresData } = await supabase
+				.from('game_scores')
+				.select('*')
+				.eq('game_id', partyData.game_id)
+				.single();
+
+			gameScores.set(gameScoresData || null);
+		} else {
+			gameScores.set(null);
+		}
 
 		// Fetch winners
 		const { data: winnersData } = await supabase
