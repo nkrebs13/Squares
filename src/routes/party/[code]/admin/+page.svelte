@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
 		party,
@@ -16,6 +16,7 @@
 		removePlayer,
 		playerSummary,
 		verifyHostPin,
+		subscribeToParty,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
@@ -89,6 +90,8 @@
 		}
 	});
 
+	let unsubscribe: (() => void) | null = null;
+
 	onMount(async () => {
 		if (browser) {
 			storedPin = sessionStorage.getItem(`squares_pin_${code}`);
@@ -101,6 +104,11 @@
 			await loadParty(code);
 		}
 
+		// Subscribe to realtime updates (including live scores)
+		if ($party) {
+			unsubscribe = subscribeToParty($party.id, $party.game_id);
+		}
+
 		// Initialize payout splits from party
 		if ($party) {
 			payoutSplits = {
@@ -110,6 +118,10 @@
 				final: $party.split_final,
 			};
 		}
+	});
+
+	onDestroy(() => {
+		if (unsubscribe) unsubscribe();
 	});
 
 	// Keep payout splits in sync with party
