@@ -25,7 +25,20 @@ import {
 	PENDING_TIMEOUT_MS,
 } from './game-state';
 
-// Per-channel reconnection state
+/**
+ * Per-channel reconnection state for handling connection failures.
+ *
+ * Cleanup semantics:
+ * - When a component unmounts or party changes, resetReconnectState() is called
+ * - This clears any pending reconnectTimeout to prevent stale closures from firing
+ * - The reconnectAttempts counter is reset to allow fresh reconnection attempts
+ * - Channel references are set to null to prevent memory leaks
+ *
+ * The cleanup order is important:
+ * 1. Unsubscribe from channel (stops receiving events)
+ * 2. Set channelStates[key].channel to null (remove reference)
+ * 3. Call resetReconnectState() (cancel pending timeout, reset counter)
+ */
 interface ChannelState {
 	channel: RealtimeChannel | null;
 	reconnectAttempts: number;

@@ -35,6 +35,10 @@ vi.mock('idb-keyval', () => ({
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 const mockChannelHandlers: Record<string, Function> = {};
 
+// Capture subscribe callbacks for simulating channel status changes
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+let subscribeCallbacks: Function[] = [];
+
 const mockSupabaseChannel = {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 	on: vi.fn((event: string, filter: unknown, callback?: Function) => {
@@ -48,10 +52,24 @@ const mockSupabaseChannel = {
 		}
 		return mockSupabaseChannel;
 	}),
-	subscribe: vi.fn().mockReturnThis(),
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	subscribe: vi.fn((callback?: Function) => {
+		if (typeof callback === 'function') {
+			subscribeCallbacks.push(callback);
+		}
+		return mockSupabaseChannel;
+	}),
 	unsubscribe: vi.fn(),
 	send: vi.fn(),
 };
+
+/**
+ * Simulate a channel status change for testing reconnection logic.
+ * Call after subscribeToParty() to trigger status handlers.
+ */
+function simulateChannelStatus(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') {
+	subscribeCallbacks.forEach((cb) => cb(status));
+}
 
 const mockSupabaseClient = {
 	from: vi.fn(() => ({
@@ -74,6 +92,9 @@ vi.mock('$lib/supabase', () => ({
 
 // Shared helper to restore mock defaults after vi.resetAllMocks()
 function restoreMockDefaults() {
+	// Clear subscribe callbacks
+	subscribeCallbacks = [];
+
 	mockSupabaseChannel.on.mockImplementation(
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 		(event: string, filter: unknown, callback?: Function) => {
@@ -88,7 +109,13 @@ function restoreMockDefaults() {
 			return mockSupabaseChannel;
 		}
 	);
-	mockSupabaseChannel.subscribe.mockReturnThis();
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	mockSupabaseChannel.subscribe.mockImplementation((callback?: Function) => {
+		if (typeof callback === 'function') {
+			subscribeCallbacks.push(callback);
+		}
+		return mockSupabaseChannel;
+	});
 
 	mockSupabaseClient.from.mockImplementation(() => ({
 		select: vi.fn().mockReturnThis(),
@@ -189,4 +216,5 @@ export {
 	mockChannelHandlers,
 	localStorageMock,
 	sessionStorageMock,
+	simulateChannelStatus,
 };

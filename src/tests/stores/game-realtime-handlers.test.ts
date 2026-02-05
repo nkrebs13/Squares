@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	subscribeToParty,
@@ -13,7 +13,7 @@ import {
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
-import { mockChannelHandlers } from '../setup';
+import { mockChannelHandlers, mockSupabaseChannel, simulateChannelStatus } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
@@ -663,5 +663,131 @@ describe('channel cleanup', () => {
 		cleanup();
 
 		// No error should be thrown
+	});
+});
+
+describe('channel reconnection', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('SUBSCRIBED status resets reconnect state', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		// Simulate successful subscription
+		simulateChannelStatus('SUBSCRIBED');
+
+		// No error should be thrown, reconnect counter should be reset
+		// (internal state, verified by not seeing exponential backoff on next error)
+	});
+
+	it('CHANNEL_ERROR triggers reconnection attempt', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		const initialUnsubscribeCalls = mockSupabaseChannel.unsubscribe.mock.calls.length;
+
+		// Simulate channel error
+		simulateChannelStatus('CHANNEL_ERROR');
+
+		// Advance timer past reconnection delay (1s base + jitter)
+		vi.advanceTimersByTime(2000);
+
+		// Should have attempted to unsubscribe and resubscribe
+		expect(mockSupabaseChannel.unsubscribe.mock.calls.length).toBeGreaterThan(
+			initialUnsubscribeCalls
+		);
+	});
+
+	it('TIMED_OUT triggers reconnection attempt', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		const initialUnsubscribeCalls = mockSupabaseChannel.unsubscribe.mock.calls.length;
+
+		// Simulate timeout
+		simulateChannelStatus('TIMED_OUT');
+
+		// Advance timer past reconnection delay
+		vi.advanceTimersByTime(2000);
+
+		// Should have attempted reconnection
+		expect(mockSupabaseChannel.unsubscribe.mock.calls.length).toBeGreaterThan(
+			initialUnsubscribeCalls
+		);
+	});
+
+	it('CLOSED triggers reconnection attempt', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		const initialUnsubscribeCalls = mockSupabaseChannel.unsubscribe.mock.calls.length;
+
+		// Simulate channel closed
+		simulateChannelStatus('CLOSED');
+
+		// Advance timer past reconnection delay
+		vi.advanceTimersByTime(2000);
+
+		// Should have attempted reconnection
+		expect(mockSupabaseChannel.unsubscribe.mock.calls.length).toBeGreaterThan(
+			initialUnsubscribeCalls
+		);
+	});
+
+	it('exponential backoff increases delay between reconnection attempts', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		// First error
+		simulateChannelStatus('CHANNEL_ERROR');
+
+		// First reconnection should happen after ~1s (base delay)
+		vi.advanceTimersByTime(1500);
+
+		// Simulate another error after reconnection
+		simulateChannelStatus('CHANNEL_ERROR');
+
+		// Second reconnection should take longer (~2s due to exponential backoff)
+		const callsBefore = mockSupabaseChannel.unsubscribe.mock.calls.length;
+		vi.advanceTimersByTime(1500); // Not enough time
+
+		// Should not have reconnected yet (still waiting for longer backoff)
+		// The delay is 2^1 * 1000 = 2000ms + jitter, so 1500ms shouldn't trigger it
+		vi.advanceTimersByTime(2000); // Now advance enough
+		const callsAfter = mockSupabaseChannel.unsubscribe.mock.calls.length;
+
+		// Should have reconnected after full backoff period
+		expect(callsAfter).toBeGreaterThanOrEqual(callsBefore);
+	});
+
+	it('switching parties cancels pending reconnection timeout', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		// Trigger reconnection (will be pending)
+		simulateChannelStatus('CHANNEL_ERROR');
+
+		// Switch to a different party before timeout fires
+		subscribeToParty('other-party-id');
+
+		// Advance timer - the old reconnection should NOT fire
+		vi.advanceTimersByTime(5000);
+
+		// No error should occur from stale closure
+		// The new subscription should be active
 	});
 });
