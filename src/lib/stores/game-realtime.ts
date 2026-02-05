@@ -85,7 +85,7 @@ function handleChannelStatus(
 ) {
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
-	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
 		scheduleReconnect(channelKey, setupFn);
 	}
 }
