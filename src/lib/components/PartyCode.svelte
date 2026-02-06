@@ -78,15 +78,15 @@
 		<div class="text-sm opacity-70 mb-2">Party Code</div>
 		<div class="party-code">{$party.code}</div>
 
-		<div class="mt-4 flex gap-2 justify-center flex-wrap">
-			<button onclick={copyCode} class="btn btn-secondary text-sm">
+		<div class="mt-4 grid grid-cols-2 gap-2 max-w-xs mx-auto">
+			<button onclick={copyCode} class="btn btn-secondary text-sm w-full">
 				{copied ? 'Copied!' : 'Copy Code'}
 			</button>
-			<button onclick={copyLink} class="btn btn-secondary text-sm">
+			<button onclick={copyLink} class="btn btn-secondary text-sm w-full">
 				{copiedLink ? 'Copied!' : 'Copy Link'}
 			</button>
-			<button onclick={shareCode} class="btn btn-primary text-sm">Share</button>
-			<button onclick={toggleQR} class="btn btn-secondary text-sm">
+			<button onclick={shareCode} class="btn btn-primary text-sm w-full">Share</button>
+			<button onclick={toggleQR} class="btn btn-secondary text-sm w-full">
 				{showQR ? 'Hide QR' : 'QR Code'}
 			</button>
 		</div>
