@@ -29,7 +29,7 @@
 	const ZOOMED_CELL_SIZE = 64;
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
-	const TEAM_LABEL_WIDTH = 52;
+	const TEAM_LABEL_WIDTH = 48;
 	const SCROLL_CONTAINER_PADDING = 8;
 
 	// DOM refs
@@ -324,6 +324,7 @@
 				<img
 					src="/logos/patriots.png"
 					alt=""
+					aria-hidden="true"
 					class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
 					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
 				/>
@@ -349,6 +350,7 @@
 					<img
 						src="/logos/seahawks.png"
 						alt=""
+						aria-hidden="true"
 						class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
 						onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
 					/>
@@ -591,7 +593,7 @@
 	.team-name {
 		text-shadow:
 			0 0 10px currentColor,
-			0 1px 3px rgba(0, 0, 0, 0.9);
+			0 1px 3px rgba(0, 0, 0, 0.8);
 	}
 
 	.scroll-container {
