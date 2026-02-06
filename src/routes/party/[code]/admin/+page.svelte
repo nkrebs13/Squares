@@ -409,10 +409,11 @@
 							Adjust how the pot is split between quarters. Must total 100%.
 						</p>
 
-						<div class="flex gap-2 mb-4 flex-wrap">
+						<div class="grid grid-cols-4 gap-2 mb-4">
 							{#each SPLIT_PRESETS as preset (preset.name)}
 								<button
-									class="btn btn-sm {selectedPreset === preset.name
+									class="p-2 rounded-lg text-sm font-medium transition-all {selectedPreset ===
+									preset.name
 										? 'btn-primary'
 										: 'btn-secondary'}"
 									onclick={() => applyPreset(preset.name)}
