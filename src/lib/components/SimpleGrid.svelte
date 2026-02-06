@@ -29,7 +29,7 @@
 	const ZOOMED_CELL_SIZE = 64;
 	const GAP_SIZE = 2;
 	const NUM_COLS = 10;
-	const TEAM_LABEL_WIDTH = 36;
+	const TEAM_LABEL_WIDTH = 48;
 	const SCROLL_CONTAINER_PADDING = 8;
 
 	// DOM refs
@@ -289,6 +289,10 @@
 
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
+
+	// Logo visibility — only show hardcoded logos when team name matches
+	const showColLogo = $derived($theme.colName?.toLowerCase().trim() === 'patriots');
+	const showRowLogo = $derived($theme.rowName?.toLowerCase().trim() === 'seahawks');
 </script>
 
 <svelte:window onpointerup={handleGlobalPointerUp} onpointercancel={handleGlobalPointerCancel} />
@@ -316,7 +320,19 @@
 	<div class="grid-wrapper" bind:this={gridWrapper}>
 		<!-- Column Team Label -->
 		<div class="team-label-col">
-			<span class="font-bold text-base sm:text-lg" style="color: {$theme.colColor}">
+			{#if showColLogo}
+				<img
+					src="/logos/patriots.png"
+					alt=""
+					aria-hidden="true"
+					class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
+					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
+				/>
+			{/if}
+			<span
+				class="team-name font-bold text-xl sm:text-2xl md:text-3xl"
+				style="color: {$theme.colColor}"
+			>
 				{$theme.colName}
 			</span>
 		</div>
@@ -325,11 +341,20 @@
 			<!-- Row Team Label -->
 			<div class="team-label-row">
 				<span
-					class="font-bold text-sm sm:text-base writing-vertical flex items-center"
+					class="team-name font-bold text-base sm:text-lg md:text-xl writing-vertical flex items-center"
 					style="color: {$theme.rowColor}"
 				>
 					{$theme.rowName}
 				</span>
+				{#if showRowLogo}
+					<img
+						src="/logos/seahawks.png"
+						alt=""
+						aria-hidden="true"
+						class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
+						onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
+					/>
+				{/if}
 			</div>
 
 			<!-- Scrollable Grid Container -->
@@ -545,8 +570,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		gap: 0.75rem;
+		padding: 0.75rem 0;
 	}
 
 	.grid-with-row-label {
@@ -562,7 +587,13 @@
 		gap: 0.25rem;
 		padding: 0.25rem 0;
 		flex-shrink: 0;
-		width: 32px;
+		width: 48px;
+	}
+
+	.team-name {
+		text-shadow:
+			0 0 10px currentColor,
+			0 1px 3px rgba(0, 0, 0, 0.8);
 	}
 
 	.scroll-container {
@@ -943,6 +974,10 @@
 			font-size: 0.875rem;
 		}
 
+		.team-label-row {
+			width: 56px;
+		}
+
 		/* Multi-column player grid on larger screens */
 		.players-grid {
 			display: grid;
@@ -952,6 +987,12 @@
 
 		.player-pill {
 			width: auto;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.team-label-row {
+			width: 64px;
 		}
 	}
 

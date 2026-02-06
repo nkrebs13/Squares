@@ -10,6 +10,7 @@ import {
 	selectedPlayerFilter,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
+import { theme } from '$lib/stores/theme';
 import type { Party, Square as SquareType, Numbers, Winner } from '$lib/types';
 
 // Helper to create mock squares for a full 10x10 grid
@@ -508,6 +509,68 @@ describe('SimpleGrid Component', () => {
 
 			const pendingSquares = document.querySelectorAll('.square-pending');
 			expect(pendingSquares.length).toBe(1);
+		});
+	});
+
+	describe('Team Logos', () => {
+		it('renders Patriots logo when col team is Patriots', () => {
+			setupStores({ withNumbers: true });
+			theme.setTeams({
+				colName: 'Patriots',
+				colColor: '#C60C30',
+				rowName: 'Seahawks',
+				rowColor: '#69BE28',
+			});
+			render(SimpleGrid);
+
+			const logos = document.querySelectorAll('img[src="/logos/patriots.png"]');
+			expect(logos.length).toBe(1);
+		});
+
+		it('renders Seahawks logo when row team is Seahawks', () => {
+			setupStores({ withNumbers: true });
+			theme.setTeams({
+				colName: 'Patriots',
+				colColor: '#C60C30',
+				rowName: 'Seahawks',
+				rowColor: '#69BE28',
+			});
+			render(SimpleGrid);
+
+			const logos = document.querySelectorAll('img[src="/logos/seahawks.png"]');
+			expect(logos.length).toBe(1);
+		});
+
+		it('does not render logos for non-matching team names', () => {
+			setupStores({ withNumbers: true });
+			theme.setTeams({
+				colName: 'Lakers',
+				colColor: '#FDB927',
+				rowName: 'Celtics',
+				rowColor: '#007A33',
+			});
+			render(SimpleGrid);
+
+			const patriotsLogos = document.querySelectorAll('img[src="/logos/patriots.png"]');
+			const seahawksLogos = document.querySelectorAll('img[src="/logos/seahawks.png"]');
+			expect(patriotsLogos.length).toBe(0);
+			expect(seahawksLogos.length).toBe(0);
+		});
+
+		it('matches team names case-insensitively', () => {
+			setupStores({ withNumbers: true });
+			theme.setTeams({
+				colName: 'PATRIOTS',
+				colColor: '#C60C30',
+				rowName: 'seahawks',
+				rowColor: '#69BE28',
+			});
+			render(SimpleGrid);
+
+			const patriotsLogos = document.querySelectorAll('img[src="/logos/patriots.png"]');
+			const seahawksLogos = document.querySelectorAll('img[src="/logos/seahawks.png"]');
+			expect(patriotsLogos.length).toBe(1);
+			expect(seahawksLogos.length).toBe(1);
 		});
 	});
 });
