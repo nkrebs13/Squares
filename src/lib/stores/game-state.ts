@@ -152,7 +152,24 @@ export async function loadParty(code: string) {
 			return false;
 		}
 
-		party.set(partyData);
+		// Auto-detect live game when party isn't linked to one
+		let effectiveGameId = partyData.game_id;
+		if (!effectiveGameId) {
+			const { data: activeGame } = await supabase
+				.from('game_scores')
+				.select('game_id')
+				.neq('game_status', 'final')
+				.limit(1)
+				.maybeSingle();
+
+			if (activeGame?.game_id) {
+				effectiveGameId = activeGame.game_id;
+			}
+		}
+
+		party.set(
+			effectiveGameId !== partyData.game_id ? { ...partyData, game_id: effectiveGameId } : partyData
+		);
 
 		// Update theme with party colors
 		theme.setTeams({
@@ -192,12 +209,12 @@ export async function loadParty(code: string) {
 
 		scores.set(scoresData || null);
 
-		// Fetch live game scores if party is linked to a game
-		if (partyData.game_id) {
+		// Fetch live game scores if party is linked to a game (or auto-detected)
+		if (effectiveGameId) {
 			const { data: gameScoresData, error: gameScoresError } = await supabase
 				.from('game_scores')
 				.select('*')
-				.eq('game_id', partyData.game_id)
+				.eq('game_id', effectiveGameId)
 				.single();
 
 			// PGRST116 = "no rows returned" - expected when game hasn't started yet
