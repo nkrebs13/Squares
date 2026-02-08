@@ -242,7 +242,7 @@
 			<!-- Desktop Sidebar -->
 			<svelte:boundary>
 				<aside class="sidebar hidden lg:block">
-					<div class="sidebar-content">
+					<div>
 						<!-- Status banner -->
 						{#if $party.status === 'filling'}
 							<div class="mb-4 status-banner status-banner-filling">
