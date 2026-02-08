@@ -57,8 +57,6 @@ const BASE_DELAY = 1000;
 function scheduleReconnect(channelKey: string, setupFn: () => void) {
 	const state = channelStates[channelKey];
 	if (state.reconnectAttempts >= MAX_RECONNECT) {
-		// Max reconnection attempts reached - notify user
-		toast.error('Connection lost. Please refresh the page.');
 		return;
 	}
 
