@@ -397,32 +397,6 @@
 			max-width: 400px;
 			flex-shrink: 0;
 		}
-
-		.sidebar-content {
-			position: sticky;
-			top: 1rem;
-			max-height: calc(100vh - 2rem);
-			overflow-y: auto;
-			padding-right: 0.5rem;
-		}
-
-		/* Custom scrollbar for sidebar */
-		.sidebar-content::-webkit-scrollbar {
-			width: 4px;
-		}
-
-		.sidebar-content::-webkit-scrollbar-track {
-			background: transparent;
-		}
-
-		.sidebar-content::-webkit-scrollbar-thumb {
-			background: rgba(255, 255, 255, 0.1);
-			border-radius: 2px;
-		}
-
-		.sidebar-content::-webkit-scrollbar-thumb:hover {
-			background: rgba(255, 255, 255, 0.2);
-		}
 	}
 
 	/* Larger desktop - wider sidebar */
