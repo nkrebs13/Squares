@@ -339,6 +339,12 @@ describe('Admin Page - Score Entry', () => {
 
 			mockSupabaseClient.from
 				.mockReturnValueOnce(mockPartiesChain as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce(mockNumbersChain as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>)
@@ -372,7 +378,7 @@ describe('Admin Page - Score Entry', () => {
 			// Mock lockParty RPC success
 			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
 
-			// Mock loadParty chain (same setup as above — loadParty fetches 5 tables)
+			// Mock loadParty chain (same setup as above — loadParty fetches 5 tables + auto-detect)
 			mockSupabaseClient.from
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
@@ -382,6 +388,12 @@ describe('Admin Page - Score Entry', () => {
 						error: null,
 					}),
 				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
 					eq: vi.fn().mockReturnThis(),
@@ -455,6 +467,12 @@ describe('Admin Page - Score Entry', () => {
 				} as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
 					eq: vi.fn().mockReturnThis(),
 					order: vi.fn().mockReturnValue({
 						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
@@ -517,6 +535,12 @@ describe('Admin Page - Score Entry', () => {
 						error: null,
 					}),
 				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
 					eq: vi.fn().mockReturnThis(),
@@ -597,6 +621,12 @@ describe('Admin Page - Score Entry', () => {
 				} as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
 					eq: vi.fn().mockReturnThis(),
 					order: vi.fn().mockReturnValue({
 						order: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -658,6 +688,12 @@ describe('Admin Page - Score Entry', () => {
 						error: null,
 					}),
 				} as ReturnType<typeof mockSupabaseClient.from>)
+				.mockReturnValueOnce({
+					select: vi.fn().mockReturnThis(),
+					neq: vi.fn().mockReturnThis(),
+					limit: vi.fn().mockReturnThis(),
+					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
 				.mockReturnValueOnce({
 					select: vi.fn().mockReturnThis(),
 					eq: vi.fn().mockReturnThis(),
