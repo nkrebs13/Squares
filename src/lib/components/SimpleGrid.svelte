@@ -17,6 +17,7 @@
 		playerSummary,
 		availableCount,
 		selectedPlayerFilter,
+		leadingSquare,
 	} from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
@@ -402,6 +403,7 @@
 										isLocked={$party?.status !== 'filling'}
 										isSelected={selectedCells.has(cellKey(row, col))}
 										isPending={isSquarePending(row, col)}
+										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}
 										winners={getWinners(row, col)}
 										onpointerdown={(e) => handlePointerDown(row, col, e)}
 										onpointerenter={() => handlePointerMove(row, col)}
@@ -441,6 +443,12 @@
 					<div class="legend-swatch legend-winner"></div>
 					<span>Winner</span>
 				</div>
+				{#if $leadingSquare}
+					<div class="legend-item">
+						<div class="legend-swatch legend-leading"></div>
+						<span>Leading</span>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Zoom Toggle (shown when horizontal scroll would occur) -->
@@ -753,6 +761,14 @@
 		outline: 2px solid rgba(100, 200, 130, 0.8);
 		outline-offset: -1px;
 		box-shadow: 0 0 8px rgba(100, 200, 130, 0.4);
+	}
+
+	.legend-leading {
+		background: rgba(255, 200, 60, 0.15);
+		border-color: rgba(255, 200, 60, 0.6);
+		outline: 2px solid rgba(255, 200, 60, 0.85);
+		outline-offset: -1px;
+		box-shadow: 0 0 8px rgba(255, 200, 60, 0.35);
 	}
 
 	/* Zoom Toggle Button */

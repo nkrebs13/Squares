@@ -90,6 +90,26 @@ export const liveScores = derived<[typeof gameScores, typeof party], LiveScores 
 	}
 );
 
+// The square currently "in the lead" based on live scores (last digit of each score → numbers lookup)
+export const leadingSquare = derived(
+	[liveScores, numbers, party],
+	([$liveScores, $numbers, $party]) => {
+		if (!$liveScores || !$numbers || !$party) return null;
+		// Only show during active game
+		if ($party.status !== 'active' && $party.status !== 'locked') return null;
+		// Only when game is in progress (not final/pregame)
+		if ($liveScores.status === 'final' || $liveScores.status === 'pregame') return null;
+
+		const rowDigit = $liveScores.rowScore % 10;
+		const colDigit = $liveScores.colScore % 10;
+		const winningRow = $numbers.row_numbers.indexOf(rowDigit);
+		const winningCol = $numbers.col_numbers.indexOf(colDigit);
+
+		if (winningRow === -1 || winningCol === -1) return null;
+		return { row: winningRow, col: winningCol };
+	}
+);
+
 export const filledCount = derived(
 	squares,
 	($squares) => $squares.filter((s) => s.player_name !== null).length

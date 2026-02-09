@@ -216,6 +216,28 @@ body {
 	border-color: rgba(239, 68, 68, 0.5) !important;
 }
 
+/* Leading square — the square matching current live score digits */
+.square-leading {
+	outline: 3px solid rgba(255, 200, 60, 0.85);
+	outline-offset: -1px;
+	border-color: rgba(255, 200, 60, 0.6);
+	animation: pulse-leading 2s ease-in-out infinite;
+}
+
+@keyframes pulse-leading {
+	0%,
+	100% {
+		box-shadow:
+			0 0 10px rgba(255, 200, 60, 0.35),
+			0 0 20px rgba(255, 200, 60, 0.15);
+	}
+	50% {
+		box-shadow:
+			0 0 16px rgba(255, 200, 60, 0.55),
+			0 0 32px rgba(255, 200, 60, 0.25);
+	}
+}
+
 .square-selected {
 	background: linear-gradient(135deg, rgba(244, 143, 177, 0.25), rgba(180, 130, 200, 0.25));
 	outline: 2px solid rgba(244, 143, 177, 0.6);
@@ -265,13 +287,19 @@ body {
 	}
 }
 
-/* Reduced motion: disable pending animations */
+/* Reduced motion: disable pending and leading animations */
 @media (prefers-reduced-motion: reduce) {
 	.square-pending {
 		animation: none;
 	}
 	.square-pending::after {
 		animation: none;
+	}
+	.square-leading {
+		animation: none;
+		box-shadow:
+			0 0 10px rgba(255, 200, 60, 0.35),
+			0 0 20px rgba(255, 200, 60, 0.15);
 	}
 }
 
