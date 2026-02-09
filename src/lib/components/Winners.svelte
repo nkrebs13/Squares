@@ -9,6 +9,17 @@
 		final: 'Final',
 	};
 
+	const quarterOrder: Record<Quarter, number> = {
+		q1: 1,
+		q2: 2,
+		q3: 3,
+		final: 4,
+	};
+
+	const sortedWinners = $derived(
+		[...$winners].sort((a, b) => quarterOrder[a.quarter] - quarterOrder[b.quarter])
+	);
+
 	function formatAmount(amount: number): string {
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
@@ -51,7 +62,7 @@
 {#if $winners.length > 0}
 	<div class="space-y-3">
 		<h3 class="text-lg font-semibold">Winners</h3>
-		{#each $winners as winner (winner.id)}
+		{#each sortedWinners as winner (winner.id)}
 			<div class="winner-banner animate-fade-in">
 				<div class="flex justify-between items-center">
 					<div>
