@@ -17,6 +17,7 @@
 		playerSummary,
 		verifyHostPin,
 		subscribeToParty,
+		broadcastScoreUpdate,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
@@ -210,6 +211,7 @@
 
 		if (result.success) {
 			success = `Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`;
+			broadcastScoreUpdate();
 			await loadParty(code);
 		} else {
 			error = result.error || 'Failed to update score';
