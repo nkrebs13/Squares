@@ -764,11 +764,9 @@
 	}
 
 	.legend-leading {
-		background: rgba(255, 200, 60, 0.15);
-		border-color: rgba(255, 200, 60, 0.6);
-		outline: 2px solid rgba(255, 200, 60, 0.85);
+		border-color: rgba(255, 255, 255, 0.7);
+		outline: 2px solid rgba(255, 255, 255, 0.9);
 		outline-offset: -1px;
-		box-shadow: 0 0 8px rgba(255, 200, 60, 0.35);
 	}
 
 	/* Zoom Toggle Button */
