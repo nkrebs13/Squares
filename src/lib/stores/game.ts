@@ -14,6 +14,7 @@ export {
 	// Derived stores
 	gridState,
 	liveScores,
+	leadingSquare,
 	filledCount,
 	isGridFull,
 	mySquares,

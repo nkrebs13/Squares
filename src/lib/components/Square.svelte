@@ -13,6 +13,7 @@
 		isPressed?: boolean;
 		pressProgress?: number;
 		isPending?: boolean;
+		isLeading?: boolean;
 		winners?: Winner[];
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointerenter?: () => void;
@@ -29,6 +30,7 @@
 		isPressed = false,
 		pressProgress = 0,
 		isPending = false,
+		isLeading = false,
 		winners = [],
 		onpointerdown,
 		onpointerenter,
@@ -61,7 +63,7 @@
 	const playerColor = $derived(square.player_name ? getPlayerColor(square.player_name) : null);
 
 	const classes = $derived(
-		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''} ${isPending ? 'square-pending' : ''}`
+		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''} ${isPending ? 'square-pending' : ''}`
 	);
 
 	// Progress ring calculation - scales with button size
@@ -86,6 +88,9 @@
 				.map((w) => (w.quarter === 'final' ? 'Final' : `Q${w.quarter.slice(1)}`))
 				.join(', ');
 			return `${position}Winner for ${quarters}, claimed by ${square.player_name || 'unknown player'}.`;
+		}
+		if (isLeading && square.player_name) {
+			return `${position}Currently winning square, claimed by ${square.player_name}.`;
 		}
 		if (isMine) {
 			return `${position}Your square. Press to unclaim.`;
