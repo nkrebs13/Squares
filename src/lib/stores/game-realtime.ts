@@ -260,11 +260,41 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 	}
 }
 
+function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) {
+	// Ignore our own broadcasts
+	if (payload.payload.clientId === clientId) return;
+
+	// Re-fetch scores and winners from the database (source of truth)
+	const currentParty = get(party);
+	if (!currentParty) return;
+
+	const supabase = getSupabaseClient();
+
+	supabase
+		.from('scores')
+		.select('*')
+		.eq('party_id', currentParty.id)
+		.single()
+		.then(({ data }) => {
+			if (data) scores.set(data as Scores);
+		});
+
+	supabase
+		.from('winners')
+		.select('*')
+		.eq('party_id', currentParty.id)
+		.order('quarter')
+		.then(({ data }) => {
+			if (data) winners.set(data as Winner[]);
+		});
+}
+
 function setupBroadcastChannel(partyId: string) {
 	const supabase = getSupabaseClient();
 	broadcastChannel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
+		.on('broadcast', { event: 'score_update' }, handleScoreUpdateBroadcast)
 		.subscribe((status) => {
 			handleChannelStatus('broadcast', status, () => setupBroadcastChannel(partyId));
 		});
@@ -462,6 +492,17 @@ export function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clie
 		type: 'broadcast',
 		event: 'square_update',
 		payload: { ...message, clientId },
+	});
+}
+
+// Broadcast score update notification to other clients
+export function broadcastScoreUpdate() {
+	if (!broadcastChannel) return;
+
+	broadcastChannel.send({
+		type: 'broadcast',
+		event: 'score_update',
+		payload: { clientId },
 	});
 }
 

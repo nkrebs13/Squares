@@ -33,7 +33,7 @@ export {
 
 export type { PlayerSummary } from './game-state';
 
-export { subscribeToParty } from './game-realtime';
+export { subscribeToParty, broadcastScoreUpdate } from './game-realtime';
 
 export {
 	claimSquareOptimistic,
