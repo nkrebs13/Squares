@@ -133,7 +133,9 @@ describe('loadParty', () => {
 
 		mockSupabaseClient.from
 			.mockReturnValueOnce(mockPartyChain as ReturnType<typeof mockSupabaseClient.from>) // parties
-			.mockReturnValueOnce(mockAutoDetectChain as ReturnType<typeof mockSupabaseClient.from>) // game_scores auto-detect
+			.mockReturnValueOnce(
+				mockAutoDetectChain as unknown as ReturnType<typeof mockSupabaseClient.from>
+			) // game_scores auto-detect
 			.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>) // squares
 			.mockReturnValueOnce(mockNumbersChain as ReturnType<typeof mockSupabaseClient.from>) // numbers
 			.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>) // scores
