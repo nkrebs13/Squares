@@ -45,11 +45,41 @@ export const gridState = derived(
 	}
 );
 
+/**
+ * Determine if the API's home team corresponds to the party's row team.
+ * Compares team names (case-insensitive substring match) to handle cases
+ * where party uses short names ("Seahawks") and API uses full names
+ * ("Seattle Seahawks"). Falls back to home_team_is_row flag.
+ */
+export function resolveHomeIsRow(gameScores: GameScoresRow, party: Party): boolean {
+	const homeLower = gameScores.home_team_name.toLowerCase();
+	const awayLower = gameScores.away_team_name.toLowerCase();
+	const rowLower = party.team_row_name.toLowerCase();
+	const colLower = party.team_col_name.toLowerCase();
+
+	const homeMatchesRow = homeLower.includes(rowLower) || rowLower.includes(homeLower);
+	const awayMatchesRow = awayLower.includes(rowLower) || rowLower.includes(awayLower);
+	const homeMatchesCol = homeLower.includes(colLower) || colLower.includes(homeLower);
+	const awayMatchesCol = awayLower.includes(colLower) || colLower.includes(awayLower);
+
+	// Home team name matches row team → home IS row
+	if (homeMatchesRow && !awayMatchesRow) return true;
+	// Away team name matches row team → home is NOT row
+	if (awayMatchesRow && !homeMatchesRow) return false;
+	// Home team name matches col team → home is NOT row
+	if (homeMatchesCol && !awayMatchesCol) return false;
+	// Away team name matches col team → home IS row
+	if (awayMatchesCol && !homeMatchesCol) return true;
+
+	// No name match — fall back to the DB flag
+	return party.home_team_is_row ?? true;
+}
+
 export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
 	[gameScores, party],
 	([$gameScores, $party]) => {
 		if (!$gameScores || !$party) return null;
-		const homeIsRow = $party.home_team_is_row ?? true;
+		const homeIsRow = resolveHomeIsRow($gameScores, $party);
 		return {
 			rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
 			colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
@@ -223,6 +253,25 @@ export async function loadParty(code: string) {
 				// Non-critical error - realtime will pick up data when available
 			}
 			gameScores.set(gameScoresData || null);
+
+			// Auto-correct home_team_is_row based on actual team names from the API.
+			// This fixes the backend triggers that use this flag for winner calculation.
+			if (gameScoresData) {
+				const currentPartyData =
+					effectiveGameId !== partyData.game_id
+						? { ...partyData, game_id: effectiveGameId }
+						: partyData;
+				const correctValue = resolveHomeIsRow(gameScoresData, currentPartyData);
+				if (correctValue !== partyData.home_team_is_row) {
+					// Fire-and-forget: update DB so backend triggers use correct mapping
+					supabase
+						.from('parties')
+						.update({ home_team_is_row: correctValue })
+						.eq('id', partyData.id)
+						.then();
+					party.update((p) => (p ? { ...p, home_team_is_row: correctValue } : p));
+				}
+			}
 		} else {
 			gameScores.set(null);
 		}

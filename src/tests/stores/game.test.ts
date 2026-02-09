@@ -587,7 +587,15 @@ describe('Game Store', () => {
 		});
 
 		it('maps away to row when home_team_is_row is false', () => {
-			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: false }));
+			// Row team is Chiefs (the away team in the API), col team is Eagles (home)
+			party.set(
+				createMockParty({
+					game_id: 'test-game-id',
+					home_team_is_row: false,
+					team_row_name: 'Chiefs',
+					team_col_name: 'Eagles',
+				})
+			);
 			gameScores.set(
 				createMockGameScores({
 					home_score: 14,
