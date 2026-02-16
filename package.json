@@ -66,7 +66,7 @@
 		"workbox-window": "^7.4.0"
 	},
 	"dependencies": {
-		"@supabase/supabase-js": "^2.94.0",
+		"@supabase/supabase-js": "^2.95.3",
 		"@types/qrcode": "^1.5.6",
 		"idb-keyval": "^6.2.2",
 		"panzoom": "^9.4.3",
