@@ -837,9 +837,34 @@ describe('broadcast: score_update handler', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
 
-		// Set up from() mock to return chainable objects with .then()
-		const mockThen = vi.fn();
+		const mockScores: Scores = {
+			party_id: 'test-party-id',
+			q1_row_score: 14,
+			q1_col_score: 7,
+			q2_row_score: null,
+			q2_col_score: null,
+			q3_row_score: null,
+			q3_col_score: null,
+			final_row_score: null,
+			final_col_score: null,
+		};
+		const mockWinners: Winner[] = [
+			{
+				id: 'w1',
+				party_id: 'test-party-id',
+				quarter: 'q1',
+				winning_row: 4,
+				winning_col: 7,
+				player_name: 'Alice',
+				amount: 250,
+				created_at: new Date().toISOString(),
+			},
+		];
+
+		// Set up from() mock to invoke .then() callbacks with mock data
+		let callCount = 0;
 		mockSupabaseClient.from.mockImplementation(() => {
+			const currentCall = callCount++;
 			const chainable = {
 				select: vi.fn().mockReturnThis(),
 				insert: vi.fn().mockReturnThis(),
@@ -848,7 +873,10 @@ describe('broadcast: score_update handler', () => {
 				eq: vi.fn().mockReturnThis(),
 				order: vi.fn().mockReturnThis(),
 				single: vi.fn().mockReturnThis(),
-				then: mockThen,
+				// handleScoreUpdateBroadcast calls from('scores') first, then from('winners')
+				then: vi.fn((cb: (result: { data: unknown }) => void) => {
+					cb({ data: currentCall === 0 ? mockScores : mockWinners });
+				}),
 			};
 			return chainable;
 		});
@@ -864,6 +892,10 @@ describe('broadcast: score_update handler', () => {
 		// Should have called supabase.from() for both scores and winners
 		expect(mockSupabaseClient.from).toHaveBeenCalledWith('scores');
 		expect(mockSupabaseClient.from).toHaveBeenCalledWith('winners');
+
+		// Verify stores were actually updated with the fetched data
+		expect(get(scores)).toEqual(mockScores);
+		expect(get(winners)).toEqual(mockWinners);
 	});
 });
 
@@ -871,6 +903,36 @@ describe('broadcast: unclaim_intent handler', () => {
 	beforeEach(() => {
 		cleanup();
 		userName.setName('Alice');
+	});
+
+	it('clears player_name for a claimed square on remote unclaim_intent', () => {
+		party.set(createMockParty());
+		const grid = createEmptyGrid();
+		// Set square (2, 3) as claimed
+		const idx = grid.findIndex((s) => s.row_num === 2 && s.col_num === 3);
+		grid[idx] = createMockSquare(2, 3, {
+			player_name: 'Bob',
+			player_name_lower: 'bob',
+			claimed_at: '2024-01-01T00:00:00Z',
+		});
+		squares.set(grid);
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:square_update'];
+		handler({
+			payload: {
+				type: 'unclaim_intent',
+				clientId: 'other-client-id',
+				squareKey: '2-3',
+				playerName: 'Bob',
+				timestamp: Date.now(),
+			},
+		});
+
+		const target = get(squares).find((s) => s.row_num === 2 && s.col_num === 3);
+		expect(target?.player_name).toBeNull();
+		expect(target?.player_name_lower).toBeNull();
+		expect(target?.claimed_at).toBeNull();
 	});
 
 	it('ignores unclaim for square with no player_name', () => {
