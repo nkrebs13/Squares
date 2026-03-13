@@ -37,3 +37,4 @@ supabase/.temp/
 .claude/plans/
 .claude/tasks/
 .claude/settings.local.json
+.claude/vibe-state.local.md

@@ -141,13 +141,14 @@ function restoreMockDefaults() {
 	}
 }
 
-// Mock crypto.randomUUID for consistent client IDs
-vi.stubGlobal(
-	'crypto',
-	Object.assign({}, crypto, {
-		randomUUID: vi.fn(() => 'test-uuid-1234'),
-	})
-);
+// Mock crypto — keep getRandomValues from Node's webcrypto for real randomness in tests,
+// but stub randomUUID for consistent client IDs
+const realGetRandomValues = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
+vi.stubGlobal('crypto', {
+	randomUUID: vi.fn(() => 'test-uuid-1234'),
+	getRandomValues: realGetRandomValues,
+	subtle: globalThis.crypto.subtle,
+});
 
 // Mock localStorage
 const localStorageMock = (() => {
