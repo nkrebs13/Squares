@@ -22,10 +22,10 @@ export default defineConfig({
 				'src/lib/push.ts', // browser Push API — requires real ServiceWorker
 			],
 			thresholds: {
-				lines: 91,
-				functions: 91,
-				branches: 79,
-				statements: 91,
+				lines: 93,
+				functions: 93,
+				branches: 81,
+				statements: 92,
 			},
 		},
 	},

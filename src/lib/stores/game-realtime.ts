@@ -101,21 +101,6 @@ function handleChannelStatus(
 	}
 }
 
-/**
- * Legacy aliases for backward compatibility.
- *
- * NOTE: The authoritative source of truth for channel references is `channelStates`.
- * These variables are maintained only to avoid breaking older code that still
- * imports them directly. New code MUST use `channelStates` instead.
- *
- * @deprecated Use `channelStates.party.channel` instead
- */
-let channel: RealtimeChannel | null = null;
-/** @deprecated Use `channelStates.broadcast.channel` instead */
-let broadcastChannel: RealtimeChannel | null = null;
-/** @deprecated Use `channelStates.game.channel` instead */
-let gameChannel: RealtimeChannel | null = null;
-
 // Helper to check if an operation is from this client
 function isOwnBroadcast(message: BroadcastMessage): boolean {
 	return message.clientId === clientId;
@@ -291,19 +276,18 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 
 function setupBroadcastChannel(partyId: string) {
 	const supabase = getSupabaseClient();
-	broadcastChannel = supabase
+	channelStates.broadcast.channel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
 		.on('broadcast', { event: 'score_update' }, handleScoreUpdateBroadcast)
 		.subscribe((status) => {
 			handleChannelStatus('broadcast', status, () => setupBroadcastChannel(partyId));
 		});
-	channelStates.broadcast.channel = broadcastChannel;
 }
 
 function setupPartyChannel(partyId: string) {
 	const supabase = getSupabaseClient();
-	channel = supabase
+	channelStates.party.channel = supabase
 		.channel(`party:${partyId}`)
 		.on(
 			'postgres_changes',
@@ -406,12 +390,11 @@ function setupPartyChannel(partyId: string) {
 		.subscribe((status) => {
 			handleChannelStatus('party', status, () => setupPartyChannel(partyId));
 		});
-	channelStates.party.channel = channel;
 }
 
 function setupGameChannel(gameId: string) {
 	const supabase = getSupabaseClient();
-	gameChannel = supabase
+	channelStates.game.channel = supabase
 		.channel(`game:${gameId}`)
 		.on(
 			'postgres_changes',
@@ -432,24 +415,23 @@ function setupGameChannel(gameId: string) {
 		.subscribe((status) => {
 			handleChannelStatus('game', status, () => setupGameChannel(gameId));
 		});
-	channelStates.game.channel = gameChannel;
 }
 
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
 	// Unsubscribe from previous channels and clear reconnect state.
 	// IMPORTANT: resetReconnectState() must be called BEFORE setting up new channels
 	// to cancel any pending reconnect timeouts that might capture stale partyId/gameId.
-	if (channel) {
-		channel.unsubscribe();
+	if (channelStates.party.channel) {
+		channelStates.party.channel.unsubscribe();
 		resetReconnectState('party');
 	}
-	if (broadcastChannel) {
-		broadcastChannel.unsubscribe();
+	if (channelStates.broadcast.channel) {
+		channelStates.broadcast.channel.unsubscribe();
 		resetReconnectState('broadcast');
 	}
-	if (gameChannel) {
-		gameChannel.unsubscribe();
-		gameChannel = null;
+	if (channelStates.game.channel) {
+		channelStates.game.channel.unsubscribe();
+		channelStates.game.channel = null;
 		resetReconnectState('game');
 	}
 
@@ -463,21 +445,18 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	}
 
 	return () => {
-		if (channel) {
-			channel.unsubscribe();
-			channel = null;
+		if (channelStates.party.channel) {
+			channelStates.party.channel.unsubscribe();
 			channelStates.party.channel = null;
 			resetReconnectState('party');
 		}
-		if (broadcastChannel) {
-			broadcastChannel.unsubscribe();
-			broadcastChannel = null;
+		if (channelStates.broadcast.channel) {
+			channelStates.broadcast.channel.unsubscribe();
 			channelStates.broadcast.channel = null;
 			resetReconnectState('broadcast');
 		}
-		if (gameChannel) {
-			gameChannel.unsubscribe();
-			gameChannel = null;
+		if (channelStates.game.channel) {
+			channelStates.game.channel.unsubscribe();
 			channelStates.game.channel = null;
 			resetReconnectState('game');
 		}
@@ -486,9 +465,9 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 
 // Broadcast a message to other clients
 export function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clientId'>) {
-	if (!broadcastChannel) return;
+	if (!channelStates.broadcast.channel) return;
 
-	broadcastChannel.send({
+	channelStates.broadcast.channel.send({
 		type: 'broadcast',
 		event: 'square_update',
 		payload: { ...message, clientId },
@@ -497,9 +476,9 @@ export function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clie
 
 // Broadcast score update notification to other clients
 export function broadcastScoreUpdate() {
-	if (!broadcastChannel) return;
+	if (!channelStates.broadcast.channel) return;
 
-	broadcastChannel.send({
+	channelStates.broadcast.channel.send({
 		type: 'broadcast',
 		event: 'score_update',
 		payload: { clientId },
@@ -508,21 +487,18 @@ export function broadcastScoreUpdate() {
 
 // Cleanup channels (called from game-admin cleanup)
 export function cleanupChannels() {
-	if (channel) {
-		channel.unsubscribe();
-		channel = null;
+	if (channelStates.party.channel) {
+		channelStates.party.channel.unsubscribe();
 		channelStates.party.channel = null;
 		resetReconnectState('party');
 	}
-	if (broadcastChannel) {
-		broadcastChannel.unsubscribe();
-		broadcastChannel = null;
+	if (channelStates.broadcast.channel) {
+		channelStates.broadcast.channel.unsubscribe();
 		channelStates.broadcast.channel = null;
 		resetReconnectState('broadcast');
 	}
-	if (gameChannel) {
-		gameChannel.unsubscribe();
-		gameChannel = null;
+	if (channelStates.game.channel) {
+		channelStates.game.channel.unsubscribe();
 		channelStates.game.channel = null;
 		resetReconnectState('game');
 	}

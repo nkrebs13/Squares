@@ -13,7 +13,12 @@ import {
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
-import { mockChannelHandlers, mockSupabaseChannel, simulateChannelStatus } from '../setup';
+import {
+	mockChannelHandlers,
+	mockSupabaseChannel,
+	mockSupabaseClient,
+	simulateChannelStatus,
+} from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
@@ -789,5 +794,191 @@ describe('channel reconnection', () => {
 
 		// No error should occur from stale closure
 		// The new subscription should be active
+	});
+});
+
+describe('broadcast: score_update handler', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('ignores own score update broadcasts', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:score_update'];
+		expect(handler).toBeDefined();
+
+		// Send with our own clientId (test-uuid-1234 from crypto.randomUUID mock)
+		handler({ payload: { clientId: 'test-uuid-1234' } });
+
+		// Should not have called supabase.from() since it was our own broadcast
+		expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+	});
+
+	it('early returns when party is null', () => {
+		party.set(null);
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:score_update'];
+		expect(handler).toBeDefined();
+
+		// Send with a different clientId so it's not ignored as own broadcast
+		handler({ payload: { clientId: 'other-client-id' } });
+
+		// Should not have called supabase.from() since party is null
+		expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+	});
+
+	it('re-fetches scores and winners on external score update', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+
+		const mockScores: Scores = {
+			party_id: 'test-party-id',
+			q1_row_score: 14,
+			q1_col_score: 7,
+			q2_row_score: null,
+			q2_col_score: null,
+			q3_row_score: null,
+			q3_col_score: null,
+			final_row_score: null,
+			final_col_score: null,
+		};
+		const mockWinners: Winner[] = [
+			{
+				id: 'w1',
+				party_id: 'test-party-id',
+				quarter: 'q1',
+				winning_row: 4,
+				winning_col: 7,
+				player_name: 'Alice',
+				amount: 250,
+				created_at: new Date().toISOString(),
+			},
+		];
+
+		// Set up from() mock to invoke .then() callbacks with mock data
+		let callCount = 0;
+		mockSupabaseClient.from.mockImplementation(() => {
+			const currentCall = callCount++;
+			const chainable = {
+				select: vi.fn().mockReturnThis(),
+				insert: vi.fn().mockReturnThis(),
+				update: vi.fn().mockReturnThis(),
+				delete: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				order: vi.fn().mockReturnThis(),
+				single: vi.fn().mockReturnThis(),
+				// handleScoreUpdateBroadcast calls from('scores') first, then from('winners')
+				then: vi.fn((cb: (result: { data: unknown }) => void) => {
+					cb({ data: currentCall === 0 ? mockScores : mockWinners });
+				}),
+			};
+			return chainable;
+		});
+
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:score_update'];
+		expect(handler).toBeDefined();
+
+		// Send with a different clientId
+		handler({ payload: { clientId: 'other-client-id' } });
+
+		// Should have called supabase.from() for both scores and winners
+		expect(mockSupabaseClient.from).toHaveBeenCalledWith('scores');
+		expect(mockSupabaseClient.from).toHaveBeenCalledWith('winners');
+
+		// Verify stores were actually updated with the fetched data
+		expect(get(scores)).toEqual(mockScores);
+		expect(get(winners)).toEqual(mockWinners);
+	});
+});
+
+describe('broadcast: unclaim_intent handler', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('clears player_name for a claimed square on remote unclaim_intent', () => {
+		party.set(createMockParty());
+		const grid = createEmptyGrid();
+		// Set square (2, 3) as claimed
+		const idx = grid.findIndex((s) => s.row_num === 2 && s.col_num === 3);
+		grid[idx] = createMockSquare(2, 3, {
+			player_name: 'Bob',
+			player_name_lower: 'bob',
+			claimed_at: '2024-01-01T00:00:00Z',
+		});
+		squares.set(grid);
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:square_update'];
+		handler({
+			payload: {
+				type: 'unclaim_intent',
+				clientId: 'other-client-id',
+				squareKey: '2-3',
+				playerName: 'Bob',
+				timestamp: Date.now(),
+			},
+		});
+
+		const target = get(squares).find((s) => s.row_num === 2 && s.col_num === 3);
+		expect(target?.player_name).toBeNull();
+		expect(target?.player_name_lower).toBeNull();
+		expect(target?.claimed_at).toBeNull();
+	});
+
+	it('ignores unclaim for square with no player_name', () => {
+		party.set(createMockParty());
+		// Grid with all empty squares (no player_name)
+		const grid = createEmptyGrid();
+		squares.set(grid);
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:square_update'];
+		expect(handler).toBeDefined();
+
+		// Send unclaim_intent for square (2, 3) which has no player_name
+		handler({
+			payload: {
+				type: 'unclaim_intent',
+				clientId: 'other-client-id',
+				squareKey: '2-3',
+				playerName: 'Bob',
+				timestamp: Date.now(),
+			},
+		});
+
+		// Square should remain unchanged (still no player_name)
+		const currentSquares = get(squares);
+		const targetSquare = currentSquares.find((s) => s.row_num === 2 && s.col_num === 3);
+		expect(targetSquare?.player_name).toBeNull();
+	});
+});
+
+describe('game channel status', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('game channel SUBSCRIBED status resets reconnect state', () => {
+		party.set(createMockParty({ game_id: 'game-123', home_team_is_row: true }));
+		squares.set(createEmptyGrid());
+
+		// Subscribe with gameId to create the game channel
+		subscribeToParty('test-party-id', 'game-123');
+
+		// Simulate SUBSCRIBED on all channels (including game channel)
+		simulateChannelStatus('SUBSCRIBED');
+
+		// No error should be thrown — reconnect state should be cleanly reset
 	});
 });
