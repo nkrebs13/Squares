@@ -145,4 +145,119 @@ describe('PartyCode Component', () => {
 			expect(mockWriteText).toHaveBeenCalledWith(expect.stringContaining('/join?code=TEST123'));
 		});
 	});
+
+	describe('QR Code', () => {
+		it('toggles QR code display and generates QR data URL', async () => {
+			const QRCode = await import('qrcode');
+			(QRCode.default.toDataURL as ReturnType<typeof vi.fn>).mockResolvedValue(
+				'data:image/png;base64,mock'
+			);
+			party.set(createMockParty());
+			render(PartyCode);
+
+			// Click QR Code button to show
+			await fireEvent.click(screen.getByText('QR Code'));
+
+			await vi.waitFor(() => {
+				expect(QRCode.default.toDataURL).toHaveBeenCalled();
+				expect(screen.getByAltText('QR code to join party')).toBeInTheDocument();
+				expect(screen.getByText('Hide QR')).toBeInTheDocument();
+			});
+		});
+
+		it('hides QR code when toggled off', async () => {
+			const QRCode = await import('qrcode');
+			(QRCode.default.toDataURL as ReturnType<typeof vi.fn>).mockResolvedValue(
+				'data:image/png;base64,mock'
+			);
+			party.set(createMockParty());
+			render(PartyCode);
+
+			// Show QR
+			await fireEvent.click(screen.getByText('QR Code'));
+			await vi.waitFor(() => {
+				expect(screen.getByAltText('QR code to join party')).toBeInTheDocument();
+			});
+
+			// Hide QR
+			await fireEvent.click(screen.getByText('Hide QR'));
+			expect(screen.queryByAltText('QR code to join party')).not.toBeInTheDocument();
+			expect(screen.getByText('QR Code')).toBeInTheDocument();
+		});
+
+		it('handles QR generation failure gracefully', async () => {
+			const QRCode = await import('qrcode');
+			vi.mocked(QRCode.default.toDataURL).mockRejectedValueOnce(new Error('QR failed'));
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+			party.set(createMockParty());
+			render(PartyCode);
+
+			await fireEvent.click(screen.getByText('QR Code'));
+
+			await vi.waitFor(() => {
+				expect(consoleSpy).toHaveBeenCalledWith('QR generation failed:', expect.any(Error));
+			});
+
+			// QR image should not be shown
+			expect(screen.queryByAltText('QR code to join party')).not.toBeInTheDocument();
+			consoleSpy.mockRestore();
+		});
+	});
+
+	describe('Error Handling', () => {
+		it('handles clipboard writeText rejection on Copy Code', async () => {
+			party.set(createMockParty());
+			const mockWriteText = vi.fn().mockRejectedValue(new Error('Clipboard denied'));
+			Object.defineProperty(navigator, 'clipboard', {
+				value: { writeText: mockWriteText },
+				configurable: true,
+			});
+
+			render(PartyCode);
+			// Should not throw
+			await fireEvent.click(screen.getByText('Copy Code'));
+
+			await vi.waitFor(() => {
+				expect(mockWriteText).toHaveBeenCalled();
+			});
+			// Button should still show "Copy Code" (not "Copied!")
+			expect(screen.getByText('Copy Code')).toBeInTheDocument();
+		});
+
+		it('handles clipboard writeText rejection on Copy Link', async () => {
+			party.set(createMockParty());
+			const mockWriteText = vi.fn().mockRejectedValue(new Error('Clipboard denied'));
+			Object.defineProperty(navigator, 'clipboard', {
+				value: { writeText: mockWriteText },
+				configurable: true,
+			});
+
+			render(PartyCode);
+			await fireEvent.click(screen.getByText('Copy Link'));
+
+			await vi.waitFor(() => {
+				expect(mockWriteText).toHaveBeenCalled();
+			});
+			expect(screen.getByText('Copy Link')).toBeInTheDocument();
+		});
+
+		it('handles navigator.share throwing (user cancelled)', async () => {
+			party.set(createMockParty());
+			const mockShare = vi.fn().mockRejectedValue(new Error('User cancelled'));
+			Object.defineProperty(navigator, 'share', {
+				value: mockShare,
+				writable: true,
+				configurable: true,
+			});
+
+			render(PartyCode);
+			// Should not throw
+			await fireEvent.click(screen.getByText('Share'));
+
+			await vi.waitFor(() => {
+				expect(mockShare).toHaveBeenCalled();
+			});
+		});
+	});
 });
