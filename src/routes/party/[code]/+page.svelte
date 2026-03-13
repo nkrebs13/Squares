@@ -367,7 +367,7 @@
 		}
 
 		/* Grid wrapper needs to expand */
-		.main-content > div:has(.grid-wrapper) {
+		.main-content > :global(div:has(.grid-wrapper)) {
 			flex: 1;
 			display: flex;
 			flex-direction: column;
