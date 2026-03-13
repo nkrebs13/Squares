@@ -364,6 +364,68 @@ describe('RecentParties Component', () => {
 		});
 	});
 
+	describe('Status Badges — Edge Cases', () => {
+		it('shows raw status text for unknown status values', async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({ status: 'unknown_status' as RecentParty['status'] }),
+			]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('unknown_status')).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe('Blur and Edit Race Conditions', () => {
+		it('saves edit on blur after timeout', async () => {
+			vi.useFakeTimers();
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'BLUR01' })]);
+			mockUpdatePartyNickname.mockResolvedValue(undefined);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
+			});
+
+			// Enter edit mode
+			await fireEvent.click(screen.getByLabelText('Add nickname'));
+			const input = screen.getByLabelText('Party nickname');
+			await fireEvent.input(input, { target: { value: 'Blur Name' } });
+
+			// Trigger blur
+			await fireEvent.blur(input);
+
+			// Before timeout, saveEdit should not have been called
+			expect(mockUpdatePartyNickname).not.toHaveBeenCalled();
+
+			// Advance past the blur timeout (100ms)
+			await vi.advanceTimersByTimeAsync(150);
+
+			expect(mockUpdatePartyNickname).toHaveBeenCalledWith('BLUR01', 'Blur Name');
+			vi.useRealTimers();
+		});
+
+		it('input click does not trigger navigation (stopPropagation)', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'CLICK1' })]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
+			});
+
+			// Enter edit mode
+			await fireEvent.click(screen.getByLabelText('Add nickname'));
+			const input = screen.getByLabelText('Party nickname');
+
+			// Click directly on the input
+			await fireEvent.click(input);
+
+			// Should NOT navigate
+			expect(mockGoto).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('Multiple Parties', () => {
 		it('shows up to 5 parties', async () => {
 			const parties = Array.from({ length: 7 }, (_, i) =>
