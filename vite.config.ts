@@ -4,6 +4,13 @@ import tailwindcss from '@tailwindcss/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { svelteTesting } from '@testing-library/svelte/vite';
 
+// Read brand env vars at build time. vite.config runs in Node before
+// SvelteKit's $env replacement, so we use process.env directly here.
+// Defaults match the runtime fallbacks in src/lib/config.ts.
+const APP_NAME = process.env.PUBLIC_APP_NAME || 'Football Squares';
+const APP_DESCRIPTION =
+	process.env.PUBLIC_APP_DESCRIPTION || 'Run Football Squares pools at your Super Bowl party';
+
 export default defineConfig({
 	test: {
 		environment: 'jsdom',
@@ -38,9 +45,9 @@ export default defineConfig({
 			strategies: 'generateSW',
 			registerType: 'autoUpdate',
 			manifest: {
-				name: 'Football Squares',
+				name: APP_NAME,
 				short_name: 'Squares',
-				description: 'Run Football Squares pools at your Super Bowl party',
+				description: APP_DESCRIPTION,
 				theme_color: '#1a2744',
 				background_color: '#1a2744',
 				display: 'standalone',
