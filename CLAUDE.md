@@ -76,7 +76,3 @@ All changes must pass `npm run test && npm run check && npm run lint`. Test file
 Exported mocks from setup.ts: `mockSupabaseClient`, `mockSupabaseChannel`, `mockChannelHandlers`, `localStorageMock`, `sessionStorageMock`.
 
 Factory functions in test files: `createMockParty()`, `createMockSquare()`, `createEmptyGrid()`.
-
-## Known Issues
-
-See `security-todo.md`.
