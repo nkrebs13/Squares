@@ -154,7 +154,7 @@ src/
 │   ├── validators/               Hand-written runtime guards for postgres_changes
 │   └── types.ts                  TypeScript definitions
 ├── hooks.client.ts               Sentry init + Web Vitals
-└── hooks.server.ts               Sentry init for the Cloudflare adapter
+└── hooks.server.ts               Sentry init for the resolved SvelteKit adapter
 supabase/
 └── migrations/                   Forward-only SQL (don't edit existing files)
 e2e/                              Playwright specs + visual regression
