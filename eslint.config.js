@@ -57,8 +57,8 @@ export default ts.config(
 		},
 	},
 	{
-		// Service workers and edge functions use console as their only logging mechanism
-		files: ['static/push-sw.js', 'supabase/functions/**/index.ts'],
+		// Service workers, edge functions, and CLI scripts use console as their only logging mechanism
+		files: ['static/push-sw.js', 'supabase/functions/**/index.ts', 'scripts/**/*.{js,mjs,ts}'],
 		rules: {
 			'no-console': 'off',
 		},
