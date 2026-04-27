@@ -86,7 +86,7 @@ Each commit should be self-contained — passes lint, check, and tests on its ow
 - **TypeScript strict.** No `any`, no non-null assertions (`!`), no implicit returns. Use `as` casts only when narrowing types defensively (and prefer hand-written validators where possible — see `src/lib/validators/realtime.ts`).
 - **Stores stay legacy, components use runes.** See [ADR-0001](docs/adr/0001-hybrid-reactivity.md) for the why. Don't mix.
 - **Comments answer "why", not "what".** Code says what it does; comments say why it's that way and what would break if you "improved" it.
-- **No `console.log` in production code.** Lint blocks it. Use `console.warn` with an `eslint-disable-next-line` comment when you need diagnostic logging — Phase 8's Sentry hooks pick those up.
+- **No `console.log` in production code.** Lint blocks it. Use `console.warn` with an `eslint-disable-next-line` comment when you need diagnostic logging — the Sentry hooks (`src/hooks.client.ts` / `src/hooks.server.ts`) pick those up when configured.
 
 ## Project conventions documented elsewhere
 

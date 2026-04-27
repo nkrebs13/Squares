@@ -43,16 +43,16 @@ function subscribeToParty(partyId: string, gameId: string | null) {
 
 2. **Resolution complexity.** Three sources of truth update the same `squares` store: local optimistic (instant), broadcast (~50ms), postgres_changes (~300ms). The pending-operations Map keys by `row-col` and serializes resolution. Documented inline in `game-optimistic.ts` and `game-realtime.ts`.
 
-3. **Testing surface area is bigger.** Each handler in `game-realtime.ts` has its own test cases for the four event types per table (INSERT/UPDATE/DELETE/?). Mitigated by the `apply*` extraction in Phase 5 — tests can call `applySquareUpdate(payload)` directly without staging a full channel subscription.
+3. **Testing surface area is bigger.** Each handler in `game-realtime.ts` has its own test cases for the four event types per table (INSERT/UPDATE/DELETE/?). The `apply*` functions in `game-state.ts` are designed for this — tests call `applySquareUpdate(payload)` directly without staging a full channel subscription.
 
 ### Failure modes and how we handle them
 
-| Scenario                                          | What happens                                                                                                                                                       | Mitigation                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Broadcast dropped, postgres_changes works         | Bob sees Alice's claim ~300ms late instead of ~50ms                                                                                                                | UX degradation only; correctness preserved                                    |
-| postgres_changes drops while broadcast works      | Alice's `claim_intent` shows on Bob's grid as pending. After 10s, the timeout rolls it back to "unclaimed" because no postgres_changes confirmed it                | Page reload corrects; banner from Phase 1.5 alerts after 5 reconnect failures |
-| Both channels drop                                | Bob's connectionStatus store flips to 'reconnecting' then 'failed'; banner offers refresh                                                                          | Surfaced via ConnectionBanner                                                 |
-| Two clients tap same cell within broadcast window | Both render the cell as their own optimistically; postgres_changes from the winning RPC corrects the loser; loser's RPC errors and rolls back via `claim_rejected` | Documented in ADR-0002                                                        |
+| Scenario                                          | What happens                                                                                                                                                       | Mitigation                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Broadcast dropped, postgres_changes works         | Bob sees Alice's claim ~300ms late instead of ~50ms                                                                                                                | UX degradation only; correctness preserved                                     |
+| postgres_changes drops while broadcast works      | Alice's `claim_intent` shows on Bob's grid as pending. After 10s, the timeout rolls it back to "unclaimed" because no postgres_changes confirmed it                | Page reload corrects; `<ConnectionBanner />` alerts after 5 reconnect failures |
+| Both channels drop                                | Bob's connectionStatus store flips to 'reconnecting' then 'failed'; banner offers refresh                                                                          | Surfaced via ConnectionBanner                                                  |
+| Two clients tap same cell within broadcast window | Both render the cell as their own optimistically; postgres_changes from the winning RPC corrects the loser; loser's RPC errors and rolls back via `claim_rejected` | Documented in ADR-0002                                                         |
 
 ## What we considered and rejected
 
