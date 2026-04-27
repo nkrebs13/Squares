@@ -15,14 +15,19 @@ import {
 	clientId,
 	squares,
 	party,
-	numbers,
 	scores,
 	winners,
-	gameScores,
 	pendingOperations,
 	pendingTimeouts,
-	squareKey,
 	PENDING_TIMEOUT_MS,
+	applySquareUpdate,
+	applyPartyUpdate,
+	applyNumbersUpdate,
+	applyScoresUpdate,
+	applyWinnerInsert,
+	applyWinnerUpdate,
+	applyWinnerDelete,
+	applyGameScoresUpdate,
 } from './game-state';
 
 /**
@@ -145,15 +150,6 @@ export function schedulePendingTimeout(key: string) {
 	}, PENDING_TIMEOUT_MS);
 
 	pendingTimeouts.set(key, timeoutId);
-}
-
-// Clear a pending timeout when operation is confirmed
-function clearPendingTimeout(key: string) {
-	const timeoutId = pendingTimeouts.get(key);
-	if (timeoutId) {
-		clearTimeout(timeoutId);
-		pendingTimeouts.delete(key);
-	}
 }
 
 // Handle broadcast messages from other clients
@@ -299,19 +295,7 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
-					const newSquare = payload.new as Square;
-					const key = squareKey(newSquare.row_num, newSquare.col_num);
-
-					// Clear any pending operation and timeout for this square - database is source of truth
-					clearPendingTimeout(key);
-					pendingOperations.update((ops) => {
-						const newOps = new Map(ops);
-						newOps.delete(key);
-						return newOps;
-					});
-
-					// Update with confirmed state from database
-					squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+					applySquareUpdate(payload.new as Square);
 				}
 			}
 		)
@@ -325,7 +309,7 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
-					party.set(payload.new as Party);
+					applyPartyUpdate(payload.new as Party);
 				}
 			}
 		)
@@ -339,7 +323,7 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					numbers.set(payload.new as Numbers);
+					applyNumbersUpdate(payload.new as Numbers);
 				}
 			}
 		)
@@ -353,7 +337,7 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					scores.set(payload.new as Scores);
+					applyScoresUpdate(payload.new as Scores);
 				}
 			}
 		)
@@ -367,23 +351,11 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT') {
-					winners.update((current) => [...current, payload.new as Winner]);
+					applyWinnerInsert(payload.new as Winner);
 				} else if (payload.eventType === 'UPDATE') {
-					winners.update((current) =>
-						current.map((w) =>
-							w.party_id === (payload.new as Winner).party_id &&
-							w.quarter === (payload.new as Winner).quarter
-								? (payload.new as Winner)
-								: w
-						)
-					);
+					applyWinnerUpdate(payload.new as Winner);
 				} else if (payload.eventType === 'DELETE') {
-					const deleted = payload.old as Winner;
-					winners.update((current) =>
-						current.filter(
-							(w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter)
-						)
-					);
+					applyWinnerDelete(payload.old as Winner);
 				}
 			}
 		)
@@ -406,9 +378,9 @@ function setupGameChannel(gameId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					gameScores.set(payload.new as GameScoresRow);
+					applyGameScoresUpdate(payload.new as GameScoresRow);
 				} else if (payload.eventType === 'DELETE') {
-					gameScores.set(null);
+					applyGameScoresUpdate(null);
 				}
 			}
 		)
