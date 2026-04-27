@@ -10,8 +10,6 @@
 		colNumber?: number;
 		isLocked: boolean;
 		isSelected?: boolean;
-		isPressed?: boolean;
-		pressProgress?: number;
 		isPending?: boolean;
 		isLeading?: boolean;
 		winners?: Winner[];
@@ -27,8 +25,6 @@
 		colNumber,
 		isLocked,
 		isSelected = false,
-		isPressed = false,
-		pressProgress = 0,
 		isPending = false,
 		isLeading = false,
 		winners = [],
@@ -63,18 +59,8 @@
 	const playerColor = $derived(square.player_name ? getPlayerColor(square.player_name) : null);
 
 	const classes = $derived(
-		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPressed ? 'square-pressed' : ''} ${isPending ? 'square-pending' : ''}`
+		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPending ? 'square-pending' : ''}`
 	);
-
-	// Progress ring calculation - scales with button size
-	// Ring is 82% of button size (leaves margin for stroke width)
-	const ringRadius = $derived(size * 0.41);
-	const ringCircumference = $derived(2 * Math.PI * ringRadius);
-	const strokeDashoffset = $derived(ringCircumference * (1 - pressProgress));
-	const ringCenter = $derived(size / 2);
-
-	// Scale animation based on progress (0.97 at start, 0.99 near complete)
-	const pressScale = $derived(isPressed ? 0.97 + pressProgress * 0.02 : 1);
 
 	// Comprehensive aria-label including position and state
 	const ariaLabel = $derived(() => {
@@ -112,7 +98,7 @@
 		? `background: ${playerColor.bg}; border-color: ${playerColor.text.replace(/0\.9[58]/g, '0.35')};`
 		: ''}{isMine && playerColor
 		? ` --mine-outline: ${playerColor.text.replace(/0\.9[58]/g, '0.7')}; --mine-glow: ${playerColor.text.replace(/0\.9[58]/g, '0.25')}; --mine-glow-strong: ${playerColor.text.replace(/0\.9[58]/g, '0.4')};`
-		: ''} {isPressed ? `transform: scale(${pressScale});` : ''}"
+		: ''}"
 	{onpointerdown}
 	{onpointerenter}
 	{onpointerup}
@@ -138,56 +124,9 @@
 			{/each}
 		</div>
 	{/if}
-
-	<!-- Progress ring for long-press feedback - scales with button size -->
-	{#if isPressed && pressProgress > 0}
-		<svg class="progress-ring" viewBox="0 0 {size} {size}">
-			<circle
-				class="progress-ring-circle"
-				cx={ringCenter}
-				cy={ringCenter}
-				r={ringRadius}
-				stroke-dasharray={ringCircumference}
-				stroke-dashoffset={strokeDashoffset}
-			/>
-		</svg>
-	{/if}
 </button>
 
 <style>
-	.square-pressed {
-		/* Neutral white overlay with increased visibility for pressed state */
-		background: rgba(255, 255, 255, 0.18) !important;
-		border-color: rgba(255, 255, 255, 0.4) !important;
-	}
-
-	.progress-ring {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-		transform: rotate(-90deg);
-	}
-
-	.progress-ring-circle {
-		fill: none;
-		/* Pure white ring provides maximum contrast against ALL player colors
-		   and is equally visible for all forms of color blindness */
-		stroke: rgba(255, 255, 255, 0.95);
-		stroke-width: 4;
-		stroke-linecap: round;
-		transition: stroke-dashoffset 50ms linear;
-		filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
-	}
-
-	/* Reduced motion preference */
-	@media (prefers-reduced-motion: reduce) {
-		.progress-ring-circle {
-			transition: none;
-		}
-	}
-
 	button {
 		position: relative;
 		overflow: hidden;
