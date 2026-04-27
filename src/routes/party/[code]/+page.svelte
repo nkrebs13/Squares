@@ -109,7 +109,7 @@
 		</div>
 	{:else if $error}
 		<div class="flex flex-col items-center justify-center h-screen gap-4">
-			<p style="color: #fca5a5">{$error}</p>
+			<p class="text-error">{$error}</p>
 			<a href="/" class="btn btn-secondary">Go Home</a>
 		</div>
 	{:else if $party}
@@ -118,8 +118,7 @@
 		{/snippet}
 		<header class="mb-4 flex justify-between items-start">
 			<div>
-				<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Home</a
-				>
+				<a href="/" class="text-sm hover:opacity-100 text-secondary">← Home</a>
 				<h1 class="text-2xl font-bold mt-1">
 					{$party.team_row_name} vs {$party.team_col_name}
 				</h1>
