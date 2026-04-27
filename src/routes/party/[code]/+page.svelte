@@ -12,6 +12,7 @@
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 	import GestureHint from '$lib/components/GestureHint.svelte';
 	import PushOptIn from '$lib/components/PushOptIn.svelte';
+	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import {
 		loadParty,
@@ -117,6 +118,7 @@
 </svelte:head>
 
 <div class="party-page">
+	<ConnectionBanner />
 	{#if $isLoading}
 		<div class="flex items-center justify-center h-screen">
 			<GridSkeleton />

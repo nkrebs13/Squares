@@ -1,14 +1,18 @@
 # Security TODO
 
-Items identified during security audit (2026-01-28). Status last reviewed: 2026-02-03.
+Items identified during security audit (2026-01-28). Status last reviewed: 2026-04-26.
 
 ---
 
-## CRITICAL: Rotate Database Credentials — MANUAL ACTION REQUIRED
+## CRITICAL: Rotate Database Credentials — BLOCKING for first public push
 
-**Status**: `run-migration.mjs` has been deleted from the repo, but the old password remains in git history permanently.
+**Status**: `run-migration.mjs` has been deleted from the repo, but the old password remains in git history permanently. Before this repository becomes a public portfolio piece, the password MUST be rotated so the leaked credential is no longer valid.
 
-**Required action**: Rotate the database password via Supabase Dashboard > Project Settings > Database. No code change can fix this — it's a manual step.
+**Required action**: Rotate the database password via Supabase Dashboard → Project Settings → Database → Reset password. No code change can fix this — it is a manual step.
+
+**Tracking**: Phase 1 PR for the portfolio-grade hardening plan includes a checkbox that must be ticked (with date) before that PR can merge.
+
+- [ ] Rotated on: ****\_\_\_\_****
 
 ---
 
