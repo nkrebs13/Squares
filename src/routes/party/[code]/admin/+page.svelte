@@ -110,31 +110,29 @@
 		if ($party) {
 			unsubscribe = subscribeToParty($party.id, $party.game_id);
 		}
-
-		// Initialize payout splits from party
-		if ($party) {
-			payoutSplits = {
-				q1: $party.split_q1,
-				q2: $party.split_q2,
-				q3: $party.split_q3,
-				final: $party.split_final,
-			};
-		}
+		// Note: payoutSplits is initialized lazily by the effect below — the
+		// previous onMount block here was a redundant first-write that the
+		// effect always re-ran. Removed to fix the double-effect bug.
 	});
 
 	onDestroy(() => {
 		if (unsubscribe) unsubscribe();
 	});
 
-	// Keep payout splits in sync with party
+	// Initialize payoutSplits from party data once. After the user starts
+	// editing (via inputs or preset buttons), a realtime party update should
+	// NOT clobber their unsaved work. The previous version reset on every
+	// store update and silently destroyed the user's edits.
+	let payoutSplitsInitialized = $state(false);
 	$effect(() => {
-		if ($party) {
+		if ($party && !payoutSplitsInitialized) {
 			payoutSplits = {
 				q1: $party.split_q1,
 				q2: $party.split_q2,
 				q3: $party.split_q3,
 				final: $party.split_final,
 			};
+			payoutSplitsInitialized = true;
 		}
 	});
 
@@ -296,9 +294,7 @@
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">
-		<a href="/party/{code}" class="text-sm hover:opacity-100" style="color: var(--text-secondary)"
-			>← Back to Game</a
-		>
+		<a href="/party/{code}" class="text-sm hover:opacity-100 text-secondary">← Back to Game</a>
 		<h1 class="text-3xl font-bold mt-2">Host Panel</h1>
 	</header>
 
@@ -344,7 +340,7 @@
 						{$party.status === 'locked' ? 'Active' : $party.status}
 					</div>
 					{#if $party.status === 'filling'}
-						<p class="text-sm mt-2" style="color: var(--text-secondary)">
+						<p class="text-sm mt-2 text-secondary">
 							{$filledCount}/100 squares filled
 						</p>
 					{/if}
@@ -368,7 +364,7 @@
 					{#if $playerSummary.length > 0}
 						<div class="card">
 							<h2 class="text-lg font-semibold mb-4">Manage Players</h2>
-							<p class="text-sm mb-4" style="color: var(--text-secondary)">
+							<p class="text-sm mb-4 text-secondary">
 								Remove a player to free up their squares for others to claim.
 							</p>
 
@@ -382,10 +378,10 @@
 											<div class="font-medium">
 												{player.name}
 												{#if player.normalizedName === $party?.host_name_lower}
-													<span class="text-xs ml-1" style="color: var(--text-muted)">(host)</span>
+													<span class="text-xs ml-1 text-muted">(host)</span>
 												{/if}
 											</div>
-											<div class="text-sm" style="color: var(--text-secondary)">
+											<div class="text-sm text-secondary">
 												{player.count} square{player.count !== 1 ? 's' : ''}
 											</div>
 										</div>
@@ -407,7 +403,7 @@
 					<!-- Payout Structure -->
 					<div class="card">
 						<h2 class="text-lg font-semibold mb-4">Payout Structure</h2>
-						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						<p class="text-sm mb-4 text-secondary">
 							Adjust how the pot is split between quarters. Must total 100%.
 						</p>
 
@@ -427,8 +423,7 @@
 
 						<div class="grid grid-cols-1 gap-3 mb-4">
 							<div>
-								<label for="split-q1" class="text-sm" style="color: var(--text-secondary)">Q1</label
-								>
+								<label for="split-q1" class="text-sm text-secondary">Q1</label>
 								<div class="flex items-center gap-1">
 									<input
 										id="split-q1"
@@ -439,12 +434,11 @@
 										class="input mt-1"
 										onchange={() => (selectedPreset = 'Custom')}
 									/>
-									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+									<span class="text-sm text-secondary">%</span>
 								</div>
 							</div>
 							<div>
-								<label for="split-q2" class="text-sm" style="color: var(--text-secondary)">Q2</label
-								>
+								<label for="split-q2" class="text-sm text-secondary">Q2</label>
 								<div class="flex items-center gap-1">
 									<input
 										id="split-q2"
@@ -455,12 +449,11 @@
 										class="input mt-1"
 										onchange={() => (selectedPreset = 'Custom')}
 									/>
-									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+									<span class="text-sm text-secondary">%</span>
 								</div>
 							</div>
 							<div>
-								<label for="split-q3" class="text-sm" style="color: var(--text-secondary)">Q3</label
-								>
+								<label for="split-q3" class="text-sm text-secondary">Q3</label>
 								<div class="flex items-center gap-1">
 									<input
 										id="split-q3"
@@ -471,13 +464,11 @@
 										class="input mt-1"
 										onchange={() => (selectedPreset = 'Custom')}
 									/>
-									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+									<span class="text-sm text-secondary">%</span>
 								</div>
 							</div>
 							<div>
-								<label for="split-final" class="text-sm" style="color: var(--text-secondary)"
-									>Final</label
-								>
+								<label for="split-final" class="text-sm text-secondary">Final</label>
 								<div class="flex items-center gap-1">
 									<input
 										id="split-final"
@@ -488,7 +479,7 @@
 										class="input mt-1"
 										onchange={() => (selectedPreset = 'Custom')}
 									/>
-									<span class="text-sm" style="color: var(--text-secondary)">%</span>
+									<span class="text-sm text-secondary">%</span>
 								</div>
 							</div>
 						</div>
@@ -509,7 +500,7 @@
 					<div class="card">
 						<h2 class="text-lg font-semibold mb-4">Start Game</h2>
 						{#if $isGridFull}
-							<p class="text-sm mb-4" style="color: var(--text-secondary)">
+							<p class="text-sm mb-4 text-secondary">
 								All 100 squares are filled. Lock the grid, assign random numbers, and start the
 								game.
 							</p>
@@ -517,7 +508,7 @@
 								{isLocking ? 'Starting...' : 'Lock Grid & Start Game'}
 							</button>
 						{:else}
-							<p class="text-sm" style="color: var(--text-secondary)">
+							<p class="text-sm text-secondary">
 								Grid is not full yet ({$filledCount}/100). Wait for all squares to be claimed before
 								starting.
 							</p>
@@ -594,15 +585,13 @@
 				{#snippet scoreEntryForm(description: string)}
 					<div class="card">
 						<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
-						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						<p class="text-sm mb-4 text-secondary">
 							{description}
 						</p>
 
 						<div class="space-y-4">
 							<div>
-								<label for="quarter-select" class="text-sm" style="color: var(--text-secondary)"
-									>Quarter</label
-								>
+								<label for="quarter-select" class="text-sm text-secondary">Quarter</label>
 								<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
 									{#each quarters as q (q.value)}
 										<option value={q.value}>{q.label}</option>
@@ -612,7 +601,7 @@
 
 							<div class="grid grid-cols-2 gap-4">
 								<div>
-									<label for="row-score" class="text-sm" style="color: var(--text-secondary)"
+									<label for="row-score" class="text-sm text-secondary"
 										>{$party.team_row_name}</label
 									>
 									<input
@@ -624,7 +613,7 @@
 									/>
 								</div>
 								<div>
-									<label for="col-score" class="text-sm" style="color: var(--text-secondary)"
+									<label for="col-score" class="text-sm text-secondary"
 										>{$party.team_col_name}</label
 									>
 									<input
@@ -652,7 +641,7 @@
 				{#if $party.status === 'complete'}
 					<div class="card text-center">
 						<h2 class="text-lg font-semibold mb-2">Game Complete</h2>
-						<p class="text-sm" style="color: var(--text-secondary)">
+						<p class="text-sm text-secondary">
 							The game is over. All winners have been determined. Check the main game view to see
 							results.
 						</p>
@@ -663,7 +652,7 @@
 				<div class="card border border-red-500/30">
 					<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
 					{#if !showDeleteConfirm}
-						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						<p class="text-sm mb-4 text-secondary">
 							Permanently delete this party and all associated data.
 						</p>
 						<button
@@ -707,7 +696,7 @@
 				>
 					<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
 						<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
-						<p class="text-sm mb-4" style="color: var(--text-secondary)">
+						<p class="text-sm mb-4 text-secondary">
 							Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
 							up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others
 							to claim.

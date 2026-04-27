@@ -43,6 +43,10 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 - Splits CHECK: `split_q1 + split_q2 + split_q3 + split_final = 100`
 - Winners UNIQUE on `(party_id, quarter)`
 
+## UI / DB Constraint Asymmetry
+
+UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid legibility — names must fit inside 28-44 px square cells. The DB column is sized `VARCHAR(50)` to absorb larger inputs that may arrive via the SQL editor or admin CLI without requiring a column-widen migration. The asymmetry is intentional, not a bug.
+
 ## RPC Signatures
 
 | RPC                   | Parameters                                                                                   | Returns   |

@@ -123,7 +123,7 @@
 		</div>
 	{:else if $error}
 		<div class="flex flex-col items-center justify-center h-screen gap-4">
-			<p style="color: #fca5a5">{$error}</p>
+			<p class="text-error">{$error}</p>
 			<a href="/" class="btn btn-secondary">Go Home</a>
 		</div>
 	{:else if $party}
@@ -132,8 +132,7 @@
 		{/snippet}
 		<header class="mb-4 flex justify-between items-start">
 			<div>
-				<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Home</a
-				>
+				<a href="/" class="text-sm hover:opacity-100 text-secondary">← Home</a>
 				<h1 class="text-2xl font-bold mt-1">
 					{$party.team_row_name} vs {$party.team_col_name}
 				</h1>
@@ -153,7 +152,7 @@
 						<div class="mb-4 status-banner status-banner-filling lg:hidden">
 							<span class="font-medium">{$filledCount}/100</span> squares filled
 							{#if $isGridFull}
-								<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
+								<span class="ml-2 text-success">• Ready to lock!</span>
 							{/if}
 						</div>
 					{:else if isGameInProgress($party.status) || $party.status === 'complete'}
@@ -200,24 +199,24 @@
 						<div class="card text-sm">
 							<div class="grid grid-cols-4 gap-2 text-center">
 								<div>
-									<div style="color: var(--text-muted)">Q1</div>
+									<div class="text-muted">Q1</div>
 									<div class="font-medium">{$party.split_q1}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Q2</div>
+									<div class="text-muted">Q2</div>
 									<div class="font-medium">{$party.split_q2}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Q3</div>
+									<div class="text-muted">Q3</div>
 									<div class="font-medium">{$party.split_q3}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Final</div>
+									<div class="text-muted">Final</div>
 									<div class="font-medium">{$party.split_final}%</div>
 								</div>
 							</div>
 							{#if $party.square_price > 0}
-								<div class="mt-3 text-center" style="color: var(--text-secondary)">
+								<div class="mt-3 text-center text-secondary">
 									{formatPrice($party.square_price)}/square • {formatPrice(
 										$party.square_price * 100
 									)} total pot
@@ -240,7 +239,7 @@
 							<div class="mb-4 status-banner status-banner-filling">
 								<span class="font-medium">{$filledCount}/100</span> squares filled
 								{#if $isGridFull}
-									<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
+									<span class="ml-2 text-success">• Ready to lock!</span>
 								{/if}
 							</div>
 						{:else if isGameInProgress($party.status) || $party.status === 'complete'}
@@ -273,27 +272,27 @@
 
 						<!-- Prize info -->
 						<div class="card text-sm">
-							<h3 class="font-medium mb-3" style="color: var(--text-secondary)">Prize Split</h3>
+							<h3 class="font-medium mb-3 text-secondary">Prize Split</h3>
 							<div class="grid grid-cols-4 gap-2 text-center">
 								<div>
-									<div style="color: var(--text-muted)">Q1</div>
+									<div class="text-muted">Q1</div>
 									<div class="font-medium">{$party.split_q1}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Q2</div>
+									<div class="text-muted">Q2</div>
 									<div class="font-medium">{$party.split_q2}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Q3</div>
+									<div class="text-muted">Q3</div>
 									<div class="font-medium">{$party.split_q3}%</div>
 								</div>
 								<div>
-									<div style="color: var(--text-muted)">Final</div>
+									<div class="text-muted">Final</div>
 									<div class="font-medium">{$party.split_final}%</div>
 								</div>
 							</div>
 							{#if $party.square_price > 0}
-								<div class="mt-3 text-center" style="color: var(--text-secondary)">
+								<div class="mt-3 text-center text-secondary">
 									{formatPrice($party.square_price)}/square • {formatPrice(
 										$party.square_price * 100
 									)} total pot
