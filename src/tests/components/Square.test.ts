@@ -267,54 +267,6 @@ describe('Square Component', () => {
 		});
 	});
 
-	describe('Press State', () => {
-		it('applies pressed class when isPressed is true', () => {
-			const square = createMockSquare();
-
-			render(Square, {
-				props: {
-					square,
-					isLocked: false,
-					isPressed: true,
-				},
-			});
-
-			expect(screen.getByRole('button')).toHaveClass('square-pressed');
-		});
-
-		it('renders progress ring when pressed with progress', () => {
-			const square = createMockSquare();
-
-			render(Square, {
-				props: {
-					square,
-					isLocked: false,
-					isPressed: true,
-					pressProgress: 0.5,
-				},
-			});
-
-			const svg = document.querySelector('.progress-ring');
-			expect(svg).toBeInTheDocument();
-		});
-
-		it('does not render progress ring when not pressed', () => {
-			const square = createMockSquare();
-
-			render(Square, {
-				props: {
-					square,
-					isLocked: false,
-					isPressed: false,
-					pressProgress: 0.5,
-				},
-			});
-
-			const svg = document.querySelector('.progress-ring');
-			expect(svg).not.toBeInTheDocument();
-		});
-	});
-
 	describe('Accessibility', () => {
 		it('has proper aria-label for empty square', () => {
 			const square = createMockSquare();

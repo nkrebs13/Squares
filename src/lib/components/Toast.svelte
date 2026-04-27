@@ -23,7 +23,12 @@
 </script>
 
 {#if visible}
-	<div class="toast toast-{type}" class:toast-exit={!visible}>
+	<div
+		class="toast toast-{type}"
+		class:toast-exit={!visible}
+		role={type === 'error' ? 'alert' : 'status'}
+		aria-live={type === 'error' ? 'assertive' : 'polite'}
+	>
 		<span class="toast-icon">
 			{#if type === 'success'}
 				<svg

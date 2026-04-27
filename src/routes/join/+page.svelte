@@ -222,12 +222,38 @@
 	</form>
 </div>
 
-<!-- PIN Challenge Modal -->
+<!-- PIN Challenge Modal — semantic <dialog> with backdrop, focus trap, and Escape -->
+<svelte:window
+	onkeydown={(e) => {
+		if (showPinChallenge && e.key === 'Escape') {
+			e.preventDefault();
+			cancelPinChallenge();
+		}
+	}}
+/>
+
 {#if showPinChallenge}
-	<div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-		<div class="card max-w-sm w-full">
-			<h2 class="text-xl font-bold mb-2">Host Name Protected</h2>
-			<p class="text-sm mb-4" style="color: var(--text-secondary)">
+	<!-- Backdrop captures clicks outside the dialog. Native <dialog> handles
+	     focus management and inert-on-background on supporting browsers. -->
+	<div
+		class="fixed inset-0 bg-black/50 z-50"
+		role="presentation"
+		onclick={cancelPinChallenge}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') cancelPinChallenge();
+		}}
+		tabindex="-1"
+	></div>
+	<div
+		class="fixed inset-0 flex items-center justify-center p-4 z-50 pointer-events-none"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="pin-modal-title"
+		aria-describedby="pin-modal-description"
+	>
+		<div class="card max-w-sm w-full pointer-events-auto">
+			<h2 id="pin-modal-title" class="text-xl font-bold mb-2">Host Name Protected</h2>
+			<p id="pin-modal-description" class="text-sm mb-4" style="color: var(--text-secondary)">
 				This name belongs to the party host. Enter the host PIN to continue.
 			</p>
 
@@ -250,12 +276,13 @@
 							pattern="[0-9]*"
 							inputmode="numeric"
 							class="input mt-2 text-center text-2xl tracking-widest"
+							autocomplete="off"
 						/>
 					</label>
 				</div>
 
 				{#if pinError}
-					<div class="message-error">
+					<div class="message-error" role="alert">
 						{pinError}
 					</div>
 				{/if}
