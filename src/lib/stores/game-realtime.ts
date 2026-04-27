@@ -16,14 +16,19 @@ import {
 	clientId,
 	squares,
 	party,
-	numbers,
 	scores,
 	winners,
-	gameScores,
 	pendingOperations,
 	pendingTimeouts,
-	squareKey,
 	PENDING_TIMEOUT_MS,
+	applySquareUpdate,
+	applyPartyUpdate,
+	applyNumbersUpdate,
+	applyScoresUpdate,
+	applyWinnerInsert,
+	applyWinnerUpdate,
+	applyWinnerDelete,
+	applyGameScoresUpdate,
 } from './game-state';
 
 /**
@@ -184,15 +189,6 @@ export function schedulePendingTimeout(key: string) {
 	pendingTimeouts.set(key, timeoutId);
 }
 
-// Clear a pending timeout when operation is confirmed
-function clearPendingTimeout(key: string) {
-	const timeoutId = pendingTimeouts.get(key);
-	if (timeoutId) {
-		clearTimeout(timeoutId);
-		pendingTimeouts.delete(key);
-	}
-}
-
 // Handle broadcast messages from other clients
 function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 	const message = payload.payload;
@@ -349,19 +345,7 @@ function setupPartyChannel(partyId: string) {
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
 					const newSquare = parseSquare(payload.new);
-					if (!newSquare) return;
-					const key = squareKey(newSquare.row_num, newSquare.col_num);
-
-					// Clear any pending operation and timeout for this square - database is source of truth
-					clearPendingTimeout(key);
-					pendingOperations.update((ops) => {
-						const newOps = new Map(ops);
-						newOps.delete(key);
-						return newOps;
-					});
-
-					// Update with confirmed state from database
-					squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+					if (newSquare) applySquareUpdate(newSquare);
 				}
 			}
 		)
@@ -376,7 +360,7 @@ function setupPartyChannel(partyId: string) {
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
 					const newParty = parseParty(payload.new);
-					if (newParty) party.set(newParty);
+					if (newParty) applyPartyUpdate(newParty);
 				}
 			}
 		)
@@ -391,7 +375,7 @@ function setupPartyChannel(partyId: string) {
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newNumbers = parseNumbers(payload.new);
-					if (newNumbers) numbers.set(newNumbers);
+					if (newNumbers) applyNumbersUpdate(newNumbers);
 				}
 			}
 		)
@@ -406,7 +390,7 @@ function setupPartyChannel(partyId: string) {
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newScores = parseScores(payload.new);
-					if (newScores) scores.set(newScores);
+					if (newScores) applyScoresUpdate(newScores);
 				}
 			}
 		)
@@ -421,23 +405,13 @@ function setupPartyChannel(partyId: string) {
 			(payload) => {
 				if (payload.eventType === 'INSERT') {
 					const newWinner = parseWinner(payload.new);
-					if (newWinner) winners.update((current) => [...current, newWinner]);
+					if (newWinner) applyWinnerInsert(newWinner);
 				} else if (payload.eventType === 'UPDATE') {
 					const newWinner = parseWinner(payload.new);
-					if (!newWinner) return;
-					winners.update((current) =>
-						current.map((w) =>
-							w.party_id === newWinner.party_id && w.quarter === newWinner.quarter ? newWinner : w
-						)
-					);
+					if (newWinner) applyWinnerUpdate(newWinner);
 				} else if (payload.eventType === 'DELETE') {
 					const deleted = parseWinner(payload.old);
-					if (!deleted) return;
-					winners.update((current) =>
-						current.filter(
-							(w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter)
-						)
-					);
+					if (deleted) applyWinnerDelete(deleted);
 				}
 			}
 		)
@@ -461,9 +435,9 @@ function setupGameChannel(gameId: string) {
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newGameScores = parseGameScores(payload.new);
-					if (newGameScores) gameScores.set(newGameScores);
+					if (newGameScores) applyGameScoresUpdate(newGameScores);
 				} else if (payload.eventType === 'DELETE') {
-					gameScores.set(null);
+					applyGameScoresUpdate(null);
 				}
 			}
 		)

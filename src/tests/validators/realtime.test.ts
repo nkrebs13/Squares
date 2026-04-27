@@ -91,7 +91,7 @@ const validGameScores = {
 	away_score: 7,
 	game_clock: '5:30',
 	game_quarter: 2,
-	game_status: 'in',
+	game_status: 'in_progress',
 	q1_home: 7,
 	q1_away: 0,
 	q2_home: 7,

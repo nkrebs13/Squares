@@ -24,6 +24,7 @@ import type {
 	Scores,
 	Winner,
 	GameScoresRow,
+	GameStatus,
 	PartyStatus,
 	Quarter,
 } from '$lib/types';
@@ -56,6 +57,10 @@ function isBoolOrNull(v: unknown): v is boolean | null {
 
 function isPartyStatus(v: unknown): v is PartyStatus {
 	return v === 'filling' || v === 'locked' || v === 'active' || v === 'complete';
+}
+
+function isGameStatus(v: unknown): v is GameStatus {
+	return v === 'pregame' || v === 'in_progress' || v === 'halftime' || v === 'final';
 }
 
 function isQuarter(v: unknown): v is Quarter {
@@ -244,11 +249,13 @@ export function parseGameScores(payload: unknown): GameScoresRow | null {
 		'home_team_name',
 		'away_team_name',
 		'game_clock',
-		'game_status',
 		'updated_at',
 	] as const;
 	for (const f of requiredStr) {
 		if (!isStr(p[f])) return warn('game_scores', p, `${f} missing`);
+	}
+	if (!isGameStatus(p.game_status)) {
+		return warn('game_scores', p, 'game_status not in GameStatus union');
 	}
 	const requiredNum = ['home_score', 'away_score', 'game_quarter'] as const;
 	for (const f of requiredNum) {
@@ -280,7 +287,7 @@ export function parseGameScores(payload: unknown): GameScoresRow | null {
 		away_score: p.away_score as number,
 		game_clock: p.game_clock as string,
 		game_quarter: p.game_quarter as number,
-		game_status: p.game_status as string,
+		game_status: p.game_status,
 		q1_home: p.q1_home as number | null,
 		q1_away: p.q1_away as number | null,
 		q2_home: p.q2_home as number | null,
