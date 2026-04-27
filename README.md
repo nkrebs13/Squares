@@ -71,6 +71,10 @@ supabase db push
 # in numerical order: supabase/migrations/001_*.sql through 023_*.sql
 ```
 
+### Demo data
+
+Running `supabase db reset` applies all migrations and seeds a demo party automatically. After reset, visit `/party/DEMO01` (PIN: `0000`) to see a partially-filled grid with four fictional players. To skip seeding, delete `supabase/seed.sql` before running reset.
+
 ### Optional: Error tracking
 
 Set `PUBLIC_SENTRY_DSN` in `.env.local` to send unhandled errors and Web Vitals (CLS, INP, LCP, FCP, TTFB) to a [Sentry](https://sentry.io) project. The free tier is sufficient for portfolio-level traffic; the app works identically with the variable unset.
@@ -163,7 +167,7 @@ docs/                             Architecture, ADRs, E2E testing strategy
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. Short version:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating. Short version:
 
 1. Branch from `main`
 2. Run `npm run lint && npm run check && npm run test` locally
