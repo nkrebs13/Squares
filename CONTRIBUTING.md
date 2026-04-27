@@ -2,6 +2,8 @@
 
 Thanks for your interest in Football Squares. This is a personal project but contributions are welcome.
 
+By contributing, you agree to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Quick start
 
 ```bash
@@ -26,6 +28,12 @@ supabase start                # starts containers + applies migrations
 npm run test:integration      # runs against http://127.0.0.1:54321
 supabase stop                 # when done
 ```
+
+### Seed data
+
+Running `supabase db reset` applies all migrations and then automatically executes `supabase/seed.sql`. After reset, a demo party is available at `/party/DEMO01` (PIN: `0000`) with ~30 pre-claimed squares spread across four fictional players. This gives you a realistic grid to work against without needing to claim squares manually.
+
+Tests use `createTestParty()` (defined in each test file's setup) with randomly-generated UUIDs. These never collide with the demo party's reserved UUID (`00000000-0000-0000-0000-000000000001`).
 
 If you want to regenerate `src/lib/database.types.ts` from your local schema:
 
