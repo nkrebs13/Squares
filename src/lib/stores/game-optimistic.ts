@@ -7,8 +7,22 @@ import { clientId, party, squares, pendingOperations, squareKey } from './game-s
 import { broadcast, schedulePendingTimeout } from './game-realtime';
 
 /**
- * Optimistic claim - updates UI immediately, then confirms with server
- * Non-blocking: returns immediately after optimistic update
+ * Optimistic claim — updates UI immediately, then confirms with server.
+ * Non-blocking: returns immediately after the optimistic update.
+ *
+ * The full 8-step chain (also documented in CLAUDE.md):
+ *   1. User action invokes this function.
+ *   2. Pending op added to `pendingOperations` (keyed "row-col") — see step 1 below.
+ *   3. Local `squares` store updated immediately — see step 2 below.
+ *   4. Broadcast sent on the Supabase Realtime broadcast channel — see step 3 below.
+ *   5. Timeout scheduled (PENDING_TIMEOUT_MS, default 10s) — see step 4 below.
+ *   6. RPC fires via `.then()`, NOT `await` — non-blocking — see step 5 below.
+ *      Why .then(): the function returns immediately so the UI doesn't block;
+ *      changing this to `await` would defeat the optimistic UX. Do not refactor.
+ *   7. On success: `postgres_changes` (transport layer) calls
+ *      `applySquareUpdate` which clears the pending op + timeout.
+ *   8. On failure: rollback to `originalState`, broadcast `claim_rejected`,
+ *      toast the user — see the .then() callback below.
  */
 export function claimSquareOptimistic(row: number, col: number): void {
 	const currentParty = get(party);
