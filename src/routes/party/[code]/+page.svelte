@@ -13,6 +13,7 @@
 	import GestureHint from '$lib/components/GestureHint.svelte';
 	import PushOptIn from '$lib/components/PushOptIn.svelte';
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
+	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import {
 		loadParty,
 		subscribeToParty,
@@ -128,6 +129,9 @@
 			<a href="/" class="btn btn-secondary">Go Home</a>
 		</div>
 	{:else if $party}
+		{#snippet sidebarBoundaryFallback(_error: unknown, reset: () => void)}
+			<BoundaryFallback {reset} variant="aside" />
+		{/snippet}
 		<header class="mb-4 flex justify-between items-start">
 			<div>
 				<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Home</a
@@ -225,24 +229,12 @@
 					</div>
 				</div>
 				{#snippet failed(_error, reset)}
-					<div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3);">
-						<p class="text-sm" style="color: #f87171;">This section encountered an error.</p>
-						<div class="flex gap-2 mt-2">
-							<button class="btn btn-secondary btn-sm" type="button" onclick={reset}
-								>Try again</button
-							>
-							<button
-								class="btn btn-secondary btn-sm"
-								type="button"
-								onclick={() => window.location.reload()}>Reload</button
-							>
-						</div>
-					</div>
+					<BoundaryFallback {reset} />
 				{/snippet}
 			</svelte:boundary>
 
 			<!-- Desktop Sidebar -->
-			<svelte:boundary>
+			<svelte:boundary failed={sidebarBoundaryFallback}>
 				<aside class="sidebar hidden lg:block">
 					<div>
 						<!-- Status banner -->
@@ -317,23 +309,6 @@
 						</div>
 					</div>
 				</aside>
-				{#snippet failed(_error, reset)}
-					<aside class="sidebar hidden lg:block">
-						<div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3);">
-							<p class="text-sm" style="color: #f87171;">This section encountered an error.</p>
-							<div class="flex gap-2 mt-2">
-								<button class="btn btn-secondary btn-sm" type="button" onclick={reset}
-									>Try again</button
-								>
-								<button
-									class="btn btn-secondary btn-sm"
-									type="button"
-									onclick={() => window.location.reload()}>Reload</button
-								>
-							</div>
-						</div>
-					</aside>
-				{/snippet}
 			</svelte:boundary>
 		</div>
 	{/if}
