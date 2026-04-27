@@ -33,10 +33,6 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 
 The `locked` status exists in the DB CHECK constraint and frontend rendering but is never set by current RPCs — `lock_party` jumps directly to `active`. Do NOT remove `locked` from the type or frontend.
 
-### Dead Code
-
-`startGame()` function in game.ts (line ~900-920) and `start_game` RPC — no matching SQL function exists. Do not use or test.
-
 ## Database Constraints
 
 - `player_name_lower` is `GENERATED ALWAYS AS (LOWER(player_name)) STORED` — never set directly in INSERT/UPDATE, only set `player_name`
@@ -45,15 +41,16 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 ## RPC Signatures
 
-| RPC                   | Parameters                                                                                   | Returns   |
-| --------------------- | -------------------------------------------------------------------------------------------- | --------- |
-| `claim_square`        | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                           | `BOOLEAN` |
-| `unclaim_square`      | same pattern                                                                                 | `BOOLEAN` |
-| `claim_squares_batch` | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                  | `INTEGER` |
-| `lock_party`          | `p_party_id UUID, p_pin VARCHAR(4)`                                                          | `BOOLEAN` |
-| `update_score`        | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT` | `BOOLEAN` |
-| `verify_host_pin`     | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                  | `BOOLEAN` |
-| `delete_party`        | `p_party_id UUID, p_pin VARCHAR(4)`                                                          | `BOOLEAN` |
+| RPC                   | Parameters                                                                                                                                               | Returns       |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `create_party`        | `p_host_name VARCHAR(50), p_pin VARCHAR(4), p_square_price DECIMAL, p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT, [team overrides]` | `parties` row |
+| `claim_square`        | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                                                                                       | `BOOLEAN`     |
+| `unclaim_square`      | same pattern                                                                                                                                             | `BOOLEAN`     |
+| `claim_squares_batch` | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                                                                              | `INTEGER`     |
+| `lock_party`          | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                      | `BOOLEAN`     |
+| `update_score`        | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                             | `BOOLEAN`     |
+| `verify_host_pin`     | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                              | `BOOLEAN`     |
+| `delete_party`        | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                      | `BOOLEAN`     |
 
 ## BroadcastMessage Wire Protocol
 
