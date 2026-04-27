@@ -137,7 +137,7 @@ export function schedulePendingTimeout(key: string) {
 					)
 				);
 
-				toast.error('Claim timed out - please try again');
+				toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
 				return newOps;
 			}
 			return ops;

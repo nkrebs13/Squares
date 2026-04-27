@@ -84,4 +84,14 @@
 			</div>
 		{/each}
 	</div>
+{:else if $party?.status === 'complete'}
+	<!-- Game over but no winners — usually means scores haven't been entered yet
+	     or every score landed on a square that wasn't claimed. -->
+	<div class="space-y-3">
+		<h3 class="text-lg font-semibold">Winners</h3>
+		<div class="card text-sm" style="color: var(--text-secondary)">
+			No winners assigned yet — waiting on quarter scores. Once the host enters scores in the admin
+			panel, winners will appear here.
+		</div>
+	</div>
 {/if}

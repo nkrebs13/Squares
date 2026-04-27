@@ -372,7 +372,7 @@ describe('loadParty branches', () => {
 		const result = await loadParty('TEST123');
 
 		expect(result).toBe(false);
-		expect(get(error)).toBe('Failed to load party');
+		expect(get(error)).toMatch(/Couldn't load that party/);
 		expect(get(isLoading)).toBe(false);
 	});
 });

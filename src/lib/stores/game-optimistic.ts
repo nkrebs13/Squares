@@ -225,7 +225,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 					return ops;
 				});
 
-				toast.error('Failed to unclaim square');
+				toast.error("Couldn't unclaim that square — try again.");
 			}
 		});
 }
@@ -330,7 +330,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 		.then(({ data, error: claimError }) => {
 			if (claimError) {
 				// Complete failure - show error
-				toast.error('Failed to claim squares - please try again');
+				toast.error("Couldn't save those claims — try again.");
 				return;
 			}
 
