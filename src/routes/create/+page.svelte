@@ -3,12 +3,12 @@
 	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin } from '$lib/storage';
-	import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
+	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 
 	let squarePriceInput = $state('1');
-	const squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
-	const isValidPrice = $derived(isValidUsdAmount(squarePriceInput));
+	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
+	const isValidPrice = $derived(isValidAmount(squarePriceInput));
 	let selectedPreset = $state<SplitPreset>(SPLIT_PRESETS[0]);
 	const customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
