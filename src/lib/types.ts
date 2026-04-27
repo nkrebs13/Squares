@@ -3,6 +3,14 @@
 export type PartyStatus = 'filling' | 'locked' | 'active' | 'complete';
 export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
 
+// Sourced from the `game_scores.game_status` column (migration 017) and the
+// ESPN scoreboard API. The known values our code branches on are listed
+// explicitly so a `if (status === '...')` typo is caught at compile time.
+// New ESPN status values appearing in payloads will fail the realtime
+// validator (see src/lib/validators/realtime.ts) — that is the intended
+// observability signal rather than a silent passthrough.
+export type GameStatus = 'pregame' | 'in_progress' | 'halftime' | 'final';
+
 /** Status values where the game is in progress (grid locked, scores can be entered) */
 export function isGameInProgress(status: PartyStatus | undefined): boolean {
 	return status === 'active' || status === 'locked';
@@ -70,7 +78,7 @@ export interface GameScoresRow {
 	away_score: number;
 	game_clock: string;
 	game_quarter: number;
-	game_status: string;
+	game_status: GameStatus;
 	q1_home: number | null;
 	q1_away: number | null;
 	q2_home: number | null;
@@ -89,7 +97,7 @@ export interface LiveScores {
 	colScore: number;
 	clock: string;
 	quarter: number;
-	status: string;
+	status: GameStatus;
 }
 
 export interface Winner {

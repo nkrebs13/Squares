@@ -576,6 +576,26 @@ body {
 	background: var(--border-color);
 }
 
+/* Color utilities — these mirror the most common inline-style patterns
+ * (`style="color: var(--text-secondary)"` etc.) so callers can use a class
+ * instead of inlining. Kept as plain CSS rather than @utility/@apply so the
+ * rule applies to any element, not just within a Tailwind context. */
+.text-secondary {
+	color: var(--text-secondary);
+}
+
+.text-muted {
+	color: var(--text-muted);
+}
+
+.text-error {
+	color: #fca5a5;
+}
+
+.text-success {
+	color: var(--color-success);
+}
+
 /* Error/Success message boxes */
 .message-error {
 	@apply p-4;
