@@ -9,6 +9,13 @@ vi.mock('$app/environment', () => ({
 	version: 'test',
 }));
 
+// Mock SvelteKit's $env/dynamic/public — empty by default so $lib/config falls
+// back to its hardcoded brand defaults. Individual tests can override with
+// vi.doMock('$env/dynamic/public', ...).
+vi.mock('$env/dynamic/public', () => ({
+	env: {},
+}));
+
 // Mock SvelteKit's $app/navigation
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),

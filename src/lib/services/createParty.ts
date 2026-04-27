@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '$lib/supabase';
 import { parseParty } from '$lib/validators/realtime';
-import { DEFAULT_TEAMS, type Party } from '$lib/types';
+import { DEFAULT_TEAMS } from '$lib/config';
+import { type Party } from '$lib/types';
 
 /**
  * Input for creating a new party.

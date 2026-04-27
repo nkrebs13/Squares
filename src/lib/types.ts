@@ -134,11 +134,9 @@ export const SPLIT_PRESETS: SplitPreset[] = [
 	{ name: 'Custom', q1: 0, q2: 0, q3: 0, final: 0 },
 ];
 
-// Super Bowl Teams
-export const DEFAULT_TEAMS = {
-	row: { name: 'Seahawks', color: '#69BE28' },
-	col: { name: 'Patriots', color: '#C60C30' },
-};
+// Default teams live in $lib/config (env-overridable). Re-export here for any
+// external consumers, but new imports should source directly from $lib/config.
+export { DEFAULT_TEAMS } from '$lib/config';
 
 export interface RecentParty {
 	code: string;
