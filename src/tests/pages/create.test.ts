@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { mockSupabaseClient } from '../setup';
@@ -91,39 +91,34 @@ describe('Create Page', () => {
 	});
 
 	describe('Happy Path', () => {
-		it('3 sequential inserts → navigates to /party/<CODE>', async () => {
+		const validPartyRow = {
+			id: 'new-party-id',
+			code: 'ABC123',
+			host_name_lower: 'alice',
+			square_price: 1.0,
+			split_q1: 10,
+			split_q2: 20,
+			split_q3: 30,
+			split_final: 40,
+			status: 'filling',
+			team_row_name: 'Seahawks',
+			team_col_name: 'Patriots',
+			team_row_color: '#69BE28',
+			team_col_color: '#C60C30',
+			created_at: '2026-04-26T00:00:00Z',
+			updated_at: '2026-04-26T00:00:00Z',
+			expires_at: '2026-05-26T00:00:00Z',
+			game_id: null,
+			home_team_is_row: null,
+		};
+
+		it('calls create_party RPC and navigates to /party/<CODE>', async () => {
 			const { goto } = await import('$app/navigation');
 
-			// Mock party insert
-			const mockPartyChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: {
-						id: 'new-party-id',
-						code: 'ABC123',
-						status: 'filling',
-					},
-					error: null,
-				}),
-			};
-
-			// Mock squares insert
-			const mockSquaresChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-
-			// Mock scores insert
-			const mockScoresChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-
-			mockSupabaseClient.from
-				.mockReturnValueOnce(mockPartyChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>);
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: validPartyRow,
+				error: null,
+			});
 
 			render(CreatePage);
 			const user = userEvent.setup();
@@ -133,41 +128,32 @@ describe('Create Page', () => {
 			await user.click(screen.getByRole('button', { name: /Create Party/i }));
 
 			await waitFor(() => {
-				// Party insert
-				expect(mockSupabaseClient.from).toHaveBeenCalledWith('parties');
-				// Squares insert
-				expect(mockSupabaseClient.from).toHaveBeenCalledWith('squares');
-				// Scores insert
-				expect(mockSupabaseClient.from).toHaveBeenCalledWith('scores');
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+					'create_party',
+					expect.objectContaining({
+						p_host_name: 'Alice',
+						p_pin: '1234',
+						p_square_price: 1,
+						p_split_q1: 10,
+						p_split_q2: 20,
+						p_split_q3: 30,
+						p_split_final: 40,
+					})
+				);
 			});
 
 			await waitFor(() => {
-				expect(goto).toHaveBeenCalledWith(expect.stringMatching(/^\/party\//));
+				expect(goto).toHaveBeenCalledWith('/party/ABC123');
 			});
 		});
 
 		it('stores host PIN via setHostPin and name via userName.setName', async () => {
 			const { set: idbSet } = await import('idb-keyval');
 
-			const mockPartyChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: { id: 'new-party-id', code: 'XYZ789', status: 'filling' },
-					error: null,
-				}),
-			};
-			const mockSquaresChain = {
-				insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-			const mockScoresChain = {
-				insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-
-			mockSupabaseClient.from
-				.mockReturnValueOnce(mockPartyChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>);
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ...validPartyRow, code: 'XYZ789' },
+				error: null,
+			});
 
 			render(CreatePage);
 			const user = userEvent.setup();
@@ -184,19 +170,11 @@ describe('Create Page', () => {
 	});
 
 	describe('Error Handling', () => {
-		it('displays error when party insert fails', async () => {
-			const mockPartyChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: null,
-					error: { message: 'Duplicate code' },
-				}),
-			};
-
-			mockSupabaseClient.from.mockReturnValueOnce(
-				mockPartyChain as ReturnType<typeof mockSupabaseClient.from>
-			);
+		it('displays humanized error when RPC fails', async () => {
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: null,
+				error: { message: 'PIN must be exactly 4 digits' },
+			});
 
 			render(CreatePage);
 			const user = userEvent.setup();
@@ -206,40 +184,17 @@ describe('Create Page', () => {
 			await user.click(screen.getByRole('button', { name: /Create Party/i }));
 
 			await waitFor(() => {
-				expect(screen.getByText('Duplicate code')).toBeInTheDocument();
+				const errBanner = document.querySelector('.message-error');
+				expect(errBanner).toBeInTheDocument();
+				expect(errBanner?.textContent).toMatch(/4 digits/i);
 			});
 		});
 
-		it('rollback: deletes party when squares insert fails', async () => {
-			// Mock party insert succeeds
-			const mockPartyChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: { id: 'cleanup-party-id', code: 'DEL001', status: 'filling' },
-					error: null,
-				}),
-			};
-
-			// Mock squares insert fails
-			const mockSquaresChain = {
-				insert: vi.fn().mockResolvedValue({
-					data: null,
-					error: { message: 'Insert failed' },
-				}),
-			};
-
-			// Mock cleanup delete
-			const mockDeleteChain = {
-				select: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-
-			mockSupabaseClient.from
-				.mockReturnValueOnce(mockPartyChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockDeleteChain as ReturnType<typeof mockSupabaseClient.from>);
+		it('shows fallback message for unexpected RPC failure', async () => {
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: null,
+				error: { message: 'connection refused' },
+			});
 
 			render(CreatePage);
 			const user = userEvent.setup();
@@ -249,26 +204,13 @@ describe('Create Page', () => {
 			await user.click(screen.getByRole('button', { name: /Create Party/i }));
 
 			await waitFor(() => {
-				// Should have attempted cleanup
-				expect(mockSupabaseClient.from).toHaveBeenCalledWith('parties');
-			});
-
-			await waitFor(() => {
-				expect(screen.getByText('Failed to create grid')).toBeInTheDocument();
+				expect(screen.getByText('connection refused')).toBeInTheDocument();
 			});
 		});
 
 		it('no double-submit while creating', async () => {
-			// Make party insert hang (never resolve)
-			const mockPartyChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				single: vi.fn().mockReturnValue(new Promise(() => {})), // Never resolves
-			};
-
-			mockSupabaseClient.from.mockReturnValue(
-				mockPartyChain as ReturnType<typeof mockSupabaseClient.from>
-			);
+			// Make RPC hang (never resolves) so the button stays in "Creating..."
+			mockSupabaseClient.rpc.mockReturnValueOnce(new Promise(() => {}));
 
 			render(CreatePage);
 			const user = userEvent.setup();

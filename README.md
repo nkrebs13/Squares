@@ -56,6 +56,14 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
+#### Optional: Error tracking
+
+Set `PUBLIC_SENTRY_DSN` to send unhandled errors and Web Vitals (CLS, INP, LCP, FCP, TTFB) to a [Sentry](https://sentry.io) project. The free tier is sufficient for portfolio-level traffic; the app works identically with the variable unset.
+
+```env
+PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
+```
+
 ### Database Setup
 
 Run the migrations in the `supabase/migrations/` directory against your Supabase project in order (001 through 007).

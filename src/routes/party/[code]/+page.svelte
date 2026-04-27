@@ -6,6 +6,7 @@
 	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 	import GestureHint from '$lib/components/GestureHint.svelte';
+	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
 	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
@@ -101,6 +102,7 @@
 </svelte:head>
 
 <div class="party-page">
+	<ConnectionBanner />
 	{#if $isLoading}
 		<div class="flex items-center justify-center h-screen">
 			<GridSkeleton />
