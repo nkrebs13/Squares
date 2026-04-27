@@ -3,6 +3,7 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
+	import MobilePlayerFilter from './MobilePlayerFilter.svelte';
 	import {
 		squares,
 		numbers,
@@ -14,8 +15,6 @@
 		pendingOperations,
 		mySquareCount,
 		amountOwed,
-		playerSummary,
-		availableCount,
 		selectedPlayerFilter,
 		leadingSquare,
 	} from '$lib/stores/game';
@@ -47,10 +46,6 @@
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
 	let isProcessing = $state(false);
 
-	// Player filter state (using shared store)
-	let isPlayersExpanded = $state(false);
-	let hasInteractedWithPlayers = $state(false);
-
 	// Track pointer start for mobile tap detection
 	let pointerStartCell: { row: number; col: number } | null = null;
 	let isPointerTouch = false; // Track if current interaction is touch-based
@@ -80,13 +75,6 @@
 
 	// Header height scales with cell size
 	const headerHeight = $derived(Math.max(Math.floor(effectiveCellSize * 0.7), 24));
-
-	// Auto-expand players list if few players
-	$effect(() => {
-		if ($playerSummary.length > 0 && $playerSummary.length <= 4) {
-			isPlayersExpanded = true;
-		}
-	});
 
 	// Derived lookup maps for O(1) access
 	const squareMap = $derived.by(() => {
@@ -138,18 +126,6 @@
 	function isSquareDimmed(square: SquareType): boolean {
 		if (!$selectedPlayerFilter) return false;
 		return square.player_name_lower !== $selectedPlayerFilter;
-	}
-
-	// Toggle player filter
-	function togglePlayerFilter(normalizedName: string) {
-		hasInteractedWithPlayers = true;
-		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
-	}
-
-	// Handle players section toggle
-	function handlePlayersToggle() {
-		hasInteractedWithPlayers = true;
-		isPlayersExpanded = !isPlayersExpanded;
 	}
 
 	// Pointer handlers
@@ -365,14 +341,22 @@
 				bind:this={scrollContainer}
 				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px;"
 			>
-				<div class="grid-11x11">
-					<div class="corner-cell"></div>
+				<div
+					class="grid-11x11"
+					role="grid"
+					aria-label="Football squares grid, 10 by 10. Use arrow keys after focusing a square to navigate."
+					aria-rowcount={NUM_COLS + 1}
+					aria-colcount={NUM_COLS + 1}
+				>
+					<div class="corner-cell" role="presentation"></div>
 
 					{#each cols as col (col)}
 						<div
 							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
 								? 'rounded-tr'
 								: ''}"
+							role="columnheader"
+							aria-colindex={col + 2}
 						>
 							{$numbers ? $numbers.col_numbers[col] : '?'}
 						</div>
@@ -383,6 +367,8 @@
 							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
 								? 'rounded-bl'
 								: ''}"
+							role="rowheader"
+							aria-rowindex={row + 2}
 						>
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
@@ -394,6 +380,9 @@
 									class="square-wrapper"
 									class:highlighted={isSquareHighlighted(square)}
 									class:dimmed={isSquareDimmed(square)}
+									role="gridcell"
+									aria-rowindex={row + 2}
+									aria-colindex={col + 2}
 								>
 									<Square
 										{square}
@@ -492,65 +481,10 @@
 			{/if}
 		</div>
 
-		<!-- Players Section (mobile only - desktop uses sidebar) -->
-		{#if $playerSummary.length > 0}
-			<div class="players-section lg:hidden">
-				<!-- Players Header / Toggle -->
-				<button
-					class="players-toggle"
-					class:has-indicator={!hasInteractedWithPlayers && $playerSummary.length > 1}
-					onclick={handlePlayersToggle}
-				>
-					<span class="players-label">
-						Players ({$playerSummary.length})
-						{#if $selectedPlayerFilter}
-							<span class="filter-badge">filtering</span>
-						{:else if !hasInteractedWithPlayers && isPlayersExpanded}
-							<span class="hint-badge">tap to highlight</span>
-						{/if}
-					</span>
-					<svg
-						class="chevron"
-						class:expanded={isPlayersExpanded}
-						xmlns="http://www.w3.org/2000/svg"
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<polyline points="6 9 12 15 18 9"></polyline>
-					</svg>
-				</button>
-
-				<!-- Expanded Player List -->
-				{#if isPlayersExpanded}
-					<div class="players-grid">
-						{#each $playerSummary as player (player.normalizedName)}
-							{@const color = getPlayerColor(player.name)}
-							<button
-								class="player-pill"
-								class:selected={$selectedPlayerFilter === player.normalizedName}
-								style="--player-bg: {color.bg}; --player-text: {color.text};"
-								onclick={() => togglePlayerFilter(player.normalizedName)}
-							>
-								<div class="player-dot" style="background: {color.text};"></div>
-								<span class="player-name">{player.name}</span>
-								<span class="player-count">{player.count}</span>
-							</button>
-						{/each}
-						{#if $party?.status === 'filling' && $availableCount > 0}
-							<div class="available-count">
-								{$availableCount} squares available
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{/if}
+		<!-- Players Section (mobile only - desktop uses sidebar's PlayerLegend) -->
+		<div class="lg:hidden">
+			<MobilePlayerFilter />
+		</div>
 	</div>
 
 	<!-- Selection indicator during drag -->
@@ -800,163 +734,6 @@
 		transform: scale(0.96);
 	}
 
-	/* Players Section */
-	.players-section {
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
-		padding-top: 0.75rem;
-	}
-
-	.players-toggle {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 150ms ease;
-	}
-
-	/* Pulse indicator for undiscovered feature */
-	.players-toggle.has-indicator::after {
-		content: '';
-		position: absolute;
-		top: -3px;
-		right: -3px;
-		width: 8px;
-		height: 8px;
-		background: rgba(100, 210, 200, 0.9);
-		border-radius: 50%;
-		animation: pulse-indicator 2s ease-in-out infinite;
-	}
-
-	@keyframes pulse-indicator {
-		0%,
-		100% {
-			opacity: 1;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 0.5;
-			transform: scale(1.3);
-		}
-	}
-
-	.players-toggle:hover {
-		background: rgba(255, 255, 255, 0.06);
-		color: var(--text-primary);
-	}
-
-	.players-label {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.filter-badge {
-		font-size: 0.625rem;
-		padding: 0.125rem 0.375rem;
-		background: rgba(100, 210, 200, 0.2);
-		color: rgba(100, 210, 200, 0.95);
-		border-radius: 4px;
-	}
-
-	.hint-badge {
-		font-size: 0.625rem;
-		padding: 0.125rem 0.375rem;
-		background: rgba(255, 255, 255, 0.06);
-		color: var(--text-secondary);
-		border-radius: 4px;
-	}
-
-	.chevron {
-		transition: transform 200ms ease;
-	}
-
-	.chevron.expanded {
-		transform: rotate(180deg);
-	}
-
-	/* Players Grid */
-	.players-grid {
-		display: flex;
-		flex-direction: column;
-		gap: 0.375rem;
-		margin-top: 0.75rem;
-	}
-
-	.player-pill {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.625rem 0.75rem;
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
-		font-size: 0.8125rem;
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-		min-height: 44px; /* Apple HIG touch target */
-		width: 100%;
-	}
-
-	.player-pill:hover {
-		background: rgba(255, 255, 255, 0.06);
-		transform: translateY(-1px);
-	}
-
-	.player-pill.selected {
-		background: var(--player-bg);
-		border-color: var(--player-text);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--player-text) 30%, transparent);
-	}
-
-	.player-pill.selected .player-name,
-	.player-pill.selected .player-count {
-		color: var(--player-text);
-		font-weight: 600;
-	}
-
-	.player-pill:active {
-		transform: scale(0.97);
-	}
-
-	.player-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-
-	.player-name {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-weight: 500;
-	}
-
-	.player-count {
-		font-weight: 600;
-		opacity: 0.8;
-	}
-
-	.available-count {
-		grid-column: 1 / -1;
-		text-align: center;
-		padding: 0.5rem;
-		font-size: 0.7rem;
-		color: var(--text-secondary);
-		opacity: 0.7;
-	}
-
 	/* Selection indicator */
 	.selection-indicator {
 		position: fixed;
@@ -991,17 +768,6 @@
 		.team-label-row {
 			width: 56px;
 		}
-
-		/* Multi-column player grid on larger screens */
-		.players-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-			gap: 0.5rem;
-		}
-
-		.player-pill {
-			width: auto;
-		}
 	}
 
 	@media (min-width: 768px) {
@@ -1013,14 +779,8 @@
 	/* Reduced motion support */
 	@media (prefers-reduced-motion: reduce) {
 		.square-wrapper,
-		.player-pill,
-		.chevron,
 		.zoom-toggle-btn {
 			transition: none;
-		}
-
-		.players-toggle.has-indicator::after {
-			animation: none;
 		}
 
 		.square-wrapper.highlighted {

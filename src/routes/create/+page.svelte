@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { getSupabaseClient } from '$lib/supabase';
-	import { SPLIT_PRESETS, DEFAULT_TEAMS, type SplitPreset } from '$lib/types';
+	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin } from '$lib/storage';
 	import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
+	import { createParty as createPartyService } from '$lib/services/createParty';
 
 	let squarePriceInput = $state('1');
 	const squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
@@ -38,94 +38,40 @@
 	const isValidHostName = $derived(hostName.trim().length > 0);
 	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
 
-	function generateCode(): string {
-		const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-		const randomBytes = new Uint8Array(6);
-		crypto.getRandomValues(randomBytes);
-		let code = '';
-		for (let i = 0; i < 6; i++) {
-			code += chars[randomBytes[i] % chars.length];
-		}
-		return code;
-	}
-
 	async function createParty() {
 		if (!canCreate || isCreating) return;
 
 		isCreating = true;
 		error = null;
 
-		try {
-			const supabase = getSupabaseClient();
-			const code = generateCode();
+		const result = await createPartyService({
+			hostName: hostName.trim(),
+			hostPin,
+			squarePrice,
+			splits: currentSplit,
+		});
 
-			// Create party
-			const { data: partyData, error: partyError } = await supabase
-				.from('parties')
-				.insert({
-					code,
-					host_pin: hostPin,
-					host_name_lower: hostName.trim().toLowerCase(),
-					square_price: squarePrice,
-					split_q1: currentSplit.q1,
-					split_q2: currentSplit.q2,
-					split_q3: currentSplit.q3,
-					split_final: currentSplit.final,
-					status: 'filling',
-					team_row_name: DEFAULT_TEAMS.row.name,
-					team_col_name: DEFAULT_TEAMS.col.name,
-					team_row_color: DEFAULT_TEAMS.row.color,
-					team_col_color: DEFAULT_TEAMS.col.color,
-					expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-				})
-				.select()
-				.single();
-
-			if (partyError || !partyData) {
-				throw new Error(partyError?.message || 'Failed to create party');
-			}
-
-			// Create 100 empty squares
-			const squares = [];
-			for (let row = 0; row < 10; row++) {
-				for (let col = 0; col < 10; col++) {
-					squares.push({
-						party_id: partyData.id,
-						row_num: row,
-						col_num: col,
-					});
-				}
-			}
-
-			const { error: squaresError } = await supabase.from('squares').insert(squares);
-
-			if (squaresError) {
-				// Cleanup party if squares failed
-				await supabase.from('parties').delete().eq('id', partyData.id);
-				throw new Error('Failed to create grid');
-			}
-
-			// Create empty scores record
-			await supabase.from('scores').insert({ party_id: partyData.id });
-
-			// Store PIN in IndexedDB and session storage for this party
-			await setHostPin(code, hostPin);
-			sessionStorage.setItem(`squares_pin_${code}`, hostPin);
-
-			// Store host name
-			await userName.setName(hostName.trim());
-
-			// Store nickname for the party page to pick up
-			if (nickname.trim()) {
-				sessionStorage.setItem(`squares_nickname_${code}`, nickname.trim());
-			}
-
-			goto(`/party/${code}`);
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Something went wrong';
-		} finally {
+		if (!result.ok) {
+			error = result.error;
 			isCreating = false;
+			return;
 		}
+
+		const code = result.party.code;
+
+		// Persist PIN locally for host actions
+		await setHostPin(code, hostPin);
+		sessionStorage.setItem(`squares_pin_${code}`, hostPin);
+
+		// Persist host name
+		await userName.setName(hostName.trim());
+
+		// Hand the party page an optional nickname for this code
+		if (nickname.trim()) {
+			sessionStorage.setItem(`squares_nickname_${code}`, nickname.trim());
+		}
+
+		goto(`/party/${code}`);
 	}
 </script>
 
@@ -189,19 +135,27 @@
 			<div class="mt-4 grid grid-cols-4 gap-3">
 				{#each ['q1', 'q2', 'q3', 'final'] as quarter (quarter)}
 					<div class="text-center">
-						<div class="text-xs uppercase" style="color: var(--text-muted)">
+						<label
+							for="split-{quarter}"
+							class="text-xs uppercase block"
+							style="color: var(--text-muted)"
+						>
 							{quarter === 'final' ? 'Final' : quarter.toUpperCase()}
-						</div>
+						</label>
 						{#if isCustom}
 							<input
+								id="split-{quarter}"
 								type="number"
 								bind:value={customSplit[quarter as keyof typeof customSplit]}
 								min="0"
 								max="100"
 								class="input mt-1 text-center p-2"
+								aria-label="{quarter === 'final'
+									? 'Final'
+									: quarter.toUpperCase()} prize split percentage"
 							/>
 						{:else}
-							<div class="mt-1 text-lg font-bold">
+							<div id="split-{quarter}" class="mt-1 text-lg font-bold">
 								{currentSplit[quarter as keyof typeof currentSplit]}%
 							</div>
 						{/if}

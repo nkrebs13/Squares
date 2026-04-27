@@ -7,8 +7,22 @@ import { clientId, party, squares, pendingOperations, squareKey } from './game-s
 import { broadcast, schedulePendingTimeout } from './game-realtime';
 
 /**
- * Optimistic claim - updates UI immediately, then confirms with server
- * Non-blocking: returns immediately after optimistic update
+ * Optimistic claim — updates UI immediately, then confirms with server.
+ * Non-blocking: returns immediately after the optimistic update.
+ *
+ * The full 8-step chain (also documented in CLAUDE.md):
+ *   1. User action invokes this function.
+ *   2. Pending op added to `pendingOperations` (keyed "row-col") — see step 1 below.
+ *   3. Local `squares` store updated immediately — see step 2 below.
+ *   4. Broadcast sent on the Supabase Realtime broadcast channel — see step 3 below.
+ *   5. Timeout scheduled (PENDING_TIMEOUT_MS, default 10s) — see step 4 below.
+ *   6. RPC fires via `.then()`, NOT `await` — non-blocking — see step 5 below.
+ *      Why .then(): the function returns immediately so the UI doesn't block;
+ *      changing this to `await` would defeat the optimistic UX. Do not refactor.
+ *   7. On success: `postgres_changes` (transport layer) calls
+ *      `applySquareUpdate` which clears the pending op + timeout.
+ *   8. On failure: rollback to `originalState`, broadcast `claim_rejected`,
+ *      toast the user — see the .then() callback below.
  */
 export function claimSquareOptimistic(row: number, col: number): void {
 	const currentParty = get(party);
@@ -346,78 +360,4 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 				toast.success(`Claimed ${claimed} square${claimed > 1 ? 's' : ''}`);
 			}
 		});
-}
-
-// Keep the original functions for backward compatibility
-export async function claimSquare(row: number, col: number): Promise<boolean> {
-	const currentParty = get(party);
-	const currentUser = get(userName);
-
-	if (!currentParty || !currentUser) return false;
-	if (currentParty.status !== 'filling') return false;
-
-	const supabase = getSupabaseClient();
-
-	const { error: claimError } = await supabase.rpc('claim_square', {
-		p_party_id: currentParty.id,
-		p_row: row,
-		p_col: col,
-		p_player_name: currentUser,
-	});
-
-	if (claimError) {
-		toast.error('Failed to claim square');
-		return false;
-	}
-
-	return true;
-}
-
-export async function claimSquaresBatch(
-	cells: Array<{ row: number; col: number }>
-): Promise<number> {
-	const currentParty = get(party);
-	const currentUser = get(userName);
-
-	if (!currentParty || !currentUser || cells.length === 0) return 0;
-	if (currentParty.status !== 'filling') return 0;
-
-	const supabase = getSupabaseClient();
-
-	const { data, error: claimError } = await supabase.rpc('claim_squares_batch', {
-		p_party_id: currentParty.id,
-		p_player_name: currentUser,
-		p_cells: cells,
-	});
-
-	if (claimError) {
-		toast.error('Failed to claim squares');
-		return 0;
-	}
-
-	const claimed = data || 0;
-	if (claimed > 0) {
-		toast.success(`Claimed ${claimed} square${claimed > 1 ? 's' : ''}`);
-	}
-
-	return claimed;
-}
-
-export async function unclaimSquare(row: number, col: number): Promise<boolean> {
-	const currentParty = get(party);
-	const currentUser = get(userName);
-
-	if (!currentParty || !currentUser) return false;
-	if (currentParty.status !== 'filling') return false;
-
-	const supabase = getSupabaseClient();
-
-	const { error: unclaimError } = await supabase.rpc('unclaim_square', {
-		p_party_id: currentParty.id,
-		p_row: row,
-		p_col: col,
-		p_player_name: currentUser,
-	});
-
-	return !unclaimError;
 }

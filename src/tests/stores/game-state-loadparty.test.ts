@@ -364,7 +364,7 @@ describe('loadParty branches', () => {
 		expect(loadedParty?.home_team_is_row).toBe(true);
 	});
 
-	it('handles exception in try block gracefully', async () => {
+	it('handles exception in try block gracefully and preserves the underlying error message', async () => {
 		mockSupabaseClient.from.mockImplementationOnce(() => {
 			throw new Error('Network failure');
 		});

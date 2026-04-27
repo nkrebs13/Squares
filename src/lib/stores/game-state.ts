@@ -180,6 +180,72 @@ export function squareKey(row: number, col: number): string {
 	return `${row}-${col}`;
 }
 
+// ─── State-application functions (called from the realtime transport layer) ──
+//
+// These give the transport layer a small, typed surface to mutate state without
+// reaching into store internals. Each function accepts the parsed/validated
+// row from postgres_changes (or refetched data) and updates the relevant
+// store. The transport layer is responsible for validating the payload first
+// (Phase 1's validators) so these functions can assume well-formed input.
+
+/** Apply an UPDATE on the squares table (single row by id). */
+export function applySquareUpdate(newSquare: Square): void {
+	const key = squareKey(newSquare.row_num, newSquare.col_num);
+	// DB is source of truth — clear any pending optimistic op + timeout for this square
+	const existingTimeout = pendingTimeouts.get(key);
+	if (existingTimeout) {
+		clearTimeout(existingTimeout);
+		pendingTimeouts.delete(key);
+	}
+	pendingOperations.update((ops) => {
+		const newOps = new Map(ops);
+		newOps.delete(key);
+		return newOps;
+	});
+	squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+}
+
+/** Apply an UPDATE on the parties table. */
+export function applyPartyUpdate(newParty: Party): void {
+	party.set(newParty);
+}
+
+/** Apply an INSERT or UPDATE on the numbers table. */
+export function applyNumbersUpdate(newNumbers: Numbers): void {
+	numbers.set(newNumbers);
+}
+
+/** Apply an INSERT or UPDATE on the scores table. */
+export function applyScoresUpdate(newScores: Scores): void {
+	scores.set(newScores);
+}
+
+/** Apply an INSERT on the winners table. */
+export function applyWinnerInsert(newWinner: Winner): void {
+	winners.update((current) => [...current, newWinner]);
+}
+
+/** Apply an UPDATE on the winners table. Matches by (party_id, quarter). */
+export function applyWinnerUpdate(newWinner: Winner): void {
+	winners.update((current) =>
+		current.map((w) =>
+			w.party_id === newWinner.party_id && w.quarter === newWinner.quarter ? newWinner : w
+		)
+	);
+}
+
+/** Apply a DELETE on the winners table. Matches by (party_id, quarter). */
+export function applyWinnerDelete(deleted: Winner): void {
+	winners.update((current) =>
+		current.filter((w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter))
+	);
+}
+
+/** Apply an INSERT or UPDATE on the game_scores table; null clears it. */
+export function applyGameScoresUpdate(row: GameScoresRow | null): void {
+	gameScores.set(row);
+}
+
 export async function loadParty(code: string) {
 	isLoading.set(true);
 	error.set(null);
@@ -267,10 +333,16 @@ export async function loadParty(code: string) {
 				.eq('game_id', effectiveGameId)
 				.single();
 
-			// PGRST116 = "no rows returned" - expected when game hasn't started yet
-			// Other errors are logged but don't fail the page load (live scores are optional)
+			// PGRST116 = "no rows returned" - expected when game hasn't started yet.
+			// Other errors are logged so they're visible during dev/observability.
+			// We still proceed because live scores are optional; realtime will pick up
+			// data when the game starts.
 			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
-				// Non-critical error - realtime will pick up data when available
+				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				console.warn(
+					`[loadParty] live game_scores fetch failed for game ${effectiveGameId}:`,
+					gameScoresError.message
+				);
 			}
 			gameScores.set(gameScoresData || null);
 
@@ -308,9 +380,10 @@ export async function loadParty(code: string) {
 		isLoading.set(false);
 		return true;
 	} catch (e) {
-		// Preserve underlying message for diagnostics; the user-facing copy stays friendly.
+		// Preserve underlying message for diagnostics (logged + sent to Sentry);
+		// user-facing copy stays approachable.
 		const detail = e instanceof Error ? e.message : String(e);
-		// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+		// eslint-disable-next-line no-console -- diagnostic; Sentry hooks pick this up
 		console.error('[loadParty] fatal error loading party:', detail);
 		error.set("Couldn't load that party. Check your connection and try again.");
 		isLoading.set(false);

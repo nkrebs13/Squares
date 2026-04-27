@@ -1,28 +1,34 @@
-import { get } from 'svelte/store';
+import { get, writable, type Readable } from 'svelte/store';
 import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 import { getSupabaseClient } from '$lib/supabase';
-import type {
-	Square,
-	Numbers,
-	Scores,
-	Winner,
-	Party,
-	BroadcastMessage,
-	GameScoresRow,
-} from '$lib/types';
+import type { BroadcastMessage } from '$lib/types';
+import {
+	parseSquare,
+	parseParty,
+	parseNumbers,
+	parseScores,
+	parseWinner,
+	parseWinnerArray,
+	parseGameScores,
+} from '$lib/validators/realtime';
 import { toast } from './toast';
 import {
 	clientId,
 	squares,
 	party,
-	numbers,
 	scores,
 	winners,
-	gameScores,
 	pendingOperations,
 	pendingTimeouts,
-	squareKey,
 	PENDING_TIMEOUT_MS,
+	applySquareUpdate,
+	applyPartyUpdate,
+	applyNumbersUpdate,
+	applyScoresUpdate,
+	applyWinnerInsert,
+	applyWinnerUpdate,
+	applyWinnerDelete,
+	applyGameScoresUpdate,
 } from './game-state';
 
 /**
@@ -54,9 +60,43 @@ const channelStates: Record<string, ChannelState> = {
 const MAX_RECONNECT = 5;
 const BASE_DELAY = 1000;
 
+// ─── Connection status (surfaced to the UI via ConnectionBanner) ──────────
+export type ConnectionStatus = 'connected' | 'reconnecting' | 'failed';
+
+export interface ConnectionStatusState {
+	status: ConnectionStatus;
+	attempt: number;
+}
+
+const _connectionStatus = writable<ConnectionStatusState>({ status: 'connected', attempt: 0 });
+
+/** Public read-only store of the realtime connection status. */
+export const connectionStatus: Readable<ConnectionStatusState> = {
+	subscribe: _connectionStatus.subscribe,
+};
+
+function recomputeAggregateStatus() {
+	let maxAttempts = 0;
+	let anyFailed = false;
+	let anyReconnecting = false;
+	for (const state of Object.values(channelStates)) {
+		if (state.reconnectAttempts >= MAX_RECONNECT) anyFailed = true;
+		else if (state.reconnectAttempts > 0) anyReconnecting = true;
+		if (state.reconnectAttempts > maxAttempts) maxAttempts = state.reconnectAttempts;
+	}
+	if (anyFailed) {
+		_connectionStatus.set({ status: 'failed', attempt: maxAttempts });
+	} else if (anyReconnecting) {
+		_connectionStatus.set({ status: 'reconnecting', attempt: maxAttempts });
+	} else {
+		_connectionStatus.set({ status: 'connected', attempt: 0 });
+	}
+}
+
 function scheduleReconnect(channelKey: string, setupFn: () => void) {
 	const state = channelStates[channelKey];
 	if (state.reconnectAttempts >= MAX_RECONNECT) {
+		recomputeAggregateStatus();
 		return;
 	}
 
@@ -67,6 +107,7 @@ function scheduleReconnect(channelKey: string, setupFn: () => void) {
 	}
 
 	state.reconnectAttempts++;
+	recomputeAggregateStatus();
 	// Add jitter to prevent thundering herd
 	const jitter = Math.random() * 500;
 	const delay = Math.min(BASE_DELAY * Math.pow(2, state.reconnectAttempts - 1), 16000) + jitter;
@@ -87,6 +128,7 @@ function resetReconnectState(channelKey: string) {
 		clearTimeout(state.reconnectTimeout);
 		state.reconnectTimeout = null;
 	}
+	recomputeAggregateStatus();
 }
 
 function handleChannelStatus(
@@ -145,15 +187,6 @@ export function schedulePendingTimeout(key: string) {
 	}, PENDING_TIMEOUT_MS);
 
 	pendingTimeouts.set(key, timeoutId);
-}
-
-// Clear a pending timeout when operation is confirmed
-function clearPendingTimeout(key: string) {
-	const timeoutId = pendingTimeouts.get(key);
-	if (timeoutId) {
-		clearTimeout(timeoutId);
-		pendingTimeouts.delete(key);
-	}
 }
 
 // Handle broadcast messages from other clients
@@ -260,8 +293,14 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.select('*')
 		.eq('party_id', currentParty.id)
 		.single()
-		.then(({ data }) => {
-			if (data) scores.set(data as Scores);
+		.then(({ data, error }) => {
+			if (error) {
+				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				console.warn('[realtime] failed to refetch scores after broadcast:', error.message);
+				return;
+			}
+			const parsed = parseScores(data);
+			if (parsed) scores.set(parsed);
 		});
 
 	supabase
@@ -269,8 +308,14 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.select('*')
 		.eq('party_id', currentParty.id)
 		.order('quarter')
-		.then(({ data }) => {
-			if (data) winners.set(data as Winner[]);
+		.then(({ data, error }) => {
+			if (error) {
+				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				console.warn('[realtime] failed to refetch winners after broadcast:', error.message);
+				return;
+			}
+			const parsed = parseWinnerArray(data);
+			if (parsed) winners.set(parsed);
 		});
 }
 
@@ -299,19 +344,8 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
-					const newSquare = payload.new as Square;
-					const key = squareKey(newSquare.row_num, newSquare.col_num);
-
-					// Clear any pending operation and timeout for this square - database is source of truth
-					clearPendingTimeout(key);
-					pendingOperations.update((ops) => {
-						const newOps = new Map(ops);
-						newOps.delete(key);
-						return newOps;
-					});
-
-					// Update with confirmed state from database
-					squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+					const newSquare = parseSquare(payload.new);
+					if (newSquare) applySquareUpdate(newSquare);
 				}
 			}
 		)
@@ -325,7 +359,8 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'UPDATE') {
-					party.set(payload.new as Party);
+					const newParty = parseParty(payload.new);
+					if (newParty) applyPartyUpdate(newParty);
 				}
 			}
 		)
@@ -339,7 +374,8 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					numbers.set(payload.new as Numbers);
+					const newNumbers = parseNumbers(payload.new);
+					if (newNumbers) applyNumbersUpdate(newNumbers);
 				}
 			}
 		)
@@ -353,7 +389,8 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					scores.set(payload.new as Scores);
+					const newScores = parseScores(payload.new);
+					if (newScores) applyScoresUpdate(newScores);
 				}
 			}
 		)
@@ -367,23 +404,14 @@ function setupPartyChannel(partyId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT') {
-					winners.update((current) => [...current, payload.new as Winner]);
+					const newWinner = parseWinner(payload.new);
+					if (newWinner) applyWinnerInsert(newWinner);
 				} else if (payload.eventType === 'UPDATE') {
-					winners.update((current) =>
-						current.map((w) =>
-							w.party_id === (payload.new as Winner).party_id &&
-							w.quarter === (payload.new as Winner).quarter
-								? (payload.new as Winner)
-								: w
-						)
-					);
+					const newWinner = parseWinner(payload.new);
+					if (newWinner) applyWinnerUpdate(newWinner);
 				} else if (payload.eventType === 'DELETE') {
-					const deleted = payload.old as Winner;
-					winners.update((current) =>
-						current.filter(
-							(w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter)
-						)
-					);
+					const deleted = parseWinner(payload.old);
+					if (deleted) applyWinnerDelete(deleted);
 				}
 			}
 		)
@@ -406,9 +434,10 @@ function setupGameChannel(gameId: string) {
 			},
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					gameScores.set(payload.new as GameScoresRow);
+					const newGameScores = parseGameScores(payload.new);
+					if (newGameScores) applyGameScoresUpdate(newGameScores);
 				} else if (payload.eventType === 'DELETE') {
-					gameScores.set(null);
+					applyGameScoresUpdate(null);
 				}
 			}
 		)
