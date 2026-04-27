@@ -48,6 +48,15 @@ describe('formatPrice (config-driven currency override)', () => {
 
 		expect(localizedFormatPrice(10)).toBe('10 ZZZZ');
 	});
+
+	it('preserves cents in the fallback path for non-integer amounts', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: { PUBLIC_CURRENCY_CODE: 'ZZZZ' },
+		}));
+		const { formatPrice: localizedFormatPrice } = await import('$lib/utils/format');
+
+		expect(localizedFormatPrice(10.5)).toBe('10.50 ZZZZ');
+	});
 });
 
 describe('isValidAmount', () => {

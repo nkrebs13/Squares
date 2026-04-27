@@ -40,4 +40,4 @@ export const APP_CONFIG = {
 export const DEFAULT_TEAMS = {
 	row: { name: APP_CONFIG.defaultTeams.row.name, color: APP_CONFIG.defaultTeams.row.color },
 	col: { name: APP_CONFIG.defaultTeams.col.name, color: APP_CONFIG.defaultTeams.col.color },
-};
+} as const;
