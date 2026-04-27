@@ -49,10 +49,16 @@ updates:
           - 'minor'
           - 'patch'
 
-  # GitHub Actions
+  # GitHub Actions — patch + minor only. Major bumps need manual review
+  # because actions are SHA-pinned in ci.yml (security hardening) and a
+  # major bump usually changes the action's API surface or required inputs.
+  # Dependabot updates the SHA + the trailing version comment automatically.
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
       day: 'monday'
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
