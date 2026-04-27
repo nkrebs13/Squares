@@ -1,147 +1,149 @@
 # Football Squares
 
-A real-time web application for managing Super Bowl betting pools. Create and join "squares" parties where participants claim grid squares and win payouts based on game scores.
+> Real-time multiplayer Super Bowl pool. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
 
-## How It Works
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/nkrebs13/squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-632%20passing-success)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
 
-1. **Create a party** - Set the price per square, choose a payout structure, and get a unique party code
-2. **Share the code** - Invite friends to join using the party code
-3. **Claim squares** - Participants click squares on the 10x10 grid to claim them
-4. **Lock the grid** - Once full, the host locks the grid and random numbers (0-9) are assigned to rows and columns
-5. **Track scores** - Enter scores for each quarter; winners are determined when game scores end in the assigned numbers
-6. **Celebrate winners** - Payouts are distributed based on Q1, Q2, Q3, and Final scores
+> **Screenshots + demo GIF**: hero strip and a ~10s walkthrough of create → claim → score belong here. They're a manual capture step — see [docs/screenshots/README.md](docs/screenshots/README.md) for how to regenerate.
+
+## Why this exists
+
+Office and friend-group "squares" pools usually run via a paper grid + Venmo. Anyone joining late can't see the live grid. Anyone leaving early can't see who won which quarter. The host has to manually track scores against a paper-and-pen grid while paying attention to the actual game.
+
+This app collapses all of that into a shared URL. Friends claim cells in real time, the host enters scores at quarter-end, the app computes winners and shows a payout summary. No accounts, no money flowing through the app — just the bookkeeping.
 
 ## Features
 
-- Real-time grid synchronization across all participants
-- Multiple payout structures (Rising, Equal, Big Finish, or Custom)
-- Host PIN protection for administrative functions
-- Player statistics and color-coded legend
-- Pan and zoom for easy grid navigation
-- PWA support - installable on mobile devices
-- Recent parties saved locally for quick access
-- Dark/light theme support
+- **Real-time grid sync** — sub-100ms cross-client updates via Supabase broadcast + postgres_changes (see [ADR-0003](docs/adr/0003-dual-realtime-channels.md))
+- **Optimistic claims with rollback** — taps feel instant; failed claims roll back with a toast (see [ADR-0002](docs/adr/0002-optimistic-chain.md))
+- **Multiple payout structures** — Rising / Equal / Big Finish / Custom
+- **Host PIN protection** for grid lock, score entry, payout edits, party deletion
+- **PWA installable** on iOS + Android with push notifications
+- **ESPN live score auto-detect** — links to the active NFL game without manual setup
+- **Color-coded player legend** with click-to-filter
+- **Pan and zoom** for usable squares on small phones
+- **WCAG 2.1 AA targets** — ARIA grid markup, dialog modal with focus trap, semantic forms
 
-## Tech Stack
+## Tech stack
 
-- **Frontend**: Svelte 5, SvelteKit, TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL with real-time subscriptions)
-- **Deployment**: Cloudflare Pages
+| Layer         | Choice                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| Frontend      | SvelteKit 5 (runes in components, legacy stores in shared state — [why](docs/adr/0001-hybrid-reactivity.md)) |
+| Styling       | Tailwind 4 + CSS variables                                                                                   |
+| Language      | TypeScript 6 strict                                                                                          |
+| Backend       | Supabase (Postgres + Realtime + RPC)                                                                         |
+| Hosting       | Cloudflare Pages                                                                                             |
+| Observability | Sentry + Web Vitals (optional, no-op without DSN)                                                            |
+| Testing       | Vitest (unit + integration) + Playwright (e2e + visual regression)                                           |
+| CI            | GitHub Actions — 5 jobs gating every PR                                                                      |
 
-## Getting Started
+## Quick start
 
 ### Prerequisites
 
-- Node.js 18+
-- A [Supabase](https://supabase.com) project
+- Node 20+
+- A [Supabase](https://supabase.com) project (free tier works)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <repo-url>
+git clone https://github.com/nkrebs13/squares.git
 cd squares
-
-# Install dependencies
 npm install
+cp .env.example .env.local
+# Edit .env.local: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+npm run dev                   # http://localhost:5173
 ```
 
-### Environment Setup
+### Database setup
 
-Create a `.env.local` file in the project root:
+Apply the migrations to your Supabase project:
 
-```env
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```bash
+# Option A: Supabase CLI (recommended)
+supabase link --project-ref <your-ref>
+supabase db push
+
+# Option B: Manually paste each migration in the Supabase SQL Editor
+# in numerical order: supabase/migrations/001_*.sql through 023_*.sql
 ```
 
-#### Optional: Error tracking
+### Optional: Error tracking
 
-Set `PUBLIC_SENTRY_DSN` to send unhandled errors and Web Vitals (CLS, INP, LCP, FCP, TTFB) to a [Sentry](https://sentry.io) project. The free tier is sufficient for portfolio-level traffic; the app works identically with the variable unset.
+Set `PUBLIC_SENTRY_DSN` in `.env.local` to send unhandled errors and Web Vitals (CLS, INP, LCP, FCP, TTFB) to a [Sentry](https://sentry.io) project. The free tier is sufficient for portfolio-level traffic; the app works identically with the variable unset.
 
 ```env
 PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
 ```
 
-### Database Setup
+## Architecture
 
-Run the migrations in the `supabase/migrations/` directory against your Supabase project in order (001 through 007).
+The 10-minute orientation is in [ARCHITECTURE.md](ARCHITECTURE.md). The deepest design decisions get their own ADRs:
 
-### Development
+- [ADR-0001: Hybrid reactivity](docs/adr/0001-hybrid-reactivity.md) — why stores stay legacy and components use runes
+- [ADR-0002: Optimistic update chain](docs/adr/0002-optimistic-chain.md) — why `.then()` instead of `await`, and what the 8 steps are
+- [ADR-0003: Dual realtime channels](docs/adr/0003-dual-realtime-channels.md) — why both broadcast AND postgres_changes
 
-```bash
-# Start the development server
-npm run dev
+If you've cloned the repo and want to know "where does X live and why", that's the path.
 
-# Open in browser automatically
-npm run dev -- --open
-```
+## Development
 
-The app will be available at `http://localhost:5173`.
+| Command                     | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `npm run dev`               | Start dev server at `http://localhost:5173`                |
+| `npm run build`             | Production build (Cloudflare adapter)                      |
+| `npm run preview`           | Preview the production build at `http://localhost:4173`    |
+| `npm run check`             | TypeScript + Svelte diagnostics                            |
+| `npm run lint`              | ESLint + `--max-warnings 0`                                |
+| `npm run lint:fix`          | Auto-fix lint issues                                       |
+| `npm run format`            | Prettier write                                             |
+| `npm run test`              | Unit tests (Vitest)                                        |
+| `npm run test:coverage`     | Unit tests + coverage report (thresholds enforced)         |
+| `npm run test:integration`  | Integration tests (requires `supabase start`)              |
+| `npm run test:e2e`          | Playwright (Chromium + Mobile Chrome)                      |
+| `npm run check:bundle-size` | Bundle-size budget check (after `npm run build`)           |
+| `npm run db:types`          | Regenerate `src/lib/database.types.ts` from local Supabase |
 
-## Scripts
-
-| Script                 | Description                              |
-| ---------------------- | ---------------------------------------- |
-| `npm run dev`          | Start development server with hot reload |
-| `npm run build`        | Build for production                     |
-| `npm run preview`      | Preview production build locally         |
-| `npm run check`        | Type-check TypeScript and Svelte files   |
-| `npm run lint`         | Check code for linting errors            |
-| `npm run lint:fix`     | Auto-fix linting issues                  |
-| `npm run format`       | Format code with Prettier                |
-| `npm run format:check` | Check if code is formatted correctly     |
-
-## Project Structure
+## Project structure
 
 ```
 src/
-├── routes/                 # SvelteKit pages
-│   ├── +page.svelte       # Home (create/join party)
-│   ├── create/            # Create party page
-│   ├── join/              # Join party page
-│   └── party/[code]/      # Game grid and admin panel
+├── routes/
+│   ├── +page.svelte              Home (CTA + RecentParties)
+│   ├── create/+page.svelte       Create party
+│   ├── join/+page.svelte         Join party (with PIN modal for host names)
+│   └── party/[code]/
+│       ├── +page.svelte          Grid + sidebar
+│       └── admin/+page.svelte    Host panel
 ├── lib/
-│   ├── components/        # Reusable Svelte components
-│   ├── stores/            # State management
-│   ├── types.ts           # TypeScript definitions
-│   └── supabase.ts        # Supabase client
+│   ├── components/               Reusable UI (Square, SimpleGrid, PartySidebar, …)
+│   ├── stores/                   Realtime + state + optimistic update chain
+│   ├── services/                 Service modules (createParty)
+│   ├── validators/               Hand-written runtime guards for postgres_changes
+│   └── types.ts                  TypeScript definitions
+├── hooks.client.ts               Sentry init + Web Vitals
+└── hooks.server.ts               Sentry init for the Cloudflare adapter
 supabase/
-└── migrations/            # Database schema and RPC functions
+└── migrations/                   Forward-only SQL (don't edit existing files)
+e2e/                              Playwright specs + visual regression
+docs/                             Architecture, ADRs, E2E testing strategy
 ```
-
-## Usage
-
-### Creating a Party
-
-1. Click "Create Party" on the home page
-2. Set the price per square
-3. Choose a payout structure
-4. Enter your name (you'll be the host)
-5. Set a 4-digit PIN for host functions
-6. Share the generated party code with friends
-
-### Joining a Party
-
-1. Enter the party code on the home page, or use a direct link
-2. Enter your name
-3. Click squares on the grid to claim them
-
-### Host Functions
-
-Access the admin panel by clicking "Admin" (requires PIN):
-
-- Lock the grid to start the game
-- Enter scores for each quarter
-- Modify payout structure
-- Remove players from squares
-- Delete the party
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run `npm run check` and `npm run lint` to ensure code quality
-5. Submit a pull request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. Short version:
+
+1. Branch from `main`
+2. Run `npm run lint && npm run check && npm run test` locally
+3. Open a PR; CI must be green before merge
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Author
+
+Built by [Nathan Krebs](https://github.com/nkrebs13). Originally for Super Bowl 2026 with friends; now public as a portfolio piece.

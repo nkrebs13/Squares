@@ -1,0 +1,43 @@
+name: Feature request
+description: Something the app should do but doesn't
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. The most useful feature requests describe a problem first, then suggest a solution. That gives me room to think about whether there's a simpler way to solve the same problem.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      placeholder: "When my party has 8 players, I can't tell at a glance how many squares each person has claimed."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What did you have in mind?
+      placeholder: "A 'count by player' badge next to each name in the legend."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you've already considered + ruled out?
+      placeholder: "I tried filtering by player but that hides the other squares."
+
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who would this help?
+      options:
+        - Hosts (people running the party)
+        - Players (people claiming squares)
+        - Both
+        - Other (describe above)
+    validations:
+      required: true

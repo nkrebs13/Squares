@@ -1,0 +1,85 @@
+name: Bug report
+description: Something doesn't work the way you expected
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The more concrete the steps + repro, the faster the fix.
+
+        **Don't include sensitive info.** Don't paste a real party code or PIN.
+        Use a placeholder like `XXXXXX` or describe the state without the code.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Tell me what you saw vs. what you expected.
+      placeholder: "I clicked X, expected Y, got Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a party with prize split = Custom 25/25/25/25
+        2. Click "Lock grid"
+        3. Observe …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where in the app?
+      options:
+        - Home page
+        - Create party
+        - Join party
+        - Party grid (filling)
+        - Party grid (active / scoring)
+        - Host admin panel
+        - Push notifications
+        - Other (describe in "What happened")
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + OS
+      placeholder: "Safari 18 on iOS 18, Chrome 138 on macOS 15"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Annoying — works around easily
+        - Blocks me from one feature
+        - Blocks me from using the app
+        - Data loss / wrong scoring / other party-affecting
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console errors
+      description: Open DevTools → Console. Paste anything red. Skip if you saw nothing.
+      render: shell
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've redacted any party codes / PINs / personal names from this report
+          required: true
+        - label: I've checked existing issues — this isn't a duplicate
+          required: true

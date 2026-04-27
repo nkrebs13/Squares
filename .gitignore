@@ -38,3 +38,7 @@ supabase/.temp/
 .claude/tasks/
 .claude/settings.local.json
 .claude/vibe-state.local.md
+
+# Demo capture raw assets — large originals kept out of repo
+docs/screenshots/raw/
+
