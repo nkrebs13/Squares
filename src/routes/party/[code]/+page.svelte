@@ -4,30 +4,14 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
-	import ScoreBoard from '$lib/components/ScoreBoard.svelte';
-	import Winners from '$lib/components/Winners.svelte';
-	import PartyCode from '$lib/components/PartyCode.svelte';
-	import PlayerStats from '$lib/components/PlayerStats.svelte';
-	import PlayerLegend from '$lib/components/PlayerLegend.svelte';
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 	import GestureHint from '$lib/components/GestureHint.svelte';
-	import PushOptIn from '$lib/components/PushOptIn.svelte';
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
-	import {
-		loadParty,
-		subscribeToParty,
-		cleanup,
-		party,
-		isLoading,
-		error,
-		filledCount,
-		isGridFull,
-	} from '$lib/stores/game';
+	import PartySidebar from '$lib/components/PartySidebar.svelte';
+	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
-	import { formatPrice } from '$lib/utils/format';
-	import { isGameInProgress } from '$lib/types';
 	import type { RecentParty } from '$lib/types';
 
 	const code = $derived($page.params.code ?? '');
@@ -150,82 +134,15 @@
 			<!-- Main Content (Grid) -->
 			<svelte:boundary>
 				<div class="main-content">
-					<!-- Status banner (mobile + desktop inline) -->
-					{#if $party.status === 'filling'}
-						<div class="mb-4 status-banner status-banner-filling lg:hidden">
-							<span class="font-medium">{$filledCount}/100</span> squares filled
-							{#if $isGridFull}
-								<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
-							{/if}
-						</div>
-					{:else if isGameInProgress($party.status) || $party.status === 'complete'}
-						<div class="mb-4 lg:hidden">
-							<ScoreBoard />
-						</div>
-					{/if}
-
-					<!-- Winners (mobile only) -->
-					{#if isGameInProgress($party.status) || $party.status === 'complete'}
-						<div class="mb-4 lg:hidden">
-							<Winners />
-						</div>
-					{/if}
-
-					<!-- Gesture hint for first-time mobile visitors -->
+					<!-- Mobile sidebar content (above grid) -->
 					<div class="lg:hidden">
+						<PartySidebar variant="mobile" />
 						<GestureHint />
 					</div>
 
 					<!-- Main Grid -->
 					<div class="mb-4 lg:mb-0">
 						<SimpleGrid />
-					</div>
-
-					<!-- Mobile-only sections below grid -->
-					<div class="lg:hidden">
-						<!-- Player Stats -->
-						<div class="mb-4">
-							<PlayerStats />
-						</div>
-
-						<!-- Party Code (for sharing) -->
-						<div class="mb-4">
-							<PartyCode />
-						</div>
-
-						<!-- Push notification opt-in -->
-						<div class="mb-4">
-							<PushOptIn />
-						</div>
-
-						<!-- Prize info -->
-						<div class="card text-sm">
-							<div class="grid grid-cols-4 gap-2 text-center">
-								<div>
-									<div style="color: var(--text-muted)">Q1</div>
-									<div class="font-medium">{$party.split_q1}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Q2</div>
-									<div class="font-medium">{$party.split_q2}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Q3</div>
-									<div class="font-medium">{$party.split_q3}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Final</div>
-									<div class="font-medium">{$party.split_final}%</div>
-								</div>
-							</div>
-							{#if $party.square_price > 0}
-								<div class="mt-3 text-center" style="color: var(--text-secondary)">
-									{formatPrice($party.square_price)}/square • {formatPrice(
-										$party.square_price * 100
-									)} total pot
-								</div>
-							{/if}
-						</div>
 					</div>
 				</div>
 				{#snippet failed(_error, reset)}
@@ -236,78 +153,7 @@
 			<!-- Desktop Sidebar -->
 			<svelte:boundary failed={sidebarBoundaryFallback}>
 				<aside class="sidebar hidden lg:block">
-					<div>
-						<!-- Status banner -->
-						{#if $party.status === 'filling'}
-							<div class="mb-4 status-banner status-banner-filling">
-								<span class="font-medium">{$filledCount}/100</span> squares filled
-								{#if $isGridFull}
-									<span class="ml-2" style="color: var(--color-success)">• Ready to lock!</span>
-								{/if}
-							</div>
-						{:else if isGameInProgress($party.status) || $party.status === 'complete'}
-							<div class="mb-4">
-								<ScoreBoard />
-							</div>
-						{/if}
-
-						<!-- Winners -->
-						{#if isGameInProgress($party.status) || $party.status === 'complete'}
-							<div class="mb-4">
-								<Winners />
-							</div>
-						{/if}
-
-						<!-- Player Stats -->
-						<div class="mb-4">
-							<PlayerStats />
-						</div>
-
-						<!-- Party Code (for sharing) -->
-						<div class="mb-4">
-							<PartyCode />
-						</div>
-
-						<!-- Push notification opt-in -->
-						<div class="mb-4">
-							<PushOptIn />
-						</div>
-
-						<!-- Prize info -->
-						<div class="card text-sm">
-							<h3 class="font-medium mb-3" style="color: var(--text-secondary)">Prize Split</h3>
-							<div class="grid grid-cols-4 gap-2 text-center">
-								<div>
-									<div style="color: var(--text-muted)">Q1</div>
-									<div class="font-medium">{$party.split_q1}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Q2</div>
-									<div class="font-medium">{$party.split_q2}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Q3</div>
-									<div class="font-medium">{$party.split_q3}%</div>
-								</div>
-								<div>
-									<div style="color: var(--text-muted)">Final</div>
-									<div class="font-medium">{$party.split_final}%</div>
-								</div>
-							</div>
-							{#if $party.square_price > 0}
-								<div class="mt-3 text-center" style="color: var(--text-secondary)">
-									{formatPrice($party.square_price)}/square • {formatPrice(
-										$party.square_price * 100
-									)} total pot
-								</div>
-							{/if}
-						</div>
-
-						<!-- Player Legend -->
-						<div class="mt-4">
-							<PlayerLegend />
-						</div>
-					</div>
+					<PartySidebar variant="desktop" />
 				</aside>
 			</svelte:boundary>
 		</div>
