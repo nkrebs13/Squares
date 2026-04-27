@@ -39,9 +39,6 @@ export {
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
 	claimSquaresBatchOptimistic,
-	claimSquare,
-	claimSquaresBatch,
-	unclaimSquare,
 } from './game-optimistic';
 
 export {

@@ -3,9 +3,6 @@ import {
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
 	claimSquaresBatchOptimistic,
-	claimSquare,
-	claimSquaresBatch,
-	unclaimSquare,
 	updatePayoutStructure,
 	removePlayer,
 	party,
@@ -105,39 +102,6 @@ describe('State Machine: status-gated functions reject non-filling states', () =
 		});
 	});
 
-	describe('claimSquare (legacy)', () => {
-		it.each(NON_FILLING_STATUSES)('rejects when status is %s', async (status) => {
-			party.set(createMockParty({ status }));
-
-			const result = await claimSquare(0, 0);
-
-			expect(result).toBe(false);
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('claimSquaresBatch (legacy)', () => {
-		it.each(NON_FILLING_STATUSES)('rejects when status is %s', async (status) => {
-			party.set(createMockParty({ status }));
-
-			const result = await claimSquaresBatch([{ row: 0, col: 0 }]);
-
-			expect(result).toBe(0);
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('unclaimSquare (legacy)', () => {
-		it.each(NON_FILLING_STATUSES)('rejects when status is %s', async (status) => {
-			party.set(createMockParty({ status }));
-
-			const result = await unclaimSquare(0, 0);
-
-			expect(result).toBe(false);
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		});
-	});
-
 	describe('updatePayoutStructure', () => {
 		it.each(NON_FILLING_STATUSES)('rejects when status is %s', async (status) => {
 			party.set(createMockParty({ status, host_pin: '1234' }));
@@ -162,30 +126,6 @@ describe('State Machine: status-gated functions reject non-filling states', () =
 
 			expect(result.success).toBe(false);
 			expect(mockSupabaseClient.from).not.toHaveBeenCalled();
-		});
-	});
-
-	// Positive tests: all functions should proceed when status is 'filling'
-	describe('all functions proceed when status is filling', () => {
-		it('claimSquare proceeds', async () => {
-			party.set(createMockParty({ status: 'filling' }));
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-			const result = await claimSquare(0, 0);
-			expect(result).toBe(true);
-		});
-
-		it('unclaimSquare proceeds', async () => {
-			party.set(createMockParty({ status: 'filling' }));
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-			const result = await unclaimSquare(0, 0);
-			expect(result).toBe(true);
-		});
-
-		it('claimSquaresBatch proceeds', async () => {
-			party.set(createMockParty({ status: 'filling' }));
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
-			const result = await claimSquaresBatch([{ row: 0, col: 0 }]);
-			expect(result).toBe(1);
 		});
 	});
 });
