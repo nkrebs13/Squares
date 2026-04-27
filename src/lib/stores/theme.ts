@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import { DEFAULT_TEAMS } from '$lib/types';
+import { DEFAULT_TEAMS } from '$lib/config';
 
 interface TeamColors {
 	rowColor: string;

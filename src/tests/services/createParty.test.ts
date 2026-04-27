@@ -6,7 +6,7 @@ vi.mock('$lib/supabase', () => ({
 }));
 
 import { createParty } from '$lib/services/createParty';
-import { DEFAULT_TEAMS } from '$lib/types';
+import { DEFAULT_TEAMS } from '$lib/config';
 
 const validPartyRow = {
 	id: '11111111-1111-1111-1111-111111111111',

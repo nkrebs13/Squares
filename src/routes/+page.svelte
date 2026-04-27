@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import RecentParties from '$lib/components/RecentParties.svelte';
+	import { APP_CONFIG } from '$lib/config';
 
 	let partyCode = $state('');
 
@@ -14,9 +15,9 @@
 <div class="min-h-screen flex flex-col items-center justify-center p-6">
 	<div class="text-center mb-12 animate-fade-in">
 		<h1 class="text-5xl sm:text-6xl font-bold mb-3 logo-title">
-			<span class="logo-gradient">Football Squares</span>
+			<span class="logo-gradient">{APP_CONFIG.appName}</span>
 		</h1>
-		<p class="text-lg" style="color: var(--text-secondary)">Super Bowl party pools made easy</p>
+		<p class="text-lg" style="color: var(--text-secondary)">{APP_CONFIG.appTagline}</p>
 	</div>
 
 	<div class="w-full max-w-sm space-y-4 animate-scale-in">

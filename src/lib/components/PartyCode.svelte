@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { party } from '$lib/stores/game';
 	import { browser } from '$app/environment';
+	import { APP_CONFIG } from '$lib/config';
 	import QRCode from 'qrcode';
 
 	let copied = $state(false);
@@ -56,8 +57,8 @@
 	async function shareCode() {
 		if (!$party) return;
 		const shareData = {
-			title: 'Football Squares',
-			text: `Join my Football Squares party!`,
+			title: APP_CONFIG.appName,
+			text: `Join my ${APP_CONFIG.appName} party!`,
 			url: joinUrl,
 		};
 
