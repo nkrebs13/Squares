@@ -1,6 +1,8 @@
 # Security TODO
 
-Items identified during security audit (2026-01-28). Status last reviewed: 2026-02-03.
+Items identified during security audit (2026-01-28). Status last reviewed: 2026-04-26.
+
+> **For external researchers:** see [SECURITY.md](SECURITY.md) for the responsible-disclosure path. This file documents internal status of known issues + accepted risks; SECURITY.md is the public-facing version.
 
 ---
 
