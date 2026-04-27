@@ -2,6 +2,8 @@
 
 > Real-time multiplayer Super Bowl pool. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
 
+**Live: [squares.nathankrebs.com](https://squares.nathankrebs.com)**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-691%20passing-success)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
