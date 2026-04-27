@@ -12,6 +12,7 @@
 	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import { saveRecentParty, hasHostPin } from '$lib/storage';
+	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 
 	const code = $derived($page.params.code ?? '');
@@ -81,24 +82,24 @@
 <svelte:head>
 	<title
 		>{$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}</title
+			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
+			: APP_CONFIG.appName}</title
 	>
 	<meta
 		property="og:title"
 		content={$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}
+			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
+			: APP_CONFIG.appName}
 	/>
-	<meta property="og:description" content="Claim your squares for the big game!" />
+	<meta property="og:description" content={APP_CONFIG.appDescription} />
 	<meta name="twitter:card" content="summary" />
 	<meta
 		name="twitter:title"
 		content={$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}
+			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
+			: APP_CONFIG.appName}
 	/>
-	<meta name="twitter:description" content="Claim your squares for the big game!" />
+	<meta name="twitter:description" content={APP_CONFIG.appDescription} />
 </svelte:head>
 
 <div class="party-page">
