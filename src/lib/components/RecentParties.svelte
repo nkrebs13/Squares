@@ -135,7 +135,15 @@
 	}
 </script>
 
-{#if !isLoading && recentParties.length > 0}
+{#if !isLoading && recentParties.length === 0}
+	<div class="recent-parties recent-parties-empty">
+		<h3 class="recent-title">Recent Parties</h3>
+		<p class="empty-message">
+			No recent parties yet — <a href="/create" class="empty-link">create one</a> to get started, or join
+			with a code.
+		</p>
+	</div>
+{:else if !isLoading && recentParties.length > 0}
 	<div class="recent-parties">
 		<h3 class="recent-title">Recent Parties</h3>
 		<div class="party-list">
@@ -255,6 +263,26 @@
 		color: var(--text-muted);
 		margin-bottom: 0.75rem;
 		text-align: center;
+	}
+
+	.empty-message {
+		text-align: center;
+		font-size: 0.875rem;
+		color: var(--text-secondary);
+		padding: 1.5rem 1rem;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px dashed var(--border-color);
+		border-radius: 12px;
+	}
+
+	.empty-link {
+		color: rgba(100, 210, 200, 0.95);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.empty-link:hover {
+		color: rgba(100, 210, 200, 1);
 	}
 
 	.party-list {

@@ -380,10 +380,12 @@ export async function loadParty(code: string) {
 		isLoading.set(false);
 		return true;
 	} catch (e) {
-		const message = e instanceof Error ? e.message : String(e);
-		// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
-		console.error('[loadParty] fatal error loading party:', message);
-		error.set(`Failed to load party: ${message}`);
+		// Preserve underlying message for diagnostics (logged + sent to Sentry);
+		// user-facing copy stays approachable.
+		const detail = e instanceof Error ? e.message : String(e);
+		// eslint-disable-next-line no-console -- diagnostic; Sentry hooks pick this up
+		console.error('[loadParty] fatal error loading party:', detail);
+		error.set("Couldn't load that party. Check your connection and try again.");
 		isLoading.set(false);
 		return false;
 	}
