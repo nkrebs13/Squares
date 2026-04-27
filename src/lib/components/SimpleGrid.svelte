@@ -365,14 +365,22 @@
 				bind:this={scrollContainer}
 				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px;"
 			>
-				<div class="grid-11x11">
-					<div class="corner-cell"></div>
+				<div
+					class="grid-11x11"
+					role="grid"
+					aria-label="Football squares grid, 10 by 10. Use arrow keys after focusing a square to navigate."
+					aria-rowcount={NUM_COLS + 1}
+					aria-colcount={NUM_COLS + 1}
+				>
+					<div class="corner-cell" role="presentation"></div>
 
 					{#each cols as col (col)}
 						<div
 							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
 								? 'rounded-tr'
 								: ''}"
+							role="columnheader"
+							aria-colindex={col + 2}
 						>
 							{$numbers ? $numbers.col_numbers[col] : '?'}
 						</div>
@@ -383,6 +391,8 @@
 							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
 								? 'rounded-bl'
 								: ''}"
+							role="rowheader"
+							aria-rowindex={row + 2}
 						>
 							{$numbers ? $numbers.row_numbers[row] : '?'}
 						</div>
@@ -394,6 +404,9 @@
 									class="square-wrapper"
 									class:highlighted={isSquareHighlighted(square)}
 									class:dimmed={isSquareDimmed(square)}
+									role="gridcell"
+									aria-rowindex={row + 2}
+									aria-colindex={col + 2}
 								>
 									<Square
 										{square}

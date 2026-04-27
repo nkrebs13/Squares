@@ -135,19 +135,27 @@
 			<div class="mt-4 grid grid-cols-4 gap-3">
 				{#each ['q1', 'q2', 'q3', 'final'] as quarter (quarter)}
 					<div class="text-center">
-						<div class="text-xs uppercase" style="color: var(--text-muted)">
+						<label
+							for="split-{quarter}"
+							class="text-xs uppercase block"
+							style="color: var(--text-muted)"
+						>
 							{quarter === 'final' ? 'Final' : quarter.toUpperCase()}
-						</div>
+						</label>
 						{#if isCustom}
 							<input
+								id="split-{quarter}"
 								type="number"
 								bind:value={customSplit[quarter as keyof typeof customSplit]}
 								min="0"
 								max="100"
 								class="input mt-1 text-center p-2"
+								aria-label="{quarter === 'final'
+									? 'Final'
+									: quarter.toUpperCase()} prize split percentage"
 							/>
 						{:else}
-							<div class="mt-1 text-lg font-bold">
+							<div id="split-{quarter}" class="mt-1 text-lg font-bold">
 								{currentSplit[quarter as keyof typeof currentSplit]}%
 							</div>
 						{/if}
