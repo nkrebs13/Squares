@@ -4,14 +4,14 @@ A 10-minute orientation to the Football Squares codebase. If you've cloned the r
 
 ## Tech stack
 
-| Layer              | Choice                         | Notes                                                                                                    |
-| ------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Frontend framework | SvelteKit 5                    | Runes for components, legacy stores for shared state — see [hybrid reactivity](#hybrid-reactivity) below |
-| Styling            | Tailwind 4 + CSS variables     | `app.css` defines theme tokens; component styles use Tailwind utilities + scoped Svelte styles           |
-| Language           | TypeScript 6 strict            | `--max-warnings 0` on lint; svelte-check in pre-push                                                     |
-| Backend            | Supabase (Postgres + Realtime) | RPCs for writes, postgres_changes + broadcast channels for reads                                         |
-| Hosting            | Cloudflare Pages               | `@sveltejs/adapter-cloudflare`; build runs in CI on every PR                                             |
-| Observability      | Sentry + Web Vitals            | Optional — no DSN, no telemetry. See `src/hooks.client.ts`                                               |
+| Layer              | Choice                                          | Notes                                                                                                                                    |
+| ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend framework | SvelteKit 5                                     | Runes for components, legacy stores for shared state — see [hybrid reactivity](#hybrid-reactivity) below                                 |
+| Styling            | Tailwind 4 + CSS variables                      | `app.css` defines theme tokens; component styles use Tailwind utilities + scoped Svelte styles                                           |
+| Language           | TypeScript 6 strict                             | `--max-warnings 0` on lint; svelte-check in pre-push                                                                                     |
+| Backend            | Supabase (Postgres + Realtime)                  | RPCs for writes, postgres_changes + broadcast channels for reads                                                                         |
+| Hosting            | Cloudflare Pages / Vercel / Netlify / self-host | `@sveltejs/adapter-auto` picks the matching adapter at build time. Production runs on Cloudflare Pages — see [DEPLOY.md](docs/DEPLOY.md) |
+| Observability      | Sentry + Web Vitals                             | Optional — no DSN, no telemetry. See `src/hooks.client.ts`                                                                               |
 
 ## Module layout
 
@@ -39,7 +39,7 @@ src/
 │   ├── types.ts                  Single source of truth for DB-shape types
 │   └── supabase.ts               Singleton client
 ├── hooks.client.ts               Sentry init + Web Vitals (no-op without DSN)
-└── hooks.server.ts               Sentry init for the Cloudflare adapter
+└── hooks.server.ts               Sentry init for the resolved SvelteKit adapter
 supabase/
 └── migrations/                   Forward-only SQL — never edit existing files
 ```

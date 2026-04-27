@@ -1,5 +1,5 @@
 /**
- * Server-side SvelteKit hooks: Sentry init for the Cloudflare adapter.
+ * Server-side SvelteKit hooks: Sentry init for the resolved SvelteKit adapter.
  * No-op when PUBLIC_SENTRY_DSN is unset.
  */
 

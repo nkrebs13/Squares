@@ -35,7 +35,7 @@ This app collapses all of that into a shared URL. Friends claim cells in real ti
 | Styling       | Tailwind 4 + CSS variables                                                                                   |
 | Language      | TypeScript 6 strict                                                                                          |
 | Backend       | Supabase (Postgres + Realtime + RPC)                                                                         |
-| Hosting       | Cloudflare Pages                                                                                             |
+| Hosting       | Cloudflare Pages, Vercel, Netlify, or self-hosted Node — see [DEPLOY.md](docs/DEPLOY.md)                     |
 | Observability | Sentry + Web Vitals (optional, no-op without DSN)                                                            |
 | Testing       | Vitest (unit + integration) + Playwright (e2e + visual regression)                                           |
 | CI            | GitHub Actions — 5 jobs gating every PR                                                                      |
@@ -79,6 +79,17 @@ Set `PUBLIC_SENTRY_DSN` in `.env.local` to send unhandled errors and Web Vitals 
 PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
 ```
 
+## Deployment
+
+The repo uses `@sveltejs/adapter-auto`, so the same source ships unchanged to:
+
+- **Cloudflare Pages** — canonical production target ([squares.nathankrebs.com](https://squares.nathankrebs.com) runs here)
+- **Vercel** — [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2Fsquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
+- **Netlify** — [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/squares)
+- **Self-host (Node)** — drop in `@sveltejs/adapter-node` per the guide
+
+Full step-by-step instructions, env-var lists, custom-domain notes, and troubleshooting in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ### Customizing your fork
 
 Brand strings, default team labels, and currency live in [`src/lib/config.ts`](src/lib/config.ts) and read from `PUBLIC_*` env vars at build time. To rebrand without touching code, set the relevant entries in `.env.local` (or your platform's env-var dashboard) before `npm run build`:
@@ -112,7 +123,7 @@ If you've cloned the repo and want to know "where does X live and why", that's t
 | Command                     | Purpose                                                    |
 | --------------------------- | ---------------------------------------------------------- |
 | `npm run dev`               | Start dev server at `http://localhost:5173`                |
-| `npm run build`             | Production build (Cloudflare adapter)                      |
+| `npm run build`             | Production build (adapter auto-detects deploy platform)    |
 | `npm run preview`           | Preview the production build at `http://localhost:4173`    |
 | `npm run check`             | TypeScript + Svelte diagnostics                            |
 | `npm run lint`              | ESLint + `--max-warnings 0`                                |
@@ -143,7 +154,7 @@ src/
 │   ├── validators/               Hand-written runtime guards for postgres_changes
 │   └── types.ts                  TypeScript definitions
 ├── hooks.client.ts               Sentry init + Web Vitals
-└── hooks.server.ts               Sentry init for the Cloudflare adapter
+└── hooks.server.ts               Sentry init for the resolved SvelteKit adapter
 supabase/
 └── migrations/                   Forward-only SQL (don't edit existing files)
 e2e/                              Playwright specs + visual regression
