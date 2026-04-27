@@ -12,7 +12,7 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 
 ## Architecture Quick Reference
 
-- **Create flow**: Lives in `src/routes/create/+page.svelte` (NOT in game.ts). Does 3 sequential Supabase inserts (party → 100 squares → scores) with manual rollback. Must remain self-contained.
+- **Create flow**: `src/routes/create/+page.svelte` collects form state and calls `src/lib/services/createParty.ts`, which invokes the single transactional `create_party` RPC (migration 023). Inserts the party, 100 squares, and the scores row atomically — no client-side rollback needed.
 - **Game flow**: `src/lib/stores/game.ts` → RPCs + Realtime subscriptions
 - **Dual Realtime channels**: `subscribeToParty()` creates a broadcast channel (fast optimistic updates) AND a postgres_changes channel (5 tables: squares, parties, numbers, scores, winners). postgres_changes is source of truth.
 

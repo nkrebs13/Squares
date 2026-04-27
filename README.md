@@ -4,10 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-632%20passing-success)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-691%20passing-success)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
-
-> **Screenshots + demo GIF**: hero strip and a ~10s walkthrough of create → claim → score belong here. They're a manual capture step — see [docs/screenshots/README.md](docs/screenshots/README.md) for how to regenerate.
 
 ## Why this exists
 
