@@ -3,6 +3,8 @@
 Required GitHub repository settings for production safety.
 Configure these in **Settings > Branches > Branch protection rules** for `main`.
 
+**Last verified against CI**: 2026-04-26 — all five job IDs below are byte-for-byte identical to job IDs in `.github/workflows/ci.yml`.
+
 ## Required Status Checks
 
 Enable **"Require status checks to pass before merging"** with these required checks:
