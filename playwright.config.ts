@@ -12,6 +12,15 @@ export default defineConfig({
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 	},
+	expect: {
+		// Visual regression tolerance — small enough to catch real CSS regressions,
+		// large enough to absorb font-rendering differences between local macOS and
+		// CI Linux Chromium. Bump if false positives become a problem.
+		toHaveScreenshot: {
+			maxDiffPixels: 100,
+			animations: 'disabled',
+		},
+	},
 	projects: [
 		{
 			name: 'chromium',

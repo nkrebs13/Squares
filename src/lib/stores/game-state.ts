@@ -333,10 +333,16 @@ export async function loadParty(code: string) {
 				.eq('game_id', effectiveGameId)
 				.single();
 
-			// PGRST116 = "no rows returned" - expected when game hasn't started yet
-			// Other errors are logged but don't fail the page load (live scores are optional)
+			// PGRST116 = "no rows returned" - expected when game hasn't started yet.
+			// Other errors are logged so they're visible during dev/observability.
+			// We still proceed because live scores are optional; realtime will pick up
+			// data when the game starts.
 			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
-				// Non-critical error - realtime will pick up data when available
+				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				console.warn(
+					`[loadParty] live game_scores fetch failed for game ${effectiveGameId}:`,
+					gameScoresError.message
+				);
 			}
 			gameScores.set(gameScoresData || null);
 
@@ -373,8 +379,11 @@ export async function loadParty(code: string) {
 
 		isLoading.set(false);
 		return true;
-	} catch {
-		error.set('Failed to load party');
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+		console.error('[loadParty] fatal error loading party:', message);
+		error.set(`Failed to load party: ${message}`);
 		isLoading.set(false);
 		return false;
 	}

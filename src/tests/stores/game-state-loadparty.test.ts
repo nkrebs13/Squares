@@ -364,7 +364,7 @@ describe('loadParty branches', () => {
 		expect(loadedParty?.home_team_is_row).toBe(true);
 	});
 
-	it('handles exception in try block gracefully', async () => {
+	it('handles exception in try block gracefully and preserves the underlying error message', async () => {
 		mockSupabaseClient.from.mockImplementationOnce(() => {
 			throw new Error('Network failure');
 		});
@@ -372,7 +372,7 @@ describe('loadParty branches', () => {
 		const result = await loadParty('TEST123');
 
 		expect(result).toBe(false);
-		expect(get(error)).toBe('Failed to load party');
+		expect(get(error)).toBe('Failed to load party: Network failure');
 		expect(get(isLoading)).toBe(false);
 	});
 });
