@@ -88,7 +88,7 @@ PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
 The repo uses `@sveltejs/adapter-auto`, so the same source ships unchanged to:
 
 - **Cloudflare Pages** — canonical production target ([squares.nathankrebs.com](https://squares.nathankrebs.com) runs here)
-- **Vercel** — [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2Fsquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
+- **Vercel** — [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2FSquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
 - **Netlify** — [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/Squares)
 - **Self-host (Node)** — drop in `@sveltejs/adapter-node` per the guide
 

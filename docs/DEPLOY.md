@@ -55,7 +55,7 @@ If you prefer the CLI, install [`wrangler`](https://developers.cloudflare.com/wo
 
 ## Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2Fsquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2FSquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
 
 ### Setup
 
