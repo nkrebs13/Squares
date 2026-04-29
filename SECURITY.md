@@ -2,7 +2,9 @@
 
 ## Reporting a vulnerability
 
-**Don't open a public issue.** Email **nkrebs720@gmail.com**.
+**Don't open a public issue.** Use GitHub's **"Report a vulnerability"** button on the [Security tab](https://github.com/nkrebs13/Squares/security/advisories/new) of this repository. This routes the report privately to the maintainers via GitHub Security Advisories.
+
+If GitHub Private Vulnerability Reporting is disabled on a fork, fall back to opening a draft Security Advisory or contacting the maintainer through their [GitHub profile](https://github.com/nkrebs13).
 
 Include:
 
