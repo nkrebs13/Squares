@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately by opening a draft Security Advisory at the repository's [Security tab](https://github.com/nkrebs13/Squares/security/advisories/new). The Security Advisories flow is private and routes the report to the maintainer directly; it accepts both security and conduct reports. Public issues are not an appropriate channel for harassment or conduct concerns. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately by opening a draft Security Advisory at the repository's [Security tab](https://github.com/nkrebs13/Squares/security/advisories/new). The form's UI is framed for security vulnerabilities (CVSS, affected versions, etc.) — those fields can be left blank or noted as N/A for conduct reports. Submissions still reach the maintainer privately. Public issues are not an appropriate channel for harassment or conduct concerns. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
