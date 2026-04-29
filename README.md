@@ -51,7 +51,7 @@ This app collapses all of that into a shared URL. Friends claim cells in real ti
 
 ```bash
 git clone https://github.com/nkrebs13/Squares.git
-cd squares
+cd Squares
 npm install
 cp .env.example .env.local
 # Edit .env.local: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY

@@ -8,7 +8,7 @@ By contributing, you agree to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ```bash
 git clone https://github.com/nkrebs13/Squares.git
-cd squares
+cd Squares
 npm install
 cp .env.example .env.local
 # Edit .env.local: at minimum set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
