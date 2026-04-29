@@ -7,7 +7,7 @@ By contributing, you agree to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Quick start
 
 ```bash
-git clone https://github.com/nkrebs13/squares.git
+git clone https://github.com/nkrebs13/Squares.git
 cd squares
 npm install
 cp .env.example .env.local

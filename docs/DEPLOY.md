@@ -68,7 +68,7 @@ Preview deploys work the same as Cloudflare Pages — every push to a branch get
 
 ## Netlify
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/squares)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/Squares)
 
 ### Setup
 

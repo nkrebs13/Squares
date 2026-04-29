@@ -5,9 +5,9 @@
 **Live: [squares.nathankrebs.com](https://squares.nathankrebs.com)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/nkrebs13/squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-691%20passing-success)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/squares/actions/workflows/ci.yml)
+[![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-691%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 
 ## Why this exists
 
@@ -50,7 +50,7 @@ This app collapses all of that into a shared URL. Friends claim cells in real ti
 ### Installation
 
 ```bash
-git clone https://github.com/nkrebs13/squares.git
+git clone https://github.com/nkrebs13/Squares.git
 cd squares
 npm install
 cp .env.example .env.local
@@ -89,7 +89,7 @@ The repo uses `@sveltejs/adapter-auto`, so the same source ships unchanged to:
 
 - **Cloudflare Pages** — canonical production target ([squares.nathankrebs.com](https://squares.nathankrebs.com) runs here)
 - **Vercel** — [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2Fsquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
-- **Netlify** — [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/squares)
+- **Netlify** — [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/Squares)
 - **Self-host (Node)** — drop in `@sveltejs/adapter-node` per the guide
 
 Full step-by-step instructions, env-var lists, custom-domain notes, and troubleshooting in [`docs/DEPLOY.md`](docs/DEPLOY.md).
