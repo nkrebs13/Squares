@@ -71,11 +71,10 @@ function isNumberArray(v: unknown): v is number[] {
 	return Array.isArray(v) && v.every(isNum);
 }
 
-// Internal helper — emit a structured warning. In Phase 8, this also
-// reports to Sentry; for now console.warn is sufficient and side-effect
-// free in environments without a console.
+// Internal helper — emit a structured warning. Side-effect-free in
+// environments without a console.
 function warn(table: string, payload: unknown, missingOrBad: string): null {
-	/* eslint-disable no-console -- diagnostic; Phase 8 routes to Sentry */
+	/* eslint-disable no-console -- diagnostic */
 	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
 		console.warn(
 			`[realtime-validator] ${table} payload failed validation (${missingOrBad}):`,

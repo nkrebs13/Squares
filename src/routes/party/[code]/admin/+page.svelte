@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { partyPinKey } from '$lib/storage';
 	import {
 		party,
 		scores,
@@ -18,6 +19,7 @@
 		verifyHostPin,
 		subscribeToParty,
 		broadcastScoreUpdate,
+		cleanup,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
@@ -96,7 +98,7 @@
 
 	onMount(async () => {
 		if (browser) {
-			storedPin = sessionStorage.getItem(`squares_pin_${code}`);
+			storedPin = sessionStorage.getItem(partyPinKey(code));
 			if (storedPin) {
 				isAuthorized = true;
 			}
@@ -117,6 +119,7 @@
 
 	onDestroy(() => {
 		if (unsubscribe) unsubscribe();
+		cleanup();
 	});
 
 	// Initialize payoutSplits from party data once. After the user starts
@@ -149,7 +152,7 @@
 		try {
 			const isValid = await verifyHostPin(code, enteredPin);
 			if (isValid) {
-				sessionStorage.setItem(`squares_pin_${code}`, enteredPin);
+				sessionStorage.setItem(partyPinKey(code), enteredPin);
 				storedPin = enteredPin;
 				isAuthorized = true;
 				pinAttempts = 0;

@@ -338,7 +338,7 @@ export async function loadParty(code: string) {
 			// We still proceed because live scores are optional; realtime will pick up
 			// data when the game starts.
 			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
-				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				// eslint-disable-next-line no-console -- diagnostic
 				console.warn(
 					`[loadParty] live game_scores fetch failed for game ${effectiveGameId}:`,
 					gameScoresError.message
@@ -360,7 +360,10 @@ export async function loadParty(code: string) {
 						.from('parties')
 						.update({ home_team_is_row: correctValue })
 						.eq('id', partyData.id)
-						.then();
+						// eslint-disable-next-line no-console -- diagnostic
+						.then(({ error: e }) => {
+							if (e) console.warn('[loadParty] failed to persist home_team_is_row:', e.message);
+						});
 					party.update((p) => (p ? { ...p, home_team_is_row: correctValue } : p));
 				}
 			}

@@ -4,8 +4,8 @@
 	import { userName } from '$lib/stores/user';
 	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { getHostPin, setHostPin } from '$lib/storage';
-	import { onMount } from 'svelte';
+	import { getHostPin, setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
+	import { onMount, onDestroy } from 'svelte';
 
 	let code = $state('');
 	let name = $state('');
@@ -34,11 +34,12 @@
 		}
 
 		// Pre-fill name if we have one stored
-		userName.subscribe((storedName) => {
+		const unsubName = userName.subscribe((storedName) => {
 			if (storedName && !name) {
 				name = storedName;
 			}
 		});
+		onDestroy(unsubName);
 	});
 
 	async function handleJoin() {
@@ -111,7 +112,7 @@
 			if (isValid) {
 				// Store PIN in IndexedDB and session storage
 				await setHostPin(pendingPartyCode, pinInput);
-				sessionStorage.setItem(`squares_pin_${pendingPartyCode}`, pinInput);
+				sessionStorage.setItem(partyPinKey(pendingPartyCode), pinInput);
 
 				// Proceed to party
 				userName.setName(name.trim());
@@ -131,7 +132,7 @@
 
 	function storeNickname(partyCode: string) {
 		if (nickname.trim()) {
-			sessionStorage.setItem(`squares_nickname_${partyCode}`, nickname.trim());
+			sessionStorage.setItem(partyNicknameKey(partyCode), nickname.trim());
 		}
 	}
 
