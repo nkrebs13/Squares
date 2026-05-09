@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { winners, party, scores } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
+	import { formatPrice } from '$lib/utils/format';
 
 	const quarterLabels: Record<Quarter, string> = {
 		q1: '1st Quarter',
@@ -19,13 +20,6 @@
 	const sortedWinners = $derived(
 		[...$winners].sort((a, b) => quarterOrder[a.quarter] - quarterOrder[b.quarter])
 	);
-
-	function formatAmount(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-		}).format(amount);
-	}
 
 	function getScoreForQuarter(quarter: Quarter): string {
 		if (!$scores || !$party) return '';
@@ -74,7 +68,7 @@
 					<div class="text-right">
 						<div class="text-sm" style="color: var(--text-secondary)">Won</div>
 						<div class="text-lg font-bold" style="color: var(--color-success)">
-							{formatAmount(winner.amount)}
+							{formatPrice(winner.amount)}
 						</div>
 					</div>
 				</div>

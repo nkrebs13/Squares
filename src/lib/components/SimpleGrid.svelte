@@ -44,7 +44,6 @@
 	let isDragging = $state(false);
 	const selectedCells = new SvelteSet<string>();
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
-	let isProcessing = $state(false);
 
 	// Track pointer start for mobile tap detection
 	let pointerStartCell: { row: number; col: number } | null = null;
@@ -190,16 +189,14 @@
 		isDragging = false;
 		dragStartCell = null;
 
-		if (selectedCells.size > 0 && !isProcessing) {
-			isProcessing = true;
+		if (selectedCells.size > 0) {
 			const cells = Array.from(selectedCells).map((key) => {
 				const [row, col] = key.split('-').map(Number);
 				return { row, col };
 			});
+			selectedCells.clear();
 			// Non-blocking optimistic batch claim
 			claimSquaresBatchOptimistic(cells);
-			selectedCells.clear();
-			isProcessing = false;
 		}
 	}
 
@@ -344,7 +341,7 @@
 				<div
 					class="grid-11x11"
 					role="grid"
-					aria-label="Football squares grid, 10 by 10. Use arrow keys after focusing a square to navigate."
+					aria-label="Football squares grid, 10 by 10."
 					aria-rowcount={NUM_COLS + 1}
 					aria-colcount={NUM_COLS + 1}
 				>
@@ -490,7 +487,7 @@
 	<!-- Selection indicator during drag -->
 	{#if isDragging && selectedCells.size > 0}
 		<div class="selection-indicator">
-			{isProcessing ? 'Claiming...' : `${selectedCells.size} squares`}
+			{`${selectedCells.size} squares`}
 		</div>
 	{/if}
 </div>

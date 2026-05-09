@@ -9,6 +9,9 @@ const STORAGE_KEYS = {
 	gestureHintShown: 'squares_gesture_hint_shown',
 } as const;
 
+export const partyPinKey = (code: string) => `squares_pin_${code}`;
+export const partyNicknameKey = (code: string) => `squares_nickname_${code}`;
+
 const MAX_RECENT_PARTIES = 10;
 const PARTY_EXPIRY_DAYS = 90;
 
@@ -178,7 +181,7 @@ export async function getHostPin(code: string): Promise<string | null> {
 		return pins?.[code] ?? null;
 	} catch {
 		// Fallback to sessionStorage (original behavior)
-		return sessionStorage.getItem(`squares_pin_${code}`);
+		return sessionStorage.getItem(partyPinKey(code));
 	}
 }
 
@@ -191,7 +194,7 @@ export async function setHostPin(code: string, pin: string): Promise<void> {
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {
 		// Fallback to sessionStorage
-		sessionStorage.setItem(`squares_pin_${code}`, pin);
+		sessionStorage.setItem(partyPinKey(code), pin);
 	}
 }
 
@@ -203,7 +206,7 @@ export async function removeHostPin(code: string): Promise<void> {
 		delete pins[code];
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {
-		sessionStorage.removeItem(`squares_pin_${code}`);
+		sessionStorage.removeItem(partyPinKey(code));
 	}
 }
 

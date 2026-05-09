@@ -133,7 +133,7 @@ describe('Winners Component', () => {
 
 			render(Winners);
 
-			expect(screen.getByText('$250.00')).toBeInTheDocument();
+			expect(screen.getByText('$250')).toBeInTheDocument();
 		});
 
 		it('displays Won label', () => {
@@ -183,9 +183,9 @@ describe('Winners Component', () => {
 
 			render(Winners);
 
-			expect(screen.getByText('$100.00')).toBeInTheDocument();
-			expect(screen.getByText('$200.00')).toBeInTheDocument();
-			expect(screen.getByText('$400.00')).toBeInTheDocument();
+			expect(screen.getByText('$100')).toBeInTheDocument();
+			expect(screen.getByText('$200')).toBeInTheDocument();
+			expect(screen.getByText('$400')).toBeInTheDocument();
 		});
 	});
 
@@ -268,7 +268,7 @@ describe('Winners Component', () => {
 
 			render(Winners);
 
-			expect(screen.getByText('$10.00')).toBeInTheDocument();
+			expect(screen.getByText('$10')).toBeInTheDocument();
 		});
 
 		it('formats large amounts with commas', () => {
@@ -276,7 +276,7 @@ describe('Winners Component', () => {
 
 			render(Winners);
 
-			expect(screen.getByText('$1,500.00')).toBeInTheDocument();
+			expect(screen.getByText('$1,500')).toBeInTheDocument();
 		});
 
 		it('formats decimal amounts correctly', () => {
@@ -316,7 +316,7 @@ describe('Winners Component', () => {
 
 			render(Winners);
 
-			expect(screen.getByText('$0.00')).toBeInTheDocument();
+			expect(screen.getByText('$0')).toBeInTheDocument();
 		});
 	});
 });

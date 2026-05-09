@@ -2,7 +2,7 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
-	import type { RecentParty } from '$lib/types';
+	import type { RecentParty, PartyStatus } from '$lib/types';
 
 	const MAX_NICKNAME_LENGTH = 30;
 
@@ -27,7 +27,7 @@
 		}
 	});
 
-	function getStatusBadge(status: string) {
+	function getStatusBadge(status: PartyStatus) {
 		switch (status) {
 			case 'filling':
 				return { text: 'Filling', class: 'badge-filling' };

@@ -11,7 +11,7 @@
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
 	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
-	import { saveRecentParty, hasHostPin } from '$lib/storage';
+	import { saveRecentParty, hasHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
 	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 
@@ -24,7 +24,7 @@
 	async function checkIsHost() {
 		if (browser && code) {
 			// Check IndexedDB first, then fallback to sessionStorage
-			isHost = (await hasHostPin(code)) || sessionStorage.getItem(`squares_pin_${code}`) !== null;
+			isHost = (await hasHostPin(code)) || sessionStorage.getItem(partyPinKey(code)) !== null;
 		}
 	}
 
@@ -34,7 +34,7 @@
 		// Check for nickname set during create/join flow
 		let nickname: string | undefined;
 		if (browser) {
-			const nicknameKey = `squares_nickname_${$party.code}`;
+			const nicknameKey = partyNicknameKey($party.code);
 			nickname = sessionStorage.getItem(nicknameKey) || undefined;
 			if (nickname) {
 				sessionStorage.removeItem(nicknameKey);

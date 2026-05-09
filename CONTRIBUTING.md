@@ -42,6 +42,16 @@ supabase start
 npm run db:types
 ```
 
+For full RPC type-safety, after regenerating the types pass the `Database` type to the Supabase client in `src/lib/supabase.ts`:
+
+```ts
+import type { Database } from './database.types';
+// change: createClient(url, key, ...)
+// to:     createClient<Database>(url, key, ...)
+```
+
+The file ships as a hand-written schema reference because the auto-generated shape requires a running local instance. Both approaches work; the generated version gives you typed `.rpc()` call signatures.
+
 ## Testing
 
 | Command                    | What it runs                                             | When to use               |

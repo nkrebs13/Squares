@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { connectionStatus } from '$lib/stores/game-realtime';
+	import { connectionStatus } from '$lib/stores/game';
 
 	function refresh() {
 		if (typeof location !== 'undefined') location.reload();
