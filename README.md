@@ -6,8 +6,18 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-691%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-668%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+
+![Football Squares — active grid with claimed squares and live scores](docs/screenshots/hero.png)
+
+<p align="center">
+  <img src="docs/screenshots/filling.png" alt="Players claiming squares in real time" width="32%">
+  <img src="docs/screenshots/active.png" alt="Grid locked with numbers assigned" width="32%">
+  <img src="docs/screenshots/complete.png" alt="Quarter winner announced" width="32%">
+</p>
+
+<p align="center"><img src="docs/screenshots/demo.gif" alt="Demo: create party → claim squares → lock → score → winner" width="80%"></p>
 
 ## Why this exists
 
