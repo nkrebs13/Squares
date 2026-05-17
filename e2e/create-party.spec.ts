@@ -269,17 +269,13 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		// Mock party creation failure
-		await page.route('**/rest/v1/parties*', (route) => {
-			if (route.request().method() === 'POST') {
-				route.fulfill({
-					status: 409,
-					contentType: 'application/json',
-					body: JSON.stringify({ message: 'Duplicate code' }),
-				});
-			} else {
-				route.continue();
-			}
+		// Mock party creation failure — target the RPC endpoint used by createPartyService
+		await page.route('**/rest/v1/rpc/create_party', (route) => {
+			route.fulfill({
+				status: 500,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: 'Failed to create party. Please try again.' }),
+			});
 		});
 
 		await page.getByRole('button', { name: /create party/i }).click();
