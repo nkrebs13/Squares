@@ -7,7 +7,6 @@
 [![GitHub release](https://img.shields.io/github/v/release/nkrebs13/Squares)](https://github.com/nkrebs13/Squares/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/branches-%E2%89%8581%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -90,7 +89,7 @@ supabase db push
 ```
 
 > [!IMPORTANT]
-> **Option B only:** If you apply migrations via the SQL Editor instead of the CLI, also verify that Realtime replication is enabled for the `parties`, `squares`, `numbers`, `scores`, and `winners` tables in **Supabase Dashboard → Database → Replication**. The CLI applies migration `017_realtime_publication.sql` automatically; the SQL Editor does not activate Realtime for you — the grid will appear to work but won't sync across clients in real time.
+> **Option B only:** If you apply migrations via the SQL Editor instead of the CLI, also verify that Realtime replication is enabled for the `parties`, `squares`, `numbers`, `scores`, and `winners` tables in **Supabase Dashboard → Database → Replication**. The CLI applies `001_schema.sql` (which contains the `ALTER PUBLICATION supabase_realtime ADD TABLE …` statements) automatically; the SQL Editor does not activate Realtime for you — the grid will appear to work but won't sync across clients in real time.
 
 ### Demo data
 
@@ -139,7 +138,7 @@ Brand strings, default team labels, and currency live in [`src/lib/config.ts`](s
 `PUBLIC_APP_NAME` and `PUBLIC_APP_DESCRIPTION` are also picked up by the PWA manifest in `vite.config.ts`. All values fall back to the defaults above when unset, so a stock fork keeps the Football Squares experience.
 
 > [!NOTE]
-> Team names and colors can also be set **per party** from the create-party form — the env vars just seed the initial defaults that appear in the form.
+> Team names and colors can also be set **per party** from the create-party form — the env vars set the defaults pre-populated in the form.
 
 ## Architecture
 
