@@ -2,12 +2,16 @@
 
 > Real-time multiplayer Super Bowl pool. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
 
-**Live: [squares.nathankrebs.com](https://squares.nathankrebs.com)**
+**[▶ Live Demo — squares.nathankrebs.com](https://squares.nathankrebs.com)**
 
+[![GitHub release](https://img.shields.io/github/v/release/nkrebs13/Squares)](https://github.com/nkrebs13/Squares/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-668%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/branches-%E2%89%8581%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 ![Football Squares — active grid with claimed squares and live scores](docs/screenshots/hero.png)
 
@@ -87,6 +91,9 @@ supabase db push
 
 Running `supabase db reset` applies all migrations and seeds a demo party automatically. After reset, visit `/party/DEMO01` (PIN: `0000`) to see a partially-filled grid with four fictional players. To skip seeding, delete `supabase/seed.sql` before running reset.
 
+> [!TIP]
+> The live demo at [squares.nathankrebs.com](https://squares.nathankrebs.com) is always running against a pre-seeded Supabase project. You can explore every game state without setting anything up locally.
+
 ### Optional: Error tracking
 
 Set `PUBLIC_SENTRY_DSN` in `.env.local` to send unhandled errors and Web Vitals (CLS, INP, LCP, FCP, TTFB) to a [Sentry](https://sentry.io) project. The free tier is sufficient for portfolio-level traffic; the app works identically with the variable unset.
@@ -131,6 +138,9 @@ The 10-minute orientation is in [ARCHITECTURE.md](ARCHITECTURE.md). The deepest 
 - [ADR-0001: Hybrid reactivity](docs/adr/0001-hybrid-reactivity.md) — why stores stay legacy and components use runes
 - [ADR-0002: Optimistic update chain](docs/adr/0002-optimistic-chain.md) — why `.then()` instead of `await`, and what the 8 steps are
 - [ADR-0003: Dual realtime channels](docs/adr/0003-dual-realtime-channels.md) — why both broadcast AND postgres_changes
+
+> [!NOTE]
+> Each ADR documents the options considered, the tradeoffs weighed, and the decision made — not just what was built, but why. This is the fastest path to understanding the non-obvious design choices.
 
 If you've cloned the repo and want to know "where does X live and why", that's the path.
 
