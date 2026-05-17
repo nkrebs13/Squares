@@ -157,50 +157,18 @@ For production operations, see [GAME-DAY.md](GAME-DAY.md) — the runbook used o
 
 ## Development
 
-| Command                     | Purpose                                                    |
-| --------------------------- | ---------------------------------------------------------- |
-| `npm run dev`               | Start dev server at `http://localhost:5173`                |
-| `npm run build`             | Production build (adapter auto-detects deploy platform)    |
-| `npm run preview`           | Preview the production build at `http://localhost:4173`    |
-| `npm run check`             | TypeScript + Svelte diagnostics                            |
-| `npm run lint`              | ESLint + `--max-warnings 0`                                |
-| `npm run lint:fix`          | Auto-fix lint issues                                       |
-| `npm run format`            | Prettier write                                             |
-| `npm run test`              | Unit tests (Vitest)                                        |
-| `npm run test:coverage`     | Unit tests + coverage report (thresholds enforced)         |
-| `npm run test:integration`  | Integration tests (requires `supabase start`)              |
-| `npm run test:e2e`          | Playwright (Chromium + Mobile Chrome)                      |
-| `npm run check:bundle-size` | Bundle-size budget check (after `npm run build`)           |
-| `npm run db:types`          | Regenerate `src/lib/database.types.ts` from local Supabase |
-
-## Project structure
-
+```bash
+npm run dev                        # http://localhost:5173
+npm run test                       # unit tests (Vitest)
+npm run test:e2e                   # Playwright (Chromium + Mobile Chrome)
+npm run lint && npm run check      # quality gates
 ```
-src/
-├── routes/
-│   ├── +page.svelte              Home (CTA + RecentParties)
-│   ├── create/+page.svelte       Create party
-│   ├── join/+page.svelte         Join party (with PIN modal for host names)
-│   └── party/[code]/
-│       ├── +page.svelte          Grid + sidebar
-│       └── admin/+page.svelte    Host panel
-├── lib/
-│   ├── components/               Reusable UI (Square, SimpleGrid, PartySidebar, …)
-│   ├── stores/                   Realtime + state + optimistic update chain
-│   ├── services/                 Service modules (createParty)
-│   ├── validators/               Hand-written runtime guards for postgres_changes
-│   └── types.ts                  TypeScript definitions
-├── hooks.client.ts               Sentry init + Web Vitals
-└── hooks.server.ts               Sentry init for the resolved SvelteKit adapter
-supabase/
-└── migrations/                   Forward-only SQL (don't edit existing files)
-e2e/                              Playwright specs + visual regression
-docs/                             Architecture, ADRs, E2E testing strategy
-```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local Supabase setup, testing strategy, and contribution guidelines.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating. Short version:
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
 1. Branch from `main`
 2. Run `npm run lint && npm run check && npm run test` locally

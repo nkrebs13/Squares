@@ -56,18 +56,6 @@ docker run --rm -v "$PWD":/app -w /app mcr.microsoft.com/playwright:v1.59.1-nobl
   npx playwright test visual.spec.ts --update-snapshots
 ```
 
-## Real-Supabase rewrite (deferred)
+## Current limitations
 
-The plan called for `golden-path.spec.ts` to be rewritten against a real local Supabase (boots via `supabase start` in CI, exercises actual RPCs end-to-end). That rewrite is **deferred** because:
-
-1. It depends on Phase 1's `create_party` RPC migration being on `main`.
-2. Generating + running it requires Docker / Colima for `supabase start`, which the agent that opened this PR didn't have.
-
-The path forward when both unblock:
-
-1. Apply Phase 1's migration locally via `supabase db reset`.
-2. Replace `page.route()` mocks in `golden-path.spec.ts` with real navigation + form submissions against `http://127.0.0.1:54321`.
-3. Wire the same setup into the `e2e-tests` job in `.github/workflows/ci.yml` (the Phase 2 workflow already includes `supabase/setup-cli@v1` boilerplate).
-4. Delete `e2e/fixtures/supabase-mocks.ts` (most of it; keep `setUserName` and any other pure helpers).
-
-`visual.spec.ts` deliberately stays on mocked fixtures even after the rewrite — visual regression needs deterministic input, which mocks deliver more reliably than a fresh Supabase database.
+`golden-path.spec.ts` runs against mocked Supabase routes (`page.route()`) rather than a real local instance. This keeps the suite fast and dependency-free but means it validates the client-side state machine and rendering — not actual RPC behavior. That gap is covered by the integration test suite (`npm run test:integration`). `visual.spec.ts` is also mocked intentionally: visual regression requires deterministic input, and a live database introduces variance in square assignments and player data.

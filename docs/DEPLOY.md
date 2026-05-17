@@ -124,7 +124,7 @@ The PWA manifest is generated at build time from `vite.config.ts` and uses icons
 - Replace `static/icons/icon.svg`, `static/icons/icon-192.png`, `static/icons/icon-512.png`, `static/icons/apple-touch-icon.png`, and `static/icons/favicon-{16x16,32x32}.png` with your own assets at the matching dimensions
 - Set `PUBLIC_APP_NAME` and `PUBLIC_APP_DESCRIPTION` env vars at build time so the manifest's `name` / `description` reflect your brand
 
-`/asset-gen` (if you use the bundled Claude Code skill) can generate the icon set from a single source image.
+Any tool that outputs the correct PNG dimensions works — ImageMagick, Figma export, or Inkscape are common choices.
 
 ## Troubleshooting
 
