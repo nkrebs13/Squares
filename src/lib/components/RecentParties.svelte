@@ -327,8 +327,6 @@
 		gap: 0.25rem;
 		flex: 1;
 		min-width: 0;
-		position: relative;
-		z-index: 1;
 	}
 
 	/* Nickname display */
@@ -460,8 +458,6 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-shrink: 0;
-		position: relative;
-		z-index: 1;
 	}
 
 	.status-badge {
