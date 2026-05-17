@@ -48,7 +48,7 @@
 					},
 				});
 			} catch (err) {
-				// eslint-disable-next-line no-console
+				// eslint-disable-next-line no-console -- QR failure is non-fatal but worth surfacing in devtools
 				console.error('QR generation failed:', err);
 			}
 		}

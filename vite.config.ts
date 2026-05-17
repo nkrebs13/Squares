@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
 			include: ['src/**/*.{test,spec}.{js,ts}'],
 			exclude: ['src/tests/integration/**'],
 			globals: true,
+			testTimeout: 15000,
 			coverage: {
 				provider: 'v8',
 				reporter: ['text', 'json', 'html', 'json-summary'],

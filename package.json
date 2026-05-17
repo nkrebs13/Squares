@@ -7,7 +7,8 @@
 		"url": "https://github.com/nkrebs13/Squares"
 	},
 	"private": true,
-	"version": "0.0.1",
+	"version": "1.0.0",
+	"author": "Nathan Krebs <https://github.com/nkrebs13>",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

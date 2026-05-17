@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-668%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/branches-82%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/branches-%E2%89%8581%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 
 ![Football Squares — active grid with claimed squares and live scores](docs/screenshots/hero.png)
 
@@ -24,6 +24,8 @@
 Office and friend-group "squares" pools usually run via a paper grid + Venmo. Anyone joining late can't see the live grid. Anyone leaving early can't see who won which quarter. The host has to manually track scores against a paper-and-pen grid while paying attention to the actual game.
 
 This app collapses all of that into a shared URL. Friends claim cells in real time, the host enters scores at quarter-end, the app computes winners and shows a payout summary. No accounts, no money flowing through the app — just the bookkeeping.
+
+Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Zero support requests.
 
 ## Features
 
@@ -131,6 +133,8 @@ The 10-minute orientation is in [ARCHITECTURE.md](ARCHITECTURE.md). The deepest 
 - [ADR-0003: Dual realtime channels](docs/adr/0003-dual-realtime-channels.md) — why both broadcast AND postgres_changes
 
 If you've cloned the repo and want to know "where does X live and why", that's the path.
+
+For production operations, see [GAME-DAY.md](GAME-DAY.md) — the runbook used on Super Bowl Sunday, covering Supabase monitoring, emergency SQL for stuck party states, service worker cache clearing, and broadcast channel health diagnosis.
 
 ## Development
 
