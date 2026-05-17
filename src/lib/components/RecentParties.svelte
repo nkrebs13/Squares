@@ -144,7 +144,6 @@
 				{@const badge = getStatusBadge(party.status)}
 				{@const isEditing = editingCode === party.code}
 				<article class="party-card">
-					<!-- Stretched link covers the full card — edit/remove buttons sit above it via z-index -->
 					<a
 						class="card-nav-link"
 						href="/party/{party.code}"

@@ -21,8 +21,6 @@
 	// Team customization — pre-populated from env-configured defaults
 	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
 	const colTeam = $state({ name: DEFAULT_TEAMS.col.name, color: DEFAULT_TEAMS.col.color });
-	const isValidRowTeam = $derived(rowTeam.name.trim().length > 0);
-	const isValidColTeam = $derived(colTeam.name.trim().length > 0);
 
 	const isCustom = $derived(selectedPreset.name === 'Custom');
 
@@ -48,8 +46,8 @@
 			isValidPin &&
 			isValidHostName &&
 			isValidPrice &&
-			isValidRowTeam &&
-			isValidColTeam
+			rowTeam.name.trim().length > 0 &&
+			colTeam.name.trim().length > 0
 	);
 
 	async function createParty() {

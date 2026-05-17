@@ -314,8 +314,8 @@ export async function loadParty(code: string) {
 		]);
 
 		squares.set(squaresRes.data || []);
-		numbers.set(numbersRes.data || null);
-		scores.set(scoresRes.data || null);
+		numbers.set(numbersRes.data);
+		scores.set(scoresRes.data);
 		winners.set(winnersRes.data || []);
 
 		// Handle game scores + home_team_is_row auto-correction

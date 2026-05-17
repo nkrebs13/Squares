@@ -266,11 +266,11 @@
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 
 	// Logo visibility — show logo when party team name matches the configured default team name
-	const showRowLogo = $derived(
-		$theme.rowName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.row.name.toLowerCase()
-	);
 	const showColLogo = $derived(
-		$theme.colName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.col.name.toLowerCase()
+		$theme.colName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
+	);
+	const showRowLogo = $derived(
+		$theme.rowName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.row.name.toLowerCase().trim()
 	);
 </script>
 
