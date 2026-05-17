@@ -5,7 +5,7 @@
 	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
 	import { getHostPin, setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let code = $state('');
 	let name = $state('');
@@ -17,17 +17,22 @@
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
 	let pinInputEl = $state<HTMLInputElement | null>(null);
-	let pinDialogEl = $state<HTMLDialogElement | null>(null);
+	let pinDialogEl: HTMLDialogElement | null = null;
 	let pinError = $state<string | null>(null);
 	let isVerifyingPin = $state(false);
 	let pendingPartyCode = $state('');
 
 	$effect(() => {
 		if (showPinChallenge) {
-			pinDialogEl?.showModal();
+			if (pinDialogEl && !pinDialogEl.open) pinDialogEl.showModal();
 		} else {
-			pinDialogEl?.close();
+			if (pinDialogEl?.open) pinDialogEl.close();
 		}
+	});
+
+	// Sync stored name into the field on first load; $effect handles teardown automatically.
+	$effect(() => {
+		if ($userName && !name) name = $userName;
 	});
 
 	onMount(() => {
@@ -35,14 +40,6 @@
 		if (urlCode) {
 			code = urlCode.toUpperCase();
 		}
-
-		// Pre-fill name if we have one stored
-		const unsubName = userName.subscribe((storedName) => {
-			if (storedName && !name) {
-				name = storedName;
-			}
-		});
-		onDestroy(unsubName);
 	});
 
 	async function handleJoin() {
