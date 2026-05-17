@@ -133,8 +133,8 @@ test.describe('Recent Parties', () => {
 
 		await expect(page.getByText(/recent parties/i)).toBeVisible({ timeout: 10000 });
 
-		// Click the status badge area of the card to navigate (avoids edit mode on nickname)
-		await page.getByText('Filling').click();
+		// Click the stretched link (covers the entire card; only pencil/remove buttons are above it)
+		await page.locator('.card-nav-link').first().click();
 
 		// Should navigate to the party (or redirect to join since no user name is set)
 		await expect(page).toHaveURL(/\/(party|join).*AAAA1/);
