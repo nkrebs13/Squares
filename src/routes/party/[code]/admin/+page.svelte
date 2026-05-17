@@ -117,8 +117,19 @@
 		// effect always re-ran. Removed to fix the double-effect bug.
 	});
 
+	let successTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function showSuccess(msg: string) {
+		if (successTimeout) clearTimeout(successTimeout);
+		success = msg;
+		successTimeout = setTimeout(() => {
+			success = null;
+		}, 3000);
+	}
+
 	onDestroy(() => {
 		if (unsubscribe) unsubscribe();
+		if (successTimeout) clearTimeout(successTimeout);
 		cleanup();
 	});
 
@@ -185,8 +196,9 @@
 			// Reload party data so the page reactively shows score entry controls
 			try {
 				await loadParty(code);
-				success =
-					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
+				showSuccess(
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+				);
 			} catch {
 				error = 'Game started, but failed to reload the latest game data. Please refresh the page.';
 			}
@@ -211,7 +223,9 @@
 		);
 
 		if (result.success) {
-			success = `Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`;
+			showSuccess(
+				`Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`
+			);
 			broadcastScoreUpdate();
 			await loadParty(code);
 		} else {
@@ -250,7 +264,7 @@
 		const result = await updatePayoutStructure(storedPin, payoutSplits);
 
 		if (result.success) {
-			success = 'Payout structure updated!';
+			showSuccess('Payout structure updated!');
 		} else {
 			error = result.error || 'Failed to update payout structure';
 		}
@@ -285,7 +299,7 @@
 		const result = await removePlayer(storedPin, playerToRemove.normalizedName);
 
 		if (result.success) {
-			success = `Removed ${playerToRemove.name} (${result.removedCount} squares freed)`;
+			showSuccess(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
 			playerToRemove = null;
 		} else {
 			error = result.error || 'Failed to remove player';

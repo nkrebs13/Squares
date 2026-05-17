@@ -295,44 +295,32 @@ export async function loadParty(code: string) {
 			colName: partyData.team_col_name,
 		});
 
-		// Fetch squares
-		const { data: squaresData } = await supabase
-			.from('squares')
-			.select('*')
-			.eq('party_id', partyData.id)
-			.order('row_num')
-			.order('col_num');
-
-		squares.set(squaresData || []);
-
-		// Fetch numbers if locked
-		if (partyData.status !== 'filling') {
-			const { data: numbersData } = await supabase
-				.from('numbers')
+		// Fetch all remaining data in parallel — all are independent after the party + game fetch above
+		const [squaresRes, numbersRes, scoresRes, gameScoresRes, winnersRes] = await Promise.all([
+			supabase
+				.from('squares')
 				.select('*')
 				.eq('party_id', partyData.id)
-				.single();
+				.order('row_num')
+				.order('col_num'),
+			partyData.status !== 'filling'
+				? supabase.from('numbers').select('*').eq('party_id', partyData.id).single()
+				: Promise.resolve({ data: null, error: null }),
+			supabase.from('scores').select('*').eq('party_id', partyData.id).single(),
+			effectiveGameId
+				? supabase.from('game_scores').select('*').eq('game_id', effectiveGameId).single()
+				: Promise.resolve({ data: null, error: null }),
+			supabase.from('winners').select('*').eq('party_id', partyData.id).order('quarter'),
+		]);
 
-			numbers.set(numbersData || null);
-		}
+		squares.set(squaresRes.data || []);
+		numbers.set(numbersRes.data || null);
+		scores.set(scoresRes.data || null);
+		winners.set(winnersRes.data || []);
 
-		// Fetch scores
-		const { data: scoresData } = await supabase
-			.from('scores')
-			.select('*')
-			.eq('party_id', partyData.id)
-			.single();
-
-		scores.set(scoresData || null);
-
-		// Fetch live game scores if party is linked to a game (or auto-detected)
+		// Handle game scores + home_team_is_row auto-correction
 		if (effectiveGameId) {
-			const { data: gameScoresData, error: gameScoresError } = await supabase
-				.from('game_scores')
-				.select('*')
-				.eq('game_id', effectiveGameId)
-				.single();
-
+			const { data: gameScoresData, error: gameScoresError } = gameScoresRes;
 			// PGRST116 = "no rows returned" - expected when game hasn't started yet.
 			// Other errors are logged so they're visible during dev/observability.
 			// We still proceed because live scores are optional; realtime will pick up
@@ -370,15 +358,6 @@ export async function loadParty(code: string) {
 		} else {
 			gameScores.set(null);
 		}
-
-		// Fetch winners
-		const { data: winnersData } = await supabase
-			.from('winners')
-			.select('*')
-			.eq('party_id', partyData.id)
-			.order('quarter');
-
-		winners.set(winnersData || []);
 
 		isLoading.set(false);
 		return true;

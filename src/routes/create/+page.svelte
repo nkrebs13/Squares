@@ -5,6 +5,7 @@
 	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { createParty as createPartyService } from '$lib/services/createParty';
+	import { DEFAULT_TEAMS } from '$lib/config';
 
 	let squarePriceInput = $state('1');
 	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
@@ -16,6 +17,12 @@
 	let nickname = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
+
+	// Team customization — pre-populated from env-configured defaults
+	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
+	const colTeam = $state({ name: DEFAULT_TEAMS.col.name, color: DEFAULT_TEAMS.col.color });
+	const isValidRowTeam = $derived(rowTeam.name.trim().length > 0);
+	const isValidColTeam = $derived(colTeam.name.trim().length > 0);
 
 	const isCustom = $derived(selectedPreset.name === 'Custom');
 
@@ -36,7 +43,14 @@
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
-	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
+	const canCreate = $derived(
+		isValidSplit &&
+			isValidPin &&
+			isValidHostName &&
+			isValidPrice &&
+			isValidRowTeam &&
+			isValidColTeam
+	);
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -49,6 +63,10 @@
 			hostPin,
 			squarePrice,
 			splits: currentSplit,
+			teams: {
+				row: { name: rowTeam.name.trim(), color: rowTeam.color },
+				col: { name: colTeam.name.trim(), color: colTeam.color },
+			},
 		});
 
 		if (!result.ok) {
@@ -168,6 +186,76 @@
 					Split must total 100% (currently {splitTotal}%)
 				</p>
 			{/if}
+		</div>
+
+		<!-- Teams -->
+		<div class="card">
+			<span class="text-sm" style="color: var(--text-secondary)">Teams</span>
+			<p class="text-xs mt-1" style="color: var(--text-muted)">
+				Set the teams playing — scores run left ↕ for the Left Team, top ↔ for the Top Team
+			</p>
+			<div class="mt-4 space-y-4">
+				<!-- Left Team (row scores) -->
+				<div class="flex items-center gap-3">
+					<label class="relative cursor-pointer shrink-0" aria-label="Left team color">
+						<span
+							class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+							style="background: {rowTeam.color}"
+						></span>
+						<input
+							type="color"
+							bind:value={rowTeam.color}
+							class="sr-only"
+							aria-label="Left team color picker"
+						/>
+					</label>
+					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>Left Team</span
+							>
+							<input
+								type="text"
+								bind:value={rowTeam.name}
+								placeholder="e.g. Chiefs"
+								class="input mt-1"
+								maxlength="30"
+								onblur={() => (rowTeam.name = rowTeam.name.trim())}
+							/>
+						</label>
+					</div>
+				</div>
+				<!-- Top Team (column scores) -->
+				<div class="flex items-center gap-3">
+					<label class="relative cursor-pointer shrink-0" aria-label="Top team color">
+						<span
+							class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+							style="background: {colTeam.color}"
+						></span>
+						<input
+							type="color"
+							bind:value={colTeam.color}
+							class="sr-only"
+							aria-label="Top team color picker"
+						/>
+					</label>
+					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>Top Team</span
+							>
+							<input
+								type="text"
+								bind:value={colTeam.name}
+								placeholder="e.g. Eagles"
+								class="input mt-1"
+								maxlength="30"
+								onblur={() => (colTeam.name = colTeam.name.trim())}
+							/>
+						</label>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Host Name -->

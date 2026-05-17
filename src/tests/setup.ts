@@ -203,6 +203,14 @@ const sessionStorageMock = (() => {
 
 vi.stubGlobal('sessionStorage', sessionStorageMock);
 
+// Polyfill native <dialog> methods not available in jsdom
+HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+	this.setAttribute('open', '');
+});
+HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+	this.removeAttribute('open');
+});
+
 // Mock ResizeObserver
 class ResizeObserverMock {
 	callback: ResizeObserverCallback;

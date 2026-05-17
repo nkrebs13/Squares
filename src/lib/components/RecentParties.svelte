@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
 	import type { RecentParty, PartyStatus } from '$lib/types';
 
@@ -48,12 +47,6 @@
 		}
 		// Fallback to team matchup
 		return `${party.teamRowName} vs ${party.teamColName}`;
-	}
-
-	function handlePartyClick(code: string) {
-		// Don't navigate if we're editing
-		if (editingCode) return;
-		goto(`/party/${code}`);
 	}
 
 	function handleRemove(e: Event, code: string) {
@@ -150,13 +143,16 @@
 			{#each recentParties as party (party.code)}
 				{@const badge = getStatusBadge(party.status)}
 				{@const isEditing = editingCode === party.code}
-				<div
-					class="party-card"
-					role="button"
-					tabindex="0"
-					onclick={() => handlePartyClick(party.code)}
-					onkeydown={(e) => e.key === 'Enter' && !isEditing && handlePartyClick(party.code)}
-				>
+				<article class="party-card">
+					<!-- Stretched link covers the full card — edit/remove buttons sit above it via z-index -->
+					<a
+						class="card-nav-link"
+						href="/party/{party.code}"
+						aria-label="Open {getDisplayName(party)}"
+						onclick={(e) => {
+							if (isEditing) e.preventDefault();
+						}}
+					></a>
 					<div class="party-info">
 						{#if isEditing}
 							<input
@@ -244,7 +240,7 @@
 							</button>
 						{/if}
 					</div>
-				</div>
+				</article>
 			{/each}
 		</div>
 	</div>
@@ -299,25 +295,31 @@
 		background: var(--bg-secondary);
 		border: 1px solid var(--border-color);
 		border-radius: 12px;
-		cursor: pointer;
 		transition: all 200ms ease;
-		text-align: left;
-		width: 100%;
-		outline: none;
+		position: relative;
 	}
 
-	.party-card:focus-visible {
-		border-color: rgba(100, 210, 200, 0.5);
-		box-shadow: 0 0 0 2px rgba(100, 210, 200, 0.2);
-	}
-
-	.party-card:hover {
+	.party-card:has(.card-nav-link:hover) {
 		background: rgba(255, 255, 255, 0.05);
 		border-color: rgba(100, 210, 200, 0.3);
 	}
 
-	.party-card:active {
+	.party-card:has(.card-nav-link:active) {
 		transform: scale(0.98);
+	}
+
+	/* Stretched link covers the full card clickable area */
+	.card-nav-link {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		z-index: 0;
+	}
+
+	.card-nav-link:focus-visible {
+		outline: 2px solid rgba(100, 210, 200, 0.9);
+		outline-offset: 2px;
+		box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.2);
 	}
 
 	.party-info {
@@ -326,6 +328,8 @@
 		gap: 0.25rem;
 		flex: 1;
 		min-width: 0;
+		position: relative;
+		z-index: 1;
 	}
 
 	/* Nickname display */
@@ -369,6 +373,15 @@
 		outline-offset: 2px;
 	}
 
+	/* Keep interactive elements above the stretched nav link */
+	.edit-btn,
+	.remove-btn,
+	.confirm-remove,
+	.nickname-input {
+		position: relative;
+		z-index: 1;
+	}
+
 	.edit-icon {
 		flex-shrink: 0;
 		opacity: 0.4;
@@ -381,6 +394,7 @@
 			opacity: 0;
 		}
 
+		.party-card:has(.card-nav-link:hover) .edit-icon,
 		.party-card:hover .edit-icon {
 			opacity: 0.6;
 		}
@@ -447,6 +461,8 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-shrink: 0;
+		position: relative;
+		z-index: 1;
 	}
 
 	.status-badge {

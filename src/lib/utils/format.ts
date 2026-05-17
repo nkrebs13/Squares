@@ -31,7 +31,7 @@ export function formatPrice(amount: number): string {
 export function isValidAmount(value: string): boolean {
 	if (!value || value.trim() === '') return false;
 	const pattern = /^\d+(\.\d{0,2})?$/;
-	return pattern.test(value.trim()) && parseFloat(value) >= 0;
+	return pattern.test(value.trim()) && parseFloat(value) > 0;
 }
 
 /**

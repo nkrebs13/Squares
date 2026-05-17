@@ -19,12 +19,16 @@ export const APP_CONFIG = {
 			name: env.PUBLIC_DEFAULT_TEAM_ROW_NAME || 'Seahawks',
 			/** Override with PUBLIC_DEFAULT_TEAM_ROW_COLOR. CSS color string. */
 			color: env.PUBLIC_DEFAULT_TEAM_ROW_COLOR || '#69BE28',
+			/** Override with PUBLIC_DEFAULT_TEAM_ROW_LOGO. Path to logo image. */
+			logoUrl: env.PUBLIC_DEFAULT_TEAM_ROW_LOGO || '/logos/seahawks.png',
 		},
 		col: {
 			/** Override with PUBLIC_DEFAULT_TEAM_COL_NAME. */
 			name: env.PUBLIC_DEFAULT_TEAM_COL_NAME || 'Patriots',
 			/** Override with PUBLIC_DEFAULT_TEAM_COL_COLOR. CSS color string. */
 			color: env.PUBLIC_DEFAULT_TEAM_COL_COLOR || '#C60C30',
+			/** Override with PUBLIC_DEFAULT_TEAM_COL_LOGO. Path to logo image. */
+			logoUrl: env.PUBLIC_DEFAULT_TEAM_COL_LOGO || '/logos/patriots.png',
 		},
 	},
 

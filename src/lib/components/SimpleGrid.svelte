@@ -22,6 +22,7 @@
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
+	import { APP_CONFIG } from '$lib/config';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -264,9 +265,13 @@
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 
-	// Logo visibility — only show hardcoded logos when team name matches
-	const showColLogo = $derived($theme.colName?.toLowerCase().trim() === 'patriots');
-	const showRowLogo = $derived($theme.rowName?.toLowerCase().trim() === 'seahawks');
+	// Logo visibility — show logo when party team name matches the configured default team name
+	const showRowLogo = $derived(
+		$theme.rowName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.row.name.toLowerCase()
+	);
+	const showColLogo = $derived(
+		$theme.colName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.col.name.toLowerCase()
+	);
 </script>
 
 <svelte:window onpointerup={handleGlobalPointerUp} onpointercancel={handleGlobalPointerCancel} />
@@ -296,7 +301,7 @@
 		<div class="team-label-col">
 			{#if showColLogo}
 				<img
-					src="/logos/patriots.png"
+					src={APP_CONFIG.defaultTeams.col.logoUrl}
 					alt=""
 					aria-hidden="true"
 					class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
@@ -322,7 +327,7 @@
 				</span>
 				{#if showRowLogo}
 					<img
-						src="/logos/seahawks.png"
+						src={APP_CONFIG.defaultTeams.row.logoUrl}
 						alt=""
 						aria-hidden="true"
 						class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"

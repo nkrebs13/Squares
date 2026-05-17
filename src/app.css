@@ -283,6 +283,15 @@ body {
 	.square-leading {
 		/* no animation to disable — static white border */
 	}
+	.square-mine {
+		animation: none;
+	}
+	.square-winner {
+		animation: none;
+	}
+	.square-error {
+		animation: none;
+	}
 }
 
 /* Button styles */
@@ -329,6 +338,11 @@ body {
 .btn-success:hover:not(:disabled) {
 	background: linear-gradient(135deg, rgba(100, 200, 130, 0.6), rgba(100, 210, 200, 0.5));
 	box-shadow: 0 0 20px rgba(100, 200, 130, 0.2);
+}
+
+.btn-sm {
+	@apply px-3 py-1.5 text-sm;
+	border-radius: 8px;
 }
 
 /* Input styles */
@@ -523,6 +537,13 @@ body {
 		aurora-shift 35s ease-in-out infinite reverse,
 		aurora-breathe 10s ease-in-out infinite 2s;
 	opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.aurora-gradient,
+	.aurora-gradient-2 {
+		animation: none;
+	}
 }
 
 /* Status banner styles */

@@ -292,7 +292,8 @@ describe('loadParty branches', () => {
 			updated_at: new Date().toISOString(),
 		};
 
-		// Calls: parties, squares, numbers, scores, game_scores, parties(update), winners
+		// Calls: parties, [squares, numbers, scores, game_scores, winners] via Promise.all,
+		// then parties(update) fire-and-forget after Promise.all resolves
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
@@ -301,8 +302,8 @@ describe('loadParty branches', () => {
 			.mockReturnValueOnce(
 				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
 			) // game_scores
-			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // parties update (fire-and-forget)
-			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
+			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>) // winners
+			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>); // parties update (fire-and-forget)
 
 		const result = await loadParty('TEST123');
 

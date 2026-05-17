@@ -84,8 +84,8 @@ describe('isValidAmount', () => {
 		expect(isValidAmount('10.123')).toBe(false);
 	});
 
-	it('accepts zero', () => {
-		expect(isValidAmount('0')).toBe(true);
+	it('rejects zero (price must be greater than 0)', () => {
+		expect(isValidAmount('0')).toBe(false);
 	});
 
 	it('rejects whitespace-only string', () => {
