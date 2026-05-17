@@ -1,3 +1,5 @@
+<!-- Pre-game-day checklist template. Reset checkboxes before each run. -->
+
 # Manual QA Checklist
 
 ## Pre-Game Day Testing

@@ -7,11 +7,9 @@
 [![GitHub release](https://img.shields.io/github/v/release/nkrebs13/Squares)](https://github.com/nkrebs13/Squares/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml/badge.svg)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-668%20passing-success)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/branches-%E2%89%8581%25-brightgreen)](https://github.com/nkrebs13/Squares/actions/workflows/ci.yml)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-5-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 ![Football Squares — active grid with claimed squares and live scores](docs/screenshots/hero.png)
 
@@ -23,18 +21,11 @@
 
 <p align="center"><img src="docs/screenshots/demo.gif" alt="Demo: create party → claim squares → lock → score → winner" width="80%"></p>
 
-## Why this exists
-
-Office and friend-group "squares" pools usually run via a paper grid + Venmo. Anyone joining late can't see the live grid. Anyone leaving early can't see who won which quarter. The host has to manually track scores against a paper-and-pen grid while paying attention to the actual game.
-
-This app collapses all of that into a shared URL. Friends claim cells in real time, the host enters scores at quarter-end, the app computes winners and shows a payout summary. No accounts, no money flowing through the app — just the bookkeeping.
-
-Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Zero support requests.
-
 ## Features
 
 - **Real-time grid sync** — sub-100ms cross-client updates via Supabase broadcast + postgres_changes (see [ADR-0003](docs/adr/0003-dual-realtime-channels.md))
 - **Optimistic claims with rollback** — taps feel instant; failed claims roll back with a toast (see [ADR-0002](docs/adr/0002-optimistic-chain.md))
+- **Custom teams** — set team names, colors, and logos per party; configurable app-wide via env vars
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
 - **PWA installable** on iOS + Android with push notifications
@@ -49,12 +40,20 @@ Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Z
 | ------------- | ------------------------------------------------------------------------------------------------------------ |
 | Frontend      | SvelteKit 5 (runes in components, legacy stores in shared state — [why](docs/adr/0001-hybrid-reactivity.md)) |
 | Styling       | Tailwind 4 + CSS variables                                                                                   |
-| Language      | TypeScript 6 strict                                                                                          |
+| Language      | TypeScript (strict, `--max-warnings 0`)                                                                      |
 | Backend       | Supabase (Postgres + Realtime + RPC)                                                                         |
 | Hosting       | Cloudflare Pages, Vercel, Netlify, or self-hosted Node — see [DEPLOY.md](docs/DEPLOY.md)                     |
 | Observability | Sentry + Web Vitals (optional, no-op without DSN)                                                            |
 | Testing       | Vitest (unit + integration) + Playwright (e2e + visual regression)                                           |
 | CI            | GitHub Actions — 5 jobs gating every PR                                                                      |
+
+## Why this exists
+
+Office and friend-group "squares" pools usually run via a paper grid + Venmo. Anyone joining late can't see the live grid. Anyone leaving early can't see who won which quarter. The host has to manually track scores against a paper-and-pen grid while paying attention to the actual game.
+
+This app collapses all of that into a shared URL. Friends claim cells in real time, the host enters scores at quarter-end, the app computes winners and shows a payout summary. No accounts, no money flowing through the app — just the bookkeeping.
+
+Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Zero support requests.
 
 ## Quick start
 
@@ -82,10 +81,15 @@ Apply the migrations to your Supabase project:
 # Option A: Supabase CLI (recommended)
 supabase link --project-ref <your-ref>
 supabase db push
-
-# Option B: Manually paste each migration in the Supabase SQL Editor
-# in numerical order: supabase/migrations/001_*.sql through 023_*.sql
 ```
+
+```bash
+# Option B: SQL Editor — paste each file in numerical order
+# supabase/migrations/001_*.sql through 023_*.sql
+```
+
+> [!IMPORTANT]
+> **Option B only:** If you apply migrations via the SQL Editor instead of the CLI, also verify that Realtime replication is enabled for the `parties`, `squares`, `numbers`, `scores`, and `winners` tables in **Supabase Dashboard → Database → Replication**. The CLI applies `001_schema.sql` (which contains the `ALTER PUBLICATION supabase_realtime ADD TABLE …` statements) automatically; the SQL Editor does not activate Realtime for you — the grid will appear to work but won't sync across clients in real time.
 
 ### Demo data
 
@@ -124,12 +128,17 @@ Brand strings, default team labels, and currency live in [`src/lib/config.ts`](s
 | `PUBLIC_APP_DESCRIPTION`        | `Real-time Super Bowl squares pool. …` |
 | `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                             |
 | `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                              |
+| `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                  |
 | `PUBLIC_DEFAULT_TEAM_COL_NAME`  | `Patriots`                             |
 | `PUBLIC_DEFAULT_TEAM_COL_COLOR` | `#C60C30`                              |
+| `PUBLIC_DEFAULT_TEAM_COL_LOGO`  | `/logos/patriots.png`                  |
 | `PUBLIC_CURRENCY_CODE`          | `USD` (any ISO 4217 code)              |
 | `PUBLIC_LOCALE`                 | `en-US` (any BCP 47 locale)            |
 
 `PUBLIC_APP_NAME` and `PUBLIC_APP_DESCRIPTION` are also picked up by the PWA manifest in `vite.config.ts`. All values fall back to the defaults above when unset, so a stock fork keeps the Football Squares experience.
+
+> [!NOTE]
+> Team names and colors can also be set **per party** from the create-party form — the env vars set the defaults pre-populated in the form.
 
 ## Architecture
 

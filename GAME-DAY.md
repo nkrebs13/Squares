@@ -1,5 +1,7 @@
 # Game Day Operations
 
+Before game day, run through the [QA Checklist](docs/QA-CHECKLIST.md) to verify the deployment is healthy.
+
 ## Monitoring
 
 - **Supabase Dashboard**: Monitor error rates, Realtime connections, and database load
