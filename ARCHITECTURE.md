@@ -172,5 +172,5 @@ These are written to prevent a future contributor from "fixing" them:
 - [ADR-0002: Optimistic update chain](docs/adr/0002-optimistic-chain.md)
 - [ADR-0003: Dual realtime channels](docs/adr/0003-dual-realtime-channels.md)
 - [E2E testing strategy](docs/E2E_TESTING.md)
-- [Game-day operations runbook](GAME-DAY.md)
+- [Game-day operations runbook](docs/GAME-DAY.md)
 - [Security stance](SECURITY.md)

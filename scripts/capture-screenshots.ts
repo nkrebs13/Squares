@@ -20,8 +20,9 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { execSync } from 'child_process';
 
-// Resolve .env relative to this script's directory
+// Load .env then .env.local (local takes precedence, matching Vite's convention)
 dotenv.config({ path: path.resolve(import.meta.dirname, '../.env') });
+dotenv.config({ path: path.resolve(import.meta.dirname, '../.env.local'), override: true });
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? '';
