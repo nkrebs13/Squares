@@ -130,6 +130,6 @@ Any tool that outputs the correct PNG dimensions works — ImageMagick, Figma ex
 
 **Build succeeds but live site shows a blank page.** Usually missing env vars at build time. Confirm `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set in the platform dashboard _for the Production environment_ (not just Development).
 
-**Realtime updates don't arrive on production.** Check the Supabase project's [Realtime settings](https://supabase.com/dashboard/project/_/database/replication) — the `parties`, `squares`, `numbers`, `scores`, and `winners` tables must have replication enabled. Migration `017_realtime_publication.sql` enables this; if you applied migrations via SQL Editor, verify the publication.
+**Realtime updates don't arrive on production.** Check the Supabase project's [Realtime settings](https://supabase.com/dashboard/project/_/database/replication) — the `parties`, `squares`, `numbers`, `scores`, and `winners` tables must have replication enabled. The `ALTER PUBLICATION supabase_realtime ADD TABLE …` statements live in `001_schema.sql`; if you applied migrations via SQL Editor, verify the publication is active in the dashboard.
 
 **`adapter-auto` warns "Could not detect a supported production environment"** during local `npm run build`. Expected — adapter-auto only resolves on the supported platforms (CF/Vercel/Netlify/Azure SWA). Local builds produce a no-op output. Use `npm run dev` for local testing, or switch temporarily to `adapter-node` if you need a real local production build.

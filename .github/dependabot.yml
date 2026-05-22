@@ -14,7 +14,6 @@ updates:
         patterns:
           - '@supabase/*'
           - 'idb-keyval'
-          - 'panzoom'
         update-types:
           - 'minor'
           - 'patch'

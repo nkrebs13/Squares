@@ -153,7 +153,7 @@ The 10-minute orientation is in [ARCHITECTURE.md](ARCHITECTURE.md). The deepest 
 
 If you've cloned the repo and want to know "where does X live and why", that's the path.
 
-For production operations, see [GAME-DAY.md](GAME-DAY.md) — the runbook used on Super Bowl Sunday, covering Supabase monitoring, emergency SQL for stuck party states, service worker cache clearing, and broadcast channel health diagnosis.
+For production operations, see [GAME-DAY.md](docs/GAME-DAY.md) — the runbook used on Super Bowl Sunday, covering Supabase monitoring, emergency SQL for stuck party states, service worker cache clearing, and broadcast channel health diagnosis.
 
 ## Development
 
