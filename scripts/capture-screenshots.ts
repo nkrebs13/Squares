@@ -31,6 +31,10 @@ const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 const CLIENT_KEY = process.env.SUPABASE_SERVICE_KEY || ANON_KEY;
 const OUT_DIR = path.resolve(import.meta.dirname, '../docs/screenshots');
 const FRAMES_DIR = path.join(OUT_DIR, 'raw-frames');
+const DEMO_EVENT_NAME = '2027 Championship Squares';
+const DEMO_KICKOFF_AT = '2027-02-14T23:30:00.000Z';
+const DEMO_ROW_TEAM = { name: 'Ravens', color: '#241773' };
+const DEMO_COL_TEAM = { name: 'Lions', color: '#0076B6' };
 
 if (!SUPABASE_URL || !CLIENT_KEY) {
 	console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
@@ -90,6 +94,12 @@ async function main() {
 			p_split_q2: 20,
 			p_split_q3: 20,
 			p_split_final: 40,
+			p_event_name: DEMO_EVENT_NAME,
+			p_kickoff_at: DEMO_KICKOFF_AT,
+			p_team_row_name: DEMO_ROW_TEAM.name,
+			p_team_col_name: DEMO_COL_TEAM.name,
+			p_team_row_color: DEMO_ROW_TEAM.color,
+			p_team_col_color: DEMO_COL_TEAM.color,
 		});
 		partyId = party.id as string;
 		partyCode = party.code as string;
