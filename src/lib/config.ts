@@ -1,4 +1,11 @@
 import { env } from '$env/dynamic/public';
+import {
+	DEFAULT_APP_DESCRIPTION,
+	DEFAULT_APP_NAME,
+	DEFAULT_APP_TAGLINE,
+	DEFAULT_APP_URL,
+	DEFAULT_DEMO_PARTY_CODE,
+} from '$lib/app-defaults';
 
 /** Validate a CSS hex color from env config; fall back to the literal default if malformed. */
 function safeColor(value: string, fallback: string): string {
@@ -7,15 +14,19 @@ function safeColor(value: string, fallback: string): string {
 
 export const APP_CONFIG = {
 	/** Override with PUBLIC_APP_NAME. Recommended max 20 chars to avoid hero overflow. */
-	appName: env.PUBLIC_APP_NAME || 'Football Squares',
+	appName: env.PUBLIC_APP_NAME || DEFAULT_APP_NAME,
+
+	/** Override with PUBLIC_APP_URL. Used for canonical and share metadata. */
+	appUrl: env.PUBLIC_APP_URL || DEFAULT_APP_URL,
 
 	/** Override with PUBLIC_APP_TAGLINE. Shown as the home-page hero subtitle. */
-	appTagline: env.PUBLIC_APP_TAGLINE || 'Super Bowl party pools made easy',
+	appTagline: env.PUBLIC_APP_TAGLINE || DEFAULT_APP_TAGLINE,
 
 	/** Override with PUBLIC_APP_DESCRIPTION. Used in OG/Twitter meta tags. */
-	appDescription:
-		env.PUBLIC_APP_DESCRIPTION ||
-		'Real-time Super Bowl squares pool. Claim your squares for the big game!',
+	appDescription: env.PUBLIC_APP_DESCRIPTION || DEFAULT_APP_DESCRIPTION,
+
+	/** Override with PUBLIC_DEMO_PARTY_CODE. Used by the home-page demo CTA. */
+	demoPartyCode: env.PUBLIC_DEMO_PARTY_CODE || DEFAULT_DEMO_PARTY_CODE,
 
 	/** Default team labels seeded into the create-party form. */
 	defaultTeams: {

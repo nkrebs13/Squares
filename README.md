@@ -55,6 +55,19 @@ This app collapses all of that into a shared URL. Friends claim cells in real ti
 
 Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Zero support requests.
 
+## Portfolio case study
+
+This repo is intentionally shaped as a full-stack portfolio artifact, not just a weekend UI. The product constraint was a real event with non-technical users, spotty mobile networks, and a host who needed score entry to work while watching the game.
+
+The senior-engineering work is in the operational details: a transactional `create_party` RPC, source-of-truth Postgres changes paired with low-latency broadcasts, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
+
+For reviewers, the fastest path is:
+
+- Try the live demo from the home page.
+- Read [ARCHITECTURE.md](ARCHITECTURE.md) for the system overview.
+- Read [ADR-0002](docs/adr/0002-optimistic-chain.md) and [ADR-0003](docs/adr/0003-dual-realtime-channels.md) for the key realtime decisions.
+- Read [GAME-DAY.md](docs/GAME-DAY.md) for the production operations model.
+
 ## Quick start
 
 ### Prerequisites
@@ -124,8 +137,10 @@ Brand strings, default team labels, and currency live in [`src/lib/config.ts`](s
 | Env var                         | Default                                |
 | ------------------------------- | -------------------------------------- |
 | `PUBLIC_APP_NAME`               | `Football Squares`                     |
+| `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`      |
 | `PUBLIC_APP_TAGLINE`            | `Super Bowl party pools made easy`     |
 | `PUBLIC_APP_DESCRIPTION`        | `Real-time Super Bowl squares pool. …` |
+| `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                               |
 | `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                             |
 | `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                              |
 | `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                  |
