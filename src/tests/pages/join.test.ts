@@ -29,6 +29,20 @@ function partyQuery(
 	};
 }
 
+function squaresQuery(data: Array<Record<string, unknown>> = []) {
+	return {
+		select: vi.fn().mockReturnThis(),
+		eq: vi.fn().mockResolvedValue({ data, error: null }),
+	};
+}
+
+function claimedSquares(count: number) {
+	return Array.from({ length: count }, (_, index) => ({
+		player_name: `Player ${index + 1}`,
+		claimed_at: '2027-02-14T20:00:00.000Z',
+	}));
+}
+
 function deferredPartyQuery() {
 	let resolveSingle!: (value: {
 		data: Record<string, unknown> | null;
@@ -53,11 +67,13 @@ function deferredPartyQuery() {
 
 function previewParty(overrides: Record<string, unknown> = {}) {
 	return {
+		id: 'party-id',
 		event_name: '2027 Championship',
 		kickoff_at: '2027-02-14T23:30:00.000Z',
 		status: 'filling',
 		team_row_name: 'Ravens',
 		team_col_name: 'Lions',
+		square_price: 5,
 		...overrides,
 	};
 }
@@ -74,8 +90,10 @@ function joinLookupParty(overrides: Record<string, unknown> = {}) {
 describe('Join Page', () => {
 	beforeEach(async () => {
 		await userName.setName('');
-		mockSupabaseClient.from.mockReturnValue(
-			partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
+		mockSupabaseClient.from.mockImplementation((...args: unknown[]) =>
+			args[0] === 'squares'
+				? (squaresQuery(claimedSquares(12)) as ReturnType<typeof mockSupabaseClient.from>)
+				: (partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>)
 		);
 	});
 
@@ -104,6 +122,9 @@ describe('Join Page', () => {
 
 			await expect(screen.findByText('2027 Championship')).resolves.toBeInTheDocument();
 			expect(screen.getByText('Ravens vs Lions')).toBeInTheDocument();
+			expect(screen.getByText('$5')).toBeInTheDocument();
+			expect(screen.getByText('88')).toBeInTheDocument();
+			expect(screen.getByText('Full pot: $500')).toBeInTheDocument();
 			expect(screen.getByText('filling')).toBeInTheDocument();
 		});
 
@@ -154,6 +175,9 @@ describe('Join Page', () => {
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(null, { message: 'Not found' }) as ReturnType<typeof mockSupabaseClient.from>
 			);
 
@@ -176,6 +200,9 @@ describe('Join Page', () => {
 
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty()) as ReturnType<typeof mockSupabaseClient.from>
@@ -204,6 +231,9 @@ describe('Join Page', () => {
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
 					typeof mockSupabaseClient.from
 				>
@@ -229,6 +259,9 @@ describe('Join Page', () => {
 			// First call: party lookup (name matches host)
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
@@ -272,6 +305,9 @@ describe('Join Page', () => {
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
 					typeof mockSupabaseClient.from
 				>
@@ -306,6 +342,9 @@ describe('Join Page', () => {
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
 					typeof mockSupabaseClient.from
 				>
@@ -337,6 +376,9 @@ describe('Join Page', () => {
 
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
+			);
+			mockSupabaseClient.from.mockReturnValueOnce(
+				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
 			);
 			mockSupabaseClient.from.mockReturnValueOnce(
 				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
