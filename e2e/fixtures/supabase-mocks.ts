@@ -311,6 +311,8 @@ export async function setupSupabaseMocks(page: Page) {
 
 interface RecentPartyData {
 	code: string;
+	eventName?: string;
+	kickoffAt?: string | null;
 	teamRowName: string;
 	teamColName: string;
 	lastVisited: number;
