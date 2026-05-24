@@ -12,6 +12,7 @@
 		setSessionItem,
 	} from '$lib/storage';
 	import type { PartyStatus } from '$lib/types';
+	import { calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
@@ -291,7 +292,7 @@
 							</div>
 						</div>
 						<p class="mt-2 text-sm" style="color: var(--text-muted)">
-							Full pot: {formatPrice(preview.squarePrice * 100)}
+							Full pot: {formatPrice(calculateTotalPot(preview.squarePrice))}
 						</p>
 						{#if formatKickoff(preview.kickoffAt)}
 							<div class="mt-1 text-sm" style="color: var(--text-muted)">

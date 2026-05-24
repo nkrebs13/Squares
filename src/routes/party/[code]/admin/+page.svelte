@@ -41,6 +41,7 @@
 	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
 	import { areDistinctTeamNames } from '$lib/utils/teamNames';
 	import { formatPrice } from '$lib/utils/format';
+	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 
 	const code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
@@ -361,13 +362,8 @@
 	const splitTotal = $derived(
 		payoutSplits.q1 + payoutSplits.q2 + payoutSplits.q3 + payoutSplits.final
 	);
-	const payoutTotalPot = $derived(($party?.square_price ?? 0) * 100);
-	const payoutPreviewRows = $derived([
-		{ key: 'q1', label: 'Q1', percent: payoutSplits.q1 },
-		{ key: 'q2', label: 'Q2', percent: payoutSplits.q2 },
-		{ key: 'q3', label: 'Q3', percent: payoutSplits.q3 },
-		{ key: 'final', label: 'Final', percent: payoutSplits.final },
-	]);
+	const payoutTotalPot = $derived(calculateTotalPot($party?.square_price ?? 0));
+	const payoutPreviewRows = $derived(buildPayoutRows(payoutSplits, payoutTotalPot));
 
 	async function handleUpdatePayout() {
 		if (!storedPin) return;
@@ -820,9 +816,7 @@
 								{#each payoutPreviewRows as row (row.key)}
 									<div data-testid={`admin-payout-${row.key}`}>
 										<div class="text-xs uppercase text-muted">{row.label}</div>
-										<div class="font-semibold">
-											{formatPrice((payoutTotalPot * row.percent) / 100)}
-										</div>
+										<div class="font-semibold">{formatPrice(row.amount)}</div>
 										<div class="text-xs text-secondary">{row.percent}%</div>
 									</div>
 								{/each}

@@ -10,6 +10,7 @@
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
 	import { areDistinctTeamNames } from '$lib/utils/teamNames';
+	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
 	let kickoffInput = $state('');
@@ -48,13 +49,8 @@
 	const splitTotal = $derived(
 		currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final
 	);
-	const totalPot = $derived(squarePrice * 100);
-	const payoutPreviewRows = $derived([
-		{ key: 'q1', label: 'Q1', percent: currentSplit.q1 },
-		{ key: 'q2', label: 'Q2', percent: currentSplit.q2 },
-		{ key: 'q3', label: 'Q3', percent: currentSplit.q3 },
-		{ key: 'final', label: 'Final', percent: currentSplit.final },
-	]);
+	const totalPot = $derived(calculateTotalPot(squarePrice));
+	const payoutPreviewRows = $derived(buildPayoutRows(currentSplit, totalPot));
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
@@ -291,7 +287,7 @@
 					{#each payoutPreviewRows as row (row.key)}
 						<div data-testid={`create-payout-${row.key}`}>
 							<div class="text-xs uppercase" style="color: var(--text-muted)">{row.label}</div>
-							<div class="font-semibold">{formatPrice((totalPot * row.percent) / 100)}</div>
+							<div class="font-semibold">{formatPrice(row.amount)}</div>
 							<div class="text-xs" style="color: var(--text-secondary)">{row.percent}%</div>
 						</div>
 					{/each}
