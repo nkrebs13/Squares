@@ -2,7 +2,13 @@
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { partyPinKey, getSessionItem, setSessionItem } from '$lib/storage';
+	import {
+		partyPinKey,
+		getHostPin,
+		setHostPin,
+		getSessionItem,
+		setSessionItem,
+	} from '$lib/storage';
 	import {
 		party,
 		scores,
@@ -120,6 +126,9 @@
 
 		if (browser) {
 			storedPin = getSessionItem(partyPinKey(code));
+			if (!storedPin) {
+				storedPin = await getHostPin(code);
+			}
 			if (storedPin) {
 				isAuthorized = true;
 			}
@@ -221,6 +230,7 @@
 		try {
 			const isValid = await verifyHostPin(code, enteredPin);
 			if (isValid) {
+				await setHostPin(code, enteredPin);
 				setSessionItem(partyPinKey(code), enteredPin);
 				storedPin = enteredPin;
 				isAuthorized = true;
