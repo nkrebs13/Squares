@@ -131,6 +131,10 @@ test.describe('Join Party Page', () => {
 		await expect(page.getByText('$5', { exact: true })).toBeVisible();
 		await expect(page.getByText('98')).toBeVisible();
 		await expect(page.getByText('Full pot: $500')).toBeVisible();
+		await expect(page.getByTestId('join-payout-q1')).toContainText('$50');
+		await expect(page.getByTestId('join-payout-q2')).toContainText('$100');
+		await expect(page.getByTestId('join-payout-q3')).toContainText('$150');
+		await expect(page.getByTestId('join-payout-final')).toContainText('$200');
 		await expect(page.getByText('filling')).toBeVisible();
 	});
 

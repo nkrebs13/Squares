@@ -12,7 +12,7 @@
 		setSessionItem,
 	} from '$lib/storage';
 	import type { PartyStatus } from '$lib/types';
-	import { calculateTotalPot } from '$lib/payouts';
+	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
@@ -26,6 +26,10 @@
 		teamRowName: string;
 		teamColName: string;
 		squarePrice: number;
+		splitQ1: number;
+		splitQ2: number;
+		splitQ3: number;
+		splitFinal: number;
 		filledCount: number | null;
 	}
 
@@ -38,6 +42,20 @@
 	let isLoadingPreview = $state(false);
 	let previewError = $state<string | null>(null);
 	let previewRequestId = 0;
+	const previewTotalPot = $derived(preview ? calculateTotalPot(preview.squarePrice) : 0);
+	const previewPayoutRows = $derived(
+		preview
+			? buildPayoutRows(
+					{
+						q1: preview.splitQ1,
+						q2: preview.splitQ2,
+						q3: preview.splitQ3,
+						final: preview.splitFinal,
+					},
+					previewTotalPot
+				)
+			: []
+	);
 
 	// PIN challenge state
 	let showPinChallenge = $state(false);
@@ -148,7 +166,9 @@
 			const supabase = getSupabaseClient();
 			const { data, error: partyError } = await supabase
 				.from('parties')
-				.select('id, event_name, kickoff_at, status, team_row_name, team_col_name, square_price')
+				.select(
+					'id, event_name, kickoff_at, status, team_row_name, team_col_name, square_price, split_q1, split_q2, split_q3, split_final'
+				)
 				.eq('code', partyCode)
 				.single();
 
@@ -175,6 +195,10 @@
 				teamRowName: data.team_row_name,
 				teamColName: data.team_col_name,
 				squarePrice: data.square_price,
+				splitQ1: data.split_q1,
+				splitQ2: data.split_q2,
+				splitQ3: data.split_q3,
+				splitFinal: data.split_final,
 				filledCount: Array.isArray(squaresData)
 					? squaresData.filter((square) => square.player_name || square.claimed_at).length
 					: null,
@@ -292,8 +316,21 @@
 							</div>
 						</div>
 						<p class="mt-2 text-sm" style="color: var(--text-muted)">
-							Full pot: {formatPrice(calculateTotalPot(preview.squarePrice))}
+							Full pot: {formatPrice(previewTotalPot)}
 						</p>
+						<div
+							class="mt-3 grid grid-cols-2 gap-2 rounded-lg border p-3 sm:grid-cols-4"
+							style="border-color: rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03);"
+							data-testid="join-payout-preview"
+						>
+							{#each previewPayoutRows as row (row.key)}
+								<div data-testid={`join-payout-${row.key}`}>
+									<div class="text-xs uppercase" style="color: var(--text-muted)">{row.label}</div>
+									<div class="font-semibold">{formatPrice(row.amount)}</div>
+									<div class="text-xs" style="color: var(--text-secondary)">{row.percent}%</div>
+								</div>
+							{/each}
+						</div>
 						{#if formatKickoff(preview.kickoffAt)}
 							<div class="mt-1 text-sm" style="color: var(--text-muted)">
 								{formatKickoff(preview.kickoffAt, {
