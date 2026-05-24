@@ -79,6 +79,7 @@ test.describe('Recent Parties', () => {
 	const recentParties = [
 		{
 			code: 'AAAA11',
+			eventName: 'Football Squares',
 			teamRowName: 'Eagles',
 			teamColName: 'Chiefs',
 			lastVisited: Date.now() - 1000,
@@ -87,6 +88,8 @@ test.describe('Recent Parties', () => {
 		},
 		{
 			code: 'BBBB22',
+			eventName: '2027 Championship',
+			kickoffAt: '2027-02-14T23:30:00.000Z',
 			teamRowName: 'Rams',
 			teamColName: '49ers',
 			lastVisited: Date.now() - 2000,
@@ -125,6 +128,16 @@ test.describe('Recent Parties', () => {
 
 		// Default display name is "TeamRow vs TeamCol"
 		await expect(page.getByText('Eagles vs Chiefs')).toBeVisible();
+	});
+
+	test('displays custom event names with matchup detail', async ({ page }) => {
+		await page.goto('/');
+		await seedRecentParties(page, recentParties);
+		await page.reload();
+
+		await expect(page.getByText(/recent parties/i)).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('2027 Championship')).toBeVisible();
+		await expect(page.getByText(/Rams vs 49ers/)).toBeVisible();
 	});
 
 	test('shows status badges', async ({ page }) => {

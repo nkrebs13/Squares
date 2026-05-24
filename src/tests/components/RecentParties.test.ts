@@ -78,6 +78,32 @@ describe('RecentParties Component', () => {
 			});
 		});
 
+		it('uses matchup instead of generic default event name', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ eventName: 'Football Squares' })]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('Seahawks vs Patriots')).toBeInTheDocument();
+			});
+			expect(screen.queryByText('Football Squares')).not.toBeInTheDocument();
+		});
+
+		it('shows custom event name with matchup details', async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({
+					eventName: '2027 Championship',
+					teamRowName: 'Ravens',
+					teamColName: 'Lions',
+				}),
+			]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('2027 Championship')).toBeInTheDocument();
+			});
+			expect(screen.getByText('Ravens vs Lions')).toBeInTheDocument();
+		});
+
 		it('shows nickname when set', async () => {
 			mockGetRecentParties.mockResolvedValue([createMockParty({ nickname: 'Super Bowl Party' })]);
 			render(RecentParties);
@@ -85,6 +111,42 @@ describe('RecentParties Component', () => {
 			await vi.waitFor(() => {
 				expect(screen.getByText('Super Bowl Party')).toBeInTheDocument();
 			});
+		});
+
+		it('shows nickname with custom event, matchup, and kickoff details', async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({
+					nickname: 'Office Pool',
+					eventName: '2027 Championship',
+					kickoffAt: '2027-02-14T23:30:00.000Z',
+					teamRowName: 'Ravens',
+					teamColName: 'Lions',
+				}),
+			]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('Office Pool')).toBeInTheDocument();
+			});
+			expect(screen.getByText(/2027 Championship - Ravens vs Lions - /)).toBeInTheDocument();
+		});
+
+		it('does not repeat the event name in details when it matches the nickname', async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({
+					nickname: 'Office Pool',
+					eventName: 'Office Pool',
+					teamRowName: 'Eagles',
+					teamColName: 'Chiefs',
+				}),
+			]);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('Office Pool')).toBeInTheDocument();
+			});
+			expect(screen.getByText('Eagles vs Chiefs')).toBeInTheDocument();
+			expect(screen.queryByText('Office Pool - Eagles vs Chiefs')).not.toBeInTheDocument();
 		});
 
 		it('shows party code', async () => {

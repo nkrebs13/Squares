@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
+	import { APP_CONFIG } from '$lib/config';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import type { RecentParty, PartyStatus } from '$lib/types';
 
@@ -46,17 +47,36 @@
 		if (party.nickname) {
 			return party.nickname;
 		}
-		return party.eventName || `${party.teamRowName} vs ${party.teamColName}`;
+		const matchup = `${party.teamRowName} vs ${party.teamColName}`;
+		return getSpecificEventName(party, matchup) ?? matchup;
 	}
 
 	function getDetailLine(party: RecentParty): string {
 		const matchup = `${party.teamRowName} vs ${party.teamColName}`;
-		if (!party.nickname && (!party.eventName || party.eventName === matchup)) return '';
-		if (party.nickname && (!party.eventName || party.eventName === matchup)) return matchup;
-		if (!party.kickoffAt) return matchup;
-
 		const kickoff = formatKickoff(party.kickoffAt);
-		return kickoff ? `${matchup} - ${kickoff}` : matchup;
+		const specificEventName = getSpecificEventName(party, matchup);
+
+		if (!party.nickname && !specificEventName) return kickoff || '';
+
+		const details = [];
+		if (party.nickname && specificEventName && !isSameLabel(party.nickname, specificEventName)) {
+			details.push(specificEventName);
+		}
+		details.push(matchup);
+		if (kickoff) details.push(kickoff);
+		return details.join(' - ');
+	}
+
+	function isSameLabel(first: string, second: string): boolean {
+		return first.trim().toLowerCase() === second.trim().toLowerCase();
+	}
+
+	function getSpecificEventName(party: RecentParty, matchup: string): string | null {
+		const eventName = party.eventName?.trim();
+		if (!eventName || eventName === matchup || eventName === APP_CONFIG.defaultEventName) {
+			return null;
+		}
+		return eventName;
 	}
 
 	function handleRemove(e: Event, code: string) {

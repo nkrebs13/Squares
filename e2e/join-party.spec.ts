@@ -225,7 +225,7 @@ test.describe('Join Party - Nickname Flow', () => {
 
 		// Navigate home and check recent parties shows the nickname
 		await page.goto('/');
-		await expect(page.getByText('Office Pool')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('Office Pool', { exact: true })).toBeVisible({ timeout: 10000 });
 	});
 });
 
