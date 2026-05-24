@@ -72,6 +72,8 @@ test.describe('Create Party Page', () => {
 
 	test('allows selecting different presets', async ({ page }) => {
 		const equalButton = page.getByRole('button', { name: /equal/i });
+		await expect(page.getByText('10%').first()).toBeVisible();
+		await page.waitForTimeout(100);
 		await equalButton.click();
 
 		// Equal preset should show 25% for each quarter

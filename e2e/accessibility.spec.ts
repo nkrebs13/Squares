@@ -84,7 +84,7 @@ test.describe('Keyboard Navigation', () => {
 		await expect(codeInput).toBeFocused();
 
 		// Type a code so the join button becomes enabled (disabled buttons can't receive focus)
-		await codeInput.pressSequentially('TEST1');
+		await codeInput.pressSequentially('TEST12');
 		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
 
 		// Tab to join button and wait for focus to settle
@@ -97,7 +97,7 @@ test.describe('Keyboard Navigation', () => {
 		await page.goto('/');
 
 		const codeInput = page.getByPlaceholder(/enter party code/i);
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 
 		// Wait for submit button to be enabled after Svelte reactivity
 		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
@@ -105,7 +105,7 @@ test.describe('Keyboard Navigation', () => {
 		// Press Enter to submit
 		await page.keyboard.press('Enter');
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
 	test('can navigate create party form with keyboard', async ({ page }) => {

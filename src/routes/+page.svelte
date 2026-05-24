@@ -2,10 +2,12 @@
 	import { goto } from '$app/navigation';
 	import RecentParties from '$lib/components/RecentParties.svelte';
 	import { APP_CONFIG } from '$lib/config';
+	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 
 	let partyCode = $state('');
 	const demoHref = $derived(`/join?code=${APP_CONFIG.demoPartyCode.toUpperCase()}`);
 	const canonicalUrl = $derived(APP_CONFIG.appUrl.replace(/\/$/, ''));
+	const normalizedPartyCode = $derived(normalizePartyCode(partyCode));
 
 	const previewCells = [
 		{ owner: 'NK', class: 'mine' },
@@ -27,8 +29,8 @@
 	];
 
 	function handleJoin() {
-		if (partyCode.trim().length >= 4) {
-			goto(`/join?code=${partyCode.trim().toUpperCase()}`);
+		if (isCompletePartyCode(partyCode)) {
+			goto(`/join?code=${normalizedPartyCode}`);
 		}
 	}
 </script>
@@ -83,14 +85,14 @@
 					bind:value={partyCode}
 					placeholder="Enter party code"
 					class="input join-input"
-					maxlength="6"
+					maxlength="12"
 					autocomplete="off"
 					autocapitalize="characters"
 				/>
 				<button
 					type="submit"
 					class="btn btn-primary join-button"
-					disabled={partyCode.trim().length < 4}
+					disabled={!isCompletePartyCode(partyCode)}
 				>
 					Join Party
 				</button>

@@ -36,11 +36,11 @@ test.describe('Landing Page', () => {
 		await expect(joinButton).toBeDisabled();
 	});
 
-	test('enables Join Party button when code is entered', async ({ page }) => {
+	test('enables Join Party button when a complete code is entered', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('ABCD');
+		await codeInput.fill('ABCD12');
 		await expect(joinButton).toBeEnabled();
 	});
 
@@ -48,20 +48,20 @@ test.describe('Landing Page', () => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
-	test('converts party code to uppercase', async ({ page }) => {
+	test('normalizes party code before joining', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('abcd');
+		await codeInput.fill('demo-01');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=ABCD');
+		await expect(page).toHaveURL('/join?code=DEMO01');
 	});
 
 	test('displays hint about joining multiple parties', async ({ page }) => {
