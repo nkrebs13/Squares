@@ -122,8 +122,8 @@ describe('PartyCode Component', () => {
 
 		expect(mockShare).toHaveBeenCalledWith(
 			expect.objectContaining({
-				title: 'Football Squares',
-				text: 'Join my Football Squares party!',
+				title: 'Test Football Squares',
+				text: 'Join Test Football Squares: Eagles vs Chiefs. Code TEST123.',
 			})
 		);
 	});
