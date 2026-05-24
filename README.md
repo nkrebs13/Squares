@@ -42,7 +42,7 @@
 | Styling       | Tailwind 4 + CSS variables                                                                                   |
 | Language      | TypeScript (strict, `--max-warnings 0`)                                                                      |
 | Backend       | Supabase (Postgres + Realtime + RPC)                                                                         |
-| Hosting       | Cloudflare Pages, Vercel, Netlify, or self-hosted Node — see [DEPLOY.md](docs/DEPLOY.md)                     |
+| Hosting       | Cloudflare Pages via `@sveltejs/adapter-cloudflare` — see [DEPLOY.md](docs/DEPLOY.md)                        |
 | Observability | Sentry + Web Vitals (optional, no-op without DSN)                                                            |
 | Testing       | Vitest (unit + integration) + Playwright (e2e + visual regression)                                           |
 | CI            | GitHub Actions — 5 jobs gating every PR                                                                      |
@@ -72,7 +72,7 @@ For reviewers, the fastest path is:
 
 ### Prerequisites
 
-- Node 20+
+- Node 22+
 - A [Supabase](https://supabase.com) project (free tier works)
 
 ### Installation
@@ -121,12 +121,7 @@ PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
 
 ## Deployment
 
-The repo uses `@sveltejs/adapter-auto`, so the same source ships unchanged to:
-
-- **Cloudflare Pages** — canonical production target ([squares.nathankrebs.com](https://squares.nathankrebs.com) runs here)
-- **Vercel** — [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2FSquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
-- **Netlify** — [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/Squares)
-- **Self-host (Node)** — drop in `@sveltejs/adapter-node` per the guide
+The repo ships with `@sveltejs/adapter-cloudflare` because Cloudflare Pages is the canonical production target ([squares.nathankrebs.com](https://squares.nathankrebs.com) runs there). Forks can still target Vercel, Netlify, or self-hosted Node by swapping the adapter as described in the deploy guide.
 
 Full step-by-step instructions, env-var lists, custom-domain notes, and troubleshooting in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
