@@ -31,7 +31,7 @@
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
 - **PWA installable** on iOS + Android with push notifications
-- **ESPN live score auto-detect** — links to the active NFL game without manual setup
+- **Matchup-aware live score assist** — links to ESPN-sourced NFL scores when the active game matches the party teams; manual scoring stays available as the fallback
 - **Color-coded player legend** with click-to-filter
 - **Pan and zoom** for usable squares on small phones
 - **WCAG 2.1 AA targets** — ARIA grid markup, dialog modal with focus trap, semantic forms
@@ -61,7 +61,7 @@ Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Z
 
 This repo is intentionally shaped as a full-stack portfolio artifact, not just a weekend UI. The product constraint was a real event with non-technical users, spotty mobile networks, and a host who needed score entry to work while watching the game.
 
-The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity and event-aware retention for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
+The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity and event-aware retention for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, matchup-aware live score detection with manual fallback, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
 
 For reviewers, the fastest path is:
 
