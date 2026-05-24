@@ -12,6 +12,11 @@
 	const joinUrl = $derived(
 		$party && browser ? `${window.location.origin}/join?code=${$party.code}` : ''
 	);
+	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const shareTitle = $derived($party?.event_name || APP_CONFIG.appName);
+	const shareText = $derived(
+		$party ? `Join ${$party.event_name}: ${matchupLabel}. Code ${$party.code}.` : ''
+	);
 
 	async function copyCode() {
 		if (!$party) return;
@@ -57,8 +62,8 @@
 	async function shareCode() {
 		if (!$party) return;
 		const shareData = {
-			title: APP_CONFIG.appName,
-			text: `Join my ${APP_CONFIG.appName} party!`,
+			title: shareTitle,
+			text: shareText,
 			url: joinUrl,
 		};
 
