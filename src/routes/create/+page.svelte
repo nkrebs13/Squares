@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
-	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
+	import { setHostPin, partyPinKey, partyNicknameKey, setSessionItem } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
+	import { datetimeLocalToIso, formatKickoff, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
-	import { DEFAULT_TEAMS } from '$lib/config';
+	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
+	let eventName = $state(APP_CONFIG.defaultEventName);
+	let kickoffInput = $state('');
 	let squarePriceInput = $state('1');
 	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
 	const isValidPrice = $derived(isValidAmount(squarePriceInput));
@@ -17,6 +21,7 @@
 	let nickname = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
+	let kickoffTimeZone = $state('local time');
 
 	// Team customization — pre-populated from env-configured defaults
 	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
@@ -41,14 +46,25 @@
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
+	const isValidEventName = $derived(eventName.trim().length > 0 && eventName.trim().length <= 80);
 	const canCreate = $derived(
 		isValidSplit &&
 			isValidPin &&
 			isValidHostName &&
+			isValidEventName &&
 			isValidPrice &&
 			rowTeam.name.trim().length > 0 &&
 			colTeam.name.trim().length > 0
 	);
+
+	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
+	const kickoffPreview = $derived(
+		formatKickoff(kickoffAt, { includeWeekday: true, includeTimeZone: true })
+	);
+
+	onMount(() => {
+		kickoffTimeZone = getLocalTimeZoneLabel();
+	});
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -57,6 +73,8 @@
 		error = null;
 
 		const result = await createPartyService({
+			eventName: eventName.trim(),
+			kickoffAt,
 			hostName: hostName.trim(),
 			hostPin,
 			squarePrice,
@@ -77,14 +95,14 @@
 
 		// Persist PIN locally for host actions
 		await setHostPin(code, hostPin);
-		sessionStorage.setItem(partyPinKey(code), hostPin);
+		setSessionItem(partyPinKey(code), hostPin);
 
 		// Persist host name
 		await userName.setName(hostName.trim());
 
 		// Hand the party page an optional nickname for this code
 		if (nickname.trim()) {
-			sessionStorage.setItem(partyNicknameKey(code), nickname.trim());
+			setSessionItem(partyNicknameKey(code), nickname.trim());
 		}
 
 		goto(`/party/${code}`);
@@ -104,6 +122,38 @@
 		}}
 		class="space-y-6 max-w-md mx-auto"
 	>
+		<!-- Event Details -->
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Event name</span>
+				<input
+					type="text"
+					bind:value={eventName}
+					placeholder="e.g. 2027 Super Bowl"
+					class="input mt-2"
+					maxlength="80"
+					autocomplete="off"
+					onblur={() => (eventName = eventName.trim() || APP_CONFIG.defaultEventName)}
+				/>
+			</label>
+			<label class="block mt-4">
+				<span class="text-sm" style="color: var(--text-secondary)">Kickoff time</span>
+				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
+			</label>
+			<p class="mt-2 text-xs" style="color: var(--text-muted)">
+				Timezone: {kickoffTimeZone}
+			</p>
+			{#if kickoffPreview}
+				<p class="mt-1 text-sm" style="color: var(--text-secondary)">
+					Kickoff: {kickoffPreview}
+				</p>
+			{/if}
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				Use a specific event name so this pool still makes sense when shared or revisited later.
+			</p>
+		</div>
+
 		<!-- Square Price -->
 		<div class="card">
 			<label class="block">

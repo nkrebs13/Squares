@@ -11,6 +11,7 @@ DELETE FROM parties WHERE id = '00000000-0000-0000-0000-000000000001';
 -- Insert demo party
 INSERT INTO parties (
   id, code, host_pin, host_name_lower,
+  event_name, kickoff_at,
   square_price, split_q1, split_q2, split_q3, split_final,
   status, team_row_name, team_col_name, team_row_color, team_col_color,
   expires_at
@@ -19,6 +20,8 @@ INSERT INTO parties (
   'DEMO01',
   '0000',
   'demo host',
+  'Demo Football Squares',
+  NOW() + INTERVAL '7 days',
   5.00, 15, 20, 25, 40,
   'filling',
   'Seahawks', 'Patriots', '#69BE28', '#C60C30',

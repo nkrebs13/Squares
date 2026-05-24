@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { loadParty, party, numbers, gameScores, isLoading, error, cleanup } from '$lib/stores/game';
-import type { Party } from '$lib/types';
+import { gameScoresMatchParty } from '$lib/stores/game-state';
+import type { GameScoresRow, Party } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
@@ -10,6 +11,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		code: 'TEST123',
 		host_pin: '1234',
 		host_name_lower: null,
+		event_name: 'Test Football Squares',
+		kickoff_at: null,
 		square_price: 10,
 		split_q1: 25,
 		split_q2: 25,
@@ -46,6 +49,40 @@ function makeQueryChain(resolveData: unknown, resolveError: unknown = null) {
 	};
 }
 
+function makeGameScoresRow(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
+	return {
+		game_id: 'test-game',
+		sport: 'nfl',
+		home_team_abbrev: 'PHI',
+		away_team_abbrev: 'KC',
+		home_team_name: 'Philadelphia Eagles',
+		away_team_name: 'Kansas City Chiefs',
+		home_score: 0,
+		away_score: 0,
+		game_clock: '',
+		game_quarter: 0,
+		game_status: 'pregame',
+		q1_home: null,
+		q1_away: null,
+		q2_home: null,
+		q2_away: null,
+		q3_home: null,
+		q3_away: null,
+		q4_home: null,
+		q4_away: null,
+		final_home: null,
+		final_away: null,
+		updated_at: new Date().toISOString(),
+		...overrides,
+	};
+}
+
+function makeListQueryChain(resolveData: unknown[] | null, resolveError: unknown = null) {
+	const chain = makeQueryChain(null);
+	chain.limit.mockResolvedValue({ data: resolveData, error: resolveError });
+	return chain;
+}
+
 function makeSquaresChain(data: unknown[] = []) {
 	const chain = makeQueryChain(null);
 	chain.order
@@ -66,6 +103,23 @@ describe('loadParty branches', () => {
 		vi.clearAllMocks();
 	});
 
+	describe('gameScoresMatchParty', () => {
+		it('matches full names, short names, and abbreviations across home/away ordering', () => {
+			const game = makeGameScoresRow();
+
+			expect(gameScoresMatchParty(game, createMockParty())).toBe(true);
+			expect(
+				gameScoresMatchParty(game, createMockParty({ team_row_name: 'KC', team_col_name: 'PHI' }))
+			).toBe(true);
+			expect(
+				gameScoresMatchParty(
+					game,
+					createMockParty({ team_row_name: 'Ravens', team_col_name: 'Lions' })
+				)
+			).toBe(false);
+		});
+	});
+
 	it('skips numbers fetch when party status is filling', async () => {
 		const mockParty = createMockParty({ status: 'filling' });
 
@@ -73,7 +127,7 @@ describe('loadParty branches', () => {
 		// (no numbers because filling, no game_scores fetch because no game found)
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>) // parties
-			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // auto-detect (no game found)
+			.mockReturnValueOnce(makeListQueryChain([]) as ReturnType<typeof mockSupabaseClient.from>) // auto-detect (no game found)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>) // squares
 			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // scores
 			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>); // winners
@@ -141,45 +195,20 @@ describe('loadParty branches', () => {
 			home_team_is_row: true, // will match resolveHomeIsRow result
 		});
 		const autoDetectedGameId = 'auto-detected-game-id';
-		const mockGameScoresData = {
+		const mockGameScoresData = makeGameScoresRow({
 			game_id: autoDetectedGameId,
-			sport: 'nfl',
-			home_team_abbrev: 'PHI',
-			away_team_abbrev: 'KC',
-			home_team_name: 'Philadelphia Eagles',
-			away_team_name: 'Kansas City Chiefs',
-			home_score: 0,
-			away_score: 0,
-			game_clock: '',
-			game_quarter: 0,
-			game_status: 'pregame',
-			q1_home: null,
-			q1_away: null,
-			q2_home: null,
-			q2_away: null,
-			q3_home: null,
-			q3_away: null,
-			q4_home: null,
-			q4_away: null,
-			final_home: null,
-			final_away: null,
-			updated_at: new Date().toISOString(),
-		};
+		});
 
-		// Calls: parties, auto-detect, squares, numbers, scores, game_scores, winners
+		// Calls: parties, auto-detect, squares, numbers, scores, winners.
+		// The matched auto-detect row is reused as game_scores.
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(
-				makeQueryChain({ game_id: autoDetectedGameId }) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
+				makeListQueryChain([mockGameScoresData]) as ReturnType<typeof mockSupabaseClient.from>
 			) // auto-detect
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // numbers
 			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // scores
-			.mockReturnValueOnce(
-				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
-			) // game_scores
 			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
 
 		const result = await loadParty('TEST123');
@@ -187,6 +216,38 @@ describe('loadParty branches', () => {
 		expect(result).toBe(true);
 		const loadedParty = get(party);
 		expect(loadedParty?.game_id).toBe(autoDetectedGameId);
+		expect(get(gameScores)?.game_id).toBe(autoDetectedGameId);
+	});
+
+	it('does not auto-detect an unrelated active game', async () => {
+		const mockParty = createMockParty({
+			status: 'active',
+			game_id: null,
+			team_row_name: 'Ravens',
+			team_col_name: 'Lions',
+		});
+		const unrelatedGame = makeGameScoresRow({
+			game_id: 'eagles-chiefs-game',
+			home_team_name: 'Philadelphia Eagles',
+			away_team_name: 'Kansas City Chiefs',
+		});
+
+		// Calls: parties, auto-detect(no matching game), squares, numbers, scores, winners
+		mockSupabaseClient.from
+			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
+			.mockReturnValueOnce(
+				makeListQueryChain([unrelatedGame]) as ReturnType<typeof mockSupabaseClient.from>
+			)
+			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
+			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // numbers
+			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // scores
+			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
+
+		const result = await loadParty('TEST123');
+
+		expect(result).toBe(true);
+		expect(get(party)?.game_id).toBeNull();
+		expect(get(gameScores)).toBeNull();
 	});
 
 	it('sets gameScores to null when no effectiveGameId', async () => {
@@ -195,7 +256,7 @@ describe('loadParty branches', () => {
 		// Calls: parties, auto-detect(no game), squares, scores, winners
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
-			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // auto-detect: no game
+			.mockReturnValueOnce(makeListQueryChain([]) as ReturnType<typeof mockSupabaseClient.from>) // auto-detect: no game
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>) // scores
 			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
@@ -292,8 +353,13 @@ describe('loadParty branches', () => {
 			updated_at: new Date().toISOString(),
 		};
 
+		const syncedParty = createMockParty({
+			...mockParty,
+			home_team_is_row: true,
+		});
+
 		// Calls: parties, [squares, numbers, scores, game_scores, winners] via Promise.all,
-		// then parties(update) fire-and-forget after Promise.all resolves
+		// then sync_party_home_team_mapping fire-and-forget after Promise.all resolves
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
@@ -302,10 +368,14 @@ describe('loadParty branches', () => {
 			.mockReturnValueOnce(
 				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
 			) // game_scores
-			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>) // winners
-			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>); // parties update (fire-and-forget)
+			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>); // winners
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: syncedParty, error: null });
 
 		const result = await loadParty('TEST123');
+		await Promise.resolve();
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('sync_party_home_team_mapping', {
+			p_party_id: 'test-party-id',
+		});
 
 		expect(result).toBe(true);
 		const loadedParty = get(party);
@@ -346,8 +416,8 @@ describe('loadParty branches', () => {
 			updated_at: new Date().toISOString(),
 		};
 
-		// Calls: parties, squares, numbers, scores, game_scores, winners
-		// (no correction because home_team_is_row already correct)
+		// Calls: parties, squares, numbers, scores, game_scores, winners,
+		// then sync_party_home_team_mapping fire-and-forget.
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
@@ -357,8 +427,13 @@ describe('loadParty branches', () => {
 				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
 			) // game_scores
 			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: mockParty, error: null });
 
 		const result = await loadParty('TEST123');
+		await Promise.resolve();
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('sync_party_home_team_mapping', {
+			p_party_id: 'test-party-id',
+		});
 
 		expect(result).toBe(true);
 		const loadedParty = get(party);

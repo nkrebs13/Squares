@@ -23,6 +23,8 @@ import type { Party, Quarter } from './types';
 export interface DatabaseRpcContract {
 	create_party: {
 		Args: {
+			p_event_name?: string;
+			p_kickoff_at?: string | null;
 			p_host_name: string;
 			p_pin: string;
 			p_square_price: number;
@@ -66,6 +68,38 @@ export interface DatabaseRpcContract {
 			p_col_score: number;
 		};
 		Returns: boolean;
+	};
+	update_party_details: {
+		Args: {
+			p_party_id: string;
+			p_pin: string;
+			p_event_name: string;
+			p_kickoff_at?: string | null;
+			p_team_row_name?: string;
+			p_team_col_name?: string;
+			p_team_row_color?: string;
+			p_team_col_color?: string;
+		};
+		Returns: Party;
+	};
+	update_payout_structure: {
+		Args: {
+			p_party_id: string;
+			p_pin: string;
+			p_split_q1: number;
+			p_split_q2: number;
+			p_split_q3: number;
+			p_split_final: number;
+		};
+		Returns: Party;
+	};
+	remove_player: {
+		Args: { p_party_id: string; p_pin: string; p_player_name_lower: string };
+		Returns: number;
+	};
+	sync_party_home_team_mapping: {
+		Args: { p_party_id: string };
+		Returns: Party;
 	};
 	verify_host_pin: {
 		Args: { p_party_code: string; p_pin: string };

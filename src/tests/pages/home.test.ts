@@ -22,11 +22,18 @@ describe('Home Page', () => {
 		expect(link).toHaveAttribute('href', '/create');
 	});
 
+	it('renders demo link pointing to the configured seeded party', () => {
+		render(HomePage);
+		const link = screen.getByRole('link', { name: /Try Demo/i });
+		expect(link).toBeInTheDocument();
+		expect(link).toHaveAttribute('href', '/join?code=DEMO01');
+	});
+
 	it('renders party code input', () => {
 		render(HomePage);
 		const input = screen.getByPlaceholderText('Enter party code');
 		expect(input).toBeInTheDocument();
-		expect(input).toHaveAttribute('maxlength', '6');
+		expect(input).toHaveAttribute('maxlength', '12');
 	});
 
 	it('Join button disabled when code empty', () => {
@@ -35,7 +42,18 @@ describe('Home Page', () => {
 		expect(button).toBeDisabled();
 	});
 
-	it('Join button enabled when code has 4+ chars', async () => {
+	it('Join button enabled when code has 6 chars', async () => {
+		render(HomePage);
+		const user = userEvent.setup();
+		const input = screen.getByPlaceholderText('Enter party code');
+
+		await user.type(input, 'ABCD12');
+
+		const button = screen.getByRole('button', { name: /Join Party/i });
+		expect(button).toBeEnabled();
+	});
+
+	it('Join button stays disabled for incomplete codes', async () => {
 		render(HomePage);
 		const user = userEvent.setup();
 		const input = screen.getByPlaceholderText('Enter party code');
@@ -43,21 +61,21 @@ describe('Home Page', () => {
 		await user.type(input, 'ABCD');
 
 		const button = screen.getByRole('button', { name: /Join Party/i });
-		expect(button).toBeEnabled();
+		expect(button).toBeDisabled();
 	});
 
-	it('Submit navigates to /join?code=<UPPERCASED>', async () => {
+	it('Submit navigates to /join?code=<NORMALIZED>', async () => {
 		const { goto } = await import('$app/navigation');
 		render(HomePage);
 		const user = userEvent.setup();
 		const input = screen.getByPlaceholderText('Enter party code');
 
-		await user.type(input, 'abcd12');
+		await user.type(input, 'demo-01');
 
 		const button = screen.getByRole('button', { name: /Join Party/i });
 		await user.click(button);
 
-		expect(goto).toHaveBeenCalledWith('/join?code=ABCD12');
+		expect(goto).toHaveBeenCalledWith('/join?code=DEMO01');
 	});
 
 	it('renders RecentParties component', () => {
@@ -70,6 +88,13 @@ describe('Home Page', () => {
 
 	it('renders tagline', () => {
 		render(HomePage);
-		expect(screen.getByText('Super Bowl party pools made easy')).toBeInTheDocument();
+		expect(screen.getByText('Football squares pools for any game')).toBeInTheDocument();
+	});
+
+	it('renders production highlights', () => {
+		render(HomePage);
+		expect(screen.getByText('live players')).toBeInTheDocument();
+		expect(screen.getByText('support requests')).toBeInTheDocument();
+		expect(screen.getByText('CI gates')).toBeInTheDocument();
 	});
 });

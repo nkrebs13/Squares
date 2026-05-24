@@ -4,6 +4,12 @@ import {
 	getUserName,
 	setUserName,
 	clearUserName,
+	getLocalItem,
+	setLocalItem,
+	removeLocalItem,
+	getSessionItem,
+	setSessionItem,
+	removeSessionItem,
 	getRecentParties,
 	saveRecentParty,
 	removeRecentParty,
@@ -53,6 +59,15 @@ describe('getUserName', () => {
 		mockIdbGet.mockResolvedValueOnce(undefined);
 		const result = await getUserName();
 		expect(result).toBeNull();
+	});
+
+	it('returns null when both IndexedDB and localStorage are unavailable', async () => {
+		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
+		vi.mocked(localStorage.getItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+
+		await expect(getUserName()).resolves.toBeNull();
 	});
 });
 
@@ -192,6 +207,13 @@ describe('getHostPin', () => {
 		mockIdbGet.mockResolvedValueOnce({});
 		const result = await getHostPin('ABC123');
 		expect(result).toBeNull();
+	});
+
+	it('falls back to sessionStorage when IndexedDB has no pin for the code', async () => {
+		mockIdbGet.mockResolvedValueOnce({});
+		sessionStorage.setItem('squares_pin_ABC123', '5678');
+		const result = await getHostPin('ABC123');
+		expect(result).toBe('5678');
 	});
 
 	it('falls back to sessionStorage when IndexedDB throws', async () => {
@@ -416,6 +438,15 @@ describe('setUserName fallback', () => {
 		await setUserName('Fallback');
 		expect(localStorage.getItem('squares_user_name')).toBe('Fallback');
 	});
+
+	it('does not throw when IndexedDB and localStorage writes both fail', async () => {
+		mockIdbSet.mockRejectedValueOnce(new Error('IDB error'));
+		vi.mocked(localStorage.setItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+
+		await expect(setUserName('Fallback')).resolves.toBeUndefined();
+	});
 });
 
 describe('hasHostPin error handling', () => {
@@ -424,5 +455,58 @@ describe('hasHostPin error handling', () => {
 		// sessionStorage has no pin
 		const result = await hasHostPin('NOPIN1');
 		expect(result).toBe(false);
+	});
+});
+
+describe('safe web storage helpers', () => {
+	it('return null/false instead of throwing when localStorage is blocked', () => {
+		vi.mocked(localStorage.getItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(localStorage.setItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(localStorage.removeItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+
+		expect(getLocalItem('blocked')).toBeNull();
+		expect(setLocalItem('blocked', 'value')).toBe(false);
+		expect(removeLocalItem('blocked')).toBe(false);
+	});
+
+	it('return null/false instead of throwing when sessionStorage is blocked', () => {
+		vi.mocked(sessionStorage.getItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(sessionStorage.setItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(sessionStorage.removeItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+
+		expect(getSessionItem('blocked')).toBeNull();
+		expect(setSessionItem('blocked', 'value')).toBe(false);
+		expect(removeSessionItem('blocked')).toBe(false);
+	});
+
+	it('keeps host PIN helpers non-throwing when fallback sessionStorage is blocked', async () => {
+		mockIdbGet.mockRejectedValue(new Error('IDB error'));
+		mockIdbSet.mockRejectedValue(new Error('IDB error'));
+		mockIdbDel.mockRejectedValue(new Error('IDB error'));
+		vi.mocked(sessionStorage.getItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(sessionStorage.setItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.mocked(sessionStorage.removeItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+
+		await expect(getHostPin('ABC123')).resolves.toBeNull();
+		await expect(setHostPin('ABC123', '1234')).resolves.toBeUndefined();
+		await expect(removeHostPin('ABC123')).resolves.toBeUndefined();
 	});
 });

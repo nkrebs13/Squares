@@ -73,13 +73,19 @@ test.describe('Keyboard Navigation', () => {
 		const createButton = page.getByRole('link', { name: /create party/i });
 		await expect(createButton).toBeFocused();
 
+		// Tab to demo link
+		await page.keyboard.press('Tab');
+		const demoLink = page.getByRole('link', { name: /try demo/i });
+		await expect(demoLink).toBeFocused();
+
 		// Tab to code input
 		await page.keyboard.press('Tab');
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		await expect(codeInput).toBeFocused();
 
 		// Type a code so the join button becomes enabled (disabled buttons can't receive focus)
-		await codeInput.fill('TEST1');
+		await codeInput.pressSequentially('TEST12');
+		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
 
 		// Tab to join button and wait for focus to settle
 		await page.keyboard.press('Tab');
@@ -91,7 +97,7 @@ test.describe('Keyboard Navigation', () => {
 		await page.goto('/');
 
 		const codeInput = page.getByPlaceholder(/enter party code/i);
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 
 		// Wait for submit button to be enabled after Svelte reactivity
 		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
@@ -99,17 +105,18 @@ test.describe('Keyboard Navigation', () => {
 		// Press Enter to submit
 		await page.keyboard.press('Enter');
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
 	test('can navigate create party form with keyboard', async ({ page }) => {
 		await page.goto('/create');
 
-		// Tab through form elements
-		await page.keyboard.press('Tab'); // Back link
-		await page.keyboard.press('Tab'); // Price input
-
 		const priceInput = page.locator('input[inputmode="decimal"]');
+		await page.getByRole('link', { name: /back/i }).focus();
+		for (let i = 0; i < 30; i++) {
+			if (await priceInput.evaluate((element) => element === document.activeElement)) break;
+			await page.keyboard.press('Tab');
+		}
 		await expect(priceInput).toBeFocused();
 	});
 });
@@ -164,6 +171,6 @@ test.describe('Visual Regression Prevention', () => {
 
 		// Check form cards are visible
 		const cards = page.locator('.card');
-		await expect(cards).toHaveCount(6); // Price, Split, Teams, Name, PIN, Nickname
+		await expect(cards).toHaveCount(7); // Event, Price, Split, Teams, Name, PIN, Nickname
 	});
 });

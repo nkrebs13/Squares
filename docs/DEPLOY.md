@@ -1,6 +1,6 @@
 # Deploying Football Squares
 
-The repo uses [`@sveltejs/adapter-auto`](https://kit.svelte.dev/docs/adapter-auto), which detects the build environment and picks the matching adapter on demand. The same source ships unchanged to Cloudflare Pages, Vercel, and Netlify; you only edit env vars in the platform dashboard. Self-hosted Node deploys are also supported with a one-line `svelte.config.js` override.
+The repo uses [`@sveltejs/adapter-cloudflare`](https://kit.svelte.dev/docs/adapter-cloudflare) because Cloudflare Pages is the production target for the live portfolio app. Other hosts are still possible, but they require swapping the SvelteKit adapter so the build output matches the platform.
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ The project's canonical production target. Deploys for free, supports preview de
 
 1. Go to [Cloudflare Pages](https://dash.cloudflare.com/?to=/:account/pages) → **Create a project** → **Connect to Git** → pick your fork.
 2. Build configuration:
-   - **Framework preset:** `SvelteKit (v1)` (or leave on `None` — adapter-auto handles it either way)
+   - **Framework preset:** `SvelteKit (v1)` or `None`
    - **Build command:** `npm run build`
    - **Build output directory:** `.svelte-kit/cloudflare`
    - **Root directory:** `/`
@@ -53,37 +53,17 @@ Cloudflare Pages auto-creates a preview URL for every branch you push. Useful fo
 
 If you prefer the CLI, install [`wrangler`](https://developers.cloudflare.com/workers/wrangler/install-and-update/) and run `npx wrangler pages deploy .svelte-kit/cloudflare`. Env vars are configured via `wrangler pages secret put` or in the dashboard.
 
-## Vercel
+## Other hosts
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnkrebs13%2FSquares&env=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY)
+The app is standard SvelteKit, so forks can target other platforms by installing the platform adapter and changing `svelte.config.js`.
 
-### Setup
-
-1. Click the deploy button above (or go to [Vercel](https://vercel.com/new) → **Import Git Repository** → pick your fork).
-2. Vercel auto-detects SvelteKit. The build command (`npm run build`), output, and routing are all picked up by adapter-auto — no overrides needed.
-3. **Environment variables**: paste `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (and any optional ones) into the project settings. Apply to **Production**, **Preview**, and **Development** as needed.
-4. Click **Deploy**.
-
-Preview deploys work the same as Cloudflare Pages — every push to a branch gets its own URL.
-
-## Netlify
-
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/nkrebs13/Squares)
-
-### Setup
-
-1. Click the deploy button above (or go to [Netlify](https://app.netlify.com/start) → **Add new site** → **Import an existing project** → pick your fork).
-2. Build configuration is auto-detected. If Netlify asks:
-   - **Build command:** `npm run build`
-   - **Publish directory:** `build` (adapter-auto installs `@sveltejs/adapter-netlify` on demand and writes there)
-3. **Environment variables**: under **Site configuration → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (and any optional ones).
-4. Trigger a deploy.
-
-Netlify also gives you preview deploys for every PR.
+- **Vercel:** install `@sveltejs/adapter-vercel`, import it in `svelte.config.js`, then deploy with `npm run build`.
+- **Netlify:** install `@sveltejs/adapter-netlify`, import it in `svelte.config.js`, then use Netlify's SvelteKit build settings.
+- **Self-hosted Node:** use `@sveltejs/adapter-node` as shown below.
 
 ## Self-host (Node)
 
-For VPS / Docker / Fly.io / your own infrastructure, swap adapter-auto for `@sveltejs/adapter-node`:
+For VPS / Docker / Fly.io / your own infrastructure, swap the Cloudflare adapter for `@sveltejs/adapter-node`:
 
 ```js
 // svelte.config.js
@@ -114,8 +94,6 @@ Set the env vars (`VITE_SUPABASE_URL`, etc.) in your process manager or `.env` f
 Each platform has its own domain configuration UI. The general flow is the same: in the platform dashboard, add your domain and copy the DNS records (usually a CNAME pointing at `<project>.<platform>.app` or similar) into your DNS provider.
 
 - **Cloudflare Pages:** [Custom domains for Pages](https://developers.cloudflare.com/pages/configuration/custom-domains/)
-- **Vercel:** [Custom domains](https://vercel.com/docs/projects/domains)
-- **Netlify:** [Custom domains](https://docs.netlify.com/domains-https/custom-domains/)
 
 ## PWA assets
 
@@ -132,4 +110,4 @@ Any tool that outputs the correct PNG dimensions works — ImageMagick, Figma ex
 
 **Realtime updates don't arrive on production.** Check the Supabase project's [Realtime settings](https://supabase.com/dashboard/project/_/database/replication) — the `parties`, `squares`, `numbers`, `scores`, and `winners` tables must have replication enabled. The `ALTER PUBLICATION supabase_realtime ADD TABLE …` statements live in `001_schema.sql`; if you applied migrations via SQL Editor, verify the publication is active in the dashboard.
 
-**`adapter-auto` warns "Could not detect a supported production environment"** during local `npm run build`. Expected — adapter-auto only resolves on the supported platforms (CF/Vercel/Netlify/Azure SWA). Local builds produce a no-op output. Use `npm run dev` for local testing, or switch temporarily to `adapter-node` if you need a real local production build.
+**Local build emits PWA precache warnings.** The Workbox precache is scoped to SvelteKit client assets. If warnings mention missing `prerendered/` files, verify `vite.config.ts` still uses the explicit `client/**` glob patterns and `modifyURLPrefix` mapping.

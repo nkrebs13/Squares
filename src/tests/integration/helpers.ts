@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'not-set';
 
 /**
  * Create a Supabase client for integration tests.
@@ -9,6 +10,15 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
  */
 export function getTestClient(): SupabaseClient {
 	return createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+/**
+ * Create a service-role client for assertions against server-only tables.
+ * Integration tests use this for audit_log because anon SELECT was intentionally
+ * revoked by migration 024.
+ */
+export function getServiceRoleClient(): SupabaseClient {
+	return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 /**
@@ -57,38 +67,35 @@ export async function createTestParty(
 		status?: string;
 	} = {}
 ): Promise<TestParty> {
-	const code = randomCode();
 	const host_pin = '1234';
 
-	const { data: party, error: partyError } = await client
-		.from('parties')
-		.insert({
-			code,
-			host_pin,
-			square_price: overrides.square_price ?? 1.0,
-			split_q1: overrides.split_q1 ?? 25,
-			split_q2: overrides.split_q2 ?? 25,
-			split_q3: overrides.split_q3 ?? 25,
-			split_final: overrides.split_final ?? 25,
-			status: overrides.status ?? 'filling',
-		})
-		.select('id')
-		.single();
+	const { data: party, error: partyError } = await client.rpc('create_party', {
+		p_host_name: `Host ${randomCode()}`,
+		p_pin: host_pin,
+		p_square_price: overrides.square_price ?? 1.0,
+		p_split_q1: overrides.split_q1 ?? 25,
+		p_split_q2: overrides.split_q2 ?? 25,
+		p_split_q3: overrides.split_q3 ?? 25,
+		p_split_final: overrides.split_final ?? 25,
+		p_team_row_name: 'Eagles',
+		p_team_col_name: 'Chiefs',
+		p_team_row_color: '#004C54',
+		p_team_col_color: '#E31837',
+		p_event_name: 'Integration Test Game',
+		p_kickoff_at: null,
+	});
 
 	if (partyError) throw new Error(`Failed to create party: ${partyError.message}`);
 
-	// Insert 100 empty squares (10x10 grid)
-	const squares = [];
-	for (let row = 0; row < 10; row++) {
-		for (let col = 0; col < 10; col++) {
-			squares.push({ party_id: party.id, row_num: row, col_num: col });
-		}
+	if (overrides.status && overrides.status !== 'filling') {
+		const { error: statusError } = await getServiceRoleClient()
+			.from('parties')
+			.update({ status: overrides.status })
+			.eq('id', party.id);
+		if (statusError) throw new Error(`Failed to set party status: ${statusError.message}`);
 	}
 
-	const { error: squaresError } = await client.from('squares').insert(squares);
-	if (squaresError) throw new Error(`Failed to create squares: ${squaresError.message}`);
-
-	return { id: party.id, code, host_pin };
+	return { id: party.id, code: party.code, host_pin };
 }
 
 /**
@@ -96,10 +103,11 @@ export async function createTestParty(
  * Uses pattern "Player-R{row}C{col}" so each square has a unique, predictable name.
  * Batches updates 10 at a time (one row per batch) via Promise.all for performance.
  */
-export async function fillAllSquares(client: SupabaseClient, partyId: string): Promise<void> {
+export async function fillAllSquares(_client: SupabaseClient, partyId: string): Promise<void> {
+	const service = getServiceRoleClient();
 	for (let row = 0; row < 10; row++) {
 		const updates = Array.from({ length: 10 }, (_, col) =>
-			client
+			service
 				.from('squares')
 				.update({ player_name: `Player-R${row}C${col}`, claimed_at: new Date().toISOString() })
 				.eq('party_id', partyId)
@@ -127,7 +135,7 @@ export async function cleanupParty(client: SupabaseClient, partyId: string): Pro
  * Catches orphans from interrupted test runs. Safe to call in globalSetup/globalTeardown.
  */
 export async function cleanupAllTestParties(): Promise<void> {
-	const client = getTestClient();
+	const client = getServiceRoleClient();
 	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 	// Delete parties created before the cutoff with the test pin '1234'

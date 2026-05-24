@@ -1,6 +1,6 @@
 import { getSupabaseClient } from '$lib/supabase';
 import { parseParty } from '$lib/validators/realtime';
-import { DEFAULT_TEAMS } from '$lib/config';
+import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 import { type Party } from '$lib/types';
 
 /**
@@ -11,6 +11,8 @@ import { type Party } from '$lib/types';
  * passes it explicitly here so the wire-level value is unambiguous.
  */
 export interface CreatePartyInput {
+	eventName?: string;
+	kickoffAt?: string | null;
 	hostName: string;
 	hostPin: string;
 	squarePrice: number;
@@ -59,6 +61,8 @@ export async function createParty(
 		p_team_col_name: teams.col.name,
 		p_team_row_color: teams.row.color,
 		p_team_col_color: teams.col.color,
+		p_event_name: input.eventName?.trim() || APP_CONFIG.defaultEventName,
+		p_kickoff_at: input.kickoffAt || null,
 	});
 
 	if (error) {
@@ -86,6 +90,7 @@ function humanizeRpcError(raw: string): string {
 	if (/4 digits/i.test(normalized)) return 'PIN must be exactly 4 digits.';
 	if (/sum to exactly 100/i.test(normalized)) return 'Prize splits must total 100%.';
 	if (/host_name/i.test(normalized)) return 'Please enter a host name.';
+	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
 	if (/square_price/i.test(normalized)) return 'Square price must be greater than 0.';
 	if (/unique party code/i.test(normalized)) {
 		return 'Could not generate a unique party code — please try again.';

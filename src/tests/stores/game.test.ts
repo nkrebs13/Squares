@@ -32,6 +32,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		code: 'TEST123',
 		host_pin: '1234',
 		host_name_lower: null,
+		event_name: 'Test Football Squares',
+		kickoff_at: null,
 		square_price: 10,
 		split_q1: 25,
 		split_q2: 25,

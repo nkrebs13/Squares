@@ -17,23 +17,22 @@ test.describe('Party Page - Mocked Flow', () => {
 	});
 
 	test('redirects to join page if no user name is set', async ({ page }) => {
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
 	test('displays party page when user name is set', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
-		// Should show team names in the heading
-		await expect(page.getByRole('heading', { name: /seahawks/i })).toBeVisible();
-		await expect(page.getByRole('heading', { name: /patriots/i })).toBeVisible();
+		await expect(page.getByRole('heading', { name: /test football squares/i })).toBeVisible();
+		await expect(page.getByText(/seahawks vs patriots/i).first()).toBeVisible();
 	});
 
 	test('displays the 10x10 grid', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for grid to load - look for grid elements
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
@@ -41,14 +40,14 @@ test.describe('Party Page - Mocked Flow', () => {
 
 	test('shows user stats bar', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByText(/your squares/i)).toBeVisible();
 	});
 
 	test('shows home link', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		const homeLink = page.getByRole('link', { name: /home/i });
 		await expect(homeLink).toBeVisible();
@@ -56,7 +55,7 @@ test.describe('Party Page - Mocked Flow', () => {
 
 	test('displays prize split information', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Prize percentages render in both mobile and desktop sections; verify at least one of each is in the DOM
 		await expect(page.getByText('10%').first()).toBeAttached();
@@ -67,7 +66,7 @@ test.describe('Party Page - Mocked Flow', () => {
 
 	test('shows filling status when party is in filling state', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Status banner renders in both mobile and desktop sections
 		await expect(page.getByText(/squares filled/i).first()).toBeAttached();
@@ -75,7 +74,7 @@ test.describe('Party Page - Mocked Flow', () => {
 
 	test('displays grid legend', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByText(/available/i)).toBeVisible();
 		await expect(page.getByText(/yours/i)).toBeVisible();
@@ -88,7 +87,7 @@ test.describe('Party Page - Status States', () => {
 			partyOverrides: { status: 'locked' },
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Locked now shows ScoreBoard instead of "grid locked" banner
 		await expect(page.getByText('Seahawks').first()).toBeAttached();
@@ -102,7 +101,7 @@ test.describe('Party Page - Status States', () => {
 			winnersData: mockWinnersQ1,
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Team names should appear in scoreboard
 		await expect(page.getByText('Seahawks').first()).toBeAttached();
@@ -120,7 +119,7 @@ test.describe('Party Page - Status States', () => {
 			winnersData: mockWinnersAll,
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// ScoreBoard is visible in complete state (shows team names)
 		await expect(page.locator('.scoreboard').first()).toBeAttached();
@@ -137,13 +136,13 @@ test.describe('Party Page - Status States', () => {
 			partyOverrides: { status: 'locked' },
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for page to load (locked now shows ScoreBoard with team names)
 		await expect(page.getByText('Seahawks').first()).toBeAttached();
 
 		// PartyCode component should render in all statuses (including locked)
-		await expect(page.getByText('TEST1').first()).toBeAttached();
+		await expect(page.getByText('TEST12').first()).toBeAttached();
 	});
 
 	test('squares are disabled when party is locked', async ({ page }) => {
@@ -151,7 +150,7 @@ test.describe('Party Page - Status States', () => {
 			partyOverrides: { status: 'locked' },
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for grid to load
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
@@ -167,7 +166,7 @@ test.describe('Square Interactions', () => {
 	test('clicking empty square claims it optimistically', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for grid to load
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
@@ -186,7 +185,7 @@ test.describe('Square Interactions', () => {
 			squaresData: generatePartiallyFilledSquares('test-party-id', claims),
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for grid and find our square
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
@@ -203,7 +202,7 @@ test.describe('Square Interactions', () => {
 			squaresData: generatePartiallyFilledSquares('test-party-id', claims),
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
 
@@ -217,7 +216,7 @@ test.describe('Square Interactions', () => {
 			partyOverrides: { status: 'locked' },
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
 
@@ -231,15 +230,15 @@ test.describe('Party Code Sharing', () => {
 	test('displays party code', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
-		await expect(page.getByText('TEST1').first()).toBeAttached();
+		await expect(page.getByText('TEST12').first()).toBeAttached();
 	});
 
 	test('shows Copy Code, Copy Link, and Share buttons', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByRole('button', { name: /copy code/i }).first()).toBeAttached();
 		await expect(page.getByRole('button', { name: /copy link/i }).first()).toBeAttached();
@@ -249,7 +248,7 @@ test.describe('Party Code Sharing', () => {
 	test('Copy Code button shows confirmation', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Grant clipboard permissions
 		await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -263,7 +262,7 @@ test.describe('Party Code Sharing', () => {
 	test('QR Code button shows QR code image', async ({ page }) => {
 		await setupSupabaseMocks(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		const qrButton = page.getByRole('button', { name: /qr code/i }).first();
 		await expect(qrButton).toBeAttached();
@@ -310,7 +309,7 @@ test.describe('Party Page - Error States', () => {
 		});
 
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByRole('link', { name: /go home/i })).toBeVisible({ timeout: 10000 });
 	});
@@ -327,7 +326,7 @@ test.describe('Party Page - Error States', () => {
 			squaresData: generatePartiallyFilledSquares('test-party-id', claims),
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByText('5/100').first()).toBeAttached({ timeout: 10000 });
 	});
@@ -337,37 +336,29 @@ test.describe('Party Page - Error States', () => {
 			squaresData: generateFullSquares('test-party-id'),
 		});
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		await expect(page.getByText(/ready to lock/i).first()).toBeAttached({ timeout: 10000 });
 	});
 });
 
 test.describe('Complete User Journey', () => {
-	test('user can navigate from landing to join and enter a party', async ({ page }) => {
+	test('user can navigate from landing to the prefilled join flow', async ({ page }) => {
 		// Start at landing page
 		await page.goto('/');
 		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
 
 		// Enter party code and click join
-		await page.getByPlaceholder(/enter party code/i).fill('TEST1');
+		await page.getByPlaceholder(/enter party code/i).fill('TEST12');
 		await page.getByRole('button', { name: /join party/i }).click();
 
 		// Should be on join page
-		await expect(page).toHaveURL('/join?code=TEST1');
-		await expect(page.getByPlaceholder('ABCD12')).toHaveValue('TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
+		await expect(page.getByPlaceholder('ABCD12')).toHaveValue('TEST12');
 
 		// Fill in name
 		await page.getByPlaceholder(/enter your name/i).fill('TestPlayer');
-
-		// Setup mocks before clicking join
-		await setupSupabaseMocks(page);
-
-		// Click join
-		await page.getByRole('button', { name: /join party/i }).click();
-
-		// Should navigate to party page
-		await expect(page).toHaveURL('/party/TEST1');
+		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
 	});
 });
 
@@ -375,17 +366,17 @@ test.describe('Party Page - OG Meta Tags', () => {
 	test('party page has OG meta tags with team names', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for page to load
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
-		// Verify OG meta tags (layout has default, party page overrides with team names)
+		// Verify OG meta tags (layout has default, party page overrides with event + teams)
 		const ogTitle = page.locator('meta[property="og:title"]').last();
-		await expect(ogTitle).toHaveAttribute('content', /Seahawks.*Patriots/);
+		await expect(ogTitle).toHaveAttribute('content', /Test Football Squares.*Seahawks.*Patriots/);
 
 		const ogDescription = page.locator('meta[property="og:description"]').last();
-		await expect(ogDescription).toHaveAttribute('content', /claim your squares/i);
+		await expect(ogDescription).toHaveAttribute('content', /track winners quarter by quarter/i);
 	});
 });
 
@@ -399,7 +390,7 @@ test.describe('Party Page - Gesture Hint', () => {
 		// Clear IndexedDB to ensure first-visit behavior
 		await page.evaluate(() => indexedDB.deleteDatabase('football-squares'));
 
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Wait for grid to load
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });

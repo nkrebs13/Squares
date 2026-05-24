@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
 	getTestClient,
+	getServiceRoleClient,
 	createTestParty,
 	fillAllSquares,
 	cleanupParty,
@@ -9,10 +10,12 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient;
+let serviceClient: SupabaseClient;
 let party: TestParty;
 
 beforeEach(async () => {
 	client = getTestClient();
+	serviceClient = getServiceRoleClient();
 	party = await createTestParty(client);
 });
 
@@ -89,7 +92,7 @@ describe('lock_party RPC', () => {
 			p_pin: '9999',
 		});
 
-		const { data: logs } = await client
+		const { data: logs } = await serviceClient
 			.from('audit_log')
 			.select('event_type, details')
 			.eq('party_id', party.id)
@@ -124,7 +127,7 @@ describe('lock_party RPC', () => {
 
 	it('rejects if party is already active', async () => {
 		await fillAllSquares(client, party.id);
-		await client.from('parties').update({ status: 'active' }).eq('id', party.id);
+		await getServiceRoleClient().from('parties').update({ status: 'active' }).eq('id', party.id);
 
 		const { data } = await client.rpc('lock_party', {
 			p_party_id: party.id,
@@ -156,7 +159,7 @@ describe('lock_party RPC', () => {
 		await fillAllSquares(client, party.id);
 		await client.rpc('lock_party', { p_party_id: party.id, p_pin: party.host_pin });
 
-		const { data: logs } = await client
+		const { data: logs } = await serviceClient
 			.from('audit_log')
 			.select('event_type')
 			.eq('party_id', party.id)

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
 	import { isGameInProgress } from '$lib/types';
+	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import ScoreBoard from './ScoreBoard.svelte';
 	import Winners from './Winners.svelte';
@@ -16,6 +17,20 @@
 	const { variant }: Props = $props();
 	const isDesktop = $derived(variant === 'desktop');
 </script>
+
+{#if $party}
+	{@const kickoff = formatKickoff($party.kickoff_at)}
+	<div class="mb-4 card text-sm">
+		{#if isDesktop}
+			<h3 class="font-medium mb-2 text-secondary">Game</h3>
+		{/if}
+		<div class="font-semibold">{$party.event_name}</div>
+		<div class="mt-1 text-secondary">{$party.team_row_name} vs {$party.team_col_name}</div>
+		{#if kickoff}
+			<div class="mt-1 text-muted">{kickoff}</div>
+		{/if}
+	</div>
+{/if}
 
 <!-- Status banner -->
 {#if $party?.status === 'filling'}
