@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import type { Party, Scores, Square } from '$lib/types';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
+
+const mockIdbGet = vi.mocked(idbGet);
+const mockIdbSet = vi.mocked(idbSet);
 
 // Mock $app/stores — must be before component import (vi.mock is hoisted)
 vi.mock('$app/stores', async () => {
@@ -896,6 +900,40 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
 			expect(screen.getByText('Party Status')).toBeInTheDocument();
+		});
+
+		it('uses stored IndexedDB host PIN when session storage is empty', async () => {
+			party.set(createMockParty({ status: 'active' }));
+			scores.set(createMockScores());
+			mockIdbGet.mockResolvedValueOnce({ TEST123: '1234' });
+
+			render(AdminPage);
+
+			await waitFor(() => {
+				expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+				expect(screen.getByText('Party Status')).toBeInTheDocument();
+			});
+		});
+
+		it('persists verified PIN to durable host PIN storage', async () => {
+			const user = userEvent.setup();
+			party.set(createMockParty({ status: 'active' }));
+			scores.set(createMockScores());
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			render(AdminPage);
+
+			await user.type(screen.getByPlaceholderText('0000'), '1234');
+			await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+			await waitFor(() => {
+				expect(mockIdbSet).toHaveBeenCalledWith(
+					'squares_host_pins',
+					expect.objectContaining({ TEST123: '1234' })
+				);
+				expect(sessionStorageMock.setItem).toHaveBeenCalledWith('squares_pin_TEST123', '1234');
+				expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+			});
 		});
 	});
 

@@ -256,7 +256,7 @@ export async function getHostPin(code: string): Promise<string | null> {
 
 	try {
 		const pins = await get<Record<string, string>>(STORAGE_KEYS.hostPins);
-		return pins?.[code] ?? null;
+		return pins?.[code] ?? getSessionItem(partyPinKey(code));
 	} catch {
 		return getSessionItem(partyPinKey(code));
 	}

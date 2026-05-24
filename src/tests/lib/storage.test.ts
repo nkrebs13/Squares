@@ -209,6 +209,13 @@ describe('getHostPin', () => {
 		expect(result).toBeNull();
 	});
 
+	it('falls back to sessionStorage when IndexedDB has no pin for the code', async () => {
+		mockIdbGet.mockResolvedValueOnce({});
+		sessionStorage.setItem('squares_pin_ABC123', '5678');
+		const result = await getHostPin('ABC123');
+		expect(result).toBe('5678');
+	});
+
 	it('falls back to sessionStorage when IndexedDB throws', async () => {
 		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
 		sessionStorage.setItem('squares_pin_ABC123', '5678');
