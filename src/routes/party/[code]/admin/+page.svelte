@@ -214,6 +214,20 @@
 		}
 	}
 
+	function swapPartyDetailTeams() {
+		const previousRow = {
+			name: partyDetails.teamRowName,
+			color: partyDetails.teamRowColor,
+			presetId: rowTeamPresetId,
+		};
+		partyDetails.teamRowName = partyDetails.teamColName;
+		partyDetails.teamRowColor = partyDetails.teamColColor;
+		rowTeamPresetId = colTeamPresetId;
+		partyDetails.teamColName = previousRow.name;
+		partyDetails.teamColColor = previousRow.color;
+		colTeamPresetId = previousRow.presetId;
+	}
+
 	const isValidPartyDetails = $derived(
 		partyDetails.eventName.trim().length > 0 &&
 			partyDetails.eventName.trim().length <= 80 &&
@@ -531,6 +545,16 @@
 							{/if}
 
 							<div class="space-y-3">
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-sm text-secondary">Matchup</span>
+									<button
+										type="button"
+										class="btn btn-secondary text-sm"
+										onclick={swapPartyDetailTeams}
+									>
+										Swap
+									</button>
+								</div>
 								<div class="flex items-center gap-3">
 									<label class="relative cursor-pointer shrink-0" aria-label="Left team color">
 										<span
@@ -623,6 +647,18 @@
 								<p class="text-sm" style="color: #fca5a5">
 									Choose two different teams for the matchup.
 								</p>
+							{/if}
+							{#if partyDetails.teamRowName.trim() && partyDetails.teamColName.trim() && hasDistinctPartyDetailTeams}
+								<div class="rounded-lg border border-white/10 p-3">
+									<div class="text-xs uppercase tracking-wide text-muted">Matchup preview</div>
+									<div class="mt-1 font-semibold">
+										{partyDetails.teamRowName.trim()} vs {partyDetails.teamColName.trim()}
+									</div>
+									<div class="mt-1 text-xs text-muted">
+										{partyDetails.teamRowName.trim()} uses left-side score digits;
+										{partyDetails.teamColName.trim()} uses top score digits.
+									</div>
+								</div>
 							{/if}
 						</div>
 

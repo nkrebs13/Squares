@@ -22,6 +22,7 @@
 	let hostName = $state('');
 	let nickname = $state('');
 	let isCreating = $state(false);
+	let isReady = $state(false);
 	let error = $state<string | null>(null);
 	let kickoffTimeZone = $state('local time');
 
@@ -70,6 +71,7 @@
 
 	onMount(() => {
 		kickoffTimeZone = getLocalTimeZoneLabel();
+		isReady = true;
 	});
 
 	function applyTeamPreset(side: 'row' | 'col', teamId: string) {
@@ -85,6 +87,16 @@
 			colTeam.color = preset.color;
 			colTeamPresetId = preset.id;
 		}
+	}
+
+	function swapTeams() {
+		const previousRow = { name: rowTeam.name, color: rowTeam.color, presetId: rowTeamPresetId };
+		rowTeam.name = colTeam.name;
+		rowTeam.color = colTeam.color;
+		rowTeamPresetId = colTeamPresetId;
+		colTeam.name = previousRow.name;
+		colTeam.color = previousRow.color;
+		colTeamPresetId = previousRow.presetId;
 	}
 
 	async function createParty() {
@@ -142,6 +154,7 @@
 			createParty();
 		}}
 		class="space-y-6 max-w-md mx-auto"
+		data-ready={isReady}
 	>
 		<!-- Event Details -->
 		<div class="card">
@@ -259,7 +272,10 @@
 
 		<!-- Teams -->
 		<div class="card">
-			<span class="text-sm" style="color: var(--text-secondary)">Teams</span>
+			<div class="flex items-center justify-between gap-3">
+				<span class="text-sm" style="color: var(--text-secondary)">Teams</span>
+				<button type="button" class="btn btn-secondary text-sm" onclick={swapTeams}> Swap </button>
+			</div>
 			<p class="text-xs mt-1" style="color: var(--text-muted)">
 				Set the teams playing — scores run left ↕ for the Left Team, top ↔ for the Top Team
 			</p>
@@ -367,6 +383,17 @@
 				<p class="mt-3 text-sm" style="color: #fca5a5">
 					Choose two different teams for the matchup.
 				</p>
+			{/if}
+			{#if rowTeam.name.trim() && colTeam.name.trim() && hasDistinctTeams}
+				<div class="mt-4 rounded-lg border border-white/10 p-3">
+					<div class="text-xs uppercase tracking-wide" style="color: var(--text-muted)">
+						Matchup preview
+					</div>
+					<div class="mt-1 font-semibold">{rowTeam.name.trim()} vs {colTeam.name.trim()}</div>
+					<div class="mt-1 text-xs" style="color: var(--text-muted)">
+						{rowTeam.name.trim()} uses left-side score digits; {colTeam.name.trim()} uses top score digits.
+					</div>
+				</div>
 			{/if}
 		</div>
 
