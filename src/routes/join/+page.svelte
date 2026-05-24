@@ -11,14 +11,28 @@
 		partyNicknameKey,
 		setSessionItem,
 	} from '$lib/storage';
+	import type { PartyStatus } from '$lib/types';
+	import { formatKickoff } from '$lib/utils/datetime';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
+
+	interface PartyPreview {
+		eventName: string;
+		kickoffAt: string | null;
+		status: PartyStatus;
+		teamRowName: string;
+		teamColName: string;
+	}
 
 	let code = $state('');
 	let name = $state('');
 	let nickname = $state('');
 	let isChecking = $state(false);
 	let error = $state<string | null>(null);
+	let preview = $state<PartyPreview | null>(null);
+	let isLoadingPreview = $state(false);
+	let previewError = $state<string | null>(null);
+	let previewRequestId = 0;
 
 	// PIN challenge state
 	let showPinChallenge = $state(false);
@@ -40,6 +54,19 @@
 	// Sync stored name into the field on first load; $effect handles teardown automatically.
 	$effect(() => {
 		if ($userName && !name) name = $userName;
+	});
+
+	$effect(() => {
+		const normalizedCode = normalizePartyCode(code);
+		if (!isCompletePartyCode(normalizedCode)) {
+			previewRequestId += 1;
+			preview = null;
+			previewError = null;
+			isLoadingPreview = false;
+			return;
+		}
+
+		void loadPartyPreview(normalizedCode);
 	});
 
 	onMount(() => {
@@ -104,6 +131,46 @@
 			error = 'Something went wrong. Please try again.';
 		} finally {
 			isChecking = false;
+		}
+	}
+
+	async function loadPartyPreview(partyCode: string) {
+		const requestId = ++previewRequestId;
+		isLoadingPreview = true;
+		previewError = null;
+
+		try {
+			const supabase = getSupabaseClient();
+			const { data, error: partyError } = await supabase
+				.from('parties')
+				.select('event_name, kickoff_at, status, team_row_name, team_col_name')
+				.eq('code', partyCode)
+				.single();
+
+			if (requestId !== previewRequestId) return;
+
+			if (partyError || !data) {
+				preview = null;
+				previewError = 'No party found for this code.';
+				return;
+			}
+
+			preview = {
+				eventName: data.event_name,
+				kickoffAt: data.kickoff_at,
+				status: data.status,
+				teamRowName: data.team_row_name,
+				teamColName: data.team_col_name,
+			};
+		} catch {
+			if (requestId === previewRequestId) {
+				preview = null;
+				previewError = 'Unable to preview this party.';
+			}
+		} finally {
+			if (requestId === previewRequestId) {
+				isLoadingPreview = false;
+			}
 		}
 	}
 
@@ -181,6 +248,35 @@
 				<p class="mt-2 text-sm" style="color: #fca5a5">Party codes are 6 characters.</p>
 			{/if}
 		</div>
+
+		{#if isCompletePartyCode(code)}
+			<div class="card">
+				<span class="text-sm" style="color: var(--text-secondary)">Party preview</span>
+				{#if isLoadingPreview}
+					<p class="mt-2 text-sm" style="color: var(--text-muted)">Looking up this party...</p>
+				{:else if preview}
+					<div class="mt-2">
+						<div class="font-semibold">{preview.eventName}</div>
+						<div class="mt-1 text-sm" style="color: var(--text-secondary)">
+							{preview.teamRowName} vs {preview.teamColName}
+						</div>
+						{#if formatKickoff(preview.kickoffAt)}
+							<div class="mt-1 text-sm" style="color: var(--text-muted)">
+								{formatKickoff(preview.kickoffAt, {
+									includeWeekday: true,
+									includeTimeZone: true,
+								})}
+							</div>
+						{/if}
+						<div class="mt-2 text-xs uppercase" style="color: var(--text-muted)">
+							{preview.status}
+						</div>
+					</div>
+				{:else if previewError}
+					<p class="mt-2 text-sm" style="color: #fca5a5">{previewError}</p>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="card">
 			<label class="block">

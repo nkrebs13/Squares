@@ -103,6 +103,25 @@ test.describe('Join Party Page', () => {
 		await expect(codeInput).toHaveValue('XYZ999');
 	});
 
+	test('previews party details from a shared join link', async ({ page }) => {
+		await setupSupabaseMocksWithOverrides(page, {
+			partyOverrides: {
+				code: 'FUTR27',
+				event_name: '2027 Championship',
+				kickoff_at: '2027-02-14T23:30:00.000Z',
+				team_row_name: 'Ravens',
+				team_col_name: 'Lions',
+			},
+		});
+
+		await page.goto('/join?code=FUTR27');
+
+		await expect(page.getByText('Party preview')).toBeVisible();
+		await expect(page.getByText('2027 Championship')).toBeVisible();
+		await expect(page.getByText('Ravens vs Lions')).toBeVisible();
+		await expect(page.getByText('filling')).toBeVisible();
+	});
+
 	test('accepts pasted party code separators', async ({ page }) => {
 		const codeInput = page.getByPlaceholder('ABCD12');
 		const joinButton = page.getByRole('button', { name: /join party/i });
