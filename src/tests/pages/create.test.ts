@@ -86,10 +86,10 @@ describe('Create Page', () => {
 		it('Rising preset sets 10/20/30/40', () => {
 			render(CreatePage);
 			// Rising is the default preset
-			expect(screen.getByText('10%')).toBeInTheDocument();
-			expect(screen.getByText('20%')).toBeInTheDocument();
-			expect(screen.getByText('30%')).toBeInTheDocument();
-			expect(screen.getByText('40%')).toBeInTheDocument();
+			expect(document.getElementById('split-q1')).toHaveTextContent('10%');
+			expect(document.getElementById('split-q2')).toHaveTextContent('20%');
+			expect(document.getElementById('split-q3')).toHaveTextContent('30%');
+			expect(document.getElementById('split-final')).toHaveTextContent('40%');
 		});
 
 		it('Equal preset sets 25/25/25/25', async () => {
@@ -98,8 +98,10 @@ describe('Create Page', () => {
 
 			await user.click(screen.getByRole('button', { name: 'Equal' }));
 
-			const percentages = screen.getAllByText('25%');
-			expect(percentages).toHaveLength(4);
+			expect(document.getElementById('split-q1')).toHaveTextContent('25%');
+			expect(document.getElementById('split-q2')).toHaveTextContent('25%');
+			expect(document.getElementById('split-q3')).toHaveTextContent('25%');
+			expect(document.getElementById('split-final')).toHaveTextContent('25%');
 		});
 	});
 

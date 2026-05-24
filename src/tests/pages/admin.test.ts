@@ -917,6 +917,25 @@ describe('Admin Page - Score Entry', () => {
 			expect(screen.getByText('Payout Structure')).toBeInTheDocument();
 		});
 
+		it('previews payout amounts from the current pot and split', async () => {
+			renderAuthorizedAdmin({
+				status: 'filling',
+				square_price: 5,
+				split_q1: 10,
+				split_q2: 20,
+				split_q3: 30,
+				split_final: 40,
+			});
+
+			await waitFor(() => {
+				expect(screen.getByTestId('admin-payout-preview')).toHaveTextContent('Pot $500');
+				expect(screen.getByTestId('admin-payout-q1')).toHaveTextContent('$50');
+				expect(screen.getByTestId('admin-payout-q2')).toHaveTextContent('$100');
+				expect(screen.getByTestId('admin-payout-q3')).toHaveTextContent('$150');
+				expect(screen.getByTestId('admin-payout-final')).toHaveTextContent('$200');
+			});
+		});
+
 		it('does NOT show filling controls when party is active', () => {
 			renderAuthorizedAdmin({ status: 'active' });
 

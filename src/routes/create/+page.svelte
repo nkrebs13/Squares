@@ -48,6 +48,13 @@
 	const splitTotal = $derived(
 		currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final
 	);
+	const totalPot = $derived(squarePrice * 100);
+	const payoutPreviewRows = $derived([
+		{ key: 'q1', label: 'Q1', percent: currentSplit.q1 },
+		{ key: 'q2', label: 'Q2', percent: currentSplit.q2 },
+		{ key: 'q3', label: 'Q3', percent: currentSplit.q3 },
+		{ key: 'final', label: 'Final', percent: currentSplit.final },
+	]);
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
@@ -209,7 +216,7 @@
 				{/if}
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				Total pot: {formatPrice(squarePrice * 100)}
+				Total pot: {formatPrice(totalPot)}
 			</p>
 		</div>
 
@@ -268,6 +275,28 @@
 					Split must total 100% (currently {splitTotal}%)
 				</p>
 			{/if}
+
+			<div
+				class="mt-4 rounded-lg border p-3"
+				style="border-color: rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03);"
+				data-testid="create-payout-preview"
+			>
+				<div class="flex items-center justify-between gap-3">
+					<span class="text-sm font-medium">Payout preview</span>
+					<span class="text-sm" style="color: var(--text-secondary)">
+						Pot {formatPrice(totalPot)}
+					</span>
+				</div>
+				<div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+					{#each payoutPreviewRows as row (row.key)}
+						<div data-testid={`create-payout-${row.key}`}>
+							<div class="text-xs uppercase" style="color: var(--text-muted)">{row.label}</div>
+							<div class="font-semibold">{formatPrice((totalPot * row.percent) / 100)}</div>
+							<div class="text-xs" style="color: var(--text-secondary)">{row.percent}%</div>
+						</div>
+					{/each}
+				</div>
+			</div>
 		</div>
 
 		<!-- Teams -->
