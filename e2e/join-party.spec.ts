@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupSupabaseMocks } from './fixtures/supabase-mocks';
+import { setupSupabaseMocks, setupSupabaseMocksWithOverrides } from './fixtures/supabase-mocks';
 
 test.describe('Join Party Page', () => {
 	test.beforeEach(async ({ page }) => {
@@ -113,38 +113,15 @@ test.describe('Join Party Page', () => {
 
 test.describe('Join Party - Nickname Flow', () => {
 	test('nickname is stored and shown in recent parties', async ({ page }) => {
-		await setupSupabaseMocks(page);
-
-		// Mock party lookup
-		await page.route('**/rest/v1/parties*', (route) => {
-			if (route.request().method() === 'GET') {
-				route.fulfill({
-					status: 200,
-					contentType: 'application/json',
-					body: JSON.stringify({
-						id: 'test-party-id',
-						code: 'NICK12',
-						status: 'filling',
-						square_price: 5,
-						split_q1: 10,
-						split_q2: 20,
-						split_q3: 30,
-						split_final: 40,
-						event_name: 'Office Pool',
-						kickoff_at: null,
-						team_row_name: 'Eagles',
-						team_col_name: 'Chiefs',
-						team_row_color: '#004c54',
-						team_col_color: '#e31837',
-						host_name_lower: 'host',
-						game_id: null,
-						home_team_is_row: true,
-						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-					}),
-				});
-			} else {
-				route.continue();
-			}
+		await setupSupabaseMocksWithOverrides(page, {
+			partyOverrides: {
+				code: 'NICK12',
+				event_name: 'Office Pool',
+				team_row_name: 'Eagles',
+				team_col_name: 'Chiefs',
+				team_row_color: '#004c54',
+				team_col_color: '#e31837',
+			},
 		});
 
 		await page.goto('/join?code=NICK12');

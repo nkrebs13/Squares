@@ -53,14 +53,93 @@ describe('party update RLS hardening', () => {
 	it('blocks direct anon updates to party rows', async () => {
 		const party = await createParty();
 
-		const { data, error } = await client
+		const { error } = await client
 			.from('parties')
 			.update({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 })
 			.eq('id', party.id)
 			.select('id');
 
+		expect(error).toBeTruthy();
+		expect(error?.message ?? '').toMatch(/permission|policy|rls|violates/i);
+
+		const { data: persisted, error: readError } = await service
+			.from('parties')
+			.select('split_q1, split_q2, split_q3, split_final')
+			.eq('id', party.id)
+			.single();
+		expect(readError).toBeNull();
+		expect(persisted).toEqual({ split_q1: 25, split_q2: 25, split_q3: 25, split_final: 25 });
+	});
+
+	it('does not expose host PIN columns through public party reads', async () => {
+		const party = await createParty();
+
+		const { data, error } = await client
+			.from('parties')
+			.select('id, code, host_pin')
+			.eq('id', party.id)
+			.single();
+
+		expect(data).toBeNull();
+		expect(error).toBeTruthy();
+		expect(error?.message ?? '').toMatch(/permission|host_pin/i);
+	});
+
+	it('blocks direct anon writes to squares while preserving claim RPCs', async () => {
+		const party = await createParty();
+
+		const { error: directError } = await client
+			.from('squares')
+			.update({ player_name: 'Mallory', claimed_at: new Date().toISOString() })
+			.eq('party_id', party.id)
+			.eq('row_num', 0)
+			.eq('col_num', 0);
+
+		expect(directError).toBeTruthy();
+
+		const { data: claimed, error: claimError } = await client.rpc('claim_square', {
+			p_party_id: party.id,
+			p_row: 0,
+			p_col: 0,
+			p_player_name: 'Alice',
+		});
+
+		expect(claimError).toBeNull();
+		expect(claimed).toBe(true);
+	});
+
+	it('allows host PIN RPC to remove a player without direct square update rights', async () => {
+		const party = await createParty();
+
+		await client.rpc('claim_square', {
+			p_party_id: party.id,
+			p_row: 0,
+			p_col: 0,
+			p_player_name: 'Alice',
+		});
+		await client.rpc('claim_square', {
+			p_party_id: party.id,
+			p_row: 0,
+			p_col: 1,
+			p_player_name: 'Alice',
+		});
+
+		const { data: wrongPinData, error: wrongPinError } = await client.rpc('remove_player', {
+			p_party_id: party.id,
+			p_pin: '9999',
+			p_player_name_lower: 'alice',
+		});
+		expect(wrongPinData).toBeNull();
+		expect(wrongPinError).toBeTruthy();
+
+		const { data: removedCount, error } = await client.rpc('remove_player', {
+			p_party_id: party.id,
+			p_pin: '1234',
+			p_player_name_lower: 'alice',
+		});
+
 		expect(error).toBeNull();
-		expect(data).toEqual([]);
+		expect(removedCount).toBe(2);
 	});
 
 	it('allows payout updates only through the host PIN RPC', async () => {
@@ -128,6 +207,7 @@ describe('party update RLS hardening', () => {
 
 		expect(error).toBeNull();
 		expect(synced.home_team_is_row).toBe(true);
+		expect(synced.host_pin).toBeUndefined();
 	});
 
 	it('treats wildcard characters in team names as literals when syncing mapping', async () => {

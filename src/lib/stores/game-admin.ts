@@ -185,27 +185,22 @@ export async function removePlayer(
 		return { success: false, removedCount: 0, error: 'Cannot remove players after grid is locked' };
 	}
 
-	// Verify PIN server-side before modifying squares
 	const supabase = getSupabaseClient();
-	const pinValid = await verifyHostPin(currentParty.code, pin);
-	if (!pinValid) {
-		return { success: false, removedCount: 0, error: 'Invalid PIN' };
-	}
-
-	// Remove all squares owned by this player
-	// Note: player_name_lower is GENERATED ALWAYS — only set player_name and claimed_at
-	const { data, error: removeError } = await supabase
-		.from('squares')
-		.update({ player_name: null, claimed_at: null })
-		.eq('party_id', currentParty.id)
-		.eq('player_name_lower', playerNameLower)
-		.select('id');
+	const { data, error: removeError } = await supabase.rpc('remove_player', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_player_name_lower: playerNameLower,
+	});
 
 	if (removeError) {
-		return { success: false, removedCount: 0, error: 'Failed to remove player. Please try again.' };
+		return {
+			success: false,
+			removedCount: 0,
+			error: humanizeRemovePlayerError(removeError.message),
+		};
 	}
 
-	const removedCount = data?.length || 0;
+	const removedCount = data || 0;
 
 	// Update local state
 	squares.update((current) =>
@@ -217,6 +212,15 @@ export async function removePlayer(
 	);
 
 	return { success: true, removedCount };
+}
+
+function humanizeRemovePlayerError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized))
+		return 'Cannot remove players after grid is locked';
+	if (/player name/i.test(normalized)) return 'Player name is required';
+	return normalized || 'Failed to remove player. Please try again.';
 }
 
 export async function deleteParty(pin: string): Promise<{ success: boolean; error?: string }> {
