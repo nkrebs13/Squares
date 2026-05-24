@@ -26,6 +26,7 @@
 - **Real-time grid sync** — sub-100ms cross-client updates via Supabase broadcast + postgres_changes (see [ADR-0003](docs/adr/0003-dual-realtime-channels.md))
 - **Optimistic claims with rollback** — taps feel instant; failed claims roll back with a toast (see [ADR-0002](docs/adr/0002-optimistic-chain.md))
 - **Custom teams** — set team names, colors, and logos per party; configurable app-wide via env vars
+- **Future-game ready** — name a specific event and optional kickoff; pools stay available through game day
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
 - **PWA installable** on iOS + Android with push notifications
@@ -59,7 +60,7 @@ Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Z
 
 This repo is intentionally shaped as a full-stack portfolio artifact, not just a weekend UI. The product constraint was a real event with non-technical users, spotty mobile networks, and a host who needed score entry to work while watching the game.
 
-The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
+The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity and event-aware retention for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
 
 For reviewers, the fastest path is:
 
