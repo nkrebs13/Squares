@@ -257,6 +257,17 @@ describe('Create Page', () => {
 			expect(screen.getByText(/Timezone:/i)).toBeInTheDocument();
 		});
 
+		it('applies NFL team presets to team names', async () => {
+			render(CreatePage);
+			const user = userEvent.setup();
+
+			await user.selectOptions(screen.getByLabelText('Left team NFL preset'), 'bal');
+			await user.selectOptions(screen.getByLabelText('Top team NFL preset'), 'det');
+
+			expect(screen.getByLabelText('Left Team')).toHaveValue('Ravens');
+			expect(screen.getByLabelText('Top Team')).toHaveValue('Lions');
+		});
+
 		it('renders host name input', () => {
 			render(CreatePage);
 			expect(screen.getByPlaceholderText('Enter your name')).toBeInTheDocument();

@@ -837,6 +837,39 @@ describe('Admin Page - Score Entry', () => {
 			expect(await screen.findByText('Party details updated!')).toBeInTheDocument();
 		});
 
+		it('uses NFL presets when editing future-game teams', async () => {
+			const updatedParty = createMockParty({
+				team_row_name: 'Ravens',
+				team_col_name: 'Lions',
+				team_row_color: '#241773',
+				team_col_color: '#0076B6',
+			});
+
+			renderAuthorizedAdmin({ status: 'filling' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+
+			const user = userEvent.setup();
+			await user.selectOptions(screen.getByLabelText('Left team NFL preset'), 'bal');
+			await user.selectOptions(screen.getByLabelText('Top team NFL preset'), 'det');
+
+			expect(screen.getByLabelText('Left Team')).toHaveValue('Ravens');
+			expect(screen.getByLabelText('Top Team')).toHaveValue('Lions');
+
+			await user.click(screen.getByRole('button', { name: /Save Event Details/i }));
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+					'update_party_details',
+					expect.objectContaining({
+						p_team_row_name: 'Ravens',
+						p_team_col_name: 'Lions',
+						p_team_row_color: '#241773',
+						p_team_col_color: '#0076B6',
+					})
+				);
+			});
+		});
+
 		it('does NOT show event details editor after the grid is locked', () => {
 			renderAuthorizedAdmin({ status: 'active' });
 
