@@ -870,6 +870,20 @@ describe('Admin Page - Score Entry', () => {
 			});
 		});
 
+		it('previews and swaps matchup orientation while editing event details', async () => {
+			renderAuthorizedAdmin({ status: 'filling' });
+			const user = userEvent.setup();
+
+			expect(screen.getByText('Eagles vs Chiefs')).toBeInTheDocument();
+
+			await user.click(screen.getByRole('button', { name: 'Swap' }));
+
+			expect(screen.getByLabelText('Left Team')).toHaveValue('Chiefs');
+			expect(screen.getByLabelText('Top Team')).toHaveValue('Eagles');
+			expect(screen.getByText('Chiefs vs Eagles')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /Save Event Details/i })).toBeEnabled();
+		});
+
 		it('disables event detail saves when both matchup teams are the same', async () => {
 			renderAuthorizedAdmin({ status: 'filling' });
 			const user = userEvent.setup();

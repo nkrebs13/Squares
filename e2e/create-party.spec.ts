@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Create Party Page', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/create');
+		await expect(page.locator('form[data-ready="true"]')).toBeVisible();
 	});
 
 	test('displays the create party form', async ({ page }) => {
@@ -40,6 +41,26 @@ test.describe('Create Party Page', () => {
 			'Ravens'
 		);
 		await expect(page.getByRole('textbox', { name: 'Top Team', exact: true })).toHaveValue('Lions');
+	});
+
+	test('previews and swaps matchup orientation', async ({ page }) => {
+		await page.getByLabel('Left team NFL preset').selectOption('bal');
+		await page.getByLabel('Top team NFL preset').selectOption('det');
+
+		await expect(page.getByText('Matchup preview')).toBeVisible();
+		await expect(page.getByText('Ravens vs Lions')).toBeVisible();
+
+		await page.getByRole('button', { name: 'Swap' }).click();
+
+		await expect(page.getByRole('textbox', { name: 'Left Team', exact: true })).toHaveValue(
+			'Lions'
+		);
+		await expect(page.getByRole('textbox', { name: 'Top Team', exact: true })).toHaveValue(
+			'Ravens'
+		);
+		await expect(page.getByLabel('Left team NFL preset')).toHaveValue('det');
+		await expect(page.getByLabel('Top team NFL preset')).toHaveValue('bal');
+		await expect(page.getByText('Lions vs Ravens')).toBeVisible();
 	});
 
 	test('previews kickoff time with timezone context', async ({ page }) => {
