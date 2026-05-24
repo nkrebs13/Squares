@@ -88,7 +88,14 @@ export default defineConfig(({ mode }) => {
 				},
 				workbox: {
 					importScripts: ['/push-sw.js'],
-					globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+					navigateFallback: undefined,
+					globPatterns: [
+						'client/**/*.{js,css,ico,png,svg,webp,webmanifest}',
+						'client/*.webmanifest',
+					],
+					modifyURLPrefix: {
+						'client/': '',
+					},
 					runtimeCaching: [
 						{
 							urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/rpc\/.*/i,
