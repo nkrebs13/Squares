@@ -153,9 +153,9 @@ describe('parseParty', () => {
 		expect(parseParty({ ...validParty, status: 'archived' })).toBeNull();
 	});
 
-	it('passes host_pin through if provided', () => {
+	it('strips host_pin if an RPC payload accidentally includes it', () => {
 		const withPin = { ...validParty, host_pin: '1234' };
-		expect(parseParty(withPin)).toEqual(withPin);
+		expect(parseParty(withPin)).toEqual(validParty);
 	});
 
 	it('returns null when required field is missing', () => {

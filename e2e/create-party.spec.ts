@@ -29,6 +29,13 @@ test.describe('Create Party Page', () => {
 		await expect(page.getByLabel(/event name/i)).toBeVisible();
 		await expect(page.getByPlaceholder(/2027 Super Bowl/i)).toBeVisible();
 		await expect(page.getByLabel(/kickoff time/i)).toBeVisible();
+		await expect(page.getByText(/timezone:/i)).toBeVisible();
+	});
+
+	test('previews kickoff time with timezone context', async ({ page }) => {
+		await page.getByLabel(/kickoff time/i).fill('2027-02-14T15:30');
+
+		await expect(page.getByText(/kickoff:/i)).toBeVisible();
 	});
 
 	test('shows total pot calculation', async ({ page }) => {
@@ -72,6 +79,8 @@ test.describe('Create Party Page', () => {
 
 	test('allows selecting different presets', async ({ page }) => {
 		const equalButton = page.getByRole('button', { name: /equal/i });
+		await expect(page.getByText('10%').first()).toBeVisible();
+		await page.waitForTimeout(100);
 		await equalButton.click();
 
 		// Equal preset should show 25% for each quarter

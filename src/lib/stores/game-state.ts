@@ -11,6 +11,7 @@ import type {
 	GameScoresRow,
 	LiveScores,
 } from '$lib/types';
+import { parseGameScores, parseParty } from '$lib/validators/realtime';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 
@@ -73,6 +74,46 @@ export function resolveHomeIsRow(gameScores: GameScoresRow, party: Party): boole
 
 	// No name match — fall back to the DB flag
 	return party.home_team_is_row ?? true;
+}
+
+function teamNameMatches(gameName: string, gameAbbrev: string, partyName: string): boolean {
+	const normalizedGameName = gameName.toLowerCase();
+	const normalizedAbbrev = gameAbbrev.toLowerCase();
+	const normalizedPartyName = partyName.toLowerCase();
+
+	return (
+		normalizedGameName.includes(normalizedPartyName) ||
+		normalizedPartyName.includes(normalizedGameName) ||
+		normalizedAbbrev === normalizedPartyName
+	);
+}
+
+export function gameScoresMatchParty(
+	gameScores: GameScoresRow,
+	party: Pick<Party, 'team_row_name' | 'team_col_name'>
+): boolean {
+	const rowMatchesHome = teamNameMatches(
+		gameScores.home_team_name,
+		gameScores.home_team_abbrev,
+		party.team_row_name
+	);
+	const rowMatchesAway = teamNameMatches(
+		gameScores.away_team_name,
+		gameScores.away_team_abbrev,
+		party.team_row_name
+	);
+	const colMatchesHome = teamNameMatches(
+		gameScores.home_team_name,
+		gameScores.home_team_abbrev,
+		party.team_col_name
+	);
+	const colMatchesAway = teamNameMatches(
+		gameScores.away_team_name,
+		gameScores.away_team_abbrev,
+		party.team_col_name
+	);
+
+	return (rowMatchesHome && colMatchesAway) || (rowMatchesAway && colMatchesHome);
 }
 
 export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
@@ -268,18 +309,33 @@ export async function loadParty(code: string) {
 			return false;
 		}
 
-		// Auto-detect live game when party isn't linked to one
+		// Auto-detect live game when party isn't linked to one. Only link when
+		// the active score row matches this party's matchup; otherwise an
+		// arbitrary game_scores row can show the wrong live context.
 		let effectiveGameId = partyData.game_id;
+		let detectedGameScores: GameScoresRow | null = null;
 		if (!effectiveGameId) {
-			const { data: activeGame } = await supabase
+			const { data: activeGames, error: activeGamesError } = await supabase
 				.from('game_scores')
-				.select('game_id')
+				.select('*')
 				.neq('game_status', 'final')
-				.limit(1)
-				.maybeSingle();
+				.limit(10);
 
-			if (activeGame?.game_id) {
-				effectiveGameId = activeGame.game_id;
+			if (activeGamesError) {
+				// eslint-disable-next-line no-console -- diagnostic
+				console.warn('[loadParty] active game auto-detect failed:', activeGamesError.message);
+			} else {
+				detectedGameScores =
+					activeGames
+						?.map((candidate) => parseGameScores(candidate))
+						.find(
+							(candidate): candidate is GameScoresRow =>
+								candidate !== null && gameScoresMatchParty(candidate, partyData)
+						) ?? null;
+
+				if (detectedGameScores) {
+					effectiveGameId = detectedGameScores.game_id;
+				}
 			}
 		}
 
@@ -307,9 +363,11 @@ export async function loadParty(code: string) {
 				? supabase.from('numbers').select('*').eq('party_id', partyData.id).single()
 				: Promise.resolve({ data: null, error: null }),
 			supabase.from('scores').select('*').eq('party_id', partyData.id).single(),
-			effectiveGameId
-				? supabase.from('game_scores').select('*').eq('game_id', effectiveGameId).single()
-				: Promise.resolve({ data: null, error: null }),
+			detectedGameScores
+				? Promise.resolve({ data: detectedGameScores, error: null })
+				: effectiveGameId
+					? supabase.from('game_scores').select('*').eq('game_id', effectiveGameId).single()
+					: Promise.resolve({ data: null, error: null }),
 			supabase.from('winners').select('*').eq('party_id', partyData.id).order('quarter'),
 		]);
 
@@ -334,26 +392,24 @@ export async function loadParty(code: string) {
 			}
 			gameScores.set(gameScoresData || null);
 
-			// Auto-correct home_team_is_row based on actual team names from the API.
-			// This fixes the backend triggers that use this flag for winner calculation.
+			// Auto-correct home_team_is_row server-side based on the linked game row.
+			// Backend triggers use this flag for winner calculation, so direct anon
+			// writes are intentionally disallowed.
 			if (gameScoresData) {
-				const currentPartyData =
-					effectiveGameId !== partyData.game_id
-						? { ...partyData, game_id: effectiveGameId }
-						: partyData;
-				const correctValue = resolveHomeIsRow(gameScoresData, currentPartyData);
-				if (correctValue !== partyData.home_team_is_row) {
-					// Fire-and-forget: update DB so backend triggers use correct mapping
-					supabase
-						.from('parties')
-						.update({ home_team_is_row: correctValue })
-						.eq('id', partyData.id)
-						.then(({ error: e }) => {
+				supabase
+					.rpc('sync_party_home_team_mapping', { p_party_id: partyData.id })
+					.then(({ data, error: mappingError }) => {
+						if (mappingError) {
 							// eslint-disable-next-line no-console -- diagnostic
-							if (e) console.warn('[loadParty] failed to persist home_team_is_row:', e.message);
-						});
-					party.update((p) => (p ? { ...p, home_team_is_row: correctValue } : p));
-				}
+							console.warn('[loadParty] failed to sync home_team_is_row:', mappingError.message);
+							return;
+						}
+
+						const updatedParty = parseParty(data);
+						if (updatedParty) {
+							party.set(updatedParty);
+						}
+					});
 			}
 		} else {
 			gameScores.set(null);

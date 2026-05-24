@@ -254,6 +254,7 @@ describe('Create Page', () => {
 			expect(screen.getByText('Event name')).toBeInTheDocument();
 			expect(screen.getByPlaceholderText(/2027 Super Bowl/i)).toBeInTheDocument();
 			expect(screen.getByText('Kickoff time')).toBeInTheDocument();
+			expect(screen.getByText(/Timezone:/i)).toBeInTheDocument();
 		});
 
 		it('renders host name input', () => {
@@ -264,6 +265,14 @@ describe('Create Page', () => {
 		it('renders PIN input', () => {
 			render(CreatePage);
 			expect(screen.getByPlaceholderText('0000')).toBeInTheDocument();
+		});
+
+		it('previews selected kickoff time with timezone context', async () => {
+			render(CreatePage);
+			const kickoffInput = screen.getByLabelText(/Kickoff time/i);
+			await userEvent.setup().type(kickoffInput, '2027-02-14T15:30');
+
+			expect(screen.getByText(/Kickoff:/i)).toBeInTheDocument();
 		});
 	});
 });

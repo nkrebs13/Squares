@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getTestClient, createTestParty, cleanupParty, type TestParty } from './helpers';
+import {
+	getServiceRoleClient,
+	getTestClient,
+	createTestParty,
+	cleanupParty,
+	type TestParty,
+} from './helpers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient;
@@ -79,7 +85,7 @@ describe('claim_squares_batch RPC', () => {
 	});
 
 	it('returns 0 when party is not filling', async () => {
-		await client.from('parties').update({ status: 'active' }).eq('id', party.id);
+		await getServiceRoleClient().from('parties').update({ status: 'active' }).eq('id', party.id);
 
 		const { data } = await client.rpc('claim_squares_batch', {
 			p_party_id: party.id,

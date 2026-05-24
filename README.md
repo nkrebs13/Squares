@@ -1,6 +1,6 @@
 # Football Squares
 
-> Real-time multiplayer Super Bowl pool. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
+> Real-time multiplayer football squares pools. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
 
 **[▶ Live Demo — squares.nathankrebs.com](https://squares.nathankrebs.com)**
 
@@ -26,10 +26,12 @@
 - **Real-time grid sync** — sub-100ms cross-client updates via Supabase broadcast + postgres_changes (see [ADR-0003](docs/adr/0003-dual-realtime-channels.md))
 - **Optimistic claims with rollback** — taps feel instant; failed claims roll back with a toast (see [ADR-0002](docs/adr/0002-optimistic-chain.md))
 - **Custom teams** — set team names, colors, and logos per party; configurable app-wide via env vars
+- **Future-game ready** — name a specific event and optional kickoff; pools stay available through game day
+- **Editable setup before lock** — hosts can correct event details, kickoff, and matchup without recreating a pool
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
 - **PWA installable** on iOS + Android with push notifications
-- **ESPN live score auto-detect** — links to the active NFL game without manual setup
+- **Matchup-aware live score assist** — links to ESPN-sourced NFL scores when the active game matches the party teams; manual scoring stays available as the fallback
 - **Color-coded player legend** with click-to-filter
 - **Pan and zoom** for usable squares on small phones
 - **WCAG 2.1 AA targets** — ARIA grid markup, dialog modal with focus trap, semantic forms
@@ -59,7 +61,7 @@ Ran live on Super Bowl Sunday 2026 with ~50 concurrent players. Zero downtime. Z
 
 This repo is intentionally shaped as a full-stack portfolio artifact, not just a weekend UI. The product constraint was a real event with non-technical users, spotty mobile networks, and a host who needed score entry to work while watching the game.
 
-The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
+The senior-engineering work is in the operational details: a transactional `create_party` RPC, persisted event identity and event-aware retention for arbitrary future football games, source-of-truth Postgres changes paired with low-latency broadcasts, matchup-aware live score detection with manual fallback, optimistic claims with rollback, PIN-protected host actions, RLS hardening, PWA install support, optional Sentry/Web Vitals, and a game-day runbook. CI gates linting, formatting, type checks, coverage, build, bundle size, Supabase integration tests, and Playwright e2e coverage.
 
 For reviewers, the fastest path is:
 
@@ -129,22 +131,22 @@ Full step-by-step instructions, env-var lists, custom-domain notes, and troubles
 
 Brand strings, default event/team labels, and currency live in [`src/lib/config.ts`](src/lib/config.ts) and read from `PUBLIC_*` env vars at build time. To rebrand without touching code, set the relevant entries in `.env.local` (or your platform's env-var dashboard) before `npm run build`:
 
-| Env var                         | Default                                |
-| ------------------------------- | -------------------------------------- |
-| `PUBLIC_APP_NAME`               | `Football Squares`                     |
-| `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`      |
-| `PUBLIC_APP_TAGLINE`            | `Super Bowl party pools made easy`     |
-| `PUBLIC_APP_DESCRIPTION`        | `Real-time Super Bowl squares pool. …` |
-| `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                               |
-| `PUBLIC_DEFAULT_EVENT_NAME`     | `Football Squares`                     |
-| `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                             |
-| `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                              |
-| `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                  |
-| `PUBLIC_DEFAULT_TEAM_COL_NAME`  | `Patriots`                             |
-| `PUBLIC_DEFAULT_TEAM_COL_COLOR` | `#C60C30`                              |
-| `PUBLIC_DEFAULT_TEAM_COL_LOGO`  | `/logos/patriots.png`                  |
-| `PUBLIC_CURRENCY_CODE`          | `USD` (any ISO 4217 code)              |
-| `PUBLIC_LOCALE`                 | `en-US` (any BCP 47 locale)            |
+| Env var                         | Default                               |
+| ------------------------------- | ------------------------------------- |
+| `PUBLIC_APP_NAME`               | `Football Squares`                    |
+| `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`     |
+| `PUBLIC_APP_TAGLINE`            | `Football squares pools for any game` |
+| `PUBLIC_APP_DESCRIPTION`        | `Real-time football squares pools. …` |
+| `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                              |
+| `PUBLIC_DEFAULT_EVENT_NAME`     | `Football Squares`                    |
+| `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                            |
+| `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                             |
+| `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                 |
+| `PUBLIC_DEFAULT_TEAM_COL_NAME`  | `Patriots`                            |
+| `PUBLIC_DEFAULT_TEAM_COL_COLOR` | `#C60C30`                             |
+| `PUBLIC_DEFAULT_TEAM_COL_LOGO`  | `/logos/patriots.png`                 |
+| `PUBLIC_CURRENCY_CODE`          | `USD` (any ISO 4217 code)             |
+| `PUBLIC_LOCALE`                 | `en-US` (any BCP 47 locale)           |
 
 `PUBLIC_APP_NAME` and `PUBLIC_APP_DESCRIPTION` are also picked up by the PWA manifest in `vite.config.ts`. All values fall back to the defaults above when unset, so a stock fork keeps the Football Squares experience.
 

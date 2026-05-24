@@ -8,35 +8,55 @@
 	let copiedLink = $state(false);
 	let showQR = $state(false);
 	let qrDataUrl = $state<string | null>(null);
+	let shareError = $state<string | null>(null);
+	let qrError = $state<string | null>(null);
+	let showManualLink = $state(false);
 
 	const joinUrl = $derived(
 		$party && browser ? `${window.location.origin}/join?code=${$party.code}` : ''
 	);
+	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const shareTitle = $derived($party?.event_name || APP_CONFIG.appName);
+	const shareText = $derived(
+		$party ? `Join ${$party.event_name}: ${matchupLabel}. Code ${$party.code}.` : ''
+	);
+
+	async function copyText(value: string) {
+		if (!navigator.clipboard?.writeText) {
+			throw new Error('Clipboard API unavailable');
+		}
+		await navigator.clipboard.writeText(value);
+	}
 
 	async function copyCode() {
 		if (!$party) return;
 		try {
-			await navigator.clipboard.writeText($party.code);
+			await copyText($party.code);
 			copied = true;
+			shareError = null;
 			setTimeout(() => (copied = false), 2000);
 		} catch {
-			// Copy failed silently - user can retry
+			shareError = 'Copy unavailable. Party code is shown above.';
 		}
 	}
 
 	async function copyLink() {
 		if (!joinUrl) return;
 		try {
-			await navigator.clipboard.writeText(joinUrl);
+			await copyText(joinUrl);
 			copiedLink = true;
+			shareError = null;
+			showManualLink = false;
 			setTimeout(() => (copiedLink = false), 2000);
 		} catch {
-			// Copy failed silently
+			shareError = 'Copy unavailable. Join link shown below.';
+			showManualLink = true;
 		}
 	}
 
 	async function toggleQR() {
 		showQR = !showQR;
+		qrError = null;
 		if (showQR && !qrDataUrl && joinUrl) {
 			try {
 				qrDataUrl = await QRCode.toDataURL(joinUrl, {
@@ -50,6 +70,8 @@
 			} catch (err) {
 				// eslint-disable-next-line no-console -- QR failure is non-fatal but worth surfacing in devtools
 				console.error('QR generation failed:', err);
+				qrError = 'QR code unavailable. Join link shown below.';
+				showManualLink = true;
 			}
 		}
 	}
@@ -57,16 +79,19 @@
 	async function shareCode() {
 		if (!$party) return;
 		const shareData = {
-			title: APP_CONFIG.appName,
-			text: `Join my ${APP_CONFIG.appName} party!`,
+			title: shareTitle,
+			text: shareText,
 			url: joinUrl,
 		};
 
 		if (navigator.share) {
 			try {
 				await navigator.share(shareData);
-			} catch {
-				// User cancelled or share failed
+				shareError = null;
+			} catch (err) {
+				if (err instanceof DOMException && err.name === 'AbortError') return;
+				shareError = 'Share unavailable. Join link shown below.';
+				showManualLink = true;
 			}
 		} else {
 			copyLink();
@@ -91,6 +116,27 @@
 				{showQR ? 'Hide QR' : 'QR Code'}
 			</button>
 		</div>
+
+		{#if shareError}
+			<p class="text-xs mt-3 text-error" role="alert">{shareError}</p>
+		{/if}
+
+		{#if qrError}
+			<p class="text-xs mt-3 text-error" role="alert">{qrError}</p>
+		{/if}
+
+		{#if showManualLink && joinUrl}
+			<label class="block mt-3 text-left max-w-xs mx-auto">
+				<span class="sr-only">Join link</span>
+				<input
+					readonly
+					value={joinUrl}
+					class="input text-xs"
+					aria-label="Join link"
+					onfocus={(event) => event.currentTarget.select()}
+				/>
+			</label>
+		{/if}
 
 		{#if showQR && qrDataUrl}
 			<div class="mt-4 flex justify-center">

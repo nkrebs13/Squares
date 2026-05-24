@@ -4,7 +4,14 @@
 	import { userName } from '$lib/stores/user';
 	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { getHostPin, setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
+	import {
+		getHostPin,
+		setHostPin,
+		partyPinKey,
+		partyNicknameKey,
+		setSessionItem,
+	} from '$lib/storage';
+	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
 	let code = $state('');
@@ -38,19 +45,19 @@
 	onMount(() => {
 		const urlCode = $page.url.searchParams.get('code');
 		if (urlCode) {
-			code = urlCode.toUpperCase();
+			code = normalizePartyCode(urlCode);
 		}
 	});
 
 	async function handleJoin() {
-		if (!code.trim() || !name.trim()) return;
+		if (!isCompletePartyCode(code) || !name.trim()) return;
 
 		isChecking = true;
 		error = null;
 
 		try {
 			const supabase = getSupabaseClient();
-			const upperCode = code.toUpperCase();
+			const upperCode = normalizePartyCode(code);
 
 			// Check if party exists and get host_name_lower
 			const { data: partyData, error: partyError } = await supabase
@@ -112,7 +119,7 @@
 			if (isValid) {
 				// Store PIN in IndexedDB and session storage
 				await setHostPin(pendingPartyCode, pinInput);
-				sessionStorage.setItem(partyPinKey(pendingPartyCode), pinInput);
+				setSessionItem(partyPinKey(pendingPartyCode), pinInput);
 
 				// Proceed to party
 				userName.setName(name.trim());
@@ -132,7 +139,7 @@
 
 	function storeNickname(partyCode: string) {
 		if (nickname.trim()) {
-			sessionStorage.setItem(partyNicknameKey(partyCode), nickname.trim());
+			setSessionItem(partyNicknameKey(partyCode), nickname.trim());
 		}
 	}
 
@@ -165,11 +172,14 @@
 					bind:value={code}
 					placeholder="ABCD12"
 					class="input mt-2 text-center text-2xl tracking-widest uppercase"
-					maxlength="6"
+					maxlength="12"
 					autocomplete="off"
 					autocapitalize="characters"
 				/>
 			</label>
+			{#if code && !isCompletePartyCode(code)}
+				<p class="mt-2 text-sm" style="color: #fca5a5">Party codes are 6 characters.</p>
+			{/if}
 		</div>
 
 		<div class="card">
@@ -216,7 +226,7 @@
 		<button
 			type="submit"
 			class="btn btn-primary w-full"
-			disabled={!code.trim() || !name.trim() || isChecking}
+			disabled={!isCompletePartyCode(code) || !name.trim() || isChecking}
 		>
 			{isChecking ? 'Joining...' : 'Join Party'}
 		</button>
