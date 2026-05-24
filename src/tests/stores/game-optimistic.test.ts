@@ -392,6 +392,40 @@ describe('claimSquaresBatchOptimistic', () => {
 		});
 	});
 
+	it('rolls back all optimistic claims when the batch RPC fails', () => {
+		party.set(createMockParty());
+		const grid = createEmptyGrid();
+		grid[0].player_name = 'Bob';
+		grid[0].player_name_lower = 'bob';
+		grid[0].claimed_at = '2026-01-01T00:00:00.000Z';
+		squares.set(grid);
+
+		mockSupabaseClient.rpc.mockReturnValue({
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+			then: (cb: Function) => {
+				cb({ data: null, error: { message: 'Network error' } });
+				return { catch: vi.fn() };
+			},
+		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+
+		claimSquaresBatchOptimistic([
+			{ row: 0, col: 0 }, // Already claimed by Bob
+			{ row: 0, col: 1 },
+			{ row: 1, col: 0 },
+		]);
+
+		const currentSquares = get(squares);
+		const bobSquare = currentSquares.find((s) => s.row_num === 0 && s.col_num === 0);
+		const firstRolledBack = currentSquares.find((s) => s.row_num === 0 && s.col_num === 1);
+		const secondRolledBack = currentSquares.find((s) => s.row_num === 1 && s.col_num === 0);
+
+		expect(bobSquare?.player_name).toBe('Bob');
+		expect(firstRolledBack?.player_name).toBeNull();
+		expect(secondRolledBack?.player_name).toBeNull();
+		expect(get(pendingOperations).has('0-1')).toBe(false);
+		expect(get(pendingOperations).has('1-0')).toBe(false);
+	});
+
 	it('does nothing when all cells are already claimed', () => {
 		party.set(createMockParty());
 		const grid = createEmptyGrid();
