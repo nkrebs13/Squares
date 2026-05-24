@@ -32,6 +32,16 @@ test.describe('Create Party Page', () => {
 		await expect(page.getByText(/timezone:/i)).toBeVisible();
 	});
 
+	test('applies NFL team presets', async ({ page }) => {
+		await page.getByLabel('Left team NFL preset').selectOption('bal');
+		await page.getByLabel('Top team NFL preset').selectOption('det');
+
+		await expect(page.getByRole('textbox', { name: 'Left Team', exact: true })).toHaveValue(
+			'Ravens'
+		);
+		await expect(page.getByRole('textbox', { name: 'Top Team', exact: true })).toHaveValue('Lions');
+	});
+
 	test('previews kickoff time with timezone context', async ({ page }) => {
 		await page.getByLabel(/kickoff time/i).fill('2027-02-14T15:30');
 

@@ -38,6 +38,7 @@
 		toDatetimeLocalValue,
 	} from '$lib/utils/datetime';
 	import { goto } from '$app/navigation';
+	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
 
 	const code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
@@ -72,6 +73,8 @@
 	});
 	let isUpdatingDetails = $state(false);
 	let kickoffTimeZone = $state('local time');
+	let rowTeamPresetId = $state('');
+	let colTeamPresetId = $state('');
 
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
@@ -189,9 +192,26 @@
 			partyDetails.teamColName = $party.team_col_name;
 			partyDetails.teamRowColor = $party.team_row_color;
 			partyDetails.teamColColor = $party.team_col_color;
+			rowTeamPresetId = findNflTeamPresetId($party.team_row_name, $party.team_row_color);
+			colTeamPresetId = findNflTeamPresetId($party.team_col_name, $party.team_col_color);
 			partyDetailsInitialized = true;
 		}
 	});
+
+	function applyTeamPreset(side: 'row' | 'col', teamId: string) {
+		const preset = findNflTeamPreset(teamId);
+		if (!preset) return;
+
+		if (side === 'row') {
+			partyDetails.teamRowName = preset.name;
+			partyDetails.teamRowColor = preset.color;
+			rowTeamPresetId = preset.id;
+		} else {
+			partyDetails.teamColName = preset.name;
+			partyDetails.teamColColor = preset.color;
+			colTeamPresetId = preset.id;
+		}
+	}
 
 	const isValidPartyDetails = $derived(
 		partyDetails.eventName.trim().length > 0 &&
@@ -517,18 +537,37 @@
 											bind:value={partyDetails.teamRowColor}
 											class="sr-only"
 											aria-label="Left team color picker"
+											oninput={() => (rowTeamPresetId = '')}
 										/>
 									</label>
-									<label class="block flex-1">
-										<span class="text-sm text-secondary">Left Team</span>
-										<input
-											type="text"
-											bind:value={partyDetails.teamRowName}
-											class="input mt-1"
-											maxlength="50"
-											onblur={() => (partyDetails.teamRowName = partyDetails.teamRowName.trim())}
-										/>
-									</label>
+									<div class="flex-1">
+										<label class="block">
+											<span class="text-sm text-secondary">Left team NFL preset</span>
+											<select
+												bind:value={rowTeamPresetId}
+												class="input mt-1"
+												aria-label="Left team NFL preset"
+												onchange={(event) =>
+													applyTeamPreset('row', (event.currentTarget as HTMLSelectElement).value)}
+											>
+												<option value="">Custom left team</option>
+												{#each NFL_TEAM_PRESETS as team (team.id)}
+													<option value={team.id}>{team.name}</option>
+												{/each}
+											</select>
+										</label>
+										<label class="block mt-2">
+											<span class="text-sm text-secondary">Left Team</span>
+											<input
+												type="text"
+												bind:value={partyDetails.teamRowName}
+												class="input mt-1"
+												maxlength="50"
+												oninput={() => (rowTeamPresetId = '')}
+												onblur={() => (partyDetails.teamRowName = partyDetails.teamRowName.trim())}
+											/>
+										</label>
+									</div>
 								</div>
 
 								<div class="flex items-center gap-3">
@@ -542,18 +581,37 @@
 											bind:value={partyDetails.teamColColor}
 											class="sr-only"
 											aria-label="Top team color picker"
+											oninput={() => (colTeamPresetId = '')}
 										/>
 									</label>
-									<label class="block flex-1">
-										<span class="text-sm text-secondary">Top Team</span>
-										<input
-											type="text"
-											bind:value={partyDetails.teamColName}
-											class="input mt-1"
-											maxlength="50"
-											onblur={() => (partyDetails.teamColName = partyDetails.teamColName.trim())}
-										/>
-									</label>
+									<div class="flex-1">
+										<label class="block">
+											<span class="text-sm text-secondary">Top team NFL preset</span>
+											<select
+												bind:value={colTeamPresetId}
+												class="input mt-1"
+												aria-label="Top team NFL preset"
+												onchange={(event) =>
+													applyTeamPreset('col', (event.currentTarget as HTMLSelectElement).value)}
+											>
+												<option value="">Custom top team</option>
+												{#each NFL_TEAM_PRESETS as team (team.id)}
+													<option value={team.id}>{team.name}</option>
+												{/each}
+											</select>
+										</label>
+										<label class="block mt-2">
+											<span class="text-sm text-secondary">Top Team</span>
+											<input
+												type="text"
+												bind:value={partyDetails.teamColName}
+												class="input mt-1"
+												maxlength="50"
+												oninput={() => (colTeamPresetId = '')}
+												onblur={() => (partyDetails.teamColName = partyDetails.teamColName.trim())}
+											/>
+										</label>
+									</div>
 								</div>
 							</div>
 						</div>

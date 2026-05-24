@@ -8,6 +8,7 @@
 	import { datetimeLocalToIso, formatKickoff, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
+	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
 	let kickoffInput = $state('');
@@ -26,6 +27,8 @@
 	// Team customization — pre-populated from env-configured defaults
 	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
 	const colTeam = $state({ name: DEFAULT_TEAMS.col.name, color: DEFAULT_TEAMS.col.color });
+	let rowTeamPresetId = $state(findNflTeamPresetId(rowTeam.name, rowTeam.color));
+	let colTeamPresetId = $state(findNflTeamPresetId(colTeam.name, colTeam.color));
 
 	const isCustom = $derived(selectedPreset.name === 'Custom');
 
@@ -65,6 +68,21 @@
 	onMount(() => {
 		kickoffTimeZone = getLocalTimeZoneLabel();
 	});
+
+	function applyTeamPreset(side: 'row' | 'col', teamId: string) {
+		const preset = findNflTeamPreset(teamId);
+		if (!preset) return;
+
+		if (side === 'row') {
+			rowTeam.name = preset.name;
+			rowTeam.color = preset.color;
+			rowTeamPresetId = preset.id;
+		} else {
+			colTeam.name = preset.name;
+			colTeam.color = preset.color;
+			colTeamPresetId = preset.id;
+		}
+	}
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -255,9 +273,27 @@
 							bind:value={rowTeam.color}
 							class="sr-only"
 							aria-label="Left team color picker"
+							oninput={() => (rowTeamPresetId = '')}
 						/>
 					</label>
 					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>NFL preset</span
+							>
+							<select
+								bind:value={rowTeamPresetId}
+								class="input mt-1"
+								aria-label="Left team NFL preset"
+								onchange={(event) =>
+									applyTeamPreset('row', (event.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="">Custom left team</option>
+								{#each NFL_TEAM_PRESETS as team (team.id)}
+									<option value={team.id}>{team.name}</option>
+								{/each}
+							</select>
+						</label>
 						<label class="block">
 							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
 								>Left Team</span
@@ -268,6 +304,7 @@
 								placeholder="e.g. Chiefs"
 								class="input mt-1"
 								maxlength="30"
+								oninput={() => (rowTeamPresetId = '')}
 								onblur={() => (rowTeam.name = rowTeam.name.trim())}
 							/>
 						</label>
@@ -285,9 +322,27 @@
 							bind:value={colTeam.color}
 							class="sr-only"
 							aria-label="Top team color picker"
+							oninput={() => (colTeamPresetId = '')}
 						/>
 					</label>
 					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>NFL preset</span
+							>
+							<select
+								bind:value={colTeamPresetId}
+								class="input mt-1"
+								aria-label="Top team NFL preset"
+								onchange={(event) =>
+									applyTeamPreset('col', (event.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="">Custom top team</option>
+								{#each NFL_TEAM_PRESETS as team (team.id)}
+									<option value={team.id}>{team.name}</option>
+								{/each}
+							</select>
+						</label>
 						<label class="block">
 							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
 								>Top Team</span
@@ -298,6 +353,7 @@
 								placeholder="e.g. Eagles"
 								class="input mt-1"
 								maxlength="30"
+								oninput={() => (colTeamPresetId = '')}
 								onblur={() => (colTeam.name = colTeam.name.trim())}
 							/>
 						</label>
