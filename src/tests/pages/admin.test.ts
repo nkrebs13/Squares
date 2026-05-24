@@ -780,6 +780,63 @@ describe('Admin Page - Score Entry', () => {
 	});
 
 	describe('Filling Phase Controls', () => {
+		it('shows editable event details while party is filling', () => {
+			renderAuthorizedAdmin({
+				status: 'filling',
+				event_name: '2027 Championship',
+				kickoff_at: '2027-02-14T23:30:00.000Z',
+			});
+
+			expect(screen.getByText('Event Details')).toBeInTheDocument();
+			expect(screen.getByLabelText('Event name')).toHaveValue('2027 Championship');
+			expect(screen.getByLabelText('Left Team')).toHaveValue('Eagles');
+			expect(screen.getByLabelText('Top Team')).toHaveValue('Chiefs');
+		});
+
+		it('saves edited event details through the host RPC', async () => {
+			const updatedParty = createMockParty({
+				event_name: '2027 Championship',
+				kickoff_at: '2027-02-14T23:30:00.000Z',
+				team_row_name: 'Ravens',
+				team_col_name: 'Lions',
+				team_row_color: '#241773',
+				team_col_color: '#0076B6',
+			});
+
+			renderAuthorizedAdmin({ status: 'filling' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+
+			const user = userEvent.setup();
+			await user.clear(screen.getByLabelText('Event name'));
+			await user.type(screen.getByLabelText('Event name'), '2027 Championship');
+			await user.clear(screen.getByLabelText('Left Team'));
+			await user.type(screen.getByLabelText('Left Team'), 'Ravens');
+			await user.clear(screen.getByLabelText('Top Team'));
+			await user.type(screen.getByLabelText('Top Team'), 'Lions');
+
+			await user.click(screen.getByRole('button', { name: /Save Event Details/i }));
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+					'update_party_details',
+					expect.objectContaining({
+						p_party_id: 'test-party-id',
+						p_pin: '1234',
+						p_event_name: '2027 Championship',
+						p_team_row_name: 'Ravens',
+						p_team_col_name: 'Lions',
+					})
+				);
+			});
+			expect(await screen.findByText('Party details updated!')).toBeInTheDocument();
+		});
+
+		it('does NOT show event details editor after the grid is locked', () => {
+			renderAuthorizedAdmin({ status: 'active' });
+
+			expect(screen.queryByText('Event Details')).not.toBeInTheDocument();
+		});
+
 		it('shows Start Game section when party is filling', () => {
 			renderAuthorizedAdmin({ status: 'filling' });
 

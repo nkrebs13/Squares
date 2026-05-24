@@ -4,6 +4,7 @@
 	import { userName } from '$lib/stores/user';
 	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
+	import { datetimeLocalToIso } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
@@ -54,7 +55,7 @@
 			colTeam.name.trim().length > 0
 	);
 
-	const kickoffAt = $derived(kickoffInput ? new Date(kickoffInput).toISOString() : null);
+	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
