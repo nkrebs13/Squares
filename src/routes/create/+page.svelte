@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
-	import { datetimeLocalToIso } from '$lib/utils/datetime';
+	import { datetimeLocalToIso, formatKickoff, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
@@ -20,6 +21,7 @@
 	let nickname = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
+	let kickoffTimeZone = $state('local time');
 
 	// Team customization — pre-populated from env-configured defaults
 	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
@@ -56,6 +58,13 @@
 	);
 
 	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
+	const kickoffPreview = $derived(
+		formatKickoff(kickoffAt, { includeWeekday: true, includeTimeZone: true })
+	);
+
+	onMount(() => {
+		kickoffTimeZone = getLocalTimeZoneLabel();
+	});
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -132,6 +141,14 @@
 				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
 				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
 			</label>
+			<p class="mt-2 text-xs" style="color: var(--text-muted)">
+				Timezone: {kickoffTimeZone}
+			</p>
+			{#if kickoffPreview}
+				<p class="mt-1 text-sm" style="color: var(--text-secondary)">
+					Kickoff: {kickoffPreview}
+				</p>
+			{/if}
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
 				Use a specific event name so this pool still makes sense when shared or revisited later.
 			</p>

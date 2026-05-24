@@ -25,7 +25,12 @@
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
 	import { formatQuarterLabel } from '$lib/utils/quarter';
-	import { datetimeLocalToIso, toDatetimeLocalValue } from '$lib/utils/datetime';
+	import {
+		datetimeLocalToIso,
+		formatKickoff,
+		getLocalTimeZoneLabel,
+		toDatetimeLocalValue,
+	} from '$lib/utils/datetime';
 	import { goto } from '$app/navigation';
 
 	const code = $derived($page.params.code ?? '');
@@ -60,6 +65,7 @@
 		teamColColor: '#C60C30',
 	});
 	let isUpdatingDetails = $state(false);
+	let kickoffTimeZone = $state('local time');
 
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
@@ -110,6 +116,8 @@
 	let unsubscribe: (() => void) | null = null;
 
 	onMount(async () => {
+		kickoffTimeZone = getLocalTimeZoneLabel();
+
 		if (browser) {
 			storedPin = sessionStorage.getItem(partyPinKey(code));
 			if (storedPin) {
@@ -181,6 +189,12 @@
 			partyDetails.eventName.trim().length <= 80 &&
 			partyDetails.teamRowName.trim().length > 0 &&
 			partyDetails.teamColName.trim().length > 0
+	);
+	const kickoffPreview = $derived(
+		formatKickoff(datetimeLocalToIso(partyDetails.kickoffInput), {
+			includeWeekday: true,
+			includeTimeZone: true,
+		})
 	);
 
 	const partyDetailsChanged = $derived(
@@ -476,6 +490,10 @@
 									class="input mt-1"
 								/>
 							</label>
+							<p class="text-xs text-muted">Timezone: {kickoffTimeZone}</p>
+							{#if kickoffPreview}
+								<p class="text-sm text-secondary">Kickoff: {kickoffPreview}</p>
+							{/if}
 
 							<div class="space-y-3">
 								<div class="flex items-center gap-3">

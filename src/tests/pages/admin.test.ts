@@ -789,6 +789,8 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.getByText('Event Details')).toBeInTheDocument();
 			expect(screen.getByLabelText('Event name')).toHaveValue('2027 Championship');
+			expect(screen.getByText(/Timezone:/i)).toBeInTheDocument();
+			expect(screen.getByText(/Kickoff:/i)).toBeInTheDocument();
 			expect(screen.getByLabelText('Left Team')).toHaveValue('Eagles');
 			expect(screen.getByLabelText('Top Team')).toHaveValue('Chiefs');
 		});
