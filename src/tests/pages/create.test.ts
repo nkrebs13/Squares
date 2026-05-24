@@ -95,6 +95,8 @@ describe('Create Page', () => {
 			id: 'new-party-id',
 			code: 'ABC123',
 			host_name_lower: 'alice',
+			event_name: 'Test Football Squares',
+			kickoff_at: null,
 			square_price: 1.0,
 			split_q1: 10,
 			split_q2: 20,
@@ -131,6 +133,8 @@ describe('Create Page', () => {
 				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
 					'create_party',
 					expect.objectContaining({
+						p_event_name: 'Football Squares',
+						p_kickoff_at: null,
 						p_host_name: 'Alice',
 						p_pin: '1234',
 						p_square_price: 1,
@@ -245,6 +249,14 @@ describe('Create Page', () => {
 			expect(screen.getByText('Price per square')).toBeInTheDocument();
 		});
 
+		it('renders event details inputs', () => {
+			render(CreatePage);
+			expect(screen.getByText('Event name')).toBeInTheDocument();
+			expect(screen.getByPlaceholderText(/2027 Super Bowl/i)).toBeInTheDocument();
+			expect(screen.getByText('Kickoff time')).toBeInTheDocument();
+			expect(screen.getByText(/Timezone:/i)).toBeInTheDocument();
+		});
+
 		it('renders host name input', () => {
 			render(CreatePage);
 			expect(screen.getByPlaceholderText('Enter your name')).toBeInTheDocument();
@@ -253,6 +265,14 @@ describe('Create Page', () => {
 		it('renders PIN input', () => {
 			render(CreatePage);
 			expect(screen.getByPlaceholderText('0000')).toBeInTheDocument();
+		});
+
+		it('previews selected kickoff time with timezone context', async () => {
+			render(CreatePage);
+			const kickoffInput = screen.getByLabelText(/Kickoff time/i);
+			await userEvent.setup().type(kickoffInput, '2027-02-14T15:30');
+
+			expect(screen.getByText(/Kickoff:/i)).toBeInTheDocument();
 		});
 	});
 });

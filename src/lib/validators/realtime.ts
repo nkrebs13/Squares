@@ -71,11 +71,10 @@ function isNumberArray(v: unknown): v is number[] {
 	return Array.isArray(v) && v.every(isNum);
 }
 
-// Internal helper — emit a structured warning. In Phase 8, this also
-// reports to Sentry; for now console.warn is sufficient and side-effect
-// free in environments without a console.
+// Internal helper — emit a structured warning. Side-effect-free in
+// environments without a console.
 function warn(table: string, payload: unknown, missingOrBad: string): null {
-	/* eslint-disable no-console -- diagnostic; Phase 8 routes to Sentry */
+	/* eslint-disable no-console -- diagnostic */
 	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
 		console.warn(
 			`[realtime-validator] ${table} payload failed validation (${missingOrBad}):`,
@@ -116,6 +115,8 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isStr(p.id)) return warn('parties', p, 'id missing');
 	if (!isStr(p.code)) return warn('parties', p, 'code missing');
 	if (!isStrOrNull(p.host_name_lower)) return warn('parties', p, 'host_name_lower not str|null');
+	if (!isStr(p.event_name)) return warn('parties', p, 'event_name missing');
+	if (!isStrOrNull(p.kickoff_at)) return warn('parties', p, 'kickoff_at not str|null');
 	if (!isNum(p.square_price)) return warn('parties', p, 'square_price missing');
 	if (!isNum(p.split_q1)) return warn('parties', p, 'split_q1 missing');
 	if (!isNum(p.split_q2)) return warn('parties', p, 'split_q2 missing');
@@ -133,10 +134,12 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isBoolOrNull(p.home_team_is_row))
 		return warn('parties', p, 'home_team_is_row not bool|null');
 
-	const result: Party = {
+	return {
 		id: p.id,
 		code: p.code,
 		host_name_lower: p.host_name_lower,
+		event_name: p.event_name,
+		kickoff_at: p.kickoff_at,
 		square_price: p.square_price,
 		split_q1: p.split_q1,
 		split_q2: p.split_q2,
@@ -153,8 +156,6 @@ export function parseParty(payload: unknown): Party | null {
 		game_id: p.game_id,
 		home_team_is_row: p.home_team_is_row,
 	};
-	if (isStr(p.host_pin)) result.host_pin = p.host_pin;
-	return result;
 }
 
 export function parseNumbers(payload: unknown): Numbers | null {

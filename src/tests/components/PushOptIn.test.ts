@@ -64,12 +64,9 @@ describe('PushOptIn Component', () => {
 		const { container } = render(PushOptIn);
 
 		// Give time for async mount
-		await vi.waitFor(
-			() => {
-				expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
-			},
-			{ timeout: 100 }
-		);
+		await vi.waitFor(() => {
+			expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
+		});
 	});
 
 	it('does not render when already subscribed', async () => {
@@ -77,12 +74,9 @@ describe('PushOptIn Component', () => {
 
 		const { container } = render(PushOptIn);
 
-		await vi.waitFor(
-			() => {
-				expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
-			},
-			{ timeout: 100 }
-		);
+		await vi.waitFor(() => {
+			expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
+		});
 	});
 
 	it('does not render when permission is denied', async () => {
@@ -90,12 +84,9 @@ describe('PushOptIn Component', () => {
 
 		const { container } = render(PushOptIn);
 
-		await vi.waitFor(
-			() => {
-				expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
-			},
-			{ timeout: 100 }
-		);
+		await vi.waitFor(() => {
+			expect(container.querySelector('.push-opt-in')).not.toBeInTheDocument();
+		});
 	});
 
 	it('subscribes on click and shows success toast', async () => {

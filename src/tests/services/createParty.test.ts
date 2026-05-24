@@ -6,12 +6,14 @@ vi.mock('$lib/supabase', () => ({
 }));
 
 import { createParty } from '$lib/services/createParty';
-import { DEFAULT_TEAMS } from '$lib/types';
+import { DEFAULT_TEAMS } from '$lib/config';
 
 const validPartyRow = {
 	id: '11111111-1111-1111-1111-111111111111',
 	code: 'AB12CD',
 	host_name_lower: 'nathan',
+	event_name: 'Test Football Squares',
+	kickoff_at: null,
 	square_price: 1.0,
 	split_q1: 25,
 	split_q2: 25,
@@ -30,6 +32,8 @@ const validPartyRow = {
 };
 
 const validInput = {
+	eventName: '2027 Super Bowl',
+	kickoffAt: '2027-02-14T23:30:00.000Z',
 	hostName: 'Nathan',
 	hostPin: '1234',
 	squarePrice: 1.0,
@@ -58,6 +62,8 @@ describe('createParty service', () => {
 			p_team_col_name: DEFAULT_TEAMS.col.name,
 			p_team_row_color: DEFAULT_TEAMS.row.color,
 			p_team_col_color: DEFAULT_TEAMS.col.color,
+			p_event_name: '2027 Super Bowl',
+			p_kickoff_at: '2027-02-14T23:30:00.000Z',
 		});
 
 		expect(result.ok).toBe(true);
@@ -95,6 +101,16 @@ describe('createParty service', () => {
 		const result = await createParty({ ...validInput, hostName: '' });
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error).toMatch(/host name/i);
+	});
+
+	it('humanizes RPC error: event name too long', async () => {
+		mockRpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'event_name must be at most 80 characters' },
+		});
+		const result = await createParty(validInput);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error).toMatch(/event name/i);
 	});
 
 	it('humanizes RPC error: code-collision exhaustion', async () => {

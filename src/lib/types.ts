@@ -21,6 +21,8 @@ export interface Party {
 	code: string;
 	host_pin?: string;
 	host_name_lower: string | null;
+	event_name: string;
+	kickoff_at: string | null;
 	square_price: number;
 	split_q1: number;
 	split_q2: number;
@@ -134,15 +136,15 @@ export const SPLIT_PRESETS: SplitPreset[] = [
 	{ name: 'Custom', q1: 0, q2: 0, q3: 0, final: 0 },
 ];
 
-// Super Bowl Teams
-export const DEFAULT_TEAMS = {
-	row: { name: 'Seahawks', color: '#69BE28' },
-	col: { name: 'Patriots', color: '#C60C30' },
-};
+// Default teams live in $lib/config (env-overridable). Re-export here for any
+// external consumers, but new imports should source directly from $lib/config.
+export { DEFAULT_TEAMS } from '$lib/config';
 
 export interface RecentParty {
 	code: string;
 	nickname?: string; // user-defined nickname for easy identification
+	eventName?: string;
+	kickoffAt?: string | null;
 	teamRowName: string;
 	teamColName: string;
 	lastVisited: number; // timestamp

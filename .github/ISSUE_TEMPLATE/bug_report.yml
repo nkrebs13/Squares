@@ -1,7 +1,7 @@
 name: Bug report
 description: Something doesn't work the way you expected
-title: "[bug] "
-labels: ["bug"]
+title: '[bug] '
+labels: ['bug']
 body:
   - type: markdown
     attributes:
@@ -16,7 +16,7 @@ body:
     attributes:
       label: What happened?
       description: Tell me what you saw vs. what you expected.
-      placeholder: "I clicked X, expected Y, got Z."
+      placeholder: 'I clicked X, expected Y, got Z.'
     validations:
       required: true
 
@@ -51,7 +51,7 @@ body:
     id: browser
     attributes:
       label: Browser + OS
-      placeholder: "Safari 18 on iOS 18, Chrome 138 on macOS 15"
+      placeholder: 'Safari 18 on iOS 18, Chrome 138 on macOS 15'
     validations:
       required: true
 

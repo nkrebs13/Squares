@@ -8,7 +8,7 @@ test.describe('Landing Page', () => {
 
 	test('displays the main heading and tagline', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
-		await expect(page.getByText(/super bowl party pools made easy/i)).toBeVisible();
+		await expect(page.getByText(/football squares pools for any game/i)).toBeVisible();
 	});
 
 	test('has Create Party button that navigates to create page', async ({ page }) => {
@@ -17,6 +17,14 @@ test.describe('Landing Page', () => {
 
 		await createButton.click();
 		await expect(page).toHaveURL('/create');
+	});
+
+	test('has demo link that opens the seeded demo party join flow', async ({ page }) => {
+		const demoLink = page.getByRole('link', { name: /try demo/i });
+		await expect(demoLink).toBeVisible();
+
+		await demoLink.click();
+		await expect(page).toHaveURL('/join?code=DEMO01');
 	});
 
 	test('has Join Party form with code input', async ({ page }) => {
@@ -28,11 +36,11 @@ test.describe('Landing Page', () => {
 		await expect(joinButton).toBeDisabled();
 	});
 
-	test('enables Join Party button when code is entered', async ({ page }) => {
+	test('enables Join Party button when a complete code is entered', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('ABCD');
+		await codeInput.fill('ABCD12');
 		await expect(joinButton).toBeEnabled();
 	});
 
@@ -40,24 +48,30 @@ test.describe('Landing Page', () => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
-	test('converts party code to uppercase', async ({ page }) => {
+	test('normalizes party code before joining', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('abcd');
+		await codeInput.fill('demo-01');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=ABCD');
+		await expect(page).toHaveURL('/join?code=DEMO01');
 	});
 
 	test('displays hint about joining multiple parties', async ({ page }) => {
 		await expect(page.getByText(/join multiple parties/i)).toBeVisible();
+	});
+
+	test('displays production highlights', async ({ page }) => {
+		await expect(page.getByText(/live players/i)).toBeVisible();
+		await expect(page.getByText(/support requests/i)).toBeVisible();
+		await expect(page.getByText(/ci gates/i)).toBeVisible();
 	});
 });
 
@@ -122,7 +136,7 @@ test.describe('Recent Parties', () => {
 
 		// Status badge text mapping: filling->Filling, active->Live, complete->Done
 		await expect(page.getByText('Filling')).toBeVisible();
-		await expect(page.getByText('Live')).toBeVisible();
+		await expect(page.locator('.status-badge', { hasText: 'Live' })).toBeVisible();
 		await expect(page.getByText('Done')).toBeVisible();
 	});
 
@@ -133,8 +147,8 @@ test.describe('Recent Parties', () => {
 
 		await expect(page.getByText(/recent parties/i)).toBeVisible({ timeout: 10000 });
 
-		// Click the status badge area of the card to navigate (avoids edit mode on nickname)
-		await page.getByText('Filling').click();
+		// Click the stretched link (covers the entire card; only pencil/remove buttons are above it)
+		await page.locator('.card-nav-link').first().click();
 
 		// Should navigate to the party (or redirect to join since no user name is set)
 		await expect(page).toHaveURL(/\/(party|join).*AAAA1/);

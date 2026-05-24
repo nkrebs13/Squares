@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
-	import { setHostPin } from '$lib/storage';
-	import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
+	import { setHostPin, partyPinKey, partyNicknameKey, setSessionItem } from '$lib/storage';
+	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
+	import { datetimeLocalToIso, formatKickoff, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
+	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
+	let eventName = $state(APP_CONFIG.defaultEventName);
+	let kickoffInput = $state('');
 	let squarePriceInput = $state('1');
-	const squarePrice = $derived(parseUsdAmount(squarePriceInput) ?? 0);
-	const isValidPrice = $derived(isValidUsdAmount(squarePriceInput));
+	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
+	const isValidPrice = $derived(isValidAmount(squarePriceInput));
 	let selectedPreset = $state<SplitPreset>(SPLIT_PRESETS[0]);
 	const customSplit = $state({ q1: 25, q2: 25, q3: 25, final: 25 });
 	let hostPin = $state('');
@@ -16,6 +21,11 @@
 	let nickname = $state('');
 	let isCreating = $state(false);
 	let error = $state<string | null>(null);
+	let kickoffTimeZone = $state('local time');
+
+	// Team customization — pre-populated from env-configured defaults
+	const rowTeam = $state({ name: DEFAULT_TEAMS.row.name, color: DEFAULT_TEAMS.row.color });
+	const colTeam = $state({ name: DEFAULT_TEAMS.col.name, color: DEFAULT_TEAMS.col.color });
 
 	const isCustom = $derived(selectedPreset.name === 'Custom');
 
@@ -36,7 +46,25 @@
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
-	const canCreate = $derived(isValidSplit && isValidPin && isValidHostName && isValidPrice);
+	const isValidEventName = $derived(eventName.trim().length > 0 && eventName.trim().length <= 80);
+	const canCreate = $derived(
+		isValidSplit &&
+			isValidPin &&
+			isValidHostName &&
+			isValidEventName &&
+			isValidPrice &&
+			rowTeam.name.trim().length > 0 &&
+			colTeam.name.trim().length > 0
+	);
+
+	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
+	const kickoffPreview = $derived(
+		formatKickoff(kickoffAt, { includeWeekday: true, includeTimeZone: true })
+	);
+
+	onMount(() => {
+		kickoffTimeZone = getLocalTimeZoneLabel();
+	});
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -45,10 +73,16 @@
 		error = null;
 
 		const result = await createPartyService({
+			eventName: eventName.trim(),
+			kickoffAt,
 			hostName: hostName.trim(),
 			hostPin,
 			squarePrice,
 			splits: currentSplit,
+			teams: {
+				row: { name: rowTeam.name.trim(), color: rowTeam.color },
+				col: { name: colTeam.name.trim(), color: colTeam.color },
+			},
 		});
 
 		if (!result.ok) {
@@ -61,14 +95,14 @@
 
 		// Persist PIN locally for host actions
 		await setHostPin(code, hostPin);
-		sessionStorage.setItem(`squares_pin_${code}`, hostPin);
+		setSessionItem(partyPinKey(code), hostPin);
 
 		// Persist host name
 		await userName.setName(hostName.trim());
 
 		// Hand the party page an optional nickname for this code
 		if (nickname.trim()) {
-			sessionStorage.setItem(`squares_nickname_${code}`, nickname.trim());
+			setSessionItem(partyNicknameKey(code), nickname.trim());
 		}
 
 		goto(`/party/${code}`);
@@ -88,6 +122,38 @@
 		}}
 		class="space-y-6 max-w-md mx-auto"
 	>
+		<!-- Event Details -->
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Event name</span>
+				<input
+					type="text"
+					bind:value={eventName}
+					placeholder="e.g. 2027 Super Bowl"
+					class="input mt-2"
+					maxlength="80"
+					autocomplete="off"
+					onblur={() => (eventName = eventName.trim() || APP_CONFIG.defaultEventName)}
+				/>
+			</label>
+			<label class="block mt-4">
+				<span class="text-sm" style="color: var(--text-secondary)">Kickoff time</span>
+				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
+			</label>
+			<p class="mt-2 text-xs" style="color: var(--text-muted)">
+				Timezone: {kickoffTimeZone}
+			</p>
+			{#if kickoffPreview}
+				<p class="mt-1 text-sm" style="color: var(--text-secondary)">
+					Kickoff: {kickoffPreview}
+				</p>
+			{/if}
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				Use a specific event name so this pool still makes sense when shared or revisited later.
+			</p>
+		</div>
+
 		<!-- Square Price -->
 		<div class="card">
 			<label class="block">
@@ -168,6 +234,76 @@
 					Split must total 100% (currently {splitTotal}%)
 				</p>
 			{/if}
+		</div>
+
+		<!-- Teams -->
+		<div class="card">
+			<span class="text-sm" style="color: var(--text-secondary)">Teams</span>
+			<p class="text-xs mt-1" style="color: var(--text-muted)">
+				Set the teams playing — scores run left ↕ for the Left Team, top ↔ for the Top Team
+			</p>
+			<div class="mt-4 space-y-4">
+				<!-- Left Team (row scores) -->
+				<div class="flex items-center gap-3">
+					<label class="relative cursor-pointer shrink-0" aria-label="Left team color">
+						<span
+							class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+							style="background: {rowTeam.color}"
+						></span>
+						<input
+							type="color"
+							bind:value={rowTeam.color}
+							class="sr-only"
+							aria-label="Left team color picker"
+						/>
+					</label>
+					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>Left Team</span
+							>
+							<input
+								type="text"
+								bind:value={rowTeam.name}
+								placeholder="e.g. Chiefs"
+								class="input mt-1"
+								maxlength="30"
+								onblur={() => (rowTeam.name = rowTeam.name.trim())}
+							/>
+						</label>
+					</div>
+				</div>
+				<!-- Top Team (column scores) -->
+				<div class="flex items-center gap-3">
+					<label class="relative cursor-pointer shrink-0" aria-label="Top team color">
+						<span
+							class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+							style="background: {colTeam.color}"
+						></span>
+						<input
+							type="color"
+							bind:value={colTeam.color}
+							class="sr-only"
+							aria-label="Top team color picker"
+						/>
+					</label>
+					<div class="flex-1">
+						<label class="block">
+							<span class="text-xs uppercase tracking-wide" style="color: var(--text-muted)"
+								>Top Team</span
+							>
+							<input
+								type="text"
+								bind:value={colTeam.name}
+								placeholder="e.g. Eagles"
+								class="input mt-1"
+								maxlength="30"
+								onblur={() => (colTeam.name = colTeam.name.trim())}
+							/>
+						</label>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Host Name -->

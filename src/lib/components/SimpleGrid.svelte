@@ -22,6 +22,7 @@
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
+	import { APP_CONFIG } from '$lib/config';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
 	// Constants
@@ -44,7 +45,6 @@
 	let isDragging = $state(false);
 	const selectedCells = new SvelteSet<string>();
 	let dragStartCell = $state<{ row: number; col: number } | null>(null);
-	let isProcessing = $state(false);
 
 	// Track pointer start for mobile tap detection
 	let pointerStartCell: { row: number; col: number } | null = null;
@@ -190,16 +190,14 @@
 		isDragging = false;
 		dragStartCell = null;
 
-		if (selectedCells.size > 0 && !isProcessing) {
-			isProcessing = true;
+		if (selectedCells.size > 0) {
 			const cells = Array.from(selectedCells).map((key) => {
 				const [row, col] = key.split('-').map(Number);
 				return { row, col };
 			});
+			selectedCells.clear();
 			// Non-blocking optimistic batch claim
 			claimSquaresBatchOptimistic(cells);
-			selectedCells.clear();
-			isProcessing = false;
 		}
 	}
 
@@ -267,9 +265,13 @@
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);
 
-	// Logo visibility — only show hardcoded logos when team name matches
-	const showColLogo = $derived($theme.colName?.toLowerCase().trim() === 'patriots');
-	const showRowLogo = $derived($theme.rowName?.toLowerCase().trim() === 'seahawks');
+	// Logo visibility — show logo when party team name matches the configured default team name
+	const showColLogo = $derived(
+		$theme.colName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
+	);
+	const showRowLogo = $derived(
+		$theme.rowName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.row.name.toLowerCase().trim()
+	);
 </script>
 
 <svelte:window onpointerup={handleGlobalPointerUp} onpointercancel={handleGlobalPointerCancel} />
@@ -299,7 +301,7 @@
 		<div class="team-label-col">
 			{#if showColLogo}
 				<img
-					src="/logos/patriots.png"
+					src={APP_CONFIG.defaultTeams.col.logoUrl}
 					alt=""
 					aria-hidden="true"
 					class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
@@ -325,7 +327,7 @@
 				</span>
 				{#if showRowLogo}
 					<img
-						src="/logos/seahawks.png"
+						src={APP_CONFIG.defaultTeams.row.logoUrl}
 						alt=""
 						aria-hidden="true"
 						class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
@@ -344,7 +346,7 @@
 				<div
 					class="grid-11x11"
 					role="grid"
-					aria-label="Football squares grid, 10 by 10. Use arrow keys after focusing a square to navigate."
+					aria-label="Football squares grid, 10 by 10."
 					aria-rowcount={NUM_COLS + 1}
 					aria-colcount={NUM_COLS + 1}
 				>
@@ -490,7 +492,7 @@
 	<!-- Selection indicator during drag -->
 	{#if isDragging && selectedCells.size > 0}
 		<div class="selection-indicator">
-			{isProcessing ? 'Claiming...' : `${selectedCells.size} squares`}
+			{`${selectedCells.size} squares`}
 		</div>
 	{/if}
 </div>

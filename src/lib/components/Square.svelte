@@ -63,7 +63,7 @@
 	);
 
 	// Comprehensive aria-label including position and state
-	const ariaLabel = $derived(() => {
+	const ariaLabel = $derived.by(() => {
 		const position =
 			rowNumber !== undefined && colNumber !== undefined
 				? `Row ${rowNumber}, Column ${colNumber}. `
@@ -103,7 +103,7 @@
 	{onpointerenter}
 	{onpointerup}
 	disabled={isLocked || (square.player_name !== null && !isMine)}
-	aria-label={ariaLabel()}
+	aria-label={ariaLabel}
 	aria-pressed={isSelected}
 	title={square.player_name || undefined}
 >

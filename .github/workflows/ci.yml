@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   lint-and-check:
@@ -79,6 +79,8 @@ jobs:
         run: npm run build
       - name: Bundle size budget
         run: node scripts/check-bundle-size.mjs
+      - name: PWA root registration
+        run: npm run check:pwa-registration
 
   integration-tests:
     name: Integration Tests (Supabase)
@@ -90,16 +92,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
-      - uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: latest
       - name: Start local Supabase
         run: supabase start --workdir .
       - name: Capture local Supabase env
         run: |
-          ANON_KEY=$(supabase status --output env --workdir . | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
+          SUPABASE_ENV=$(supabase status --output env --workdir .)
+          ANON_KEY=$(echo "$SUPABASE_ENV" | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
+          SERVICE_ROLE_KEY=$(echo "$SUPABASE_ENV" | grep SERVICE_ROLE_KEY | cut -d'=' -f2- | tr -d '"')
           echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
           echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
       - name: Apply migrations
         run: supabase db reset --workdir .
       - name: Run integration tests
@@ -120,16 +125,19 @@ jobs:
       - run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: latest
       - name: Start local Supabase
         run: supabase start --workdir .
       - name: Capture local Supabase env
         run: |
-          ANON_KEY=$(supabase status --output env --workdir . | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
+          SUPABASE_ENV=$(supabase status --output env --workdir .)
+          ANON_KEY=$(echo "$SUPABASE_ENV" | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
+          SERVICE_ROLE_KEY=$(echo "$SUPABASE_ENV" | grep SERVICE_ROLE_KEY | cut -d'=' -f2- | tr -d '"')
           echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
           echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
       - name: Apply migrations
         run: supabase db reset --workdir .
       - name: Run Playwright

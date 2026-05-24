@@ -295,7 +295,7 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.single()
 		.then(({ data, error }) => {
 			if (error) {
-				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				// eslint-disable-next-line no-console -- diagnostic
 				console.warn('[realtime] failed to refetch scores after broadcast:', error.message);
 				return;
 			}
@@ -310,7 +310,7 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.order('quarter')
 		.then(({ data, error }) => {
 			if (error) {
-				// eslint-disable-next-line no-console -- diagnostic; Phase 8 routes to Sentry
+				// eslint-disable-next-line no-console -- diagnostic
 				console.warn('[realtime] failed to refetch winners after broadcast:', error.message);
 				return;
 			}

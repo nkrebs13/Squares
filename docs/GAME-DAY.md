@@ -1,5 +1,7 @@
 # Game Day Operations
 
+Before game day, run through the [QA Checklist](docs/QA-CHECKLIST.md) to verify the deployment is healthy.
+
 ## Monitoring
 
 - **Supabase Dashboard**: Monitor error rates, Realtime connections, and database load
@@ -72,12 +74,13 @@ location.reload();
 
 ### Check broadcast channel health
 
-In browser console on the party page:
+In browser console on the party page, open DevTools → Network → WS to inspect the active WebSocket connection to Supabase Realtime. A healthy connection shows continuous `ping`/`pong` frames. If the socket is missing or shows a close code:
 
-```js
-// Check if realtime is connected
-document.querySelectorAll('[class*="grid"]').length > 0 && console.log('Grid loaded');
-```
+- **1006 (Abnormal Closure):** Network interruption — page refresh usually reconnects
+- **4001 (JWT expired):** Supabase anon key issue — check project JWT secret hasn't rotated
+- **No socket at all:** Supabase Realtime may be down — check https://status.supabase.com
+
+To force a reconnect without a full page reload, ask users to navigate away and back (the `onDestroy` unsubscribes all channels; `onMount` resubscribes).
 
 ## Emergency Contacts
 

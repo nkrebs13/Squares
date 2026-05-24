@@ -25,6 +25,19 @@ test.describe('Create Party Page', () => {
 		await expect(priceInput).toHaveValue('1');
 	});
 
+	test('has event details for future games', async ({ page }) => {
+		await expect(page.getByLabel(/event name/i)).toBeVisible();
+		await expect(page.getByPlaceholder(/2027 Super Bowl/i)).toBeVisible();
+		await expect(page.getByLabel(/kickoff time/i)).toBeVisible();
+		await expect(page.getByText(/timezone:/i)).toBeVisible();
+	});
+
+	test('previews kickoff time with timezone context', async ({ page }) => {
+		await page.getByLabel(/kickoff time/i).fill('2027-02-14T15:30');
+
+		await expect(page.getByText(/kickoff:/i)).toBeVisible();
+	});
+
 	test('shows total pot calculation', async ({ page }) => {
 		await expect(page.getByText(/total pot/i)).toBeVisible();
 		await expect(page.getByText(/\$100/)).toBeVisible();
@@ -66,6 +79,8 @@ test.describe('Create Party Page', () => {
 
 	test('allows selecting different presets', async ({ page }) => {
 		const equalButton = page.getByRole('button', { name: /equal/i });
+		await expect(page.getByText('10%').first()).toBeVisible();
+		await page.waitForTimeout(100);
 		await equalButton.click();
 
 		// Equal preset should show 25% for each quarter
@@ -178,45 +193,33 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		// Mock the 3 sequential API calls
-		let capturedCode = '';
-
-		await page.route('**/rest/v1/parties*', async (route) => {
-			if (route.request().method() === 'POST') {
-				const body = JSON.parse(route.request().postData() || '{}');
-				capturedCode = body.code || 'XTEST';
-				route.fulfill({
-					status: 201,
-					contentType: 'application/json',
-					body: JSON.stringify({
-						id: 'new-party-id',
-						code: capturedCode,
-						status: 'filling',
-						...body,
-					}),
-				});
-			} else {
-				route.fulfill({
-					status: 200,
-					contentType: 'application/json',
-					body: JSON.stringify({
-						id: 'new-party-id',
-						code: capturedCode || 'XTEST',
-						status: 'filling',
-						square_price: 1,
-						split_q1: 10,
-						split_q2: 20,
-						split_q3: 30,
-						split_final: 40,
-						team_row_name: 'Seahawks',
-						team_col_name: 'Patriots',
-						team_row_color: '#69be28',
-						team_col_color: '#c60c30',
-						host_name_lower: 'test host',
-						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-					}),
-				});
-			}
+		await page.route('**/rest/v1/rpc/create_party', async (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'new-party-id',
+					code: 'XTEST1',
+					status: 'filling',
+					square_price: 1,
+					split_q1: 10,
+					split_q2: 20,
+					split_q3: 30,
+					split_final: 40,
+					event_name: 'Football Squares',
+					kickoff_at: null,
+					team_row_name: 'Seahawks',
+					team_col_name: 'Patriots',
+					team_row_color: '#69be28',
+					team_col_color: '#c60c30',
+					host_name_lower: 'test host',
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+					expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+					game_id: null,
+					home_team_is_row: true,
+				}),
+			});
 		});
 
 		await page.route('**/rest/v1/squares*', (route) => {
@@ -259,7 +262,7 @@ test.describe('Create Party - Submission', () => {
 		await page.getByRole('button', { name: /create party/i }).click();
 
 		// Should navigate to /party/{code}
-		await expect(page).toHaveURL(/\/party\/[A-Z0-9]{5}/, { timeout: 15000 });
+		await expect(page).toHaveURL(/\/party\/[A-Z0-9]{6}/, { timeout: 15000 });
 	});
 
 	test('shows error on creation failure', async ({ page }) => {
@@ -269,17 +272,13 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		// Mock party creation failure
-		await page.route('**/rest/v1/parties*', (route) => {
-			if (route.request().method() === 'POST') {
-				route.fulfill({
-					status: 409,
-					contentType: 'application/json',
-					body: JSON.stringify({ message: 'Duplicate code' }),
-				});
-			} else {
-				route.continue();
-			}
+		// Mock party creation failure — target the RPC endpoint used by createPartyService
+		await page.route('**/rest/v1/rpc/create_party', (route) => {
+			route.fulfill({
+				status: 500,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: 'Failed to create party. Please try again.' }),
+			});
 		});
 
 		await page.getByRole('button', { name: /create party/i }).click();
@@ -298,22 +297,17 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder('0000').fill('1234');
 
 		// Mock with delay to see loading state
-		await page.route('**/rest/v1/parties*', async (route) => {
-			if (route.request().method() === 'POST') {
-				// Delay response to observe loading state
-				await new Promise((r) => setTimeout(r, 2000));
-				route.fulfill({
-					status: 201,
-					contentType: 'application/json',
-					body: JSON.stringify({
-						id: 'new-party-id',
-						code: 'XTEST',
-						status: 'filling',
-					}),
-				});
-			} else {
-				route.continue();
-			}
+		await page.route('**/rest/v1/rpc/create_party', async (route) => {
+			await new Promise((r) => setTimeout(r, 2000));
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					id: 'new-party-id',
+					code: 'XTEST1',
+					status: 'filling',
+				}),
+			});
 		});
 
 		await page.getByRole('button', { name: /create party/i }).click();

@@ -9,6 +9,13 @@ vi.mock('$app/environment', () => ({
 	version: 'test',
 }));
 
+// Mock SvelteKit's $env/dynamic/public — empty by default so $lib/config falls
+// back to its hardcoded brand defaults. Individual tests can override with
+// vi.doMock('$env/dynamic/public', ...).
+vi.mock('$env/dynamic/public', () => ({
+	env: {},
+}));
+
 // Mock SvelteKit's $app/navigation
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
@@ -195,6 +202,14 @@ const sessionStorageMock = (() => {
 })();
 
 vi.stubGlobal('sessionStorage', sessionStorageMock);
+
+// Polyfill native <dialog> methods not available in jsdom
+HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+	this.setAttribute('open', '');
+});
+HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+	this.removeAttribute('open');
+});
 
 // Mock ResizeObserver
 class ResizeObserverMock {

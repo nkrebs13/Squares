@@ -3,6 +3,13 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
+		partyPinKey,
+		getHostPin,
+		setHostPin,
+		getSessionItem,
+		setSessionItem,
+	} from '$lib/storage';
+	import {
 		party,
 		scores,
 		liveScores,
@@ -11,6 +18,7 @@
 		loadParty,
 		lockParty,
 		updateScore,
+		updatePartyDetails,
 		updatePayoutStructure,
 		deleteParty,
 		removePlayer,
@@ -18,10 +26,17 @@
 		verifyHostPin,
 		subscribeToParty,
 		broadcastScoreUpdate,
+		cleanup,
 	} from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
 	import { formatQuarterLabel } from '$lib/utils/quarter';
+	import {
+		datetimeLocalToIso,
+		formatKickoff,
+		getLocalTimeZoneLabel,
+		toDatetimeLocalValue,
+	} from '$lib/utils/datetime';
 	import { goto } from '$app/navigation';
 
 	const code = $derived($page.params.code ?? '');
@@ -45,6 +60,18 @@
 	let payoutSplits = $state({ q1: 10, q2: 20, q3: 30, final: 40 });
 	let isUpdatingPayout = $state(false);
 	let selectedPreset = $state('Rising');
+
+	// Event details editing
+	const partyDetails = $state({
+		eventName: '',
+		kickoffInput: '',
+		teamRowName: '',
+		teamColName: '',
+		teamRowColor: '#69BE28',
+		teamColColor: '#C60C30',
+	});
+	let isUpdatingDetails = $state(false);
+	let kickoffTimeZone = $state('local time');
 
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
@@ -95,8 +122,13 @@
 	let unsubscribe: (() => void) | null = null;
 
 	onMount(async () => {
+		kickoffTimeZone = getLocalTimeZoneLabel();
+
 		if (browser) {
-			storedPin = sessionStorage.getItem(`squares_pin_${code}`);
+			storedPin = getSessionItem(partyPinKey(code));
+			if (!storedPin) {
+				storedPin = await getHostPin(code);
+			}
 			if (storedPin) {
 				isAuthorized = true;
 			}
@@ -115,8 +147,20 @@
 		// effect always re-ran. Removed to fix the double-effect bug.
 	});
 
+	let successTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function showSuccess(msg: string) {
+		if (successTimeout) clearTimeout(successTimeout);
+		success = msg;
+		successTimeout = setTimeout(() => {
+			success = null;
+		}, 3000);
+	}
+
 	onDestroy(() => {
 		if (unsubscribe) unsubscribe();
+		if (successTimeout) clearTimeout(successTimeout);
+		cleanup();
 	});
 
 	// Initialize payoutSplits from party data once. After the user starts
@@ -136,6 +180,43 @@
 		}
 	});
 
+	let partyDetailsInitialized = $state(false);
+	$effect(() => {
+		if ($party && !partyDetailsInitialized) {
+			partyDetails.eventName = $party.event_name;
+			partyDetails.kickoffInput = toDatetimeLocalValue($party.kickoff_at);
+			partyDetails.teamRowName = $party.team_row_name;
+			partyDetails.teamColName = $party.team_col_name;
+			partyDetails.teamRowColor = $party.team_row_color;
+			partyDetails.teamColColor = $party.team_col_color;
+			partyDetailsInitialized = true;
+		}
+	});
+
+	const isValidPartyDetails = $derived(
+		partyDetails.eventName.trim().length > 0 &&
+			partyDetails.eventName.trim().length <= 80 &&
+			partyDetails.teamRowName.trim().length > 0 &&
+			partyDetails.teamColName.trim().length > 0
+	);
+	const kickoffPreview = $derived(
+		formatKickoff(datetimeLocalToIso(partyDetails.kickoffInput), {
+			includeWeekday: true,
+			includeTimeZone: true,
+		})
+	);
+
+	const partyDetailsChanged = $derived(
+		$party
+			? partyDetails.eventName.trim() !== $party.event_name ||
+					datetimeLocalToIso(partyDetails.kickoffInput) !== $party.kickoff_at ||
+					partyDetails.teamRowName.trim() !== $party.team_row_name ||
+					partyDetails.teamColName.trim() !== $party.team_col_name ||
+					partyDetails.teamRowColor !== $party.team_row_color ||
+					partyDetails.teamColColor !== $party.team_col_color
+			: false
+	);
+
 	let isVerifyingPin = $state(false);
 	let pinError = $state<string | null>(null);
 	let pinAttempts = $state(0);
@@ -149,7 +230,8 @@
 		try {
 			const isValid = await verifyHostPin(code, enteredPin);
 			if (isValid) {
-				sessionStorage.setItem(`squares_pin_${code}`, enteredPin);
+				await setHostPin(code, enteredPin);
+				setSessionItem(partyPinKey(code), enteredPin);
 				storedPin = enteredPin;
 				isAuthorized = true;
 				pinAttempts = 0;
@@ -182,8 +264,9 @@
 			// Reload party data so the page reactively shows score entry controls
 			try {
 				await loadParty(code);
-				success =
-					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.';
+				showSuccess(
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+				);
 			} catch {
 				error = 'Game started, but failed to reload the latest game data. Please refresh the page.';
 			}
@@ -208,7 +291,9 @@
 		);
 
 		if (result.success) {
-			success = `Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`;
+			showSuccess(
+				`Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`
+			);
 			broadcastScoreUpdate();
 			await loadParty(code);
 		} else {
@@ -247,12 +332,37 @@
 		const result = await updatePayoutStructure(storedPin, payoutSplits);
 
 		if (result.success) {
-			success = 'Payout structure updated!';
+			showSuccess('Payout structure updated!');
 		} else {
 			error = result.error || 'Failed to update payout structure';
 		}
 
 		isUpdatingPayout = false;
+	}
+
+	async function handleUpdatePartyDetails() {
+		if (!storedPin || !isValidPartyDetails) return;
+
+		isUpdatingDetails = true;
+		error = null;
+		success = null;
+
+		const result = await updatePartyDetails(storedPin, {
+			eventName: partyDetails.eventName.trim(),
+			kickoffAt: datetimeLocalToIso(partyDetails.kickoffInput),
+			teamRowName: partyDetails.teamRowName.trim(),
+			teamColName: partyDetails.teamColName.trim(),
+			teamRowColor: partyDetails.teamRowColor,
+			teamColColor: partyDetails.teamColColor,
+		});
+
+		if (result.success) {
+			showSuccess('Party details updated!');
+		} else {
+			error = result.error || 'Failed to update party details';
+		}
+
+		isUpdatingDetails = false;
 	}
 
 	async function handleDeleteParty() {
@@ -282,7 +392,7 @@
 		const result = await removePlayer(storedPin, playerToRemove.normalizedName);
 
 		if (result.success) {
-			success = `Removed ${playerToRemove.name} (${result.removedCount} squares freed)`;
+			showSuccess(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
 			playerToRemove = null;
 		} else {
 			error = result.error || 'Failed to remove player';
@@ -360,6 +470,103 @@
 
 				<!-- Filling Phase Controls -->
 				{#if $party.status === 'filling'}
+					<!-- Event Details -->
+					<div class="card">
+						<h2 class="text-lg font-semibold mb-4">Event Details</h2>
+						<p class="text-sm mb-4 text-secondary">
+							Keep the shared party page accurate if the matchup, event title, or kickoff time
+							changes before the grid is locked.
+						</p>
+
+						<div class="space-y-4">
+							<label class="block">
+								<span class="text-sm text-secondary">Event name</span>
+								<input
+									type="text"
+									bind:value={partyDetails.eventName}
+									class="input mt-1"
+									maxlength="80"
+									autocomplete="off"
+									onblur={() => (partyDetails.eventName = partyDetails.eventName.trim())}
+								/>
+							</label>
+
+							<label class="block">
+								<span class="text-sm text-secondary">Kickoff time</span>
+								<span class="text-xs ml-1 text-muted">(optional)</span>
+								<input
+									type="datetime-local"
+									bind:value={partyDetails.kickoffInput}
+									class="input mt-1"
+								/>
+							</label>
+							<p class="text-xs text-muted">Timezone: {kickoffTimeZone}</p>
+							{#if kickoffPreview}
+								<p class="text-sm text-secondary">Kickoff: {kickoffPreview}</p>
+							{/if}
+
+							<div class="space-y-3">
+								<div class="flex items-center gap-3">
+									<label class="relative cursor-pointer shrink-0" aria-label="Left team color">
+										<span
+											class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+											style="background: {partyDetails.teamRowColor}"
+										></span>
+										<input
+											type="color"
+											bind:value={partyDetails.teamRowColor}
+											class="sr-only"
+											aria-label="Left team color picker"
+										/>
+									</label>
+									<label class="block flex-1">
+										<span class="text-sm text-secondary">Left Team</span>
+										<input
+											type="text"
+											bind:value={partyDetails.teamRowName}
+											class="input mt-1"
+											maxlength="50"
+											onblur={() => (partyDetails.teamRowName = partyDetails.teamRowName.trim())}
+										/>
+									</label>
+								</div>
+
+								<div class="flex items-center gap-3">
+									<label class="relative cursor-pointer shrink-0" aria-label="Top team color">
+										<span
+											class="block w-9 h-9 rounded-full border-2 border-white/20 shadow-inner"
+											style="background: {partyDetails.teamColColor}"
+										></span>
+										<input
+											type="color"
+											bind:value={partyDetails.teamColColor}
+											class="sr-only"
+											aria-label="Top team color picker"
+										/>
+									</label>
+									<label class="block flex-1">
+										<span class="text-sm text-secondary">Top Team</span>
+										<input
+											type="text"
+											bind:value={partyDetails.teamColName}
+											class="input mt-1"
+											maxlength="50"
+											onblur={() => (partyDetails.teamColName = partyDetails.teamColName.trim())}
+										/>
+									</label>
+								</div>
+							</div>
+						</div>
+
+						<button
+							onclick={handleUpdatePartyDetails}
+							class="btn btn-primary w-full mt-4"
+							disabled={isUpdatingDetails || !isValidPartyDetails || !partyDetailsChanged}
+						>
+							{isUpdatingDetails ? 'Saving...' : 'Save Event Details'}
+						</button>
+					</div>
+
 					<!-- Manage Players -->
 					{#if $playerSummary.length > 0}
 						<div class="card">

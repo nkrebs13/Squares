@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { formatPrice, isValidUsdAmount, parseUsdAmount } from '$lib/utils/format';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 
-describe('formatPrice', () => {
+describe('formatPrice (default USD/en-US)', () => {
 	it('returns no decimals for integer amounts', () => {
 		expect(formatPrice(10)).toBe('$10');
 	});
@@ -23,58 +23,94 @@ describe('formatPrice', () => {
 	});
 });
 
-describe('isValidUsdAmount', () => {
-	it('accepts valid integer strings', () => {
-		expect(isValidUsdAmount('10')).toBe(true);
+describe('formatPrice (config-driven currency override)', () => {
+	beforeEach(() => {
+		vi.resetModules();
 	});
 
-	it('accepts valid decimal strings', () => {
-		expect(isValidUsdAmount('10.50')).toBe(true);
+	it('honors PUBLIC_CURRENCY_CODE / PUBLIC_LOCALE overrides', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: { PUBLIC_CURRENCY_CODE: 'EUR', PUBLIC_LOCALE: 'de-DE' },
+		}));
+		const { formatPrice: localizedFormatPrice } = await import('$lib/utils/format');
+
+		const formatted = localizedFormatPrice(10);
+		expect(formatted).toContain('€');
+		expect(formatted).toContain('10');
+		expect(formatted).not.toContain('$');
 	});
 
-	it('accepts single decimal place', () => {
-		expect(isValidUsdAmount('10.5')).toBe(true);
+	it('falls back to plain "amount code" when given an unknown currency', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: { PUBLIC_CURRENCY_CODE: 'ZZZZ' },
+		}));
+		const { formatPrice: localizedFormatPrice } = await import('$lib/utils/format');
+
+		expect(localizedFormatPrice(10)).toBe('10 ZZZZ');
 	});
 
-	it('rejects empty string', () => {
-		expect(isValidUsdAmount('')).toBe(false);
-	});
+	it('preserves cents in the fallback path for non-integer amounts', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: { PUBLIC_CURRENCY_CODE: 'ZZZZ' },
+		}));
+		const { formatPrice: localizedFormatPrice } = await import('$lib/utils/format');
 
-	it('rejects letters', () => {
-		expect(isValidUsdAmount('abc')).toBe(false);
-	});
-
-	it('rejects too many decimal places', () => {
-		expect(isValidUsdAmount('10.123')).toBe(false);
-	});
-
-	it('accepts zero', () => {
-		expect(isValidUsdAmount('0')).toBe(true);
-	});
-
-	it('rejects whitespace-only string', () => {
-		expect(isValidUsdAmount('   ')).toBe(false);
+		expect(localizedFormatPrice(10.5)).toBe('10.50 ZZZZ');
 	});
 });
 
-describe('parseUsdAmount', () => {
+describe('isValidAmount', () => {
+	it('accepts valid integer strings', () => {
+		expect(isValidAmount('10')).toBe(true);
+	});
+
+	it('accepts valid decimal strings', () => {
+		expect(isValidAmount('10.50')).toBe(true);
+	});
+
+	it('accepts single decimal place', () => {
+		expect(isValidAmount('10.5')).toBe(true);
+	});
+
+	it('rejects empty string', () => {
+		expect(isValidAmount('')).toBe(false);
+	});
+
+	it('rejects letters', () => {
+		expect(isValidAmount('abc')).toBe(false);
+	});
+
+	it('rejects too many decimal places', () => {
+		expect(isValidAmount('10.123')).toBe(false);
+	});
+
+	it('rejects zero (price must be greater than 0)', () => {
+		expect(isValidAmount('0')).toBe(false);
+	});
+
+	it('rejects whitespace-only string', () => {
+		expect(isValidAmount('   ')).toBe(false);
+	});
+});
+
+describe('parseAmount', () => {
 	it('parses a valid integer string', () => {
-		expect(parseUsdAmount('10')).toBe(10);
+		expect(parseAmount('10')).toBe(10);
 	});
 
 	it('parses a valid decimal string', () => {
-		expect(parseUsdAmount('10.50')).toBe(10.5);
+		expect(parseAmount('10.50')).toBe(10.5);
 	});
 
 	it('returns null for invalid input', () => {
-		expect(parseUsdAmount('abc')).toBeNull();
+		expect(parseAmount('abc')).toBeNull();
 	});
 
 	it('returns null for too many decimals', () => {
-		expect(parseUsdAmount('10.555')).toBeNull();
+		expect(parseAmount('10.555')).toBeNull();
 	});
 
 	it('returns null for empty string', () => {
-		expect(parseUsdAmount('')).toBeNull();
+		expect(parseAmount('')).toBeNull();
 	});
 });

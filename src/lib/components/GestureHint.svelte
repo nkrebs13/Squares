@@ -4,10 +4,16 @@
 	import { hasSeenGestureHint, markGestureHintSeen } from '$lib/storage';
 
 	let show = $state(false);
+	let isTouchDevice = $state(false);
 	let timeout: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
 		if (!browser) return;
+
+		isTouchDevice =
+			typeof window.matchMedia === 'function'
+				? window.matchMedia('(pointer: coarse)').matches
+				: false;
 
 		const seen = await hasSeenGestureHint();
 		if (!seen) {
@@ -75,28 +81,51 @@
 				</span>
 				<span>Tap to claim</span>
 			</div>
-			<div class="hint-row">
-				<span class="hint-icon">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-						<line x1="9" y1="3" x2="9" y2="21"></line>
-						<line x1="15" y1="3" x2="15" y2="21"></line>
-						<line x1="3" y1="9" x2="21" y2="9"></line>
-						<line x1="3" y1="15" x2="21" y2="15"></line>
-					</svg>
-				</span>
-				<span>Hold to select multiple</span>
-			</div>
+			{#if isTouchDevice}
+				<div class="hint-row">
+					<span class="hint-icon">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path
+								d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+							></path>
+						</svg>
+					</span>
+					<span>Tap again to unclaim your square</span>
+				</div>
+			{:else}
+				<div class="hint-row">
+					<span class="hint-icon">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+							<line x1="9" y1="3" x2="9" y2="21"></line>
+							<line x1="15" y1="3" x2="15" y2="21"></line>
+							<line x1="3" y1="9" x2="21" y2="9"></line>
+							<line x1="3" y1="15" x2="21" y2="15"></line>
+						</svg>
+					</span>
+					<span>Hold to select multiple</span>
+				</div>
+			{/if}
 			<div class="hint-dismiss">Tap to dismiss</div>
 		</div>
 	</button>

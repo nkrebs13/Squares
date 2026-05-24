@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
 	getTestClient,
+	getServiceRoleClient,
 	createTestParty,
 	fillAllSquares,
 	lockParty,
@@ -10,10 +11,12 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient;
+let serviceClient: SupabaseClient;
 let party: TestParty;
 
 beforeEach(async () => {
 	client = getTestClient();
+	serviceClient = getServiceRoleClient();
 	party = await createTestParty(client);
 });
 
@@ -95,7 +98,7 @@ describe('delete_party RPC', () => {
 			p_pin: '9999',
 		});
 
-		const { data: logs } = await client
+		const { data: logs } = await serviceClient
 			.from('audit_log')
 			.select('event_type, details')
 			.eq('party_id', party.id)
@@ -155,7 +158,7 @@ describe('delete_party RPC', () => {
 		});
 
 		// The success log uses party_id=NULL and includes the deleted ID in details
-		const { data: logs } = await client
+		const { data: logs } = await serviceClient
 			.from('audit_log')
 			.select('event_type, party_id, details')
 			.eq('event_type', 'delete_party_success')

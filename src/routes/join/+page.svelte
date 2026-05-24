@@ -4,7 +4,14 @@
 	import { userName } from '$lib/stores/user';
 	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { getHostPin, setHostPin } from '$lib/storage';
+	import {
+		getHostPin,
+		setHostPin,
+		partyPinKey,
+		partyNicknameKey,
+		setSessionItem,
+	} from '$lib/storage';
+	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
 	let code = $state('');
@@ -17,39 +24,40 @@
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
 	let pinInputEl = $state<HTMLInputElement | null>(null);
+	let pinDialogEl: HTMLDialogElement | null = null;
 	let pinError = $state<string | null>(null);
 	let isVerifyingPin = $state(false);
 	let pendingPartyCode = $state('');
 
 	$effect(() => {
-		if (showPinChallenge && pinInputEl) {
-			pinInputEl.focus();
+		if (showPinChallenge) {
+			if (pinDialogEl && !pinDialogEl.open) pinDialogEl.showModal();
+		} else {
+			if (pinDialogEl?.open) pinDialogEl.close();
 		}
+	});
+
+	// Sync stored name into the field on first load; $effect handles teardown automatically.
+	$effect(() => {
+		if ($userName && !name) name = $userName;
 	});
 
 	onMount(() => {
 		const urlCode = $page.url.searchParams.get('code');
 		if (urlCode) {
-			code = urlCode.toUpperCase();
+			code = normalizePartyCode(urlCode);
 		}
-
-		// Pre-fill name if we have one stored
-		userName.subscribe((storedName) => {
-			if (storedName && !name) {
-				name = storedName;
-			}
-		});
 	});
 
 	async function handleJoin() {
-		if (!code.trim() || !name.trim()) return;
+		if (!isCompletePartyCode(code) || !name.trim()) return;
 
 		isChecking = true;
 		error = null;
 
 		try {
 			const supabase = getSupabaseClient();
-			const upperCode = code.toUpperCase();
+			const upperCode = normalizePartyCode(code);
 
 			// Check if party exists and get host_name_lower
 			const { data: partyData, error: partyError } = await supabase
@@ -111,7 +119,7 @@
 			if (isValid) {
 				// Store PIN in IndexedDB and session storage
 				await setHostPin(pendingPartyCode, pinInput);
-				sessionStorage.setItem(`squares_pin_${pendingPartyCode}`, pinInput);
+				setSessionItem(partyPinKey(pendingPartyCode), pinInput);
 
 				// Proceed to party
 				userName.setName(name.trim());
@@ -131,7 +139,7 @@
 
 	function storeNickname(partyCode: string) {
 		if (nickname.trim()) {
-			sessionStorage.setItem(`squares_nickname_${partyCode}`, nickname.trim());
+			setSessionItem(partyNicknameKey(partyCode), nickname.trim());
 		}
 	}
 
@@ -164,11 +172,14 @@
 					bind:value={code}
 					placeholder="ABCD12"
 					class="input mt-2 text-center text-2xl tracking-widest uppercase"
-					maxlength="6"
+					maxlength="12"
 					autocomplete="off"
 					autocapitalize="characters"
 				/>
 			</label>
+			{#if code && !isCompletePartyCode(code)}
+				<p class="mt-2 text-sm" style="color: #fca5a5">Party codes are 6 characters.</p>
+			{/if}
 		</div>
 
 		<div class="card">
@@ -215,43 +226,26 @@
 		<button
 			type="submit"
 			class="btn btn-primary w-full"
-			disabled={!code.trim() || !name.trim() || isChecking}
+			disabled={!isCompletePartyCode(code) || !name.trim() || isChecking}
 		>
 			{isChecking ? 'Joining...' : 'Join Party'}
 		</button>
 	</form>
 </div>
 
-<!-- PIN Challenge Modal — semantic <dialog> with backdrop, focus trap, and Escape -->
-<svelte:window
-	onkeydown={(e) => {
-		if (showPinChallenge && e.key === 'Escape') {
-			e.preventDefault();
-			cancelPinChallenge();
-		}
+<!-- PIN Challenge Modal — native <dialog> for real focus trapping, backdrop, and Escape handling -->
+<dialog
+	bind:this={pinDialogEl}
+	aria-labelledby="pin-modal-title"
+	aria-describedby="pin-modal-description"
+	onclose={cancelPinChallenge}
+	onclick={(e) => {
+		if (e.target === pinDialogEl) cancelPinChallenge();
 	}}
-/>
-
-{#if showPinChallenge}
-	<!-- Backdrop captures clicks outside the dialog. Native <dialog> handles
-	     focus management and inert-on-background on supporting browsers. -->
-	<div
-		class="fixed inset-0 bg-black/50 z-50"
-		role="presentation"
-		onclick={cancelPinChallenge}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') cancelPinChallenge();
-		}}
-		tabindex="-1"
-	></div>
-	<div
-		class="fixed inset-0 flex items-center justify-center p-4 z-50 pointer-events-none"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="pin-modal-title"
-		aria-describedby="pin-modal-description"
-	>
-		<div class="card max-w-sm w-full pointer-events-auto">
+	class="pin-dialog"
+>
+	{#if showPinChallenge}
+		<div class="card max-w-sm w-full">
 			<h2 id="pin-modal-title" class="text-xl font-bold mb-2">Host Name Protected</h2>
 			<p id="pin-modal-description" class="text-sm mb-4" style="color: var(--text-secondary)">
 				This name belongs to the party host. Enter the host PIN to continue.
@@ -301,5 +295,22 @@
 				</div>
 			</form>
 		</div>
-	</div>
-{/if}
+	{/if}
+</dialog>
+
+<style>
+	.pin-dialog {
+		background: transparent;
+		border: none;
+		padding: 1rem;
+		max-width: min(calc(100vw - 2rem), 24rem);
+		width: 100%;
+		margin: auto;
+	}
+
+	.pin-dialog::backdrop {
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
+	}
+</style>

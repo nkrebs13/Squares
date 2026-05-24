@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import type { Party, Scores, Square } from '$lib/types';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
+
+const mockIdbGet = vi.mocked(idbGet);
+const mockIdbSet = vi.mocked(idbSet);
 
 // Mock $app/stores — must be before component import (vi.mock is hoisted)
 vi.mock('$app/stores', async () => {
@@ -26,6 +30,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		code: 'TEST123',
 		host_pin: '1234',
 		host_name_lower: null,
+		event_name: 'Test Football Squares',
+		kickoff_at: null,
 		square_price: 10,
 		split_q1: 25,
 		split_q2: 25,
@@ -778,6 +784,65 @@ describe('Admin Page - Score Entry', () => {
 	});
 
 	describe('Filling Phase Controls', () => {
+		it('shows editable event details while party is filling', () => {
+			renderAuthorizedAdmin({
+				status: 'filling',
+				event_name: '2027 Championship',
+				kickoff_at: '2027-02-14T23:30:00.000Z',
+			});
+
+			expect(screen.getByText('Event Details')).toBeInTheDocument();
+			expect(screen.getByLabelText('Event name')).toHaveValue('2027 Championship');
+			expect(screen.getByText(/Timezone:/i)).toBeInTheDocument();
+			expect(screen.getByText(/Kickoff:/i)).toBeInTheDocument();
+			expect(screen.getByLabelText('Left Team')).toHaveValue('Eagles');
+			expect(screen.getByLabelText('Top Team')).toHaveValue('Chiefs');
+		});
+
+		it('saves edited event details through the host RPC', async () => {
+			const updatedParty = createMockParty({
+				event_name: '2027 Championship',
+				kickoff_at: '2027-02-14T23:30:00.000Z',
+				team_row_name: 'Ravens',
+				team_col_name: 'Lions',
+				team_row_color: '#241773',
+				team_col_color: '#0076B6',
+			});
+
+			renderAuthorizedAdmin({ status: 'filling' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+
+			const user = userEvent.setup();
+			await user.clear(screen.getByLabelText('Event name'));
+			await user.type(screen.getByLabelText('Event name'), '2027 Championship');
+			await user.clear(screen.getByLabelText('Left Team'));
+			await user.type(screen.getByLabelText('Left Team'), 'Ravens');
+			await user.clear(screen.getByLabelText('Top Team'));
+			await user.type(screen.getByLabelText('Top Team'), 'Lions');
+
+			await user.click(screen.getByRole('button', { name: /Save Event Details/i }));
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+					'update_party_details',
+					expect.objectContaining({
+						p_party_id: 'test-party-id',
+						p_pin: '1234',
+						p_event_name: '2027 Championship',
+						p_team_row_name: 'Ravens',
+						p_team_col_name: 'Lions',
+					})
+				);
+			});
+			expect(await screen.findByText('Party details updated!')).toBeInTheDocument();
+		});
+
+		it('does NOT show event details editor after the grid is locked', () => {
+			renderAuthorizedAdmin({ status: 'active' });
+
+			expect(screen.queryByText('Event Details')).not.toBeInTheDocument();
+		});
+
 		it('shows Start Game section when party is filling', () => {
 			renderAuthorizedAdmin({ status: 'filling' });
 
@@ -835,6 +900,40 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
 			expect(screen.getByText('Party Status')).toBeInTheDocument();
+		});
+
+		it('uses stored IndexedDB host PIN when session storage is empty', async () => {
+			party.set(createMockParty({ status: 'active' }));
+			scores.set(createMockScores());
+			mockIdbGet.mockResolvedValueOnce({ TEST123: '1234' });
+
+			render(AdminPage);
+
+			await waitFor(() => {
+				expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+				expect(screen.getByText('Party Status')).toBeInTheDocument();
+			});
+		});
+
+		it('persists verified PIN to durable host PIN storage', async () => {
+			const user = userEvent.setup();
+			party.set(createMockParty({ status: 'active' }));
+			scores.set(createMockScores());
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			render(AdminPage);
+
+			await user.type(screen.getByPlaceholderText('0000'), '1234');
+			await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+			await waitFor(() => {
+				expect(mockIdbSet).toHaveBeenCalledWith(
+					'squares_host_pins',
+					expect.objectContaining({ TEST123: '1234' })
+				);
+				expect(sessionStorageMock.setItem).toHaveBeenCalledWith('squares_pin_TEST123', '1234');
+				expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+			});
 		});
 	});
 

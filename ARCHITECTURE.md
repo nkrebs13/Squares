@@ -8,9 +8,9 @@ A 10-minute orientation to the Football Squares codebase. If you've cloned the r
 | ------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | Frontend framework | SvelteKit 5                    | Runes for components, legacy stores for shared state — see [hybrid reactivity](#hybrid-reactivity) below |
 | Styling            | Tailwind 4 + CSS variables     | `app.css` defines theme tokens; component styles use Tailwind utilities + scoped Svelte styles           |
-| Language           | TypeScript 6 strict            | `--max-warnings 0` on lint; svelte-check in pre-push                                                     |
+| Language           | TypeScript 6 (strict)          | `--max-warnings 0` on lint; svelte-check in pre-push                                                     |
 | Backend            | Supabase (Postgres + Realtime) | RPCs for writes, postgres_changes + broadcast channels for reads                                         |
-| Hosting            | Cloudflare Pages               | `@sveltejs/adapter-cloudflare`; build runs in CI on every PR                                             |
+| Hosting            | Cloudflare Pages               | `@sveltejs/adapter-cloudflare` matches the production target directly — see [DEPLOY.md](docs/DEPLOY.md)  |
 | Observability      | Sentry + Web Vitals            | Optional — no DSN, no telemetry. See `src/hooks.client.ts`                                               |
 
 ## Module layout
@@ -39,7 +39,7 @@ src/
 │   ├── types.ts                  Single source of truth for DB-shape types
 │   └── supabase.ts               Singleton client
 ├── hooks.client.ts               Sentry init + Web Vitals (no-op without DSN)
-└── hooks.server.ts               Sentry init for the Cloudflare adapter
+└── hooks.server.ts               Sentry init for the resolved SvelteKit adapter
 supabase/
 └── migrations/                   Forward-only SQL — never edit existing files
 ```
@@ -172,5 +172,5 @@ These are written to prevent a future contributor from "fixing" them:
 - [ADR-0002: Optimistic update chain](docs/adr/0002-optimistic-chain.md)
 - [ADR-0003: Dual realtime channels](docs/adr/0003-dual-realtime-channels.md)
 - [E2E testing strategy](docs/E2E_TESTING.md)
-- [Game-day operations runbook](GAME-DAY.md)
+- [Game-day operations runbook](docs/GAME-DAY.md)
 - [Security stance](SECURITY.md)

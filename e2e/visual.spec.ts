@@ -33,7 +33,7 @@ test.describe('Visual regression: party page states', () => {
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'filling' },
 		});
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
 		// Wait a beat so any open animations settle. animations:'disabled' in
@@ -50,7 +50,7 @@ test.describe('Visual regression: party page states', () => {
 			partyOverrides: { status: 'active' },
 			scoresOverrides: mockActiveScores,
 		});
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 		await page.waitForTimeout(300);
 
@@ -64,7 +64,7 @@ test.describe('Visual regression: party page states', () => {
 			scoresOverrides: mockCompleteScores,
 			winnersOverrides: mockWinnersAll,
 		});
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 		await page.waitForTimeout(300);
 

@@ -33,6 +33,8 @@ const validParty = {
 	id: '22222222-2222-2222-2222-222222222222',
 	code: 'AB12CD',
 	host_name_lower: 'nathan',
+	event_name: 'Test Football Squares',
+	kickoff_at: null,
 	square_price: 1.0,
 	split_q1: 25,
 	split_q2: 25,
@@ -151,9 +153,9 @@ describe('parseParty', () => {
 		expect(parseParty({ ...validParty, status: 'archived' })).toBeNull();
 	});
 
-	it('passes host_pin through if provided', () => {
+	it('strips host_pin if an RPC payload accidentally includes it', () => {
 		const withPin = { ...validParty, host_pin: '1234' };
-		expect(parseParty(withPin)).toEqual(withPin);
+		expect(parseParty(withPin)).toEqual(validParty);
 	});
 
 	it('returns null when required field is missing', () => {
@@ -303,6 +305,15 @@ describe('additional parseParty branches', () => {
 
 	it('rejects when host_name_lower is the wrong type', () => {
 		expect(parseParty({ ...validParty, host_name_lower: 42 })).toBeNull();
+	});
+
+	it('rejects when event_name is missing', () => {
+		const { event_name: _eventName, ...missing } = validParty;
+		expect(parseParty(missing)).toBeNull();
+	});
+
+	it('rejects when kickoff_at is the wrong type', () => {
+		expect(parseParty({ ...validParty, kickoff_at: 42 })).toBeNull();
 	});
 
 	it('rejects when team_row_color is missing', () => {

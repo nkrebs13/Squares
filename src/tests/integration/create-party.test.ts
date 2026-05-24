@@ -18,6 +18,8 @@ afterEach(async () => {
 });
 
 const validArgs = {
+	p_event_name: '2027 Super Bowl',
+	p_kickoff_at: '2027-02-14T23:30:00.000Z',
 	p_host_name: 'Nathan',
 	p_pin: '1234',
 	p_square_price: 1.0,
@@ -37,10 +39,46 @@ describe('create_party RPC', () => {
 		expect(party.id).toMatch(/^[0-9a-f-]{36}$/i);
 		expect(party.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
 		expect(party.status).toBe('filling');
+		expect(party.event_name).toBe('2027 Super Bowl');
+		expect(party.kickoff_at).toBeTruthy();
 		expect(party.host_pin).toBe('1234');
 		expect(party.host_name_lower).toBe('nathan');
 
 		createdPartyIds.push(party.id as string);
+	});
+
+	it('keeps future kickoff parties alive through game day', async () => {
+		const { data, error } = await client.rpc('create_party', validArgs);
+
+		expect(error).toBeNull();
+		expect(data).toBeTruthy();
+		const party = data as Record<string, unknown>;
+		createdPartyIds.push(party.id as string);
+
+		const expiresAt = new Date(party.expires_at as string);
+		const kickoffAt = new Date(validArgs.p_kickoff_at);
+		const twoWeeksAfterKickoff = new Date(kickoffAt);
+		twoWeeksAfterKickoff.setUTCDate(twoWeeksAfterKickoff.getUTCDate() + 14);
+
+		expect(expiresAt.getTime()).toBeGreaterThanOrEqual(twoWeeksAfterKickoff.getTime());
+	});
+
+	it('keeps the default cleanup window when kickoff is not known', async () => {
+		const beforeCreate = Date.now();
+		const { data, error } = await client.rpc('create_party', {
+			...validArgs,
+			p_kickoff_at: null,
+		});
+
+		expect(error).toBeNull();
+		expect(data).toBeTruthy();
+		const party = data as Record<string, unknown>;
+		createdPartyIds.push(party.id as string);
+
+		const expiresAt = new Date(party.expires_at as string).getTime();
+		const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+		expect(expiresAt).toBeGreaterThanOrEqual(beforeCreate + thirtyDays);
+		expect(expiresAt).toBeLessThan(Date.now() + thirtyDays + 60_000);
 	});
 
 	it('rejects splits that do not sum to 100', async () => {
@@ -153,6 +191,18 @@ describe('create_party RPC', () => {
 		expect(party).toBeTruthy();
 		const partyRow = party as Record<string, unknown>;
 		expect(partyRow.host_name_lower).toBe('nathan');
+		createdPartyIds.push(partyRow.id as string);
+	});
+
+	it('defaults blank event_name to a usable title', async () => {
+		const { data: party, error } = await client.rpc('create_party', {
+			...validArgs,
+			p_event_name: '   ',
+		});
+		expect(error).toBeNull();
+		expect(party).toBeTruthy();
+		const partyRow = party as Record<string, unknown>;
+		expect(partyRow.event_name).toBe('Football Squares');
 		createdPartyIds.push(partyRow.id as string);
 	});
 

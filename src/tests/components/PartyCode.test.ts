@@ -18,6 +18,8 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		code: 'TEST123',
 		host_pin: '1234',
 		host_name_lower: null,
+		event_name: 'Test Football Squares',
+		kickoff_at: null,
 		square_price: 10,
 		split_q1: 25,
 		split_q2: 25,
@@ -120,8 +122,8 @@ describe('PartyCode Component', () => {
 
 		expect(mockShare).toHaveBeenCalledWith(
 			expect.objectContaining({
-				title: 'Football Squares',
-				text: 'Join my Football Squares party!',
+				title: 'Test Football Squares',
+				text: 'Join Test Football Squares: Eagles vs Chiefs. Code TEST123.',
 			})
 		);
 	});
@@ -201,6 +203,10 @@ describe('PartyCode Component', () => {
 
 			// QR image should not be shown
 			expect(screen.queryByAltText('QR code to join party')).not.toBeInTheDocument();
+			expect(screen.getByText(/QR code unavailable/i)).toBeInTheDocument();
+			expect((screen.getByLabelText('Join link') as HTMLInputElement).value).toContain(
+				'/join?code=TEST123'
+			);
 			consoleSpy.mockRestore();
 		});
 	});
@@ -223,6 +229,7 @@ describe('PartyCode Component', () => {
 			});
 			// Button should still show "Copy Code" (not "Copied!")
 			expect(screen.getByText('Copy Code')).toBeInTheDocument();
+			expect(screen.getByText(/Copy unavailable/i)).toBeInTheDocument();
 		});
 
 		it('handles clipboard writeText rejection on Copy Link', async () => {
@@ -240,11 +247,15 @@ describe('PartyCode Component', () => {
 				expect(mockWriteText).toHaveBeenCalled();
 			});
 			expect(screen.getByText('Copy Link')).toBeInTheDocument();
+			expect(screen.getByText(/Join link shown below/i)).toBeInTheDocument();
+			expect((screen.getByLabelText('Join link') as HTMLInputElement).value).toContain(
+				'/join?code=TEST123'
+			);
 		});
 
 		it('handles navigator.share throwing (user cancelled)', async () => {
 			party.set(createMockParty());
-			const mockShare = vi.fn().mockRejectedValue(new Error('User cancelled'));
+			const mockShare = vi.fn().mockRejectedValue(new DOMException('User cancelled', 'AbortError'));
 			Object.defineProperty(navigator, 'share', {
 				value: mockShare,
 				writable: true,
@@ -258,6 +269,27 @@ describe('PartyCode Component', () => {
 			await vi.waitFor(() => {
 				expect(mockShare).toHaveBeenCalled();
 			});
+			expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+		});
+
+		it('shows manual link fallback when navigator.share fails unexpectedly', async () => {
+			party.set(createMockParty());
+			const mockShare = vi.fn().mockRejectedValue(new Error('Share failed'));
+			Object.defineProperty(navigator, 'share', {
+				value: mockShare,
+				writable: true,
+				configurable: true,
+			});
+
+			render(PartyCode);
+			await fireEvent.click(screen.getByText('Share'));
+
+			await vi.waitFor(() => {
+				expect(screen.getByText(/Share unavailable/i)).toBeInTheDocument();
+			});
+			expect((screen.getByLabelText('Join link') as HTMLInputElement).value).toContain(
+				'/join?code=TEST123'
+			);
 		});
 	});
 });

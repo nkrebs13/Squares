@@ -1,7 +1,7 @@
 name: Feature request
 description: Something the app should do but doesn't
-title: "[feature] "
-labels: ["enhancement"]
+title: '[feature] '
+labels: ['enhancement']
 body:
   - type: markdown
     attributes:
@@ -28,7 +28,7 @@ body:
     id: alternatives
     attributes:
       label: Anything you've already considered + ruled out?
-      placeholder: "I tried filtering by player but that hides the other squares."
+      placeholder: 'I tried filtering by player but that hides the other squares.'
 
   - type: dropdown
     id: who

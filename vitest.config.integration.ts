@@ -10,8 +10,11 @@ export default defineConfig({
 		testTimeout: 30000,
 		hookTimeout: 30000,
 		env: {
-			VITE_SUPABASE_URL: process.env.TEST_SUPABASE_URL || 'http://127.0.0.1:54321',
-			VITE_SUPABASE_ANON_KEY: process.env.TEST_SUPABASE_KEY || 'not-set',
+			// CI sets VITE_SUPABASE_* via $GITHUB_ENV; TEST_SUPABASE_* for local override
+			VITE_SUPABASE_URL:
+				process.env.TEST_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321',
+			VITE_SUPABASE_ANON_KEY:
+				process.env.TEST_SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'not-set',
 		},
 	},
 });

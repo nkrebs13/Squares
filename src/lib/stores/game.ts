@@ -33,7 +33,7 @@ export {
 
 export type { PlayerSummary } from './game-state';
 
-export { subscribeToParty, broadcastScoreUpdate } from './game-realtime';
+export { subscribeToParty, broadcastScoreUpdate, connectionStatus } from './game-realtime';
 
 export {
 	claimSquareOptimistic,
@@ -44,9 +44,12 @@ export {
 export {
 	lockParty,
 	updateScore,
+	updatePartyDetails,
 	updatePayoutStructure,
 	removePlayer,
 	deleteParty,
 	cleanup,
 	verifyHostPin,
 } from './game-admin';
+
+export type { PartyDetailsInput } from './game-admin';

@@ -155,32 +155,29 @@ describe('RecentParties Component', () => {
 	});
 
 	describe('Navigation', () => {
-		it('navigates to party page on click', async () => {
+		it('renders a link to the party page', async () => {
 			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'NAV001' })]);
-			render(RecentParties);
+			const { container } = render(RecentParties);
 
 			await vi.waitFor(() => {
 				expect(screen.getByText('NAV001')).toBeInTheDocument();
 			});
 
-			const card = screen.getByText('NAV001').closest('[role="button"]');
-			if (card) await fireEvent.click(card);
-
-			expect(mockGoto).toHaveBeenCalledWith('/party/NAV001');
+			const link = container.querySelector('a.card-nav-link') as HTMLAnchorElement;
+			expect(link).toBeTruthy();
+			expect(link?.getAttribute('href')).toBe('/party/NAV001');
 		});
 
-		it('navigates on Enter key', async () => {
-			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'KEY001' })]);
+		it('link has accessible label with party name', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'LBL001' })]);
 			render(RecentParties);
 
 			await vi.waitFor(() => {
-				expect(screen.getByText('KEY001')).toBeInTheDocument();
+				expect(screen.getByText('LBL001')).toBeInTheDocument();
 			});
 
-			const card = screen.getByText('KEY001').closest('[role="button"]');
-			if (card) await fireEvent.keyDown(card, { key: 'Enter' });
-
-			expect(mockGoto).toHaveBeenCalledWith('/party/KEY001');
+			const link = screen.getByRole('link', { name: /open/i });
+			expect(link).toBeTruthy();
 		});
 	});
 

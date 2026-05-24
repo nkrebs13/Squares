@@ -11,11 +11,36 @@
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
 	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
-	import { saveRecentParty, hasHostPin } from '$lib/storage';
+	import {
+		buildPartyCanonicalUrl,
+		buildPartyPageTitle,
+		buildPartyShareDescription,
+		partyToShareMetadata,
+	} from '$lib/partyMeta';
+	import {
+		saveRecentParty,
+		hasHostPin,
+		partyPinKey,
+		partyNicknameKey,
+		getSessionItem,
+		removeSessionItem,
+	} from '$lib/storage';
+	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
+	import type { PartyShareMetadata } from '$lib/partyMeta';
 
+	const { data = { partyMeta: null } } = $props<{
+		data?: { partyMeta: PartyShareMetadata | null };
+	}>();
 	const code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
+	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const shareMeta = $derived($party ? partyToShareMetadata($party) : data.partyMeta);
+	const pageTitle = $derived(buildPartyPageTitle(shareMeta));
+	const pageDescription = $derived(buildPartyShareDescription(shareMeta));
+	const canonicalUrl = $derived(
+		buildPartyCanonicalUrl(shareMeta?.code || code || APP_CONFIG.demoPartyCode)
+	);
 
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
@@ -23,7 +48,7 @@
 	async function checkIsHost() {
 		if (browser && code) {
 			// Check IndexedDB first, then fallback to sessionStorage
-			isHost = (await hasHostPin(code)) || sessionStorage.getItem(`squares_pin_${code}`) !== null;
+			isHost = (await hasHostPin(code)) || getSessionItem(partyPinKey(code)) !== null;
 		}
 	}
 
@@ -33,16 +58,18 @@
 		// Check for nickname set during create/join flow
 		let nickname: string | undefined;
 		if (browser) {
-			const nicknameKey = `squares_nickname_${$party.code}`;
-			nickname = sessionStorage.getItem(nicknameKey) || undefined;
+			const nicknameKey = partyNicknameKey($party.code);
+			nickname = getSessionItem(nicknameKey) || undefined;
 			if (nickname) {
-				sessionStorage.removeItem(nicknameKey);
+				removeSessionItem(nicknameKey);
 			}
 		}
 
 		const recentParty: RecentParty = {
 			code: $party.code,
 			nickname,
+			eventName: $party.event_name,
+			kickoffAt: $party.kickoff_at,
 			teamRowName: $party.team_row_name,
 			teamColName: $party.team_col_name,
 			lastVisited: Date.now(),
@@ -79,26 +106,15 @@
 </script>
 
 <svelte:head>
-	<title
-		>{$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}</title
-	>
-	<meta
-		property="og:title"
-		content={$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}
-	/>
-	<meta property="og:description" content="Claim your squares for the big game!" />
+	<title>{pageTitle}</title>
+	<meta name="description" content={pageDescription} />
+	<link rel="canonical" href={canonicalUrl} />
+	<meta property="og:url" content={canonicalUrl} />
+	<meta property="og:title" content={pageTitle} />
+	<meta property="og:description" content={pageDescription} />
 	<meta name="twitter:card" content="summary" />
-	<meta
-		name="twitter:title"
-		content={$party
-			? `Football Squares — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: 'Football Squares'}
-	/>
-	<meta name="twitter:description" content="Claim your squares for the big game!" />
+	<meta name="twitter:title" content={pageTitle} />
+	<meta name="twitter:description" content={pageDescription} />
 </svelte:head>
 
 <div class="party-page">
@@ -120,8 +136,9 @@
 			<div>
 				<a href="/" class="text-sm hover:opacity-100 text-secondary">← Home</a>
 				<h1 class="text-2xl font-bold mt-1">
-					{$party.team_row_name} vs {$party.team_col_name}
+					{$party.event_name}
 				</h1>
+				<p class="mt-1 text-sm text-secondary">{matchupLabel}</p>
 			</div>
 			{#if isHost}
 				<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>
