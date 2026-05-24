@@ -79,6 +79,8 @@ jobs:
         run: npm run build
       - name: Bundle size budget
         run: node scripts/check-bundle-size.mjs
+      - name: PWA root registration
+        run: npm run check:pwa-registration
 
   integration-tests:
     name: Integration Tests (Supabase)
