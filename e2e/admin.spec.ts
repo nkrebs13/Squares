@@ -25,7 +25,7 @@ test.describe('Admin Page - PIN Entry', () => {
 	test('shows PIN entry when not authorized', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestHost');
-		await page.goto('/party/TEST1/admin');
+		await page.goto('/party/TEST12/admin');
 
 		// PIN input and Verify button should be visible
 		await expect(page.getByPlaceholder('0000')).toBeVisible({ timeout: 10000 });
@@ -35,7 +35,7 @@ test.describe('Admin Page - PIN Entry', () => {
 	test('Verify button enabled at 4 digits', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestHost');
-		await page.goto('/party/TEST1/admin');
+		await page.goto('/party/TEST12/admin');
 
 		const pinInput = page.getByPlaceholder('0000');
 		const verifyButton = page.getByRole('button', { name: /verify/i });
@@ -52,7 +52,7 @@ test.describe('Admin Page - PIN Entry', () => {
 	test('PIN entry grants access', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestHost');
-		await page.goto('/party/TEST1/admin');
+		await page.goto('/party/TEST12/admin');
 
 		// Enter PIN
 		await page.getByPlaceholder('0000').fill('1234');
@@ -68,8 +68,8 @@ test.describe('Admin Page - Filling Status', () => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestHost');
 		// Set session PIN so we're pre-authorized
-		await page.goto('/party/TEST1/admin');
-		await setSessionPin(page, 'TEST1', '1234');
+		await page.goto('/party/TEST12/admin');
+		await setSessionPin(page, 'TEST12', '1234');
 		await page.reload();
 	});
 
@@ -98,8 +98,8 @@ test.describe('Admin Page - Filling Status', () => {
 		await setupSupabaseMocksWithOverrides(page, {
 			squaresData: generateFullSquares('test-party-id'),
 		});
-		await page.goto('/party/TEST1/admin');
-		await setSessionPin(page, 'TEST1', '1234');
+		await page.goto('/party/TEST12/admin');
+		await setSessionPin(page, 'TEST12', '1234');
 		await page.reload();
 
 		await expect(page.getByRole('heading', { name: /host panel/i })).toBeVisible({
@@ -132,7 +132,7 @@ test.describe('Admin Page - Filling Status', () => {
 	test('has back link to game page', async ({ page }) => {
 		const backLink = page.getByRole('link', { name: /back to game/i });
 		await expect(backLink).toBeVisible({ timeout: 10000 });
-		await expect(backLink).toHaveAttribute('href', '/party/TEST1');
+		await expect(backLink).toHaveAttribute('href', '/party/TEST12');
 	});
 });
 
@@ -143,8 +143,8 @@ test.describe('Admin Page - Active Status', () => {
 			scoresOverrides: mockActiveScores,
 		});
 		await setUserName(page, 'TestHost');
-		await page.goto('/party/TEST1/admin');
-		await setSessionPin(page, 'TEST1', '1234');
+		await page.goto('/party/TEST12/admin');
+		await setSessionPin(page, 'TEST12', '1234');
 		await page.reload();
 
 		await expect(page.getByRole('heading', { name: /host panel/i })).toBeVisible({
@@ -165,8 +165,8 @@ test.describe('Admin Page - Complete Status', () => {
 			winnersData: mockWinnersAll,
 		});
 		await setUserName(page, 'TestHost');
-		await page.goto('/party/TEST1/admin');
-		await setSessionPin(page, 'TEST1', '1234');
+		await page.goto('/party/TEST12/admin');
+		await setSessionPin(page, 'TEST12', '1234');
 		await page.reload();
 
 		await expect(page.getByRole('heading', { name: /host panel/i })).toBeVisible({

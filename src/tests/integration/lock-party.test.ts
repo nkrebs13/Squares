@@ -127,7 +127,7 @@ describe('lock_party RPC', () => {
 
 	it('rejects if party is already active', async () => {
 		await fillAllSquares(client, party.id);
-		await client.from('parties').update({ status: 'active' }).eq('id', party.id);
+		await getServiceRoleClient().from('parties').update({ status: 'active' }).eq('id', party.id);
 
 		const { data } = await client.rpc('lock_party', {
 			p_party_id: party.id,

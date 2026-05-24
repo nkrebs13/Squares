@@ -62,7 +62,7 @@ test.describe('Error Boundary', () => {
 	test('party page has error boundary wrappers', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST1');
+		await page.goto('/party/TEST12');
 
 		// Verify the page loads without errors — error boundaries are transparent when no error
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });

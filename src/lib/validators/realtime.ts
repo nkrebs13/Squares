@@ -134,7 +134,7 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isBoolOrNull(p.home_team_is_row))
 		return warn('parties', p, 'home_team_is_row not bool|null');
 
-	const result: Party = {
+	return {
 		id: p.id,
 		code: p.code,
 		host_name_lower: p.host_name_lower,
@@ -156,8 +156,6 @@ export function parseParty(payload: unknown): Party | null {
 		game_id: p.game_id,
 		home_team_is_row: p.home_team_is_row,
 	};
-	if (isStr(p.host_pin)) result.host_pin = p.host_pin;
-	return result;
 }
 
 export function parseNumbers(payload: unknown): Numbers | null {

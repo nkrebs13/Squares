@@ -47,6 +47,9 @@ export default defineConfig(({ mode }) => {
 			sveltekit(),
 			svelteTesting(),
 			SvelteKitPWA({
+				base: '/',
+				buildBase: '/',
+				scope: '/',
 				srcDir: 'src',
 				strategies: 'generateSW',
 				registerType: 'autoUpdate',

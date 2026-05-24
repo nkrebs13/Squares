@@ -15,6 +15,86 @@ export const partyNicknameKey = (code: string) => `squares_nickname_${code}`;
 const MAX_RECENT_PARTIES = 10;
 const PARTY_EXPIRY_DAYS = 90;
 
+function getStorageItem(storage: Storage, key: string): string | null {
+	try {
+		return storage.getItem(key);
+	} catch {
+		return null;
+	}
+}
+
+function setStorageItem(storage: Storage, key: string, value: string): boolean {
+	try {
+		storage.setItem(key, value);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function removeStorageItem(storage: Storage, key: string): boolean {
+	try {
+		storage.removeItem(key);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export function getLocalItem(key: string): string | null {
+	if (!browser) return null;
+	try {
+		return getStorageItem(localStorage, key);
+	} catch {
+		return null;
+	}
+}
+
+export function setLocalItem(key: string, value: string): boolean {
+	if (!browser) return false;
+	try {
+		return setStorageItem(localStorage, key, value);
+	} catch {
+		return false;
+	}
+}
+
+export function removeLocalItem(key: string): boolean {
+	if (!browser) return false;
+	try {
+		return removeStorageItem(localStorage, key);
+	} catch {
+		return false;
+	}
+}
+
+export function getSessionItem(key: string): string | null {
+	if (!browser) return null;
+	try {
+		return getStorageItem(sessionStorage, key);
+	} catch {
+		return null;
+	}
+}
+
+export function setSessionItem(key: string, value: string): boolean {
+	if (!browser) return false;
+	try {
+		return setStorageItem(sessionStorage, key, value);
+	} catch {
+		return false;
+	}
+}
+
+export function removeSessionItem(key: string): boolean {
+	if (!browser) return false;
+	try {
+		return removeStorageItem(sessionStorage, key);
+	} catch {
+		return false;
+	}
+}
+
 // Request persistent storage for better data durability
 export async function requestPersistentStorage(): Promise<boolean> {
 	if (!browser || !navigator.storage?.persist) return false;
@@ -38,8 +118,7 @@ export async function getUserName(): Promise<string | null> {
 		const name = await get<string>(STORAGE_KEYS.userName);
 		return name ?? null;
 	} catch {
-		// Fallback to localStorage
-		return localStorage.getItem(STORAGE_KEYS.userName);
+		return getLocalItem(STORAGE_KEYS.userName);
 	}
 }
 
@@ -52,8 +131,7 @@ export async function setUserName(name: string): Promise<void> {
 	try {
 		await set(STORAGE_KEYS.userName, trimmed);
 	} catch {
-		// Fallback to localStorage
-		localStorage.setItem(STORAGE_KEYS.userName, trimmed);
+		setLocalItem(STORAGE_KEYS.userName, trimmed);
 	}
 }
 
@@ -63,7 +141,7 @@ export async function clearUserName(): Promise<void> {
 	try {
 		await del(STORAGE_KEYS.userName);
 	} catch {
-		localStorage.removeItem(STORAGE_KEYS.userName);
+		removeLocalItem(STORAGE_KEYS.userName);
 	}
 }
 
@@ -82,7 +160,7 @@ export async function getRecentParties(): Promise<RecentParty[]> {
 	} catch {
 		// Try localStorage fallback
 		try {
-			const stored = localStorage.getItem(STORAGE_KEYS.recentParties);
+			const stored = getLocalItem(STORAGE_KEYS.recentParties);
 			return stored ? JSON.parse(stored) : [];
 		} catch {
 			return [];
@@ -125,7 +203,7 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 			parties = parties.filter((p) => p.code !== party.code);
 			parties.unshift(partyWithNickname);
 			parties = parties.slice(0, MAX_RECENT_PARTIES);
-			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
+			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
 			// Silently fail
 		}
@@ -144,7 +222,7 @@ export async function removeRecentParty(code: string): Promise<void> {
 		try {
 			let parties = await getRecentParties();
 			parties = parties.filter((p) => p.code !== code);
-			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
+			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
 			// Silently fail
 		}
@@ -165,7 +243,7 @@ export async function updatePartyNickname(code: string, nickname: string): Promi
 		try {
 			let parties = await getRecentParties();
 			parties = parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p));
-			localStorage.setItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
+			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
 		} catch {
 			// Silently fail
 		}
@@ -178,10 +256,9 @@ export async function getHostPin(code: string): Promise<string | null> {
 
 	try {
 		const pins = await get<Record<string, string>>(STORAGE_KEYS.hostPins);
-		return pins?.[code] ?? null;
+		return pins?.[code] ?? getSessionItem(partyPinKey(code));
 	} catch {
-		// Fallback to sessionStorage (original behavior)
-		return sessionStorage.getItem(partyPinKey(code));
+		return getSessionItem(partyPinKey(code));
 	}
 }
 
@@ -193,8 +270,7 @@ export async function setHostPin(code: string, pin: string): Promise<void> {
 		pins[code] = pin;
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {
-		// Fallback to sessionStorage
-		sessionStorage.setItem(partyPinKey(code), pin);
+		setSessionItem(partyPinKey(code), pin);
 	}
 }
 
@@ -206,7 +282,7 @@ export async function removeHostPin(code: string): Promise<void> {
 		delete pins[code];
 		await set(STORAGE_KEYS.hostPins, pins);
 	} catch {
-		sessionStorage.removeItem(partyPinKey(code));
+		removeSessionItem(partyPinKey(code));
 	}
 }
 
@@ -223,7 +299,7 @@ export async function hasSeenGestureHint(): Promise<boolean> {
 		const seen = await get<boolean>(STORAGE_KEYS.gestureHintShown);
 		return seen === true;
 	} catch {
-		return localStorage.getItem(STORAGE_KEYS.gestureHintShown) === 'true';
+		return getLocalItem(STORAGE_KEYS.gestureHintShown) === 'true';
 	}
 }
 
@@ -233,6 +309,6 @@ export async function markGestureHintSeen(): Promise<void> {
 	try {
 		await set(STORAGE_KEYS.gestureHintShown, true);
 	} catch {
-		localStorage.setItem(STORAGE_KEYS.gestureHintShown, 'true');
+		setLocalItem(STORAGE_KEYS.gestureHintShown, 'true');
 	}
 }

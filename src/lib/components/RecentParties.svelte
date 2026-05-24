@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
+	import { formatKickoff } from '$lib/utils/datetime';
 	import type { RecentParty, PartyStatus } from '$lib/types';
 
 	const MAX_NICKNAME_LENGTH = 30;
@@ -54,16 +55,8 @@
 		if (party.nickname && (!party.eventName || party.eventName === matchup)) return matchup;
 		if (!party.kickoffAt) return matchup;
 
-		const kickoff = new Date(party.kickoffAt);
-		if (Number.isNaN(kickoff.getTime())) return matchup;
-
-		const formatted = new Intl.DateTimeFormat(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit',
-		}).format(kickoff);
-		return `${matchup} - ${formatted}`;
+		const kickoff = formatKickoff(party.kickoffAt);
+		return kickoff ? `${matchup} - ${kickoff}` : matchup;
 	}
 
 	function handleRemove(e: Event, code: string) {
@@ -165,6 +158,7 @@
 					<a
 						class="card-nav-link"
 						href="/party/{party.code}"
+						data-sveltekit-reload
 						aria-label="Open {getDisplayName(party)}"
 						onclick={(e) => {
 							if (isEditing) e.preventDefault();
@@ -334,7 +328,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		z-index: 0;
+		z-index: 1;
 	}
 
 	.card-nav-link:focus-visible {
@@ -349,6 +343,7 @@
 		gap: 0.25rem;
 		flex: 1;
 		min-width: 0;
+		pointer-events: none;
 	}
 
 	/* Nickname display */
@@ -398,7 +393,8 @@
 	.confirm-remove,
 	.nickname-input {
 		position: relative;
-		z-index: 1;
+		z-index: 2;
+		pointer-events: auto;
 	}
 
 	.edit-icon {
@@ -489,6 +485,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-shrink: 0;
+		pointer-events: none;
 	}
 
 	.status-badge {

@@ -44,9 +44,12 @@ export {
 export {
 	lockParty,
 	updateScore,
+	updatePartyDetails,
 	updatePayoutStructure,
 	removePlayer,
 	deleteParty,
 	cleanup,
 	verifyHostPin,
 } from './game-admin';
+
+export type { PartyDetailsInput } from './game-admin';

@@ -8,7 +8,7 @@ test.describe('Landing Page', () => {
 
 	test('displays the main heading and tagline', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
-		await expect(page.getByText(/super bowl party pools made easy/i)).toBeVisible();
+		await expect(page.getByText(/football squares pools for any game/i)).toBeVisible();
 	});
 
 	test('has Create Party button that navigates to create page', async ({ page }) => {
@@ -36,11 +36,11 @@ test.describe('Landing Page', () => {
 		await expect(joinButton).toBeDisabled();
 	});
 
-	test('enables Join Party button when code is entered', async ({ page }) => {
+	test('enables Join Party button when a complete code is entered', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('ABCD');
+		await codeInput.fill('ABCD12');
 		await expect(joinButton).toBeEnabled();
 	});
 
@@ -48,20 +48,20 @@ test.describe('Landing Page', () => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=TEST1');
+		await expect(page).toHaveURL('/join?code=TEST12');
 	});
 
-	test('converts party code to uppercase', async ({ page }) => {
+	test('normalizes party code before joining', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		await codeInput.fill('abcd');
+		await codeInput.fill('demo-01');
 		await joinButton.click();
 
-		await expect(page).toHaveURL('/join?code=ABCD');
+		await expect(page).toHaveURL('/join?code=DEMO01');
 	});
 
 	test('displays hint about joining multiple parties', async ({ page }) => {
@@ -78,7 +78,7 @@ test.describe('Landing Page', () => {
 test.describe('Recent Parties', () => {
 	const recentParties = [
 		{
-			code: 'AAAA1',
+			code: 'AAAA11',
 			teamRowName: 'Eagles',
 			teamColName: 'Chiefs',
 			lastVisited: Date.now() - 1000,
@@ -86,7 +86,7 @@ test.describe('Recent Parties', () => {
 			isHost: true,
 		},
 		{
-			code: 'BBBB2',
+			code: 'BBBB22',
 			teamRowName: 'Rams',
 			teamColName: '49ers',
 			lastVisited: Date.now() - 2000,
@@ -94,7 +94,7 @@ test.describe('Recent Parties', () => {
 			isHost: false,
 		},
 		{
-			code: 'CCCC3',
+			code: 'CCCC33',
 			teamRowName: 'Bills',
 			teamColName: 'Dolphins',
 			lastVisited: Date.now() - 3000,
@@ -111,9 +111,9 @@ test.describe('Recent Parties', () => {
 
 		await expect(page.getByText(/recent parties/i)).toBeVisible({ timeout: 10000 });
 		// Should show party cards
-		await expect(page.getByText('AAAA1')).toBeVisible();
-		await expect(page.getByText('BBBB2')).toBeVisible();
-		await expect(page.getByText('CCCC3')).toBeVisible();
+		await expect(page.getByText('AAAA11')).toBeVisible();
+		await expect(page.getByText('BBBB22')).toBeVisible();
+		await expect(page.getByText('CCCC33')).toBeVisible();
 	});
 
 	test('displays team matchup', async ({ page }) => {
@@ -151,7 +151,7 @@ test.describe('Recent Parties', () => {
 		await page.locator('.card-nav-link').first().click();
 
 		// Should navigate to the party (or redirect to join since no user name is set)
-		await expect(page).toHaveURL(/\/(party|join).*AAAA1/);
+		await expect(page).toHaveURL(/\/(party|join).*AAAA11/);
 	});
 
 	test('remove button removes from list', async ({ page }) => {

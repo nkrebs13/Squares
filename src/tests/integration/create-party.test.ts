@@ -47,6 +47,40 @@ describe('create_party RPC', () => {
 		createdPartyIds.push(party.id as string);
 	});
 
+	it('keeps future kickoff parties alive through game day', async () => {
+		const { data, error } = await client.rpc('create_party', validArgs);
+
+		expect(error).toBeNull();
+		expect(data).toBeTruthy();
+		const party = data as Record<string, unknown>;
+		createdPartyIds.push(party.id as string);
+
+		const expiresAt = new Date(party.expires_at as string);
+		const kickoffAt = new Date(validArgs.p_kickoff_at);
+		const twoWeeksAfterKickoff = new Date(kickoffAt);
+		twoWeeksAfterKickoff.setUTCDate(twoWeeksAfterKickoff.getUTCDate() + 14);
+
+		expect(expiresAt.getTime()).toBeGreaterThanOrEqual(twoWeeksAfterKickoff.getTime());
+	});
+
+	it('keeps the default cleanup window when kickoff is not known', async () => {
+		const beforeCreate = Date.now();
+		const { data, error } = await client.rpc('create_party', {
+			...validArgs,
+			p_kickoff_at: null,
+		});
+
+		expect(error).toBeNull();
+		expect(data).toBeTruthy();
+		const party = data as Record<string, unknown>;
+		createdPartyIds.push(party.id as string);
+
+		const expiresAt = new Date(party.expires_at as string).getTime();
+		const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+		expect(expiresAt).toBeGreaterThanOrEqual(beforeCreate + thirtyDays);
+		expect(expiresAt).toBeLessThan(Date.now() + thirtyDays + 60_000);
+	});
+
 	it('rejects splits that do not sum to 100', async () => {
 		const { data, error } = await client.rpc('create_party', {
 			...validArgs,
