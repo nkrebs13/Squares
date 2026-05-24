@@ -195,22 +195,10 @@ describe('updatePayoutStructure', () => {
 
 	it('returns error when PIN is wrong (server rejects)', async () => {
 		party.set(createMockParty());
-		// Server-side PIN validation: .from().update().eq().eq().select() returns empty data
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: [],
-							error: null,
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await updatePayoutStructure('9999', {
 			q1: 25,
@@ -233,23 +221,14 @@ describe('updatePayoutStructure', () => {
 	});
 
 	it('updates local state on success', async () => {
+		const updatedParty = createMockParty({
+			split_q1: 10,
+			split_q2: 20,
+			split_q3: 30,
+			split_final: 40,
+		});
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-		// Chain: .from().update().eq().select() — returns updated row
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					select: vi.fn().mockResolvedValue({
-						data: [{ id: 'test-party-id' }],
-						error: null,
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
 
 		const result = await updatePayoutStructure('1234', {
 			q1: 10,
@@ -264,26 +243,22 @@ describe('updatePayoutStructure', () => {
 		expect(p?.split_q2).toBe(20);
 		expect(p?.split_q3).toBe(30);
 		expect(p?.split_final).toBe(40);
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_split_q1: 10,
+			p_split_q2: 20,
+			p_split_q3: 30,
+			p_split_final: 40,
+		});
 	});
 
 	it('returns error on Supabase error', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-		// Chain: .from().update().eq().select() — returns error
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					select: vi.fn().mockResolvedValue({
-						data: null,
-						error: { message: 'DB error' },
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'DB error' },
+		});
 
 		const result = await updatePayoutStructure('1234', {
 			q1: 10,
@@ -294,14 +269,16 @@ describe('updatePayoutStructure', () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: 'Failed to update payout structure. Please try again.',
+			error: 'DB error',
 		});
 	});
 
 	it('returns error when PIN is wrong', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns false
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await updatePayoutStructure('9999', {
 			q1: 10,
@@ -311,9 +288,13 @@ describe('updatePayoutStructure', () => {
 		});
 
 		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
-			p_party_code: 'TEST123',
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
+			p_party_id: 'test-party-id',
 			p_pin: '9999',
+			p_split_q1: 10,
+			p_split_q2: 20,
+			p_split_q3: 30,
+			p_split_final: 40,
 		});
 	});
 });

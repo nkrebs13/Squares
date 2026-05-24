@@ -82,6 +82,21 @@ export interface DatabaseRpcContract {
 		};
 		Returns: Party;
 	};
+	update_payout_structure: {
+		Args: {
+			p_party_id: string;
+			p_pin: string;
+			p_split_q1: number;
+			p_split_q2: number;
+			p_split_q3: number;
+			p_split_final: number;
+		};
+		Returns: Party;
+	};
+	sync_party_home_team_mapping: {
+		Args: { p_party_id: string };
+		Returns: Party;
+	};
 	verify_host_pin: {
 		Args: { p_party_code: string; p_pin: string };
 		Returns: boolean;

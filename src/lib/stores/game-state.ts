@@ -11,7 +11,7 @@ import type {
 	GameScoresRow,
 	LiveScores,
 } from '$lib/types';
-import { parseGameScores } from '$lib/validators/realtime';
+import { parseGameScores, parseParty } from '$lib/validators/realtime';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 
@@ -392,26 +392,24 @@ export async function loadParty(code: string) {
 			}
 			gameScores.set(gameScoresData || null);
 
-			// Auto-correct home_team_is_row based on actual team names from the API.
-			// This fixes the backend triggers that use this flag for winner calculation.
+			// Auto-correct home_team_is_row server-side based on the linked game row.
+			// Backend triggers use this flag for winner calculation, so direct anon
+			// writes are intentionally disallowed.
 			if (gameScoresData) {
-				const currentPartyData =
-					effectiveGameId !== partyData.game_id
-						? { ...partyData, game_id: effectiveGameId }
-						: partyData;
-				const correctValue = resolveHomeIsRow(gameScoresData, currentPartyData);
-				if (correctValue !== partyData.home_team_is_row) {
-					// Fire-and-forget: update DB so backend triggers use correct mapping
-					supabase
-						.from('parties')
-						.update({ home_team_is_row: correctValue })
-						.eq('id', partyData.id)
-						.then(({ error: e }) => {
+				supabase
+					.rpc('sync_party_home_team_mapping', { p_party_id: partyData.id })
+					.then(({ data, error: mappingError }) => {
+						if (mappingError) {
 							// eslint-disable-next-line no-console -- diagnostic
-							if (e) console.warn('[loadParty] failed to persist home_team_is_row:', e.message);
-						});
-					party.update((p) => (p ? { ...p, home_team_is_row: correctValue } : p));
-				}
+							console.warn('[loadParty] failed to sync home_team_is_row:', mappingError.message);
+							return;
+						}
+
+						const updatedParty = parseParty(data);
+						if (updatedParty) {
+							party.set(updatedParty);
+						}
+					});
 			}
 		} else {
 			gameScores.set(null);

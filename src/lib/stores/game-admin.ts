@@ -95,45 +95,35 @@ export async function updatePayoutStructure(
 
 	const supabase = getSupabaseClient();
 
-	// Verify PIN via RPC (rate-limited by check_pin_lockout)
-	const pinValid = await verifyHostPin(currentParty.code, pin);
-	if (!pinValid) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
-	const { data, error: updateError } = await supabase
-		.from('parties')
-		.update({
-			split_q1: splits.q1,
-			split_q2: splits.q2,
-			split_q3: splits.q3,
-			split_final: splits.final,
-		})
-		.eq('id', currentParty.id)
-		.select('id');
+	const { data, error: updateError } = await supabase.rpc('update_payout_structure', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_split_q1: splits.q1,
+		p_split_q2: splits.q2,
+		p_split_q3: splits.q3,
+		p_split_final: splits.final,
+	});
 
 	if (updateError) {
-		return { success: false, error: 'Failed to update payout structure. Please try again.' };
+		return { success: false, error: humanizePayoutError(updateError.message) };
 	}
 
-	if (!data || data.length === 0) {
-		return { success: false, error: 'Invalid PIN' };
+	const updatedParty = parseParty(data);
+	if (!updatedParty) {
+		return { success: false, error: 'Server returned unexpected payout details. Please refresh.' };
 	}
 
-	// Update local state
-	party.update((p) =>
-		p
-			? {
-					...p,
-					split_q1: splits.q1,
-					split_q2: splits.q2,
-					split_q3: splits.q3,
-					split_final: splits.final,
-				}
-			: null
-	);
-
+	party.set(updatedParty);
 	return { success: true };
+}
+
+function humanizePayoutError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized)) return 'Grid is already locked';
+	if (/sum to exactly 100/i.test(normalized)) return 'Splits must add up to 100%';
+	if (/between 0 and 100/i.test(normalized)) return 'Each split must be between 0% and 100%.';
+	return normalized || 'Failed to update payout structure. Please try again.';
 }
 
 export async function updatePartyDetails(
