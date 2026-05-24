@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
 	import { isGameInProgress } from '$lib/types';
+	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import ScoreBoard from './ScoreBoard.svelte';
@@ -16,17 +17,20 @@
 
 	const { variant }: Props = $props();
 	const isDesktop = $derived(variant === 'desktop');
+	const totalPot = $derived($party ? calculateTotalPot($party.square_price) : 0);
 	const payoutRows = $derived(
 		$party
-			? [
-					{ key: 'q1', label: 'Q1', percent: $party.split_q1 },
-					{ key: 'q2', label: 'Q2', percent: $party.split_q2 },
-					{ key: 'q3', label: 'Q3', percent: $party.split_q3 },
-					{ key: 'final', label: 'Final', percent: $party.split_final },
-				]
+			? buildPayoutRows(
+					{
+						q1: $party.split_q1,
+						q2: $party.split_q2,
+						q3: $party.split_q3,
+						final: $party.split_final,
+					},
+					totalPot
+				)
 			: []
 	);
-	const totalPot = $derived($party ? $party.square_price * 100 : 0);
 </script>
 
 {#if $party}
@@ -91,7 +95,7 @@
 					<div class="text-muted">{row.label}</div>
 					<div class="font-medium">{row.percent}%</div>
 					{#if $party.square_price > 0}
-						<div class="text-xs text-secondary">{formatPrice((totalPot * row.percent) / 100)}</div>
+						<div class="text-xs text-secondary">{formatPrice(row.amount)}</div>
 					{/if}
 				</div>
 			{/each}
