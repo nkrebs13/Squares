@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 
 export const mockParty = {
 	id: 'test-party-id',
-	code: 'TEST1',
+	code: 'TEST12',
 	status: 'filling',
 	square_price: 5,
 	split_q1: 10,
@@ -177,21 +177,24 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	const scoresData = { ...mockScores, ...overrides.scoresOverrides };
 	const winnersData = overrides.winnersData ?? [];
 
-	// Mock party lookup by code
-	await page.route('**/rest/v1/parties?*code=eq.TEST1*', (route) => {
-		route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify(partyData),
-		});
-	});
+	// Mock party lookup by code or ID. Match the endpoint broadly because
+	// Supabase can reorder query parameters across client versions.
+	await page.route('**/rest/v1/parties*', (route) => {
+		const url = new URL(route.request().url());
+		const codeFilter = url.searchParams.get('code');
+		const idFilter = url.searchParams.get('id');
+		const isLookupByCode = codeFilter === `eq.${partyData.code}`;
+		const isLookupById = idFilter === `eq.${partyData.id}`;
 
-	// Mock party by ID
-	await page.route('**/rest/v1/parties?*id=eq.test-party-id*', (route) => {
+		if (!isLookupByCode && !isLookupById) {
+			route.continue();
+			return;
+		}
+
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
-			body: JSON.stringify([partyData]),
+			body: JSON.stringify(isLookupById ? [partyData] : partyData),
 		});
 	});
 

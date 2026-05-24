@@ -50,7 +50,7 @@ test.describe('Join Party Page', () => {
 	});
 
 	test('Join Party button is enabled without nickname', async ({ page }) => {
-		await page.getByPlaceholder('ABCD12').fill('TEST1');
+		await page.getByPlaceholder('ABCD12').fill('TEST12');
 		await page.getByPlaceholder(/enter your name/i).fill('Test Player');
 
 		const joinButton = page.getByRole('button', { name: /join party/i });
@@ -64,7 +64,7 @@ test.describe('Join Party Page', () => {
 
 	test('Join Party button is enabled when code and name are provided', async ({ page }) => {
 		const codeInput = page.getByPlaceholder('ABCD12');
-		await codeInput.fill('TEST1');
+		await codeInput.fill('TEST12');
 
 		const nameInput = page.getByPlaceholder(/enter your name/i);
 		await nameInput.fill('Test Player');
@@ -74,26 +74,30 @@ test.describe('Join Party Page', () => {
 	});
 
 	test('pre-fills code from URL query parameter', async ({ page }) => {
-		await page.goto('/join?code=XYZ99');
+		await page.goto('/join?code=xyz-999');
 
 		const codeInput = page.getByPlaceholder('ABCD12');
-		await expect(codeInput).toHaveValue('XYZ99');
+		await expect(codeInput).toHaveValue('XYZ999');
 	});
 
-	test('converts party code to uppercase', async ({ page }) => {
+	test('accepts pasted party code separators', async ({ page }) => {
 		const codeInput = page.getByPlaceholder('ABCD12');
-		await codeInput.fill('abcd');
+		const joinButton = page.getByRole('button', { name: /join party/i });
 
-		// The input should display uppercase
-		await expect(codeInput).toHaveClass(/uppercase/);
+		await codeInput.fill('demo-01');
+		await page.getByPlaceholder(/enter your name/i).fill('Test Player');
+
+		await expect(joinButton).toBeEnabled();
 	});
 
-	test('party code has max length of 6', async ({ page }) => {
+	test('accepts pasted party code prefixes longer than 6 characters', async ({ page }) => {
 		const codeInput = page.getByPlaceholder('ABCD12');
+		const joinButton = page.getByRole('button', { name: /join party/i });
 
 		await codeInput.fill('ABCDEFGH');
-		const value = await codeInput.inputValue();
-		expect(value.length).toBeLessThanOrEqual(6);
+		await page.getByPlaceholder(/enter your name/i).fill('Test Player');
+
+		await expect(joinButton).toBeEnabled();
 	});
 
 	test('name has max length of 20', async ({ page }) => {
@@ -109,6 +113,8 @@ test.describe('Join Party Page', () => {
 
 test.describe('Join Party - Nickname Flow', () => {
 	test('nickname is stored and shown in recent parties', async ({ page }) => {
+		await setupSupabaseMocks(page);
+
 		// Mock party lookup
 		await page.route('**/rest/v1/parties*', (route) => {
 			if (route.request().method() === 'GET') {
@@ -117,7 +123,7 @@ test.describe('Join Party - Nickname Flow', () => {
 					contentType: 'application/json',
 					body: JSON.stringify({
 						id: 'test-party-id',
-						code: 'NICK1',
+						code: 'NICK12',
 						status: 'filling',
 						square_price: 5,
 						split_q1: 10,
@@ -141,9 +147,7 @@ test.describe('Join Party - Nickname Flow', () => {
 			}
 		});
 
-		await setupSupabaseMocks(page);
-
-		await page.goto('/join?code=NICK1');
+		await page.goto('/join?code=NICK12');
 
 		// Fill in name and nickname
 		await page.getByPlaceholder(/enter your name/i).fill('Player');
@@ -204,7 +208,7 @@ test.describe('Join Party Page - With Mocked Supabase', () => {
 		await page.goto('/join');
 
 		const codeInput = page.getByPlaceholder('ABCD12');
-		await codeInput.fill('XXXXX');
+		await codeInput.fill('NOT123');
 
 		const nameInput = page.getByPlaceholder(/enter your name/i);
 		await nameInput.fill('Test Player');
@@ -231,7 +235,7 @@ test.describe('Join Party - Host PIN Challenge', () => {
 			});
 		});
 
-		await page.goto('/join?code=TEST1');
+		await page.goto('/join?code=TEST12');
 
 		// Enter the host name (matching 'host')
 		await page.getByPlaceholder(/enter your name/i).fill('Host');
@@ -268,7 +272,7 @@ test.describe('Join Party - Host PIN Challenge', () => {
 		// Mock remaining routes for the party page it navigates to
 		await setupSupabaseMocks(page);
 
-		await page.goto('/join?code=TEST1');
+		await page.goto('/join?code=TEST12');
 
 		await page.getByPlaceholder(/enter your name/i).fill('Host');
 		await page.getByRole('button', { name: /join party/i }).click();
@@ -281,7 +285,7 @@ test.describe('Join Party - Host PIN Challenge', () => {
 		await page.getByRole('button', { name: /verify/i }).click();
 
 		// Should navigate to party page
-		await expect(page).toHaveURL('/party/TEST1', { timeout: 10000 });
+		await expect(page).toHaveURL('/party/TEST12', { timeout: 10000 });
 	});
 
 	test('incorrect PIN shows error', async ({ page }) => {
@@ -307,7 +311,7 @@ test.describe('Join Party - Host PIN Challenge', () => {
 			});
 		});
 
-		await page.goto('/join?code=TEST1');
+		await page.goto('/join?code=TEST12');
 
 		await page.getByPlaceholder(/enter your name/i).fill('Host');
 		await page.getByRole('button', { name: /join party/i }).click();
@@ -337,7 +341,7 @@ test.describe('Join Party - Host PIN Challenge', () => {
 			});
 		});
 
-		await page.goto('/join?code=TEST1');
+		await page.goto('/join?code=TEST12');
 
 		await page.getByPlaceholder(/enter your name/i).fill('Host');
 		await page.getByRole('button', { name: /join party/i }).click();

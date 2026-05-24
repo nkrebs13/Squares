@@ -4,13 +4,13 @@ import { userEvent } from '@testing-library/user-event';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 import { userName } from '$lib/stores/user';
 
-// Mock $app/stores with a URL that has ?code=PREFILL
+// Mock $app/stores with a URL that has ?code=demo-01
 vi.mock('$app/stores', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		page: readable({
 			params: {},
-			url: new URL('http://localhost/join?code=PREFILL'),
+			url: new URL('http://localhost/join?code=demo-01'),
 			route: { id: '/join' },
 		}),
 	};
@@ -29,7 +29,7 @@ describe('Join Page', () => {
 
 			await waitFor(() => {
 				const codeInput = screen.getByPlaceholderText('ABCD12') as HTMLInputElement;
-				expect(codeInput.value).toBe('PREFILL');
+				expect(codeInput.value).toBe('DEMO01');
 			});
 		});
 
@@ -118,7 +118,7 @@ describe('Join Page', () => {
 			await user.click(screen.getByRole('button', { name: /Join Party/i }));
 
 			await waitFor(() => {
-				expect(goto).toHaveBeenCalledWith('/party/PREFILL');
+				expect(goto).toHaveBeenCalledWith('/party/DEMO01');
 			});
 		});
 	});
@@ -192,11 +192,11 @@ describe('Join Page', () => {
 			await user.click(screen.getByRole('button', { name: /Verify/i }));
 
 			await waitFor(() => {
-				expect(goto).toHaveBeenCalledWith('/party/PREFILL');
+				expect(goto).toHaveBeenCalledWith('/party/DEMO01');
 			});
 
 			// PIN should have been stored in sessionStorage
-			expect(sessionStorageMock.setItem).toHaveBeenCalledWith('squares_pin_PREFILL', '1234');
+			expect(sessionStorageMock.setItem).toHaveBeenCalledWith('squares_pin_DEMO01', '1234');
 		});
 
 		it('wrong PIN → error message', async () => {
@@ -274,7 +274,7 @@ describe('Join Page', () => {
 			const { get: idbGet } = await import('idb-keyval');
 
 			// Return a stored PIN
-			vi.mocked(idbGet).mockResolvedValue({ PREFILL: '1234' });
+			vi.mocked(idbGet).mockResolvedValue({ DEMO01: '1234' });
 
 			const mockPartyChain = {
 				select: vi.fn().mockReturnThis(),
@@ -299,7 +299,7 @@ describe('Join Page', () => {
 
 			// Should auto-navigate without showing PIN modal
 			await waitFor(() => {
-				expect(goto).toHaveBeenCalledWith('/party/PREFILL');
+				expect(goto).toHaveBeenCalledWith('/party/DEMO01');
 			});
 
 			// Should NOT have shown the PIN challenge
