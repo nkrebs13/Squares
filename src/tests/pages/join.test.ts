@@ -74,6 +74,10 @@ function previewParty(overrides: Record<string, unknown> = {}) {
 		team_row_name: 'Ravens',
 		team_col_name: 'Lions',
 		square_price: 5,
+		split_q1: 10,
+		split_q2: 20,
+		split_q3: 30,
+		split_final: 40,
 		...overrides,
 	};
 }
@@ -125,6 +129,10 @@ describe('Join Page', () => {
 			expect(screen.getByText('$5')).toBeInTheDocument();
 			expect(screen.getByText('88')).toBeInTheDocument();
 			expect(screen.getByText('Full pot: $500')).toBeInTheDocument();
+			expect(screen.getByTestId('join-payout-q1')).toHaveTextContent('$50');
+			expect(screen.getByTestId('join-payout-q2')).toHaveTextContent('$100');
+			expect(screen.getByTestId('join-payout-q3')).toHaveTextContent('$150');
+			expect(screen.getByTestId('join-payout-final')).toHaveTextContent('$200');
 			expect(screen.getByText('filling')).toBeInTheDocument();
 		});
 
