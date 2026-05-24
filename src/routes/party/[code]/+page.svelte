@@ -12,6 +12,12 @@
 	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import {
+		buildPartyCanonicalUrl,
+		buildPartyPageTitle,
+		buildPartyShareDescription,
+		partyToShareMetadata,
+	} from '$lib/partyMeta';
+	import {
 		saveRecentParty,
 		hasHostPin,
 		partyPinKey,
@@ -21,12 +27,19 @@
 	} from '$lib/storage';
 	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
+	import type { PartyShareMetadata } from '$lib/partyMeta';
 
+	const { data = { partyMeta: null } } = $props<{
+		data?: { partyMeta: PartyShareMetadata | null };
+	}>();
 	const code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
 	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
-	const pageTitle = $derived(
-		$party ? `${APP_CONFIG.appName} — ${$party.event_name}: ${matchupLabel}` : APP_CONFIG.appName
+	const shareMeta = $derived($party ? partyToShareMetadata($party) : data.partyMeta);
+	const pageTitle = $derived(buildPartyPageTitle(shareMeta));
+	const pageDescription = $derived(buildPartyShareDescription(shareMeta));
+	const canonicalUrl = $derived(
+		buildPartyCanonicalUrl(shareMeta?.code || code || APP_CONFIG.demoPartyCode)
 	);
 
 	// Check if user is host (has PIN stored)
@@ -94,11 +107,14 @@
 
 <svelte:head>
 	<title>{pageTitle}</title>
+	<meta name="description" content={pageDescription} />
+	<link rel="canonical" href={canonicalUrl} />
+	<meta property="og:url" content={canonicalUrl} />
 	<meta property="og:title" content={pageTitle} />
-	<meta property="og:description" content={APP_CONFIG.appDescription} />
+	<meta property="og:description" content={pageDescription} />
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content={pageTitle} />
-	<meta name="twitter:description" content={APP_CONFIG.appDescription} />
+	<meta name="twitter:description" content={pageDescription} />
 </svelte:head>
 
 <div class="party-page">
