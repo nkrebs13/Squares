@@ -353,8 +353,13 @@ describe('loadParty branches', () => {
 			updated_at: new Date().toISOString(),
 		};
 
+		const syncedParty = createMockParty({
+			...mockParty,
+			home_team_is_row: true,
+		});
+
 		// Calls: parties, [squares, numbers, scores, game_scores, winners] via Promise.all,
-		// then parties(update) fire-and-forget after Promise.all resolves
+		// then sync_party_home_team_mapping fire-and-forget after Promise.all resolves
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
@@ -363,10 +368,14 @@ describe('loadParty branches', () => {
 			.mockReturnValueOnce(
 				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
 			) // game_scores
-			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>) // winners
-			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>); // parties update (fire-and-forget)
+			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>); // winners
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: syncedParty, error: null });
 
 		const result = await loadParty('TEST123');
+		await Promise.resolve();
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('sync_party_home_team_mapping', {
+			p_party_id: 'test-party-id',
+		});
 
 		expect(result).toBe(true);
 		const loadedParty = get(party);
@@ -407,8 +416,8 @@ describe('loadParty branches', () => {
 			updated_at: new Date().toISOString(),
 		};
 
-		// Calls: parties, squares, numbers, scores, game_scores, winners
-		// (no correction because home_team_is_row already correct)
+		// Calls: parties, squares, numbers, scores, game_scores, winners,
+		// then sync_party_home_team_mapping fire-and-forget.
 		mockSupabaseClient.from
 			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
 			.mockReturnValueOnce(makeSquaresChain() as ReturnType<typeof mockSupabaseClient.from>)
@@ -418,8 +427,13 @@ describe('loadParty branches', () => {
 				makeQueryChain(mockGameScoresData) as ReturnType<typeof mockSupabaseClient.from>
 			) // game_scores
 			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: mockParty, error: null });
 
 		const result = await loadParty('TEST123');
+		await Promise.resolve();
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('sync_party_home_team_mapping', {
+			p_party_id: 'test-party-id',
+		});
 
 		expect(result).toBe(true);
 		const loadedParty = get(party);

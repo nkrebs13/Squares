@@ -1,5 +1,5 @@
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
-import { cleanupParty, ensureSupabaseReady, getTestClient } from './helpers';
+import { cleanupParty, ensureSupabaseReady, getServiceRoleClient, getTestClient } from './helpers';
 
 const client = getTestClient();
 const createdPartyIds: string[] = [];
@@ -87,7 +87,7 @@ describe('update_party_details RPC', () => {
 
 	it('rejects edits after the grid is locked', async () => {
 		const party = await createParty();
-		const { error: statusError } = await client
+		const { error: statusError } = await getServiceRoleClient()
 			.from('parties')
 			.update({ status: 'active' })
 			.eq('id', party.id);
