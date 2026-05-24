@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { setupSupabaseMocks, setupSupabaseMocksWithOverrides } from './fixtures/supabase-mocks';
+import {
+	generatePartiallyFilledSquares,
+	setupSupabaseMocks,
+	setupSupabaseMocksWithOverrides,
+} from './fixtures/supabase-mocks';
 
 async function mockHostPartyLookup(page: Page) {
 	await page.context().route('**/rest/v1/parties*', (route) => {
@@ -109,9 +113,14 @@ test.describe('Join Party Page', () => {
 				code: 'FUTR27',
 				event_name: '2027 Championship',
 				kickoff_at: '2027-02-14T23:30:00.000Z',
+				square_price: 5,
 				team_row_name: 'Ravens',
 				team_col_name: 'Lions',
 			},
+			squaresData: generatePartiallyFilledSquares('test-party-id', [
+				{ row: 0, col: 0, name: 'Alice' },
+				{ row: 0, col: 1, name: 'Bob' },
+			]),
 		});
 
 		await page.goto('/join?code=FUTR27');
@@ -119,6 +128,9 @@ test.describe('Join Party Page', () => {
 		await expect(page.getByText('Party preview')).toBeVisible();
 		await expect(page.getByText('2027 Championship')).toBeVisible();
 		await expect(page.getByText('Ravens vs Lions')).toBeVisible();
+		await expect(page.getByText('$5', { exact: true })).toBeVisible();
+		await expect(page.getByText('98')).toBeVisible();
+		await expect(page.getByText('Full pot: $500')).toBeVisible();
 		await expect(page.getByText('filling')).toBeVisible();
 	});
 

@@ -13,15 +13,19 @@
 	} from '$lib/storage';
 	import type { PartyStatus } from '$lib/types';
 	import { formatKickoff } from '$lib/utils/datetime';
+	import { formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
 	interface PartyPreview {
+		id: string;
 		eventName: string;
 		kickoffAt: string | null;
 		status: PartyStatus;
 		teamRowName: string;
 		teamColName: string;
+		squarePrice: number;
+		filledCount: number | null;
 	}
 
 	let code = $state('');
@@ -143,7 +147,7 @@
 			const supabase = getSupabaseClient();
 			const { data, error: partyError } = await supabase
 				.from('parties')
-				.select('event_name, kickoff_at, status, team_row_name, team_col_name')
+				.select('id, event_name, kickoff_at, status, team_row_name, team_col_name, square_price')
 				.eq('code', partyCode)
 				.single();
 
@@ -155,12 +159,24 @@
 				return;
 			}
 
+			const { data: squaresData } = await supabase
+				.from('squares')
+				.select('player_name, claimed_at')
+				.eq('party_id', data.id);
+
+			if (requestId !== previewRequestId) return;
+
 			preview = {
+				id: data.id,
 				eventName: data.event_name,
 				kickoffAt: data.kickoff_at,
 				status: data.status,
 				teamRowName: data.team_row_name,
 				teamColName: data.team_col_name,
+				squarePrice: data.square_price,
+				filledCount: Array.isArray(squaresData)
+					? squaresData.filter((square) => square.player_name || square.claimed_at).length
+					: null,
 			};
 		} catch {
 			if (requestId === previewRequestId) {
@@ -260,6 +276,23 @@
 						<div class="mt-1 text-sm" style="color: var(--text-secondary)">
 							{preview.teamRowName} vs {preview.teamColName}
 						</div>
+						<div class="mt-3 grid grid-cols-2 gap-3">
+							<div>
+								<div class="text-xs uppercase" style="color: var(--text-muted)">
+									Price per square
+								</div>
+								<div class="font-semibold">{formatPrice(preview.squarePrice)}</div>
+							</div>
+							<div>
+								<div class="text-xs uppercase" style="color: var(--text-muted)">Open squares</div>
+								<div class="font-semibold">
+									{preview.filledCount === null ? 'Checking...' : 100 - preview.filledCount}
+								</div>
+							</div>
+						</div>
+						<p class="mt-2 text-sm" style="color: var(--text-muted)">
+							Full pot: {formatPrice(preview.squarePrice * 100)}
+						</p>
 						{#if formatKickoff(preview.kickoffAt)}
 							<div class="mt-1 text-sm" style="color: var(--text-muted)">
 								{formatKickoff(preview.kickoffAt, {
