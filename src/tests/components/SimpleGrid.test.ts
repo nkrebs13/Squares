@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { get } from 'svelte/store';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 import {
@@ -12,6 +13,7 @@ import {
 import { userName } from '$lib/stores/user';
 import { theme } from '$lib/stores/theme';
 import type { Party, Square as SquareType, Numbers, Winner } from '$lib/types';
+import { mockSupabaseClient } from '../setup';
 
 // Helper to create mock squares for a full 10x10 grid
 function createMockSquares(overrides: Partial<SquareType>[] = []): SquareType[] {
@@ -334,6 +336,40 @@ describe('SimpleGrid Component', () => {
 
 			// Touch should NOT start drag selection
 			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+		});
+	});
+
+	describe('Keyboard Actions', () => {
+		it('claims an empty square when activated from the keyboard', async () => {
+			setupStores({ withUser: 'TestUser', withNumbers: true });
+			render(SimpleGrid);
+
+			const emptySquares = screen
+				.getAllByRole('button')
+				.filter((b) => b.classList.contains('square-empty'));
+
+			await fireEvent(emptySquares[0], new MouseEvent('click', { bubbles: true, detail: 0 }));
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+				p_party_id: 'test-party',
+				p_row: 0,
+				p_col: 0,
+				p_player_name: 'TestUser',
+			});
+			expect(get(pendingOperations).has('0-0')).toBe(true);
+		});
+
+		it('does not treat mouse clicks as keyboard activation', async () => {
+			setupStores({ withUser: 'TestUser', withNumbers: true });
+			render(SimpleGrid);
+
+			const emptySquares = screen
+				.getAllByRole('button')
+				.filter((b) => b.classList.contains('square-empty'));
+
+			await fireEvent(emptySquares[0], new MouseEvent('click', { bubbles: true, detail: 1 }));
+
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
 		});
 	});
 

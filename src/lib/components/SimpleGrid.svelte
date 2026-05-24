@@ -216,6 +216,11 @@
 		}
 	}
 
+	function handleSquareKeyboardClick(row: number, col: number, e: MouseEvent) {
+		if (e.detail !== 0) return;
+		handleSquareClick(row, col);
+	}
+
 	// Check if a square has a pending operation
 	function isSquarePending(row: number, col: number): boolean {
 		return $pendingOperations.has(cellKey(row, col));
@@ -399,6 +404,7 @@
 										onpointerdown={(e) => handlePointerDown(row, col, e)}
 										onpointerenter={() => handlePointerMove(row, col)}
 										onpointerup={() => handlePointerUp(row, col)}
+										onclick={(e) => handleSquareKeyboardClick(row, col, e)}
 									/>
 								</div>
 							{/if}
