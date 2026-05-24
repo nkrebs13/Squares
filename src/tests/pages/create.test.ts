@@ -67,6 +67,19 @@ describe('Create Page', () => {
 			const button = screen.getByRole('button', { name: /Create Party/i });
 			expect(button).toBeEnabled();
 		});
+
+		it('Create button disabled when both matchup teams are the same', async () => {
+			render(CreatePage);
+			const user = userEvent.setup();
+
+			await user.type(screen.getByPlaceholderText('Enter your name'), 'Alice');
+			await user.type(screen.getByPlaceholderText('0000'), '1234');
+			await user.clear(screen.getByLabelText('Top Team'));
+			await user.type(screen.getByLabelText('Top Team'), '  seahawks  ');
+
+			expect(screen.getByText('Choose two different teams for the matchup.')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /Create Party/i })).toBeDisabled();
+		});
 	});
 
 	describe('Split Presets', () => {

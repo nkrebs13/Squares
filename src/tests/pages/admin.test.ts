@@ -870,6 +870,21 @@ describe('Admin Page - Score Entry', () => {
 			});
 		});
 
+		it('disables event detail saves when both matchup teams are the same', async () => {
+			renderAuthorizedAdmin({ status: 'filling' });
+			const user = userEvent.setup();
+
+			await user.clear(screen.getByLabelText('Top Team'));
+			await user.type(screen.getByLabelText('Top Team'), '  eagles  ');
+
+			expect(screen.getByText('Choose two different teams for the matchup.')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /Save Event Details/i })).toBeDisabled();
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+				'update_party_details',
+				expect.anything()
+			);
+		});
+
 		it('does NOT show event details editor after the grid is locked', () => {
 			renderAuthorizedAdmin({ status: 'active' });
 

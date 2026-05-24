@@ -118,6 +118,18 @@ describe('create_party RPC', () => {
 		}
 	});
 
+	it('rejects same-team matchups after trim, case, and whitespace normalization', async () => {
+		const { data, error } = await client.rpc('create_party', {
+			...validArgs,
+			p_team_row_name: 'New   York',
+			p_team_col_name: '  new york  ',
+		});
+
+		expect(data).toBeNull();
+		expect(error).toBeTruthy();
+		expect(error?.message ?? '').toMatch(/different teams/i);
+	});
+
 	it('produces a different code on each successive call (retry path is exercised statistically)', async () => {
 		// The RPC retries up to 5 times on UNIQUE collision. Two back-to-back calls
 		// will almost always pick different codes (32^6 alphabet); this smoke test

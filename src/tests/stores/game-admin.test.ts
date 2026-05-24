@@ -391,6 +391,28 @@ describe('updatePartyDetails', () => {
 
 		expect(result).toEqual({ success: false, error: 'Team names cannot be blank.' });
 	});
+
+	it('humanizes duplicate matchup team errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'matchup must use two different teams' },
+		});
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: 'Ravens',
+			teamColName: 'Ravens',
+			teamRowColor: '#241773',
+			teamColColor: '#0076B6',
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'Choose two different teams for the matchup.',
+		});
+	});
 });
 
 describe('removePlayer', () => {
