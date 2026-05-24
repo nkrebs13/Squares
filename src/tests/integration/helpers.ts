@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'not-set';
 
 /**
  * Create a Supabase client for integration tests.
@@ -9,6 +10,15 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
  */
 export function getTestClient(): SupabaseClient {
 	return createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+/**
+ * Create a service-role client for assertions against server-only tables.
+ * Integration tests use this for audit_log because anon SELECT was intentionally
+ * revoked by migration 024.
+ */
+export function getServiceRoleClient(): SupabaseClient {
+	return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 /**

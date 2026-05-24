@@ -22,6 +22,13 @@ describe('Home Page', () => {
 		expect(link).toHaveAttribute('href', '/create');
 	});
 
+	it('renders demo link pointing to the configured seeded party', () => {
+		render(HomePage);
+		const link = screen.getByRole('link', { name: /Try Demo/i });
+		expect(link).toBeInTheDocument();
+		expect(link).toHaveAttribute('href', '/join?code=DEMO01');
+	});
+
 	it('renders party code input', () => {
 		render(HomePage);
 		const input = screen.getByPlaceholderText('Enter party code');
@@ -71,5 +78,12 @@ describe('Home Page', () => {
 	it('renders tagline', () => {
 		render(HomePage);
 		expect(screen.getByText('Super Bowl party pools made easy')).toBeInTheDocument();
+	});
+
+	it('renders production highlights', () => {
+		render(HomePage);
+		expect(screen.getByText('live players')).toBeInTheDocument();
+		expect(screen.getByText('support requests')).toBeInTheDocument();
+		expect(screen.getByText('CI gates')).toBeInTheDocument();
 	});
 });

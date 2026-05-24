@@ -19,6 +19,14 @@ test.describe('Landing Page', () => {
 		await expect(page).toHaveURL('/create');
 	});
 
+	test('has demo link that opens the seeded demo party join flow', async ({ page }) => {
+		const demoLink = page.getByRole('link', { name: /try demo/i });
+		await expect(demoLink).toBeVisible();
+
+		await demoLink.click();
+		await expect(page).toHaveURL('/join?code=DEMO01');
+	});
+
 	test('has Join Party form with code input', async ({ page }) => {
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		await expect(codeInput).toBeVisible();
@@ -58,6 +66,12 @@ test.describe('Landing Page', () => {
 
 	test('displays hint about joining multiple parties', async ({ page }) => {
 		await expect(page.getByText(/join multiple parties/i)).toBeVisible();
+	});
+
+	test('displays production highlights', async ({ page }) => {
+		await expect(page.getByText(/live players/i)).toBeVisible();
+		await expect(page.getByText(/support requests/i)).toBeVisible();
+		await expect(page.getByText(/ci gates/i)).toBeVisible();
 	});
 });
 
@@ -122,7 +136,7 @@ test.describe('Recent Parties', () => {
 
 		// Status badge text mapping: filling->Filling, active->Live, complete->Done
 		await expect(page.getByText('Filling')).toBeVisible();
-		await expect(page.getByText('Live')).toBeVisible();
+		await expect(page.locator('.status-badge', { hasText: 'Live' })).toBeVisible();
 		await expect(page.getByText('Done')).toBeVisible();
 	});
 

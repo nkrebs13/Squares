@@ -73,13 +73,19 @@ test.describe('Keyboard Navigation', () => {
 		const createButton = page.getByRole('link', { name: /create party/i });
 		await expect(createButton).toBeFocused();
 
+		// Tab to demo link
+		await page.keyboard.press('Tab');
+		const demoLink = page.getByRole('link', { name: /try demo/i });
+		await expect(demoLink).toBeFocused();
+
 		// Tab to code input
 		await page.keyboard.press('Tab');
 		const codeInput = page.getByPlaceholder(/enter party code/i);
 		await expect(codeInput).toBeFocused();
 
 		// Type a code so the join button becomes enabled (disabled buttons can't receive focus)
-		await codeInput.fill('TEST1');
+		await codeInput.pressSequentially('TEST1');
+		await expect(page.getByRole('button', { name: /join party/i })).toBeEnabled();
 
 		// Tab to join button and wait for focus to settle
 		await page.keyboard.press('Tab');
