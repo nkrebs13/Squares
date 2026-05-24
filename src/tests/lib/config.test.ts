@@ -14,6 +14,7 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.appTagline).toBe('Super Bowl party pools made easy');
 		expect(APP_CONFIG.appDescription).toContain('Super Bowl');
 		expect(APP_CONFIG.demoPartyCode).toBe('DEMO01');
+		expect(APP_CONFIG.defaultEventName).toBe('Football Squares');
 		expect(APP_CONFIG.defaultTeams.row.name).toBe('Seahawks');
 		expect(APP_CONFIG.defaultTeams.row.color).toBe('#69BE28');
 		expect(APP_CONFIG.defaultTeams.col.name).toBe('Patriots');
@@ -30,6 +31,7 @@ describe('APP_CONFIG', () => {
 				PUBLIC_APP_TAGLINE: 'A different tagline',
 				PUBLIC_APP_DESCRIPTION: 'A different description',
 				PUBLIC_DEMO_PARTY_CODE: 'PLAY99',
+				PUBLIC_DEFAULT_EVENT_NAME: '2027 Super Bowl',
 				PUBLIC_DEFAULT_TEAM_ROW_NAME: 'Lakers',
 				PUBLIC_DEFAULT_TEAM_ROW_COLOR: '#552583',
 				PUBLIC_DEFAULT_TEAM_COL_NAME: 'Celtics',
@@ -45,6 +47,7 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.appTagline).toBe('A different tagline');
 		expect(APP_CONFIG.appDescription).toBe('A different description');
 		expect(APP_CONFIG.demoPartyCode).toBe('PLAY99');
+		expect(APP_CONFIG.defaultEventName).toBe('2027 Super Bowl');
 		expect(APP_CONFIG.defaultTeams.row.name).toBe('Lakers');
 		expect(APP_CONFIG.defaultTeams.row.color).toBe('#552583');
 		expect(APP_CONFIG.defaultTeams.col.name).toBe('Celtics');

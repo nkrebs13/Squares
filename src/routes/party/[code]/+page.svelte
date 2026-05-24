@@ -17,6 +17,10 @@
 
 	const code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
+	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const pageTitle = $derived(
+		$party ? `${APP_CONFIG.appName} — ${$party.event_name}: ${matchupLabel}` : APP_CONFIG.appName
+	);
 
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
@@ -44,6 +48,8 @@
 		const recentParty: RecentParty = {
 			code: $party.code,
 			nickname,
+			eventName: $party.event_name,
+			kickoffAt: $party.kickoff_at,
 			teamRowName: $party.team_row_name,
 			teamColName: $party.team_col_name,
 			lastVisited: Date.now(),
@@ -80,25 +86,11 @@
 </script>
 
 <svelte:head>
-	<title
-		>{$party
-			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: APP_CONFIG.appName}</title
-	>
-	<meta
-		property="og:title"
-		content={$party
-			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: APP_CONFIG.appName}
-	/>
+	<title>{pageTitle}</title>
+	<meta property="og:title" content={pageTitle} />
 	<meta property="og:description" content={APP_CONFIG.appDescription} />
 	<meta name="twitter:card" content="summary" />
-	<meta
-		name="twitter:title"
-		content={$party
-			? `${APP_CONFIG.appName} — ${$party.team_row_name} vs ${$party.team_col_name}`
-			: APP_CONFIG.appName}
-	/>
+	<meta name="twitter:title" content={pageTitle} />
 	<meta name="twitter:description" content={APP_CONFIG.appDescription} />
 </svelte:head>
 
@@ -121,8 +113,9 @@
 			<div>
 				<a href="/" class="text-sm hover:opacity-100 text-secondary">← Home</a>
 				<h1 class="text-2xl font-bold mt-1">
-					{$party.team_row_name} vs {$party.team_col_name}
+					{$party.event_name}
 				</h1>
+				<p class="mt-1 text-sm text-secondary">{matchupLabel}</p>
 			</div>
 			{#if isHost}
 				<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>

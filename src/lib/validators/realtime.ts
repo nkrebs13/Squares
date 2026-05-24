@@ -115,6 +115,8 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isStr(p.id)) return warn('parties', p, 'id missing');
 	if (!isStr(p.code)) return warn('parties', p, 'code missing');
 	if (!isStrOrNull(p.host_name_lower)) return warn('parties', p, 'host_name_lower not str|null');
+	if (!isStr(p.event_name)) return warn('parties', p, 'event_name missing');
+	if (!isStrOrNull(p.kickoff_at)) return warn('parties', p, 'kickoff_at not str|null');
 	if (!isNum(p.square_price)) return warn('parties', p, 'square_price missing');
 	if (!isNum(p.split_q1)) return warn('parties', p, 'split_q1 missing');
 	if (!isNum(p.split_q2)) return warn('parties', p, 'split_q2 missing');
@@ -136,6 +138,8 @@ export function parseParty(payload: unknown): Party | null {
 		id: p.id,
 		code: p.code,
 		host_name_lower: p.host_name_lower,
+		event_name: p.event_name,
+		kickoff_at: p.kickoff_at,
 		square_price: p.square_price,
 		split_q1: p.split_q1,
 		split_q2: p.split_q2,

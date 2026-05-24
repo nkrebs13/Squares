@@ -124,11 +124,15 @@ test.describe('Join Party - Nickname Flow', () => {
 						split_q2: 20,
 						split_q3: 30,
 						split_final: 40,
+						event_name: 'Office Pool',
+						kickoff_at: null,
 						team_row_name: 'Eagles',
 						team_col_name: 'Chiefs',
 						team_row_color: '#004c54',
 						team_col_color: '#e31837',
 						host_name_lower: 'host',
+						game_id: null,
+						home_team_is_row: true,
 						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 					}),
 				});
@@ -148,7 +152,9 @@ test.describe('Join Party - Nickname Flow', () => {
 		await page.getByRole('button', { name: /join party/i }).click();
 
 		// Wait for party page to fully load
-		await expect(page.getByText('Eagles vs Chiefs')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('heading', { name: 'Office Pool' })).toBeVisible({
+			timeout: 10000,
+		});
 
 		// Wait for saveToRecentParties() IDB write to complete before navigating away.
 		// The heading renders when $party is set inside loadParty(), but

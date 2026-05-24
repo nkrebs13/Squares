@@ -18,6 +18,8 @@ afterEach(async () => {
 });
 
 const validArgs = {
+	p_event_name: '2027 Super Bowl',
+	p_kickoff_at: '2027-02-14T23:30:00.000Z',
 	p_host_name: 'Nathan',
 	p_pin: '1234',
 	p_square_price: 1.0,
@@ -37,6 +39,8 @@ describe('create_party RPC', () => {
 		expect(party.id).toMatch(/^[0-9a-f-]{36}$/i);
 		expect(party.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
 		expect(party.status).toBe('filling');
+		expect(party.event_name).toBe('2027 Super Bowl');
+		expect(party.kickoff_at).toBeTruthy();
 		expect(party.host_pin).toBe('1234');
 		expect(party.host_name_lower).toBe('nathan');
 
@@ -153,6 +157,18 @@ describe('create_party RPC', () => {
 		expect(party).toBeTruthy();
 		const partyRow = party as Record<string, unknown>;
 		expect(partyRow.host_name_lower).toBe('nathan');
+		createdPartyIds.push(partyRow.id as string);
+	});
+
+	it('defaults blank event_name to a usable title', async () => {
+		const { data: party, error } = await client.rpc('create_party', {
+			...validArgs,
+			p_event_name: '   ',
+		});
+		expect(error).toBeNull();
+		expect(party).toBeTruthy();
+		const partyRow = party as Record<string, unknown>;
+		expect(partyRow.event_name).toBe('Football Squares');
 		createdPartyIds.push(partyRow.id as string);
 	});
 

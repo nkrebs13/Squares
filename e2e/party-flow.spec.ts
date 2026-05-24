@@ -26,9 +26,8 @@ test.describe('Party Page - Mocked Flow', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST1');
 
-		// Should show team names in the heading
-		await expect(page.getByRole('heading', { name: /seahawks/i })).toBeVisible();
-		await expect(page.getByRole('heading', { name: /patriots/i })).toBeVisible();
+		await expect(page.getByRole('heading', { name: /test football squares/i })).toBeVisible();
+		await expect(page.getByText(/seahawks vs patriots/i).first()).toBeVisible();
 	});
 
 	test('displays the 10x10 grid', async ({ page }) => {
@@ -380,9 +379,9 @@ test.describe('Party Page - OG Meta Tags', () => {
 		// Wait for page to load
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
-		// Verify OG meta tags (layout has default, party page overrides with team names)
+		// Verify OG meta tags (layout has default, party page overrides with event + teams)
 		const ogTitle = page.locator('meta[property="og:title"]').last();
-		await expect(ogTitle).toHaveAttribute('content', /Seahawks.*Patriots/);
+		await expect(ogTitle).toHaveAttribute('content', /Test Football Squares.*Seahawks.*Patriots/);
 
 		const ogDescription = page.locator('meta[property="og:description"]').last();
 		await expect(ogDescription).toHaveAttribute('content', /claim your squares/i);

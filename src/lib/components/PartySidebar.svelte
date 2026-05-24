@@ -15,7 +15,34 @@
 
 	const { variant }: Props = $props();
 	const isDesktop = $derived(variant === 'desktop');
+
+	function formatKickoff(value: string | null | undefined): string | null {
+		if (!value) return null;
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return null;
+		return new Intl.DateTimeFormat(undefined, {
+			weekday: 'short',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+		}).format(date);
+	}
 </script>
+
+{#if $party}
+	{@const kickoff = formatKickoff($party.kickoff_at)}
+	<div class="mb-4 card text-sm">
+		{#if isDesktop}
+			<h3 class="font-medium mb-2 text-secondary">Game</h3>
+		{/if}
+		<div class="font-semibold">{$party.event_name}</div>
+		<div class="mt-1 text-secondary">{$party.team_row_name} vs {$party.team_col_name}</div>
+		{#if kickoff}
+			<div class="mt-1 text-muted">{kickoff}</div>
+		{/if}
+	</div>
+{/if}
 
 <!-- Status banner -->
 {#if $party?.status === 'filling'}

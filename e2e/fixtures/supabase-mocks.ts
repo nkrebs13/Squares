@@ -11,11 +11,15 @@ export const mockParty = {
 	split_q2: 20,
 	split_q3: 30,
 	split_final: 40,
+	event_name: 'Test Football Squares',
+	kickoff_at: null,
 	team_row_name: 'Seahawks',
 	team_col_name: 'Patriots',
 	team_row_color: '#69be28',
 	team_col_color: '#c60c30',
 	host_name_lower: 'host',
+	game_id: null,
+	home_team_is_row: true,
 	expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -240,6 +244,15 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 				body: JSON.stringify(scoresData),
 			});
 		}
+	});
+
+	// Mock game score auto-detection/live-score fetches.
+	await page.route('**/rest/v1/game_scores*', (route) => {
+		route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify(null),
+		});
 	});
 
 	// Mock winners
