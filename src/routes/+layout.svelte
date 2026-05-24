@@ -14,10 +14,8 @@
 			requestPersistentStorage();
 
 			try {
-				// @ts-expect-error PWA virtual modules are generated at build time, not available to TypeScript
 				const { pwaInfo } = await import('virtual:pwa-info');
 				if (pwaInfo) {
-					// @ts-expect-error PWA virtual module generated at build time
 					const { registerSW } = await import('virtual:pwa-register');
 					registerSW({
 						immediate: true,
