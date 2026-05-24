@@ -2,8 +2,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const CLIENT_OUTPUT_DIR = '.svelte-kit/output/client';
-const EXPECTED_SW_URL = '"/sw.js"';
-const EXPECTED_SCOPE = 'scope:"/"';
+const ROOT_SW_URL_PATTERN = /['"`]\/sw\.js['"`]/;
+const ROOT_SCOPE_PATTERN = /scope\s*:\s*['"`]\/['"`]/;
+const RELATIVE_SW_URL_PATTERN = /['"`]\.\/sw\.js['"`]/;
+const RELATIVE_SCOPE_PATTERN = /scope\s*:\s*['"`]\.\/['"`]/;
 
 async function listJavaScriptFiles(dir) {
 	let entries;
@@ -50,14 +52,14 @@ if (registrationFiles.length !== 1) {
 }
 
 const [{ file, source }] = registrationFiles;
-const hasRootServiceWorkerUrl = source.includes(EXPECTED_SW_URL);
-const hasRootScope = source.includes(EXPECTED_SCOPE);
-const hasRelativeServiceWorkerUrl = source.includes('"./sw.js"');
-const hasRelativeScope = source.includes('scope:"./"');
+const hasRootServiceWorkerUrl = ROOT_SW_URL_PATTERN.test(source);
+const hasRootScope = ROOT_SCOPE_PATTERN.test(source);
+const hasRelativeServiceWorkerUrl = RELATIVE_SW_URL_PATTERN.test(source);
+const hasRelativeScope = RELATIVE_SCOPE_PATTERN.test(source);
 
 if (!hasRootServiceWorkerUrl || !hasRootScope || hasRelativeServiceWorkerUrl || hasRelativeScope) {
 	console.error(`PWA service worker registration is not root-scoped in ${file}.`);
-	console.error(`Expected generated registration to use ${EXPECTED_SW_URL} and ${EXPECTED_SCOPE}.`);
+	console.error('Expected generated registration to use /sw.js and scope: /.');
 	process.exit(1);
 }
 
