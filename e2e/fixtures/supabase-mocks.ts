@@ -20,6 +20,8 @@ export const mockParty = {
 	host_name_lower: 'host',
 	game_id: null,
 	home_team_is_row: true,
+	created_at: new Date().toISOString(),
+	updated_at: new Date().toISOString(),
 	expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -80,6 +82,7 @@ export const mockNumbers = {
 	party_id: 'test-party-id',
 	row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 	col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+	assigned_at: new Date().toISOString(),
 };
 
 export const mockScores = {
@@ -179,7 +182,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 
 	// Mock party lookup by code or ID. Match the endpoint broadly because
 	// Supabase can reorder query parameters across client versions.
-	await page.route('**/rest/v1/parties*', (route) => {
+	await page.context().route('**/rest/v1/parties*', (route) => {
 		const url = new URL(route.request().url());
 		const codeFilter = url.searchParams.get('code');
 		const idFilter = url.searchParams.get('id');
@@ -199,7 +202,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock squares
-	await page.route('**/rest/v1/squares*', (route) => {
+	await page.context().route('**/rest/v1/squares*', (route) => {
 		if (route.request().method() === 'GET') {
 			route.fulfill({
 				status: 200,
@@ -224,7 +227,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock numbers (returns single object for .single())
-	await page.route('**/rest/v1/numbers*', (route) => {
+	await page.context().route('**/rest/v1/numbers*', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -233,7 +236,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock scores (returns single object for .single())
-	await page.route('**/rest/v1/scores*', (route) => {
+	await page.context().route('**/rest/v1/scores*', (route) => {
 		if (route.request().method() === 'POST') {
 			route.fulfill({
 				status: 201,
@@ -250,7 +253,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock game score auto-detection/live-score fetches.
-	await page.route('**/rest/v1/game_scores*', (route) => {
+	await page.context().route('**/rest/v1/game_scores*', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -259,7 +262,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock winners
-	await page.route('**/rest/v1/winners*', (route) => {
+	await page.context().route('**/rest/v1/winners*', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -268,7 +271,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock RPC endpoints
-	await page.route('**/rest/v1/rpc/claim_square', (route) => {
+	await page.context().route('**/rest/v1/rpc/claim_square', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -276,7 +279,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
-	await page.route('**/rest/v1/rpc/unclaim_square', (route) => {
+	await page.context().route('**/rest/v1/rpc/unclaim_square', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -284,7 +287,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
-	await page.route('**/rest/v1/rpc/verify_host_pin', (route) => {
+	await page.context().route('**/rest/v1/rpc/verify_host_pin', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
@@ -293,7 +296,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock realtime connections
-	await page.route('**/realtime/**', (route) => {
+	await page.context().route('**/realtime/**', (route) => {
 		route.abort();
 	});
 }

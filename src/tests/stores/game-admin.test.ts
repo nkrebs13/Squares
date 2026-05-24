@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	lockParty,
@@ -415,14 +415,17 @@ describe('removePlayer', () => {
 
 	it('returns error when PIN is wrong (server rejects)', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns false for wrong PIN
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await removePlayer('9999', 'alice');
 		expect(result).toEqual({ success: false, removedCount: 0, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
-			p_party_code: 'TEST123',
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+			p_party_id: 'test-party-id',
 			p_pin: '9999',
+			p_player_name_lower: 'alice',
 		});
 	});
 
@@ -443,29 +446,16 @@ describe('removePlayer', () => {
 			}),
 		]);
 
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-		// Chain: .from().update().eq().eq().select() — select resolves with data
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: [{ id: 'sq-0-0' }, { id: 'sq-0-1' }],
-							error: null,
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
 
 		const result = await removePlayer('1234', 'alice');
 
 		expect(result).toEqual({ success: true, removedCount: 2 });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_player_name_lower: 'alice',
+		});
 		const currentSquares = get(squares);
 		expect(currentSquares[0].player_name).toBeNull();
 		expect(currentSquares[1].player_name).toBeNull();
@@ -474,31 +464,45 @@ describe('removePlayer', () => {
 
 	it('returns error on Supabase error', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-		// Chain: .from().update().eq().eq().select() — select resolves with error
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: null,
-							error: { message: 'DB error' },
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: 'DB error' } });
 
 		const result = await removePlayer('1234', 'alice');
 		expect(result).toEqual({
 			success: false,
 			removedCount: 0,
-			error: 'Failed to remove player. Please try again.',
+			error: 'DB error',
+		});
+	});
+
+	it('humanizes server locked-state errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'players can only be removed before the grid is locked' },
+		});
+
+		const result = await removePlayer('1234', 'alice');
+
+		expect(result).toEqual({
+			success: false,
+			removedCount: 0,
+			error: 'Cannot remove players after grid is locked',
+		});
+	});
+
+	it('humanizes missing player-name errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'player name must be provided' },
+		});
+
+		const result = await removePlayer('1234', '');
+
+		expect(result).toEqual({
+			success: false,
+			removedCount: 0,
+			error: 'Player name is required',
 		});
 	});
 });

@@ -93,6 +93,10 @@ export interface DatabaseRpcContract {
 		};
 		Returns: Party;
 	};
+	remove_player: {
+		Args: { p_party_id: string; p_pin: string; p_player_name_lower: string };
+		Returns: number;
+	};
 	sync_party_home_team_mapping: {
 		Args: { p_party_id: string };
 		Returns: Party;
