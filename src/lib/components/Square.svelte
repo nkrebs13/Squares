@@ -16,6 +16,7 @@
 		onpointerdown?: (e: PointerEvent) => void;
 		onpointerenter?: () => void;
 		onpointerup?: () => void;
+		onclick?: (e: MouseEvent) => void;
 	}
 
 	const {
@@ -31,6 +32,7 @@
 		onpointerdown,
 		onpointerenter,
 		onpointerup,
+		onclick,
 	}: Props = $props();
 
 	// Quarter display labels
@@ -102,6 +104,7 @@
 	{onpointerdown}
 	{onpointerenter}
 	{onpointerup}
+	{onclick}
 	disabled={isLocked || (square.player_name !== null && !isMine)}
 	aria-label={ariaLabel}
 	aria-pressed={isSelected}
