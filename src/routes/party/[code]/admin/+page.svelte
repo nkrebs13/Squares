@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { partyPinKey } from '$lib/storage';
+	import { partyPinKey, getSessionItem, setSessionItem } from '$lib/storage';
 	import {
 		party,
 		scores,
@@ -119,7 +119,7 @@
 		kickoffTimeZone = getLocalTimeZoneLabel();
 
 		if (browser) {
-			storedPin = sessionStorage.getItem(partyPinKey(code));
+			storedPin = getSessionItem(partyPinKey(code));
 			if (storedPin) {
 				isAuthorized = true;
 			}
@@ -221,7 +221,7 @@
 		try {
 			const isValid = await verifyHostPin(code, enteredPin);
 			if (isValid) {
-				sessionStorage.setItem(partyPinKey(code), enteredPin);
+				setSessionItem(partyPinKey(code), enteredPin);
 				storedPin = enteredPin;
 				isAuthorized = true;
 				pinAttempts = 0;

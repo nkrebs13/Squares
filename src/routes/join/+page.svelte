@@ -4,7 +4,13 @@
 	import { userName } from '$lib/stores/user';
 	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { getHostPin, setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
+	import {
+		getHostPin,
+		setHostPin,
+		partyPinKey,
+		partyNicknameKey,
+		setSessionItem,
+	} from '$lib/storage';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
@@ -113,7 +119,7 @@
 			if (isValid) {
 				// Store PIN in IndexedDB and session storage
 				await setHostPin(pendingPartyCode, pinInput);
-				sessionStorage.setItem(partyPinKey(pendingPartyCode), pinInput);
+				setSessionItem(partyPinKey(pendingPartyCode), pinInput);
 
 				// Proceed to party
 				userName.setName(name.trim());
@@ -133,7 +139,7 @@
 
 	function storeNickname(partyCode: string) {
 		if (nickname.trim()) {
-			sessionStorage.setItem(partyNicknameKey(partyCode), nickname.trim());
+			setSessionItem(partyNicknameKey(partyCode), nickname.trim());
 		}
 	}
 

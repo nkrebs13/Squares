@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
-	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
+	import { setHostPin, partyPinKey, partyNicknameKey, setSessionItem } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { datetimeLocalToIso, formatKickoff, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
@@ -95,14 +95,14 @@
 
 		// Persist PIN locally for host actions
 		await setHostPin(code, hostPin);
-		sessionStorage.setItem(partyPinKey(code), hostPin);
+		setSessionItem(partyPinKey(code), hostPin);
 
 		// Persist host name
 		await userName.setName(hostName.trim());
 
 		// Hand the party page an optional nickname for this code
 		if (nickname.trim()) {
-			sessionStorage.setItem(partyNicknameKey(code), nickname.trim());
+			setSessionItem(partyNicknameKey(code), nickname.trim());
 		}
 
 		goto(`/party/${code}`);
