@@ -30,6 +30,16 @@ describe('userName store', () => {
 		expect(get(userName)).toBeNull();
 	});
 
+	it('initializes as null when localStorage is unavailable', async () => {
+		vi.mocked(localStorage.getItem).mockImplementationOnce(() => {
+			throw new Error('storage blocked');
+		});
+		vi.resetModules();
+
+		const mod = await import('$lib/stores/user');
+		expect(get(mod.userName)).toBeNull();
+	});
+
 	it('setName sets store value', async () => {
 		await userName.setName('Alice');
 		expect(get(userName)).toBe('Alice');
@@ -44,6 +54,15 @@ describe('userName store', () => {
 		await userName.setName('Alice');
 		// The user store calls setUserName('Alice') which calls idb-keyval set()
 		expect(mockIdbSet).toHaveBeenCalledWith('squares_user_name', 'Alice');
+	});
+
+	it('setName updates the store when localStorage is unavailable', async () => {
+		vi.mocked(localStorage.setItem).mockImplementation(() => {
+			throw new Error('storage blocked');
+		});
+
+		await expect(userName.setName('Alice')).resolves.toBeUndefined();
+		expect(get(userName)).toBe('Alice');
 	});
 
 	it('setName trims whitespace', async () => {

@@ -174,7 +174,7 @@ test.describe('Join Party - Nickname Flow', () => {
 test.describe('Join Party Page - With Mocked Supabase', () => {
 	test('shows error when party is not found', async ({ page }) => {
 		// Mock Supabase response for party not found
-		await page.route('**/rest/v1/parties*', (route) => {
+		await page.context().route('**/rest/v1/parties*', (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
@@ -191,7 +191,11 @@ test.describe('Join Party Page - With Mocked Supabase', () => {
 		await nameInput.fill('Test Player');
 
 		const joinButton = page.getByRole('button', { name: /join party/i });
+		const partyLookup = page.waitForResponse(
+			(response) => response.url().includes('/rest/v1/parties') && response.status() === 200
+		);
 		await joinButton.click();
+		await partyLookup;
 
 		await expect(page.getByText(/party not found/i)).toBeVisible();
 	});
