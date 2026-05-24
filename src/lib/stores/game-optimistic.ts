@@ -257,10 +257,10 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 	const currentSquares = get(squares);
 	const timestamp = Date.now();
 
-	// Filter to only claimable cells
-	const claimableCells = cells.filter((cell) => {
+	// Filter to only claimable cells and keep each square's original state for rollback.
+	const claimableCells = cells.flatMap((cell) => {
 		const square = currentSquares.find((s) => s.row_num === cell.row && s.col_num === cell.col);
-		return square && !square.player_name;
+		return square && !square.player_name ? [{ ...cell, square }] : [];
 	});
 
 	if (claimableCells.length === 0) return;
@@ -269,11 +269,6 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(
 		(cell) => {
 			const key = squareKey(cell.row, cell.col);
-			// Square is guaranteed to exist — claimableCells is filtered from currentSquares
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-			const existingSquare = currentSquares.find(
-				(s) => s.row_num === cell.row && s.col_num === cell.col
-			)!;
 
 			return {
 				key,
@@ -285,9 +280,9 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 					timestamp,
 					status: 'pending' as const,
 					originalState: {
-						player_name: existingSquare.player_name,
-						player_name_lower: existingSquare.player_name_lower,
-						claimed_at: existingSquare.claimed_at,
+						player_name: cell.square.player_name,
+						player_name_lower: cell.square.player_name_lower,
+						claimed_at: cell.square.claimed_at,
 					},
 				},
 			};
@@ -339,11 +334,46 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 		.rpc('claim_squares_batch', {
 			p_party_id: currentParty.id,
 			p_player_name: currentUser,
-			p_cells: claimableCells,
+			p_cells: claimableCells.map(({ row, col }) => ({ row, col })),
 		})
 		.then(({ data, error: claimError }) => {
 			if (claimError) {
-				// Complete failure - show error
+				const latestOps = get(pendingOperations);
+				const rollbackOperations = operations.filter(
+					({ key, operation }) => latestOps.get(key)?.id === operation.id
+				);
+				const operationByKey = new Map(
+					rollbackOperations.map(({ key, operation }) => [key, operation])
+				);
+				const rollbackKeys = new Set(operationByKey.keys());
+
+				pendingOperations.update((ops) => {
+					const newOps = new Map(ops);
+					for (const { key, operation } of rollbackOperations) {
+						if (newOps.get(key)?.id === operation.id) {
+							newOps.delete(key);
+						}
+					}
+					return newOps;
+				});
+
+				if (rollbackKeys.size > 0) {
+					squares.update((current) =>
+						current.map((s) => {
+							const key = squareKey(s.row_num, s.col_num);
+							const operation = operationByKey.get(key);
+							return operation && rollbackKeys.has(key)
+								? {
+										...s,
+										player_name: operation.originalState.player_name,
+										player_name_lower: operation.originalState.player_name_lower,
+										claimed_at: operation.originalState.claimed_at,
+									}
+								: s;
+						})
+					);
+				}
+
 				toast.error("Couldn't save those claims — try again.");
 				return;
 			}
