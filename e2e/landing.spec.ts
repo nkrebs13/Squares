@@ -8,7 +8,7 @@ test.describe('Landing Page', () => {
 
 	test('displays the main heading and tagline', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
-		await expect(page.getByText(/super bowl party pools made easy/i)).toBeVisible();
+		await expect(page.getByText(/football squares pools for any game/i)).toBeVisible();
 	});
 
 	test('has Create Party button that navigates to create page', async ({ page }) => {

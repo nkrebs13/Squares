@@ -376,7 +376,7 @@ test.describe('Party Page - OG Meta Tags', () => {
 		await expect(ogTitle).toHaveAttribute('content', /Test Football Squares.*Seahawks.*Patriots/);
 
 		const ogDescription = page.locator('meta[property="og:description"]').last();
-		await expect(ogDescription).toHaveAttribute('content', /claim your squares/i);
+		await expect(ogDescription).toHaveAttribute('content', /track winners quarter by quarter/i);
 	});
 });
 
