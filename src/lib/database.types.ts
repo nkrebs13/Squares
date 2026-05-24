@@ -69,6 +69,19 @@ export interface DatabaseRpcContract {
 		};
 		Returns: boolean;
 	};
+	update_party_details: {
+		Args: {
+			p_party_id: string;
+			p_pin: string;
+			p_event_name: string;
+			p_kickoff_at?: string | null;
+			p_team_row_name?: string;
+			p_team_col_name?: string;
+			p_team_row_color?: string;
+			p_team_col_color?: string;
+		};
+		Returns: Party;
+	};
 	verify_host_pin: {
 		Args: { p_party_code: string; p_pin: string };
 		Returns: boolean;

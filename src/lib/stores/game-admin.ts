@@ -13,6 +13,16 @@ import {
 	error,
 } from './game-state';
 import { cleanupChannels } from './game-realtime';
+import { parseParty } from '$lib/validators/realtime';
+
+export interface PartyDetailsInput {
+	eventName: string;
+	kickoffAt: string | null;
+	teamRowName: string;
+	teamColName: string;
+	teamRowColor: string;
+	teamColColor: string;
+}
 
 export async function lockParty(pin: string): Promise<{ success: boolean; error?: string }> {
 	const currentParty = get(party);
@@ -124,6 +134,53 @@ export async function updatePayoutStructure(
 	);
 
 	return { success: true };
+}
+
+export async function updatePartyDetails(
+	pin: string,
+	details: PartyDetailsInput
+): Promise<{ success: boolean; error?: string }> {
+	const currentParty = get(party);
+	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (currentParty.status !== 'filling') {
+		return { success: false, error: 'Party details can only be changed before the grid is locked' };
+	}
+
+	const supabase = getSupabaseClient();
+	const { data, error: updateError } = await supabase.rpc('update_party_details', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_event_name: details.eventName,
+		p_kickoff_at: details.kickoffAt,
+		p_team_row_name: details.teamRowName,
+		p_team_col_name: details.teamColName,
+		p_team_row_color: details.teamRowColor,
+		p_team_col_color: details.teamColColor,
+	});
+
+	if (updateError) {
+		return { success: false, error: humanizePartyDetailsError(updateError.message) };
+	}
+
+	const updatedParty = parseParty(data);
+	if (!updatedParty) {
+		return { success: false, error: 'Server returned unexpected party details. Please refresh.' };
+	}
+
+	party.set(updatedParty);
+	return { success: true };
+}
+
+function humanizePartyDetailsError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized)) {
+		return 'Party details can only be changed before the grid is locked.';
+	}
+	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
+	if (/team_.*name/i.test(normalized)) return 'Team names cannot be blank.';
+	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
+	return normalized || 'Failed to update party details. Please try again.';
 }
 
 export async function removePlayer(

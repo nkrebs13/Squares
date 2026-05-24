@@ -3,6 +3,7 @@ import { get } from 'svelte/store';
 import {
 	lockParty,
 	updateScore,
+	updatePartyDetails,
 	updatePayoutStructure,
 	removePlayer,
 	deleteParty,
@@ -314,6 +315,100 @@ describe('updatePayoutStructure', () => {
 			p_party_code: 'TEST123',
 			p_pin: '9999',
 		});
+	});
+});
+
+describe('updatePartyDetails', () => {
+	beforeEach(() => {
+		cleanup();
+	});
+
+	it('returns error when no party loaded', async () => {
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: 'Eagles',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({ success: false, error: 'No party loaded' });
+	});
+
+	it('returns error when party is not filling', async () => {
+		party.set(createMockParty({ status: 'active' }));
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: 'Eagles',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'Party details can only be changed before the grid is locked',
+		});
+	});
+
+	it('updates local party state from the RPC response', async () => {
+		const updatedParty = createMockParty({
+			event_name: '2027 Championship',
+			kickoff_at: '2027-02-14T23:30:00.000Z',
+			team_row_name: 'Ravens',
+			team_col_name: 'Lions',
+			team_row_color: '#241773',
+			team_col_color: '#0076B6',
+			expires_at: '2027-02-28T23:30:00.000Z',
+		});
+
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: '2027-02-14T23:30:00.000Z',
+			teamRowName: 'Ravens',
+			teamColName: 'Lions',
+			teamRowColor: '#241773',
+			teamColColor: '#0076B6',
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_party_details', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_event_name: '2027 Championship',
+			p_kickoff_at: '2027-02-14T23:30:00.000Z',
+			p_team_row_name: 'Ravens',
+			p_team_col_name: 'Lions',
+			p_team_row_color: '#241773',
+			p_team_col_color: '#0076B6',
+		});
+		expect(get(party)?.event_name).toBe('2027 Championship');
+		expect(get(party)?.team_row_name).toBe('Ravens');
+	});
+
+	it('humanizes RPC validation errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'team_row_name must be non-empty after trim' },
+		});
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: '',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({ success: false, error: 'Team names cannot be blank.' });
 	});
 });
 

@@ -1,6 +1,6 @@
 # Football Squares
 
-> Real-time multiplayer Super Bowl pool. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
+> Real-time multiplayer football squares pools. Friends claim squares on a 10×10 grid; payouts go to whoever owns the cell whose row/column digits match the score at quarter-end. Built and run on Super Bowl Sunday for ~50 concurrent players.
 
 **[▶ Live Demo — squares.nathankrebs.com](https://squares.nathankrebs.com)**
 
@@ -27,6 +27,7 @@
 - **Optimistic claims with rollback** — taps feel instant; failed claims roll back with a toast (see [ADR-0002](docs/adr/0002-optimistic-chain.md))
 - **Custom teams** — set team names, colors, and logos per party; configurable app-wide via env vars
 - **Future-game ready** — name a specific event and optional kickoff; pools stay available through game day
+- **Editable setup before lock** — hosts can correct event details, kickoff, and matchup without recreating a pool
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
 - **PWA installable** on iOS + Android with push notifications
