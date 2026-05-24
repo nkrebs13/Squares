@@ -158,6 +158,7 @@
 					<a
 						class="card-nav-link"
 						href="/party/{party.code}"
+						data-sveltekit-reload
 						aria-label="Open {getDisplayName(party)}"
 						onclick={(e) => {
 							if (isEditing) e.preventDefault();
@@ -327,7 +328,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		z-index: 0;
+		z-index: 1;
 	}
 
 	.card-nav-link:focus-visible {
@@ -342,6 +343,7 @@
 		gap: 0.25rem;
 		flex: 1;
 		min-width: 0;
+		pointer-events: none;
 	}
 
 	/* Nickname display */
@@ -391,7 +393,8 @@
 	.confirm-remove,
 	.nickname-input {
 		position: relative;
-		z-index: 1;
+		z-index: 2;
+		pointer-events: auto;
 	}
 
 	.edit-icon {
@@ -482,6 +485,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-shrink: 0;
+		pointer-events: none;
 	}
 
 	.status-badge {

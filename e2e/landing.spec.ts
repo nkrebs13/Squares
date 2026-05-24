@@ -78,7 +78,7 @@ test.describe('Landing Page', () => {
 test.describe('Recent Parties', () => {
 	const recentParties = [
 		{
-			code: 'AAAA1',
+			code: 'AAAA11',
 			teamRowName: 'Eagles',
 			teamColName: 'Chiefs',
 			lastVisited: Date.now() - 1000,
@@ -86,7 +86,7 @@ test.describe('Recent Parties', () => {
 			isHost: true,
 		},
 		{
-			code: 'BBBB2',
+			code: 'BBBB22',
 			teamRowName: 'Rams',
 			teamColName: '49ers',
 			lastVisited: Date.now() - 2000,
@@ -94,7 +94,7 @@ test.describe('Recent Parties', () => {
 			isHost: false,
 		},
 		{
-			code: 'CCCC3',
+			code: 'CCCC33',
 			teamRowName: 'Bills',
 			teamColName: 'Dolphins',
 			lastVisited: Date.now() - 3000,
@@ -111,9 +111,9 @@ test.describe('Recent Parties', () => {
 
 		await expect(page.getByText(/recent parties/i)).toBeVisible({ timeout: 10000 });
 		// Should show party cards
-		await expect(page.getByText('AAAA1')).toBeVisible();
-		await expect(page.getByText('BBBB2')).toBeVisible();
-		await expect(page.getByText('CCCC3')).toBeVisible();
+		await expect(page.getByText('AAAA11')).toBeVisible();
+		await expect(page.getByText('BBBB22')).toBeVisible();
+		await expect(page.getByText('CCCC33')).toBeVisible();
 	});
 
 	test('displays team matchup', async ({ page }) => {
@@ -151,7 +151,7 @@ test.describe('Recent Parties', () => {
 		await page.locator('.card-nav-link').first().click();
 
 		// Should navigate to the party (or redirect to join since no user name is set)
-		await expect(page).toHaveURL(/\/(party|join).*AAAA1/);
+		await expect(page).toHaveURL(/\/(party|join).*AAAA11/);
 	});
 
 	test('remove button removes from list', async ({ page }) => {
