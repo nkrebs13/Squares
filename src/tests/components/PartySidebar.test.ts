@@ -100,7 +100,9 @@ import PartySidebar from '$lib/components/PartySidebar.svelte';
 const makeParty = (overrides = {}) => ({
 	id: 'test-id',
 	code: 'TEST01',
-	host_name_lower: 'host',
+	host_name_lower: null,
+	event_name: 'Test Football Squares',
+	kickoff_at: null,
 	square_price: 5,
 	split_q1: 25,
 	split_q2: 25,

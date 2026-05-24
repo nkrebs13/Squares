@@ -45,8 +45,25 @@
 		if (party.nickname) {
 			return party.nickname;
 		}
-		// Fallback to team matchup
-		return `${party.teamRowName} vs ${party.teamColName}`;
+		return party.eventName || `${party.teamRowName} vs ${party.teamColName}`;
+	}
+
+	function getDetailLine(party: RecentParty): string {
+		const matchup = `${party.teamRowName} vs ${party.teamColName}`;
+		if (!party.nickname && (!party.eventName || party.eventName === matchup)) return '';
+		if (party.nickname && (!party.eventName || party.eventName === matchup)) return matchup;
+		if (!party.kickoffAt) return matchup;
+
+		const kickoff = new Date(party.kickoffAt);
+		if (Number.isNaN(kickoff.getTime())) return matchup;
+
+		const formatted = new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+		}).format(kickoff);
+		return `${matchup} - ${formatted}`;
 	}
 
 	function handleRemove(e: Event, code: string) {
@@ -143,6 +160,7 @@
 			{#each recentParties as party (party.code)}
 				{@const badge = getStatusBadge(party.status)}
 				{@const isEditing = editingCode === party.code}
+				{@const detailLine = getDetailLine(party)}
 				<article class="party-card">
 					<a
 						class="card-nav-link"
@@ -194,6 +212,10 @@
 						{/if}
 						<div class="party-code-line">
 							<span class="party-code-small">{party.code}</span>
+							{#if detailLine}
+								<span class="separator">•</span>
+								<span class="party-detail-small">{detailLine}</span>
+							{/if}
 							{#if party.isHost}
 								<span class="separator">•</span>
 								<span class="host-badge-inline">Host</span>
@@ -439,6 +461,15 @@
 		font-size: 0.75rem;
 		color: var(--text-muted);
 		letter-spacing: 0.05em;
+	}
+
+	.party-detail-small {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.75rem;
+		color: var(--text-muted);
 	}
 
 	.separator {

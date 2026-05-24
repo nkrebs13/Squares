@@ -23,6 +23,8 @@ import type { Party, Quarter } from './types';
 export interface DatabaseRpcContract {
 	create_party: {
 		Args: {
+			p_event_name?: string;
+			p_kickoff_at?: string | null;
 			p_host_name: string;
 			p_pin: string;
 			p_square_price: number;

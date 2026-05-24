@@ -5,8 +5,10 @@
 	import { setHostPin, partyPinKey, partyNicknameKey } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { createParty as createPartyService } from '$lib/services/createParty';
-	import { DEFAULT_TEAMS } from '$lib/config';
+	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
+	let eventName = $state(APP_CONFIG.defaultEventName);
+	let kickoffInput = $state('');
 	let squarePriceInput = $state('1');
 	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
 	const isValidPrice = $derived(isValidAmount(squarePriceInput));
@@ -41,14 +43,18 @@
 	const isValidSplit = $derived(splitTotal === 100);
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
+	const isValidEventName = $derived(eventName.trim().length > 0 && eventName.trim().length <= 80);
 	const canCreate = $derived(
 		isValidSplit &&
 			isValidPin &&
 			isValidHostName &&
+			isValidEventName &&
 			isValidPrice &&
 			rowTeam.name.trim().length > 0 &&
 			colTeam.name.trim().length > 0
 	);
+
+	const kickoffAt = $derived(kickoffInput ? new Date(kickoffInput).toISOString() : null);
 
 	async function createParty() {
 		if (!canCreate || isCreating) return;
@@ -57,6 +63,8 @@
 		error = null;
 
 		const result = await createPartyService({
+			eventName: eventName.trim(),
+			kickoffAt,
 			hostName: hostName.trim(),
 			hostPin,
 			squarePrice,
@@ -104,6 +112,30 @@
 		}}
 		class="space-y-6 max-w-md mx-auto"
 	>
+		<!-- Event Details -->
+		<div class="card">
+			<label class="block">
+				<span class="text-sm" style="color: var(--text-secondary)">Event name</span>
+				<input
+					type="text"
+					bind:value={eventName}
+					placeholder="e.g. 2027 Super Bowl"
+					class="input mt-2"
+					maxlength="80"
+					autocomplete="off"
+					onblur={() => (eventName = eventName.trim() || APP_CONFIG.defaultEventName)}
+				/>
+			</label>
+			<label class="block mt-4">
+				<span class="text-sm" style="color: var(--text-secondary)">Kickoff time</span>
+				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
+			</label>
+			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+				Use a specific event name so this pool still makes sense when shared or revisited later.
+			</p>
+		</div>
+
 		<!-- Square Price -->
 		<div class="card">
 			<label class="block">

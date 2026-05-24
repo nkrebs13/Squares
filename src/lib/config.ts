@@ -5,6 +5,7 @@ import {
 	DEFAULT_APP_TAGLINE,
 	DEFAULT_APP_URL,
 	DEFAULT_DEMO_PARTY_CODE,
+	DEFAULT_EVENT_NAME,
 } from '$lib/app-defaults';
 
 /** Validate a CSS hex color from env config; fall back to the literal default if malformed. */
@@ -27,6 +28,9 @@ export const APP_CONFIG = {
 
 	/** Override with PUBLIC_DEMO_PARTY_CODE. Used by the home-page demo CTA. */
 	demoPartyCode: env.PUBLIC_DEMO_PARTY_CODE || DEFAULT_DEMO_PARTY_CODE,
+
+	/** Override with PUBLIC_DEFAULT_EVENT_NAME. Seeded into newly-created parties. */
+	defaultEventName: env.PUBLIC_DEFAULT_EVENT_NAME || DEFAULT_EVENT_NAME,
 
 	/** Default team labels seeded into the create-party form. */
 	defaultTeams: {

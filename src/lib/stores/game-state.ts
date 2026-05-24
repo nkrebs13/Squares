@@ -257,7 +257,7 @@ export async function loadParty(code: string) {
 		const { data: partyData, error: partyError } = await supabase
 			.from('parties')
 			.select(
-				'id, code, host_name_lower, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at, game_id, home_team_is_row'
+				'id, code, host_name_lower, event_name, kickoff_at, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at, game_id, home_team_is_row'
 			)
 			.eq('code', code.toUpperCase())
 			.single();

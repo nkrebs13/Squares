@@ -21,6 +21,8 @@ export interface Party {
 	code: string;
 	host_pin?: string;
 	host_name_lower: string | null;
+	event_name: string;
+	kickoff_at: string | null;
 	square_price: number;
 	split_q1: number;
 	split_q2: number;
@@ -141,6 +143,8 @@ export { DEFAULT_TEAMS } from '$lib/config';
 export interface RecentParty {
 	code: string;
 	nickname?: string; // user-defined nickname for easy identification
+	eventName?: string;
+	kickoffAt?: string | null;
 	teamRowName: string;
 	teamColName: string;
 	lastVisited: number; // timestamp

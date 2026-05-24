@@ -111,11 +111,12 @@ test.describe('Keyboard Navigation', () => {
 	test('can navigate create party form with keyboard', async ({ page }) => {
 		await page.goto('/create');
 
-		// Tab through form elements
-		await page.keyboard.press('Tab'); // Back link
-		await page.keyboard.press('Tab'); // Price input
-
 		const priceInput = page.locator('input[inputmode="decimal"]');
+		await page.getByRole('link', { name: /back/i }).focus();
+		for (let i = 0; i < 30; i++) {
+			if (await priceInput.evaluate((element) => element === document.activeElement)) break;
+			await page.keyboard.press('Tab');
+		}
 		await expect(priceInput).toBeFocused();
 	});
 });
@@ -170,6 +171,6 @@ test.describe('Visual Regression Prevention', () => {
 
 		// Check form cards are visible
 		const cards = page.locator('.card');
-		await expect(cards).toHaveCount(6); // Price, Split, Teams, Name, PIN, Nickname
+		await expect(cards).toHaveCount(7); // Event, Price, Split, Teams, Name, PIN, Nickname
 	});
 });
