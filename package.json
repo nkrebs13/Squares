@@ -1,6 +1,6 @@
 {
 	"name": "squares",
-	"description": "Real-time Super Bowl squares pool app built with SvelteKit 5, Supabase, and Cloudflare Pages",
+	"description": "Real-time football squares pool app built with SvelteKit 5, Supabase, and Cloudflare Pages",
 	"homepage": "https://squares.nathankrebs.com",
 	"repository": {
 		"type": "git",

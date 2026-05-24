@@ -88,7 +88,7 @@ describe('Home Page', () => {
 
 	it('renders tagline', () => {
 		render(HomePage);
-		expect(screen.getByText('Super Bowl party pools made easy')).toBeInTheDocument();
+		expect(screen.getByText('Football squares pools for any game')).toBeInTheDocument();
 	});
 
 	it('renders production highlights', () => {

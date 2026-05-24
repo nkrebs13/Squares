@@ -130,22 +130,22 @@ Full step-by-step instructions, env-var lists, custom-domain notes, and troubles
 
 Brand strings, default event/team labels, and currency live in [`src/lib/config.ts`](src/lib/config.ts) and read from `PUBLIC_*` env vars at build time. To rebrand without touching code, set the relevant entries in `.env.local` (or your platform's env-var dashboard) before `npm run build`:
 
-| Env var                         | Default                                |
-| ------------------------------- | -------------------------------------- |
-| `PUBLIC_APP_NAME`               | `Football Squares`                     |
-| `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`      |
-| `PUBLIC_APP_TAGLINE`            | `Super Bowl party pools made easy`     |
-| `PUBLIC_APP_DESCRIPTION`        | `Real-time Super Bowl squares pool. …` |
-| `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                               |
-| `PUBLIC_DEFAULT_EVENT_NAME`     | `Football Squares`                     |
-| `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                             |
-| `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                              |
-| `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                  |
-| `PUBLIC_DEFAULT_TEAM_COL_NAME`  | `Patriots`                             |
-| `PUBLIC_DEFAULT_TEAM_COL_COLOR` | `#C60C30`                              |
-| `PUBLIC_DEFAULT_TEAM_COL_LOGO`  | `/logos/patriots.png`                  |
-| `PUBLIC_CURRENCY_CODE`          | `USD` (any ISO 4217 code)              |
-| `PUBLIC_LOCALE`                 | `en-US` (any BCP 47 locale)            |
+| Env var                         | Default                               |
+| ------------------------------- | ------------------------------------- |
+| `PUBLIC_APP_NAME`               | `Football Squares`                    |
+| `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`     |
+| `PUBLIC_APP_TAGLINE`            | `Football squares pools for any game` |
+| `PUBLIC_APP_DESCRIPTION`        | `Real-time football squares pools. …` |
+| `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                              |
+| `PUBLIC_DEFAULT_EVENT_NAME`     | `Football Squares`                    |
+| `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                            |
+| `PUBLIC_DEFAULT_TEAM_ROW_COLOR` | `#69BE28`                             |
+| `PUBLIC_DEFAULT_TEAM_ROW_LOGO`  | `/logos/seahawks.png`                 |
+| `PUBLIC_DEFAULT_TEAM_COL_NAME`  | `Patriots`                            |
+| `PUBLIC_DEFAULT_TEAM_COL_COLOR` | `#C60C30`                             |
+| `PUBLIC_DEFAULT_TEAM_COL_LOGO`  | `/logos/patriots.png`                 |
+| `PUBLIC_CURRENCY_CODE`          | `USD` (any ISO 4217 code)             |
+| `PUBLIC_LOCALE`                 | `en-US` (any BCP 47 locale)           |
 
 `PUBLIC_APP_NAME` and `PUBLIC_APP_DESCRIPTION` are also picked up by the PWA manifest in `vite.config.ts`. All values fall back to the defaults above when unset, so a stock fork keeps the Football Squares experience.
 

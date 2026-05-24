@@ -11,8 +11,8 @@ describe('APP_CONFIG', () => {
 
 		expect(APP_CONFIG.appName).toBe('Football Squares');
 		expect(APP_CONFIG.appUrl).toBe('https://squares.nathankrebs.com');
-		expect(APP_CONFIG.appTagline).toBe('Super Bowl party pools made easy');
-		expect(APP_CONFIG.appDescription).toContain('Super Bowl');
+		expect(APP_CONFIG.appTagline).toBe('Football squares pools for any game');
+		expect(APP_CONFIG.appDescription).toContain('football squares pools');
 		expect(APP_CONFIG.demoPartyCode).toBe('DEMO01');
 		expect(APP_CONFIG.defaultEventName).toBe('Football Squares');
 		expect(APP_CONFIG.defaultTeams.row.name).toBe('Seahawks');
