@@ -40,6 +40,7 @@
 	import { goto } from '$app/navigation';
 	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
 	import { areDistinctTeamNames } from '$lib/utils/teamNames';
+	import { formatPrice } from '$lib/utils/format';
 
 	const code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
@@ -360,6 +361,13 @@
 	const splitTotal = $derived(
 		payoutSplits.q1 + payoutSplits.q2 + payoutSplits.q3 + payoutSplits.final
 	);
+	const payoutTotalPot = $derived(($party?.square_price ?? 0) * 100);
+	const payoutPreviewRows = $derived([
+		{ key: 'q1', label: 'Q1', percent: payoutSplits.q1 },
+		{ key: 'q2', label: 'Q2', percent: payoutSplits.q2 },
+		{ key: 'q3', label: 'Q3', percent: payoutSplits.q3 },
+		{ key: 'final', label: 'Final', percent: payoutSplits.final },
+	]);
 
 	async function handleUpdatePayout() {
 		if (!storedPin) return;
@@ -797,6 +805,28 @@
 
 						<div class="text-sm mb-4 {splitTotal === 100 ? '' : 'text-red-400'}">
 							Total: {splitTotal}% {splitTotal !== 100 ? '(must be 100%)' : '✓'}
+						</div>
+
+						<div
+							class="mb-4 rounded-lg border p-3"
+							style="border-color: rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03);"
+							data-testid="admin-payout-preview"
+						>
+							<div class="flex items-center justify-between gap-3">
+								<span class="text-sm font-medium">Payout preview</span>
+								<span class="text-sm text-secondary">Pot {formatPrice(payoutTotalPot)}</span>
+							</div>
+							<div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+								{#each payoutPreviewRows as row (row.key)}
+									<div data-testid={`admin-payout-${row.key}`}>
+										<div class="text-xs uppercase text-muted">{row.label}</div>
+										<div class="font-semibold">
+											{formatPrice((payoutTotalPot * row.percent) / 100)}
+										</div>
+										<div class="text-xs text-secondary">{row.percent}%</div>
+									</div>
+								{/each}
+							</div>
 						</div>
 
 						<button

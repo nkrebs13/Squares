@@ -71,7 +71,7 @@ test.describe('Create Party Page', () => {
 
 	test('shows total pot calculation', async ({ page }) => {
 		await expect(page.getByText(/total pot/i)).toBeVisible();
-		await expect(page.getByText(/\$100/)).toBeVisible();
+		await expect(page.getByText('Total pot: $100')).toBeVisible();
 	});
 
 	test('updates total pot when price changes', async ({ page }) => {
@@ -79,7 +79,28 @@ test.describe('Create Party Page', () => {
 		await priceInput.clear();
 		await priceInput.fill('5');
 
-		await expect(page.getByText(/\$500/)).toBeVisible();
+		await expect(page.getByText('Total pot: $500')).toBeVisible();
+	});
+
+	test('previews payout amounts from price and split', async ({ page }) => {
+		await expect(page.getByTestId('create-payout-preview')).toContainText('Pot $100');
+		await expect(page.getByTestId('create-payout-q1')).toContainText('$10');
+		await expect(page.getByTestId('create-payout-q2')).toContainText('$20');
+		await expect(page.getByTestId('create-payout-q3')).toContainText('$30');
+		await expect(page.getByTestId('create-payout-final')).toContainText('$40');
+
+		const priceInput = page.locator('input[inputmode="decimal"]');
+		await priceInput.clear();
+		await priceInput.fill('5');
+
+		await expect(page.getByTestId('create-payout-preview')).toContainText('Pot $500');
+		await expect(page.getByTestId('create-payout-q1')).toContainText('$50');
+		await expect(page.getByTestId('create-payout-final')).toContainText('$200');
+
+		await page.getByRole('button', { name: /equal/i }).click();
+
+		await expect(page.getByTestId('create-payout-q1')).toContainText('$125');
+		await expect(page.getByTestId('create-payout-final')).toContainText('$125');
 	});
 
 	test('shows validation error for invalid price', async ({ page }) => {
@@ -102,10 +123,10 @@ test.describe('Create Party Page', () => {
 
 	test('shows quarter percentages', async ({ page }) => {
 		// Default preset should show percentages
-		await expect(page.getByText('Q1', { exact: false })).toBeVisible();
-		await expect(page.getByText('Q2', { exact: false })).toBeVisible();
-		await expect(page.getByText('Q3', { exact: false })).toBeVisible();
-		await expect(page.getByText('Final', { exact: false })).toBeVisible();
+		await expect(page.locator('label[for="split-q1"]')).toHaveText('Q1');
+		await expect(page.locator('label[for="split-q2"]')).toHaveText('Q2');
+		await expect(page.locator('label[for="split-q3"]')).toHaveText('Q3');
+		await expect(page.locator('label[for="split-final"]')).toHaveText('Final');
 	});
 
 	test('allows selecting different presets', async ({ page }) => {
