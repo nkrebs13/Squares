@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
+	import { formatKickoff } from '$lib/utils/datetime';
 	import type { RecentParty, PartyStatus } from '$lib/types';
 
 	const MAX_NICKNAME_LENGTH = 30;
@@ -54,16 +55,8 @@
 		if (party.nickname && (!party.eventName || party.eventName === matchup)) return matchup;
 		if (!party.kickoffAt) return matchup;
 
-		const kickoff = new Date(party.kickoffAt);
-		if (Number.isNaN(kickoff.getTime())) return matchup;
-
-		const formatted = new Intl.DateTimeFormat(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit',
-		}).format(kickoff);
-		return `${matchup} - ${formatted}`;
+		const kickoff = formatKickoff(party.kickoffAt);
+		return kickoff ? `${matchup} - ${kickoff}` : matchup;
 	}
 
 	function handleRemove(e: Event, code: string) {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
 	import { isGameInProgress } from '$lib/types';
+	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import ScoreBoard from './ScoreBoard.svelte';
 	import Winners from './Winners.svelte';
@@ -15,19 +16,6 @@
 
 	const { variant }: Props = $props();
 	const isDesktop = $derived(variant === 'desktop');
-
-	function formatKickoff(value: string | null | undefined): string | null {
-		if (!value) return null;
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return null;
-		return new Intl.DateTimeFormat(undefined, {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit',
-		}).format(date);
-	}
 </script>
 
 {#if $party}
