@@ -16,6 +16,17 @@
 
 	const { variant }: Props = $props();
 	const isDesktop = $derived(variant === 'desktop');
+	const payoutRows = $derived(
+		$party
+			? [
+					{ key: 'q1', label: 'Q1', percent: $party.split_q1 },
+					{ key: 'q2', label: 'Q2', percent: $party.split_q2 },
+					{ key: 'q3', label: 'Q3', percent: $party.split_q3 },
+					{ key: 'final', label: 'Final', percent: $party.split_final },
+				]
+			: []
+	);
+	const totalPot = $derived($party ? $party.square_price * 100 : 0);
 </script>
 
 {#if $party}
@@ -75,26 +86,19 @@
 			<h3 class="font-medium mb-3 text-secondary">Prize Split</h3>
 		{/if}
 		<div class="grid grid-cols-4 gap-2 text-center">
-			<div>
-				<div class="text-muted">Q1</div>
-				<div class="font-medium">{$party.split_q1}%</div>
-			</div>
-			<div>
-				<div class="text-muted">Q2</div>
-				<div class="font-medium">{$party.split_q2}%</div>
-			</div>
-			<div>
-				<div class="text-muted">Q3</div>
-				<div class="font-medium">{$party.split_q3}%</div>
-			</div>
-			<div>
-				<div class="text-muted">Final</div>
-				<div class="font-medium">{$party.split_final}%</div>
-			</div>
+			{#each payoutRows as row (row.key)}
+				<div data-testid={`party-payout-${row.key}`}>
+					<div class="text-muted">{row.label}</div>
+					<div class="font-medium">{row.percent}%</div>
+					{#if $party.square_price > 0}
+						<div class="text-xs text-secondary">{formatPrice((totalPot * row.percent) / 100)}</div>
+					{/if}
+				</div>
+			{/each}
 		</div>
 		{#if $party.square_price > 0}
 			<div class="mt-3 text-center text-secondary">
-				{formatPrice($party.square_price)}/square • {formatPrice($party.square_price * 100)} total pot
+				{formatPrice($party.square_price)}/square • {formatPrice(totalPot)} total pot
 			</div>
 		{/if}
 	</div>

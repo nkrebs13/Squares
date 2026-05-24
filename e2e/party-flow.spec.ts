@@ -62,6 +62,10 @@ test.describe('Party Page - Mocked Flow', () => {
 		await expect(page.getByText('20%').first()).toBeAttached();
 		await expect(page.getByText('30%').first()).toBeAttached();
 		await expect(page.getByText('40%').first()).toBeAttached();
+		await expect(page.getByTestId('party-payout-q1').first()).toContainText('$50');
+		await expect(page.getByTestId('party-payout-q2').first()).toContainText('$100');
+		await expect(page.getByTestId('party-payout-q3').first()).toContainText('$150');
+		await expect(page.getByTestId('party-payout-final').first()).toContainText('$200');
 	});
 
 	test('shows filling status when party is in filling state', async ({ page }) => {

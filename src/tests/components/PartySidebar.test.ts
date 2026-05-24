@@ -157,9 +157,16 @@ describe('PartySidebar', () => {
 
 	it('shows prize split info when party exists', async () => {
 		mockParty.set(makeParty({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 }));
-		const { getAllByText } = render(PartySidebar, { props: { variant: 'desktop' } });
+		const { getAllByText, getByTestId, getByText } = render(PartySidebar, {
+			props: { variant: 'desktop' },
+		});
 		await tick();
 		expect(getAllByText('10%').length).toBeGreaterThan(0);
+		expect(getByTestId('party-payout-q1')).toHaveTextContent('$50');
+		expect(getByTestId('party-payout-q2')).toHaveTextContent('$100');
+		expect(getByTestId('party-payout-q3')).toHaveTextContent('$150');
+		expect(getByTestId('party-payout-final')).toHaveTextContent('$200');
+		expect(getByText('$5/square • $500 total pot')).toBeTruthy();
 	});
 
 	it('shows PlayerLegend only in desktop variant', async () => {
