@@ -13,6 +13,16 @@ import {
 	error,
 } from './game-state';
 import { cleanupChannels } from './game-realtime';
+import { parseParty } from '$lib/validators/realtime';
+
+export interface PartyDetailsInput {
+	eventName: string;
+	kickoffAt: string | null;
+	teamRowName: string;
+	teamColName: string;
+	teamRowColor: string;
+	teamColColor: string;
+}
 
 export async function lockParty(pin: string): Promise<{ success: boolean; error?: string }> {
 	const currentParty = get(party);
@@ -85,45 +95,82 @@ export async function updatePayoutStructure(
 
 	const supabase = getSupabaseClient();
 
-	// Verify PIN via RPC (rate-limited by check_pin_lockout)
-	const pinValid = await verifyHostPin(currentParty.code, pin);
-	if (!pinValid) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
-	const { data, error: updateError } = await supabase
-		.from('parties')
-		.update({
-			split_q1: splits.q1,
-			split_q2: splits.q2,
-			split_q3: splits.q3,
-			split_final: splits.final,
-		})
-		.eq('id', currentParty.id)
-		.select('id');
+	const { data, error: updateError } = await supabase.rpc('update_payout_structure', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_split_q1: splits.q1,
+		p_split_q2: splits.q2,
+		p_split_q3: splits.q3,
+		p_split_final: splits.final,
+	});
 
 	if (updateError) {
-		return { success: false, error: 'Failed to update payout structure. Please try again.' };
+		return { success: false, error: humanizePayoutError(updateError.message) };
 	}
 
-	if (!data || data.length === 0) {
-		return { success: false, error: 'Invalid PIN' };
+	const updatedParty = parseParty(data);
+	if (!updatedParty) {
+		return { success: false, error: 'Server returned unexpected payout details. Please refresh.' };
 	}
 
-	// Update local state
-	party.update((p) =>
-		p
-			? {
-					...p,
-					split_q1: splits.q1,
-					split_q2: splits.q2,
-					split_q3: splits.q3,
-					split_final: splits.final,
-				}
-			: null
-	);
-
+	party.set(updatedParty);
 	return { success: true };
+}
+
+function humanizePayoutError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized)) return 'Grid is already locked';
+	if (/sum to exactly 100/i.test(normalized)) return 'Splits must add up to 100%';
+	if (/between 0 and 100/i.test(normalized)) return 'Each split must be between 0% and 100%.';
+	return normalized || 'Failed to update payout structure. Please try again.';
+}
+
+export async function updatePartyDetails(
+	pin: string,
+	details: PartyDetailsInput
+): Promise<{ success: boolean; error?: string }> {
+	const currentParty = get(party);
+	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (currentParty.status !== 'filling') {
+		return { success: false, error: 'Party details can only be changed before the grid is locked' };
+	}
+
+	const supabase = getSupabaseClient();
+	const { data, error: updateError } = await supabase.rpc('update_party_details', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_event_name: details.eventName,
+		p_kickoff_at: details.kickoffAt,
+		p_team_row_name: details.teamRowName,
+		p_team_col_name: details.teamColName,
+		p_team_row_color: details.teamRowColor,
+		p_team_col_color: details.teamColColor,
+	});
+
+	if (updateError) {
+		return { success: false, error: humanizePartyDetailsError(updateError.message) };
+	}
+
+	const updatedParty = parseParty(data);
+	if (!updatedParty) {
+		return { success: false, error: 'Server returned unexpected party details. Please refresh.' };
+	}
+
+	party.set(updatedParty);
+	return { success: true };
+}
+
+function humanizePartyDetailsError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized)) {
+		return 'Party details can only be changed before the grid is locked.';
+	}
+	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
+	if (/team_.*name/i.test(normalized)) return 'Team names cannot be blank.';
+	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
+	return normalized || 'Failed to update party details. Please try again.';
 }
 
 export async function removePlayer(
@@ -138,27 +185,22 @@ export async function removePlayer(
 		return { success: false, removedCount: 0, error: 'Cannot remove players after grid is locked' };
 	}
 
-	// Verify PIN server-side before modifying squares
 	const supabase = getSupabaseClient();
-	const pinValid = await verifyHostPin(currentParty.code, pin);
-	if (!pinValid) {
-		return { success: false, removedCount: 0, error: 'Invalid PIN' };
-	}
-
-	// Remove all squares owned by this player
-	// Note: player_name_lower is GENERATED ALWAYS — only set player_name and claimed_at
-	const { data, error: removeError } = await supabase
-		.from('squares')
-		.update({ player_name: null, claimed_at: null })
-		.eq('party_id', currentParty.id)
-		.eq('player_name_lower', playerNameLower)
-		.select('id');
+	const { data, error: removeError } = await supabase.rpc('remove_player', {
+		p_party_id: currentParty.id,
+		p_pin: pin,
+		p_player_name_lower: playerNameLower,
+	});
 
 	if (removeError) {
-		return { success: false, removedCount: 0, error: 'Failed to remove player. Please try again.' };
+		return {
+			success: false,
+			removedCount: 0,
+			error: humanizeRemovePlayerError(removeError.message),
+		};
 	}
 
-	const removedCount = data?.length || 0;
+	const removedCount = data || 0;
 
 	// Update local state
 	squares.update((current) =>
@@ -170,6 +212,15 @@ export async function removePlayer(
 	);
 
 	return { success: true, removedCount };
+}
+
+function humanizeRemovePlayerError(raw: string): string {
+	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
+	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
+	if (/before the grid is locked/i.test(normalized))
+		return 'Cannot remove players after grid is locked';
+	if (/player name/i.test(normalized)) return 'Player name is required';
+	return normalized || 'Failed to remove player. Please try again.';
 }
 
 export async function deleteParty(pin: string): Promise<{ success: boolean; error?: string }> {

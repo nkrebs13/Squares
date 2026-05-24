@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	lockParty,
 	updateScore,
+	updatePartyDetails,
 	updatePayoutStructure,
 	removePlayer,
 	deleteParty,
@@ -194,22 +195,10 @@ describe('updatePayoutStructure', () => {
 
 	it('returns error when PIN is wrong (server rejects)', async () => {
 		party.set(createMockParty());
-		// Server-side PIN validation: .from().update().eq().eq().select() returns empty data
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: [],
-							error: null,
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await updatePayoutStructure('9999', {
 			q1: 25,
@@ -232,23 +221,14 @@ describe('updatePayoutStructure', () => {
 	});
 
 	it('updates local state on success', async () => {
+		const updatedParty = createMockParty({
+			split_q1: 10,
+			split_q2: 20,
+			split_q3: 30,
+			split_final: 40,
+		});
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-		// Chain: .from().update().eq().select() — returns updated row
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					select: vi.fn().mockResolvedValue({
-						data: [{ id: 'test-party-id' }],
-						error: null,
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
 
 		const result = await updatePayoutStructure('1234', {
 			q1: 10,
@@ -263,26 +243,22 @@ describe('updatePayoutStructure', () => {
 		expect(p?.split_q2).toBe(20);
 		expect(p?.split_q3).toBe(30);
 		expect(p?.split_final).toBe(40);
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_split_q1: 10,
+			p_split_q2: 20,
+			p_split_q3: 30,
+			p_split_final: 40,
+		});
 	});
 
 	it('returns error on Supabase error', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-		// Chain: .from().update().eq().select() — returns error
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					select: vi.fn().mockResolvedValue({
-						data: null,
-						error: { message: 'DB error' },
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'DB error' },
+		});
 
 		const result = await updatePayoutStructure('1234', {
 			q1: 10,
@@ -293,14 +269,16 @@ describe('updatePayoutStructure', () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: 'Failed to update payout structure. Please try again.',
+			error: 'DB error',
 		});
 	});
 
 	it('returns error when PIN is wrong', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns false
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await updatePayoutStructure('9999', {
 			q1: 10,
@@ -310,10 +288,108 @@ describe('updatePayoutStructure', () => {
 		});
 
 		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
-			p_party_code: 'TEST123',
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
+			p_party_id: 'test-party-id',
 			p_pin: '9999',
+			p_split_q1: 10,
+			p_split_q2: 20,
+			p_split_q3: 30,
+			p_split_final: 40,
 		});
+	});
+});
+
+describe('updatePartyDetails', () => {
+	beforeEach(() => {
+		cleanup();
+	});
+
+	it('returns error when no party loaded', async () => {
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: 'Eagles',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({ success: false, error: 'No party loaded' });
+	});
+
+	it('returns error when party is not filling', async () => {
+		party.set(createMockParty({ status: 'active' }));
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: 'Eagles',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'Party details can only be changed before the grid is locked',
+		});
+	});
+
+	it('updates local party state from the RPC response', async () => {
+		const updatedParty = createMockParty({
+			event_name: '2027 Championship',
+			kickoff_at: '2027-02-14T23:30:00.000Z',
+			team_row_name: 'Ravens',
+			team_col_name: 'Lions',
+			team_row_color: '#241773',
+			team_col_color: '#0076B6',
+			expires_at: '2027-02-28T23:30:00.000Z',
+		});
+
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: '2027-02-14T23:30:00.000Z',
+			teamRowName: 'Ravens',
+			teamColName: 'Lions',
+			teamRowColor: '#241773',
+			teamColColor: '#0076B6',
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_party_details', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_event_name: '2027 Championship',
+			p_kickoff_at: '2027-02-14T23:30:00.000Z',
+			p_team_row_name: 'Ravens',
+			p_team_col_name: 'Lions',
+			p_team_row_color: '#241773',
+			p_team_col_color: '#0076B6',
+		});
+		expect(get(party)?.event_name).toBe('2027 Championship');
+		expect(get(party)?.team_row_name).toBe('Ravens');
+	});
+
+	it('humanizes RPC validation errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'team_row_name must be non-empty after trim' },
+		});
+
+		const result = await updatePartyDetails('1234', {
+			eventName: '2027 Championship',
+			kickoffAt: null,
+			teamRowName: '',
+			teamColName: 'Chiefs',
+			teamRowColor: '#004C54',
+			teamColColor: '#E31837',
+		});
+
+		expect(result).toEqual({ success: false, error: 'Team names cannot be blank.' });
 	});
 });
 
@@ -339,14 +415,17 @@ describe('removePlayer', () => {
 
 	it('returns error when PIN is wrong (server rejects)', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns false for wrong PIN
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'invalid party or PIN' },
+		});
 
 		const result = await removePlayer('9999', 'alice');
 		expect(result).toEqual({ success: false, removedCount: 0, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
-			p_party_code: 'TEST123',
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+			p_party_id: 'test-party-id',
 			p_pin: '9999',
+			p_player_name_lower: 'alice',
 		});
 	});
 
@@ -367,29 +446,16 @@ describe('removePlayer', () => {
 			}),
 		]);
 
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-		// Chain: .from().update().eq().eq().select() — select resolves with data
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: [{ id: 'sq-0-0' }, { id: 'sq-0-1' }],
-							error: null,
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
 
 		const result = await removePlayer('1234', 'alice');
 
 		expect(result).toEqual({ success: true, removedCount: 2 });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+			p_party_id: 'test-party-id',
+			p_pin: '1234',
+			p_player_name_lower: 'alice',
+		});
 		const currentSquares = get(squares);
 		expect(currentSquares[0].player_name).toBeNull();
 		expect(currentSquares[1].player_name).toBeNull();
@@ -398,31 +464,45 @@ describe('removePlayer', () => {
 
 	it('returns error on Supabase error', async () => {
 		party.set(createMockParty());
-		// verifyHostPin RPC returns true
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-		// Chain: .from().update().eq().eq().select() — select resolves with error
-		const mockChain = {
-			update: vi.fn().mockReturnValue({
-				eq: vi.fn().mockReturnValue({
-					eq: vi.fn().mockReturnValue({
-						select: vi.fn().mockResolvedValue({
-							data: null,
-							error: { message: 'DB error' },
-						}),
-					}),
-				}),
-			}),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: 'DB error' } });
 
 		const result = await removePlayer('1234', 'alice');
 		expect(result).toEqual({
 			success: false,
 			removedCount: 0,
-			error: 'Failed to remove player. Please try again.',
+			error: 'DB error',
+		});
+	});
+
+	it('humanizes server locked-state errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'players can only be removed before the grid is locked' },
+		});
+
+		const result = await removePlayer('1234', 'alice');
+
+		expect(result).toEqual({
+			success: false,
+			removedCount: 0,
+			error: 'Cannot remove players after grid is locked',
+		});
+	});
+
+	it('humanizes missing player-name errors', async () => {
+		party.set(createMockParty());
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'player name must be provided' },
+		});
+
+		const result = await removePlayer('1234', '');
+
+		expect(result).toEqual({
+			success: false,
+			removedCount: 0,
+			error: 'Player name is required',
 		});
 	});
 });

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getTestClient, createTestParty, cleanupParty, type TestParty } from './helpers';
+import {
+	getServiceRoleClient,
+	getTestClient,
+	createTestParty,
+	cleanupParty,
+	type TestParty,
+} from './helpers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient;
@@ -69,7 +75,7 @@ describe('claim_square RPC', () => {
 
 	it('rejects claim when party status is active', async () => {
 		// Manually set status to active
-		await client.from('parties').update({ status: 'active' }).eq('id', party.id);
+		await getServiceRoleClient().from('parties').update({ status: 'active' }).eq('id', party.id);
 
 		const { data } = await client.rpc('claim_square', {
 			p_party_id: party.id,
@@ -82,7 +88,7 @@ describe('claim_square RPC', () => {
 	});
 
 	it('rejects claim when party status is complete', async () => {
-		await client.from('parties').update({ status: 'complete' }).eq('id', party.id);
+		await getServiceRoleClient().from('parties').update({ status: 'complete' }).eq('id', party.id);
 
 		const { data } = await client.rpc('claim_square', {
 			p_party_id: party.id,
