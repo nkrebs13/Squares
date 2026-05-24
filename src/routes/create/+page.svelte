@@ -9,6 +9,7 @@
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
+	import { areDistinctTeamNames } from '$lib/utils/teamNames';
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
 	let kickoffInput = $state('');
@@ -50,6 +51,7 @@
 	const isValidPin = $derived(hostPin.length === 4 && /^\d+$/.test(hostPin));
 	const isValidHostName = $derived(hostName.trim().length > 0);
 	const isValidEventName = $derived(eventName.trim().length > 0 && eventName.trim().length <= 80);
+	const hasDistinctTeams = $derived(areDistinctTeamNames(rowTeam.name, colTeam.name));
 	const canCreate = $derived(
 		isValidSplit &&
 			isValidPin &&
@@ -57,7 +59,8 @@
 			isValidEventName &&
 			isValidPrice &&
 			rowTeam.name.trim().length > 0 &&
-			colTeam.name.trim().length > 0
+			colTeam.name.trim().length > 0 &&
+			hasDistinctTeams
 	);
 
 	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
@@ -360,6 +363,11 @@
 					</div>
 				</div>
 			</div>
+			{#if rowTeam.name.trim() && colTeam.name.trim() && !hasDistinctTeams}
+				<p class="mt-3 text-sm" style="color: #fca5a5">
+					Choose two different teams for the matchup.
+				</p>
+			{/if}
 		</div>
 
 		<!-- Host Name -->

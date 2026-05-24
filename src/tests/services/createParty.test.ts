@@ -113,6 +113,26 @@ describe('createParty service', () => {
 		if (!result.ok) expect(result.error).toMatch(/event name/i);
 	});
 
+	it('humanizes RPC error: duplicate matchup teams', async () => {
+		mockRpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'matchup must use two different teams' },
+		});
+		const result = await createParty(validInput);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error).toBe('Choose two different teams for the matchup.');
+	});
+
+	it('humanizes RPC error: invalid team colors', async () => {
+		mockRpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'team colors must be 6-digit hex values' },
+		});
+		const result = await createParty(validInput);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error).toBe('Team colors must be valid hex colors.');
+	});
+
 	it('humanizes RPC error: code-collision exhaustion', async () => {
 		mockRpc.mockResolvedValueOnce({
 			data: null,

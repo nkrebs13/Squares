@@ -85,6 +85,24 @@ describe('update_party_details RPC', () => {
 		expect(error?.message).toMatch(/invalid party or PIN/i);
 	});
 
+	it('rejects same-team matchup edits', async () => {
+		const party = await createParty();
+
+		const { error } = await client.rpc('update_party_details', {
+			p_party_id: party.id,
+			p_pin: '1234',
+			p_event_name: 'Duplicate Matchup',
+			p_kickoff_at: null,
+			p_team_row_name: 'Ravens',
+			p_team_col_name: '  ravens  ',
+			p_team_row_color: '#241773',
+			p_team_col_color: '#0076B6',
+		});
+
+		expect(error).toBeTruthy();
+		expect(error?.message).toMatch(/different teams/i);
+	});
+
 	it('rejects edits after the grid is locked', async () => {
 		const party = await createParty();
 		const { error: statusError } = await getServiceRoleClient()

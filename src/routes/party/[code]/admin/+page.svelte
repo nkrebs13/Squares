@@ -39,6 +39,7 @@
 	} from '$lib/utils/datetime';
 	import { goto } from '$app/navigation';
 	import { NFL_TEAM_PRESETS, findNflTeamPreset, findNflTeamPresetId } from '$lib/nflTeams';
+	import { areDistinctTeamNames } from '$lib/utils/teamNames';
 
 	const code = $derived($page.params.code ?? '');
 	let storedPin = $state<string | null>(null);
@@ -217,7 +218,8 @@
 		partyDetails.eventName.trim().length > 0 &&
 			partyDetails.eventName.trim().length <= 80 &&
 			partyDetails.teamRowName.trim().length > 0 &&
-			partyDetails.teamColName.trim().length > 0
+			partyDetails.teamColName.trim().length > 0 &&
+			areDistinctTeamNames(partyDetails.teamRowName, partyDetails.teamColName)
 	);
 	const kickoffPreview = $derived(
 		formatKickoff(datetimeLocalToIso(partyDetails.kickoffInput), {
@@ -235,6 +237,9 @@
 					partyDetails.teamRowColor !== $party.team_row_color ||
 					partyDetails.teamColColor !== $party.team_col_color
 			: false
+	);
+	const hasDistinctPartyDetailTeams = $derived(
+		areDistinctTeamNames(partyDetails.teamRowName, partyDetails.teamColName)
 	);
 
 	let isVerifyingPin = $state(false);
@@ -614,6 +619,11 @@
 									</div>
 								</div>
 							</div>
+							{#if partyDetails.teamRowName.trim() && partyDetails.teamColName.trim() && !hasDistinctPartyDetailTeams}
+								<p class="text-sm" style="color: #fca5a5">
+									Choose two different teams for the matchup.
+								</p>
+							{/if}
 						</div>
 
 						<button

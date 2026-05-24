@@ -168,6 +168,7 @@ function humanizePartyDetailsError(raw: string): string {
 		return 'Party details can only be changed before the grid is locked.';
 	}
 	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
+	if (/different teams/i.test(normalized)) return 'Choose two different teams for the matchup.';
 	if (/team_.*name/i.test(normalized)) return 'Team names cannot be blank.';
 	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
 	return normalized || 'Failed to update party details. Please try again.';

@@ -91,6 +91,8 @@ function humanizeRpcError(raw: string): string {
 	if (/sum to exactly 100/i.test(normalized)) return 'Prize splits must total 100%.';
 	if (/host_name/i.test(normalized)) return 'Please enter a host name.';
 	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
+	if (/different teams/i.test(normalized)) return 'Choose two different teams for the matchup.';
+	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
 	if (/square_price/i.test(normalized)) return 'Square price must be greater than 0.';
 	if (/unique party code/i.test(normalized)) {
 		return 'Could not generate a unique party code — please try again.';
