@@ -51,7 +51,7 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
-		"@playwright/test": "^1.59.1",
+		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-cloudflare": "^7.2.8",
 		"@sveltejs/kit": "^2.58.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
@@ -60,7 +60,7 @@
 		"@testing-library/svelte": "^5.3.1",
 		"@testing-library/user-event": "^14.6.1",
 		"@vite-pwa/sveltekit": "^1.1.0",
-		"@vitest/coverage-v8": "^4.1.5",
+		"@vitest/coverage-v8": "^4.1.7",
 		"dotenv": "^17.4.2",
 		"eslint": "^10.4.0",
 		"eslint-plugin-svelte": "^3.17.1",
