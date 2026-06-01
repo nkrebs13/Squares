@@ -88,6 +88,6 @@
 		"@types/qrcode": "^1.5.6",
 		"idb-keyval": "^6.2.4",
 		"qrcode": "^1.5.4",
-		"web-vitals": "^5.2.0"
+		"web-vitals": "^5.3.0"
 	}
 }
