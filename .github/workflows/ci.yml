@@ -56,7 +56,7 @@ jobs:
           retention-days: 7
       - name: Coverage comment on PR
         if: github.event_name == 'pull_request'
-        uses: MishaKav/jest-coverage-comment@fb83bcbaeb5ca467936175796f862a2992938833 # main @ 2026-04
+        uses: MishaKav/jest-coverage-comment@58072a21b8b7f84d36a6e21b5d9a0cad08bc9d75 # main @ 2026-04
         with:
           coverage-summary-path: ./coverage/coverage-summary.json
           title: Test Coverage
