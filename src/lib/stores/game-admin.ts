@@ -24,6 +24,19 @@ export interface PartyDetailsInput {
 	teamColColor: string;
 }
 
+/**
+ * Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
+ * (not RAISE) so check_pin_lockout's attempt increment durably commits.
+ * PostgREST renders a NULL `RETURNS parties` value as a row object whose
+ * columns are all null (id included), NOT JSON null, so detect the refusal
+ * by the absent id. Same outcome the error-message branch above yields for
+ * an older DB that still RAISEs 'invalid party or PIN'.
+ */
+function isPinSentinelRow(data: unknown): boolean {
+	if (data == null) return true;
+	return (data as { id?: unknown }).id == null;
+}
+
 export async function lockParty(pin: string): Promise<{ success: boolean; error?: string }> {
 	const currentParty = get(party);
 	if (!currentParty) return { success: false, error: 'No party loaded' };
@@ -73,7 +86,16 @@ export async function updateScore(
 	}
 
 	if (!data) {
-		return { success: false, error: 'Failed to update score - check PIN' };
+		// update_score (migration 014) returns FALSE on several distinct guards —
+		// invalid/locked-out PIN, party not active/locked, a bad quarter or negative
+		// score, or a null_winner data-integrity check unrelated to the PIN. The RPC
+		// only returns a boolean, so the client can't tell which one fired; don't
+		// assert a specific cause it can't know.
+		return {
+			success: false,
+			error:
+				'Failed to update score. Check the PIN — this can also happen if the party is not active or the score data is invalid.',
+		};
 	}
 
 	return { success: true };
@@ -106,6 +128,10 @@ export async function updatePayoutStructure(
 
 	if (updateError) {
 		return { success: false, error: humanizePayoutError(updateError.message) };
+	}
+
+	if (isPinSentinelRow(data)) {
+		return { success: false, error: 'Invalid PIN' };
 	}
 
 	const updatedParty = parseParty(data);
@@ -150,6 +176,10 @@ export async function updatePartyDetails(
 
 	if (updateError) {
 		return { success: false, error: humanizePartyDetailsError(updateError.message) };
+	}
+
+	if (isPinSentinelRow(data)) {
+		return { success: false, error: 'Invalid PIN' };
 	}
 
 	const updatedParty = parseParty(data);
@@ -201,9 +231,22 @@ export async function removePlayer(
 		};
 	}
 
-	const removedCount = data || 0;
+	// Sentinel refusal (see isPinSentinelRow above): a null return with no error
+	// means the PIN was rejected — distinct from a legitimate count of 0 (which
+	// means "matched no squares"). remove_player RETURNS INTEGER, not a parties
+	// row, so it can't reuse that predicate directly.
+	if (data == null) {
+		return { success: false, removedCount: 0, error: 'Invalid PIN' };
+	}
 
-	// Update local state
+	const removedCount = data;
+
+	// Update local state. This synchronous squares.update recomputes playerSummary
+	// (a derived over `squares`) and, in the same tick, fires the self-clearing
+	// subscription in game-state.ts — which nulls selectedPlayerFilter when the
+	// removed player was the active filter (they now own zero squares). No explicit
+	// filter clear is needed here; a previous "belt and braces" block that duplicated
+	// it was provably unreachable and was removed.
 	squares.update((current) =>
 		current.map((s) =>
 			s.player_name_lower === playerNameLower

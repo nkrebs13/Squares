@@ -85,6 +85,25 @@ function simulateChannelStatus(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_O
 	subscribeCallbacks.forEach((cb) => cb(status));
 }
 
+/**
+ * Simulate a channel status change for a SINGLE captured subscribe callback, by the
+ * order it was registered. Channels are created in the order broadcast → party → game,
+ * accumulating across successive subscribeToParty() calls. This enables per-channel
+ * isolation tests — e.g. delivering the async CLOSED that Supabase fires on an
+ * intentionally-unsubscribed channel WITHOUT touching a newer channel's callback.
+ */
+function simulateChannelStatusAt(
+	index: number,
+	status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'
+) {
+	subscribeCallbacks[index]?.(status);
+}
+
+/** Number of subscribe callbacks captured so far (see simulateChannelStatusAt). */
+function subscribeCallbackCount(): number {
+	return subscribeCallbacks.length;
+}
+
 const mockSupabaseClient = {
 	from: vi.fn(() => ({
 		select: vi.fn().mockReturnThis(),
@@ -230,6 +249,26 @@ beforeEach(() => {
 	restoreMockDefaults();
 	localStorageMock.clear();
 	sessionStorageMock.clear();
+
+	// jsdom does not implement matchMedia. GestureHint reads it for a mobile-layout
+	// check and a pointer-type check; default to a mobile-width, non-touch-pointer
+	// profile so component/page tests that don't care about breakpoints see the same
+	// auto-show behavior they did before that check existed. Tests that need a
+	// different breakpoint/pointer profile assign window.matchMedia locally, which
+	// takes precedence over this default (and is deleted in their own afterEach, so
+	// this default re-applies for the next test via the `typeof !== 'function'` guard).
+	if (typeof window.matchMedia !== 'function') {
+		window.matchMedia = ((query: string) => ({
+			matches: query === '(max-width: 1023px)',
+			media: query,
+			onchange: null,
+			addListener: () => {},
+			removeListener: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			dispatchEvent: () => false,
+		})) as typeof window.matchMedia;
+	}
 });
 
 // Export mocks for use in tests
@@ -240,4 +279,6 @@ export {
 	localStorageMock,
 	sessionStorageMock,
 	simulateChannelStatus,
+	simulateChannelStatusAt,
+	subscribeCallbackCount,
 };

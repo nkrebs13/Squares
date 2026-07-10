@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { browser } from '$app/environment';
 	import {
 		partyPinKey,
@@ -8,6 +9,9 @@
 		setHostPin,
 		getSessionItem,
 		setSessionItem,
+		removeHostPin,
+		removeSessionItem,
+		removeRecentParty,
 	} from '$lib/storage';
 	import {
 		party,
@@ -15,6 +19,8 @@
 		liveScores,
 		isGridFull,
 		filledCount,
+		isLoading,
+		error as partyLoadError,
 		loadParty,
 		lockParty,
 		updateScore,
@@ -28,7 +34,7 @@
 		broadcastScoreUpdate,
 		cleanup,
 	} from '$lib/stores/game';
-	import type { Quarter } from '$lib/types';
+	import type { Quarter, Scores } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
 	import { formatQuarterLabel } from '$lib/utils/quarter';
 	import {
@@ -82,46 +88,146 @@
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
 	let isDeleting = $state(false);
+	let deleteDialogEl: HTMLDialogElement | null = null;
+	// $state: bound inside the {#if showDeleteConfirm} block below, so the
+	// element is created/destroyed on each open/close (same reasoning as
+	// join/+page.svelte's `pinInputEl`, which is $state for the same reason
+	// while its always-mounted `pinDialogEl` sibling is plain `let`).
+	let deleteCancelBtn = $state<HTMLButtonElement | null>(null);
+	let deleteTriggerEl: HTMLElement | null = null;
+
+	// Native <dialog> for real focus trapping, backdrop, and Escape handling —
+	// mirrors src/routes/join/+page.svelte's PIN-challenge dialog pattern.
+	$effect(() => {
+		if (showDeleteConfirm) {
+			if (deleteDialogEl && !deleteDialogEl.open) {
+				deleteTriggerEl = document.activeElement as HTMLElement | null;
+				deleteDialogEl.showModal();
+				// Focus Cancel first, never the destructive action, so a stray
+				// Enter keypress can't trigger deletion.
+				deleteCancelBtn?.focus();
+			}
+		} else {
+			if (deleteDialogEl?.open) deleteDialogEl.close();
+			deleteTriggerEl?.focus();
+			deleteTriggerEl = null;
+		}
+	});
+
+	function cancelDeleteParty() {
+		showDeleteConfirm = false;
+	}
 
 	// Player removal
 	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
 	let isRemovingPlayer = $state(false);
+	let removePlayerDialogEl: HTMLDialogElement | null = null;
+	// $state for the same reason as deleteCancelBtn above — bound inside the
+	// {#if playerToRemove} block, so it mounts/unmounts with the dialog.
+	let removePlayerCancelBtn = $state<HTMLButtonElement | null>(null);
+	let removePlayerTriggerEl: HTMLElement | null = null;
+	// Set right before `playerToRemove = null` on a successful removal (see
+	// handleRemovePlayer). Distinguishes "closed because the removal
+	// succeeded" from "closed via Cancel/Escape" so the effect below knows
+	// whether the saved trigger element is still safe to focus.
+	let removePlayerSucceeded = false;
+	// Always-rendered heading (see the "Party Status" <h2> in the template)
+	// used as the focus target on a successful removal. The removed
+	// player's row — and, when it was the last player, the whole "Manage
+	// Players" card — is gone from the DOM by the time this runs, so
+	// `removePlayerTriggerEl` is detached and `.focus()` on it would
+	// silently drop focus to <body>. "Party Status" is rendered for every
+	// party status whenever $party is set, so it survives regardless of
+	// how many players remain after the removal.
+	// $state: bound inside the `{:else if $party}` branch (not always
+	// mounted — e.g. absent during PIN entry / loading), same reasoning as
+	// deleteCancelBtn / removePlayerCancelBtn above.
+	let partyStatusHeadingEl = $state<HTMLHeadingElement | null>(null);
 
-	// Determine the next quarter that needs scores entered
-	const nextQuarter = $derived.by(() => {
-		if (!$scores) return 'q1' as Quarter;
-		if ($scores.q1_row_score === null) return 'q1' as Quarter;
-		if ($scores.q2_row_score === null) return 'q2' as Quarter;
-		if ($scores.q3_row_score === null) return 'q3' as Quarter;
-		return 'final' as Quarter;
+	$effect(() => {
+		if (playerToRemove) {
+			if (removePlayerDialogEl && !removePlayerDialogEl.open) {
+				removePlayerTriggerEl = document.activeElement as HTMLElement | null;
+				removePlayerDialogEl.showModal();
+				removePlayerCancelBtn?.focus();
+			}
+		} else {
+			if (removePlayerDialogEl?.open) removePlayerDialogEl.close();
+			if (removePlayerSucceeded) {
+				removePlayerSucceeded = false;
+				removePlayerTriggerEl = null;
+				partyStatusHeadingEl?.focus();
+			} else {
+				removePlayerTriggerEl?.focus();
+				removePlayerTriggerEl = null;
+			}
+		}
 	});
 
-	// Get scores for the currently selected quarter
-	function getScoresForQuarter(quarter: Quarter): { row: number; col: number } {
-		if (!$scores) return { row: 0, col: 0 };
+	function cancelRemovePlayer() {
+		playerToRemove = null;
+	}
+
+	// Determine the next quarter that needs scores entered, from an explicit
+	// scores snapshot. Pure so it can be evaluated against the reactive $scores
+	// (for the selector default) AND against a freshly-reloaded get(scores)
+	// snapshot in the save success path without depending on runes-batch timing.
+	// When all four quarters are already scored it returns 'final' (never a
+	// nonexistent "q5"), so advancing after the final save leaves the selector
+	// parked on 'final' rather than something nonsensical.
+	function deriveNextQuarter(s: Scores | null): Quarter {
+		if (!s) return 'q1';
+		if (s.q1_row_score === null) return 'q1';
+		if (s.q2_row_score === null) return 'q2';
+		if (s.q3_row_score === null) return 'q3';
+		return 'final';
+	}
+
+	const nextQuarter = $derived.by(() => deriveNextQuarter($scores));
+
+	// Get scores for a quarter from an explicit snapshot.
+	function scoresForQuarter(s: Scores | null, quarter: Quarter): { row: number; col: number } {
+		if (!s) return { row: 0, col: 0 };
 		switch (quarter) {
 			case 'q1':
-				return { row: $scores.q1_row_score ?? 0, col: $scores.q1_col_score ?? 0 };
+				return { row: s.q1_row_score ?? 0, col: s.q1_col_score ?? 0 };
 			case 'q2':
-				return { row: $scores.q2_row_score ?? 0, col: $scores.q2_col_score ?? 0 };
+				return { row: s.q2_row_score ?? 0, col: s.q2_col_score ?? 0 };
 			case 'q3':
-				return { row: $scores.q3_row_score ?? 0, col: $scores.q3_col_score ?? 0 };
+				return { row: s.q3_row_score ?? 0, col: s.q3_col_score ?? 0 };
 			case 'final':
-				return { row: $scores.final_row_score ?? 0, col: $scores.final_col_score ?? 0 };
+				return { row: s.final_row_score ?? 0, col: s.final_col_score ?? 0 };
 		}
 	}
 
-	// Update manualScores when quarter changes or scores change
-	$effect(() => {
-		const currentScores = getScoresForQuarter(manualScores.quarter);
+	function syncManualScoreFields(s: Scores | null, quarter: Quarter) {
+		const currentScores = scoresForQuarter(s, quarter);
 		manualScores.rowScore = currentScores.row;
 		manualScores.colScore = currentScores.col;
-	});
+	}
 
-	// Set initial quarter to next one needing entry
+	// The quarter select's own change handler — a direct user action, so it's
+	// fine to resync row/col fields to the newly-selected quarter's committed
+	// values here.
+	function handleQuarterSelected() {
+		syncManualScoreFields($scores, manualScores.quarter);
+	}
+
+	// Initialize the quarter selector (to the next quarter needing entry) and
+	// its row/col fields ONCE, from the current scores snapshot. `scores` is
+	// replaced wholesale on every postgres UPDATE of the scores row —
+	// including the game_scores_live_propagate trigger's live-tick updates
+	// (migration 017:199-219) — so re-running this on every `$scores` change
+	// would silently overwrite the host's in-progress manual override
+	// (destroying the exact feature this form exists for). Mirrors
+	// payoutSplitsInitialized / partyDetailsInitialized below: initialize
+	// once, never clobber unsaved work after that.
+	let manualScoreEntryInitialized = $state(false);
 	$effect(() => {
-		if (isGameInProgress($party?.status) && $scores) {
+		if (!manualScoreEntryInitialized && isGameInProgress($party?.status) && $scores) {
 			manualScores.quarter = nextQuarter;
+			syncManualScoreFields($scores, nextQuarter);
+			manualScoreEntryInitialized = true;
 		}
 	});
 
@@ -337,6 +443,21 @@
 			);
 			broadcastScoreUpdate();
 			await loadParty(code);
+			// Auto-advance to the next unscored quarter after a discrete, successful
+			// save. WITHOUT this, the selector stays on the just-saved quarter and the
+			// host's next submit silently overwrites it (recomputing that quarter's
+			// winner — real money). This advances ONLY on an explicit save, so it does
+			// NOT reintroduce the $scores live-tick clobber that
+			// manualScoreEntryInitialized guards against.
+			//
+			// Compute directly from the freshly-reloaded get(scores) snapshot rather
+			// than reading the $derived nextQuarter: across the await boundary the
+			// store is guaranteed current via get(), whereas the runes-batched
+			// $scores binding (and any derived over it) may not have flushed yet.
+			const reloadedScores = get(scores);
+			const next = deriveNextQuarter(reloadedScores);
+			manualScores.quarter = next;
+			syncManualScoreFields(reloadedScores, next);
 		} else {
 			error = result.error || 'Failed to update score';
 		}
@@ -417,6 +538,12 @@
 		const result = await deleteParty(storedPin);
 
 		if (result.success) {
+			// Clear cached host credentials so a revisit to this URL (back
+			// button, bookmark) doesn't leave isAuthorized=true pointed at a
+			// party that no longer exists.
+			await removeHostPin(code);
+			removeSessionItem(partyPinKey(code));
+			await removeRecentParty(code);
 			goto('/');
 		} else {
 			error = result.error || 'Failed to delete party';
@@ -436,6 +563,7 @@
 
 		if (result.success) {
 			showSuccess(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
+			removePlayerSucceeded = true;
 			playerToRemove = null;
 		} else {
 			error = result.error || 'Failed to remove player';
@@ -488,7 +616,9 @@
 			<div class="space-y-6 max-w-md mx-auto">
 				<!-- Current Status -->
 				<div class="card">
-					<h2 class="text-lg font-semibold mb-2">Party Status</h2>
+					<h2 class="text-lg font-semibold mb-2" bind:this={partyStatusHeadingEl} tabindex="-1">
+						Party Status
+					</h2>
 					<div class="text-2xl font-bold capitalize">
 						{$party.status === 'locked' ? 'Active' : $party.status}
 					</div>
@@ -927,7 +1057,12 @@
 						<div class="space-y-4">
 							<div>
 								<label for="quarter-select" class="text-sm text-secondary">Quarter</label>
-								<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
+								<select
+									id="quarter-select"
+									bind:value={manualScores.quarter}
+									class="input mt-1"
+									onchange={handleQuarterSelected}
+								>
 									{#each quarters as q (q.value)}
 										<option value={q.value}>{q.label}</option>
 									{/each}
@@ -986,76 +1121,18 @@
 				<!-- Danger Zone - Delete Party -->
 				<div class="card border border-red-500/30">
 					<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
-					{#if !showDeleteConfirm}
-						<p class="text-sm mb-4 text-secondary">
-							Permanently delete this party and all associated data.
-						</p>
-						<button
-							onclick={() => (showDeleteConfirm = true)}
-							class="btn w-full"
-							style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
-						>
-							Delete Party
-						</button>
-					{:else}
-						<p class="text-sm mb-4 text-red-400">
-							Are you sure? This action cannot be undone. All squares, numbers, and winners will be
-							permanently deleted.
-						</p>
-						<div class="flex gap-2">
-							<button
-								onclick={() => (showDeleteConfirm = false)}
-								class="btn btn-secondary flex-1"
-								disabled={isDeleting}
-							>
-								Cancel
-							</button>
-							<button
-								onclick={handleDeleteParty}
-								class="btn flex-1"
-								style="background: #ef4444; color: white;"
-								disabled={isDeleting}
-							>
-								{isDeleting ? 'Deleting...' : 'Yes, Delete'}
-							</button>
-						</div>
-					{/if}
+					<p class="text-sm mb-4 text-secondary">
+						Permanently delete this party and all associated data.
+					</p>
+					<button
+						onclick={() => (showDeleteConfirm = true)}
+						class="btn w-full"
+						style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
+					>
+						Delete Party
+					</button>
 				</div>
 			</div>
-
-			<!-- Remove Player Confirmation Dialog -->
-			{#if playerToRemove}
-				<div
-					class="fixed inset-0 z-50 flex items-center justify-center p-4"
-					style="background: rgba(0, 0, 0, 0.7);"
-				>
-					<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
-						<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
-						<p class="text-sm mb-4 text-secondary">
-							Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
-							up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others
-							to claim.
-						</p>
-						<div class="flex gap-2">
-							<button
-								onclick={() => (playerToRemove = null)}
-								class="btn btn-secondary flex-1"
-								disabled={isRemovingPlayer}
-							>
-								Cancel
-							</button>
-							<button
-								onclick={handleRemovePlayer}
-								class="btn flex-1"
-								style="background: #ef4444; color: white;"
-								disabled={isRemovingPlayer}
-							>
-								{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
-							</button>
-						</div>
-					</div>
-				</div>
-			{/if}
 			{#snippet failed(_error, reset)}
 				<div class="card max-w-md mx-auto" style="border: 1px solid rgba(239, 68, 68, 0.3);">
 					<p class="text-sm" style="color: #f87171;">The admin panel encountered an error.</p>
@@ -1071,8 +1148,103 @@
 				</div>
 			{/snippet}
 		</svelte:boundary>
+	{:else if $isLoading}
+		<div class="card max-w-md mx-auto text-center">
+			<p class="text-secondary">Loading party…</p>
+		</div>
+	{:else}
+		<div class="card max-w-md mx-auto text-center">
+			<p class="text-error">{$partyLoadError || 'This party could not be found.'}</p>
+			<a href="/" class="btn btn-secondary mt-4">Go Home</a>
+		</div>
 	{/if}
 </div>
+
+<!-- Delete Party Confirmation Dialog — native <dialog>, mirrors the join
+     page's PIN-challenge modal for focus trap / Escape / backdrop. Kept at
+     the template's top level (not nested inside an {#if}/{#each}/{#await}/
+     {#key} block) so bind:this stays a stable reference — see
+     https://svelte.dev/e/non_reactive_update. -->
+<dialog
+	bind:this={deleteDialogEl}
+	aria-labelledby="delete-party-title"
+	aria-describedby="delete-party-description"
+	onclose={cancelDeleteParty}
+	onclick={(e) => {
+		if (e.target === deleteDialogEl) cancelDeleteParty();
+	}}
+	class="confirm-dialog"
+>
+	{#if showDeleteConfirm}
+		<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+			<h3 id="delete-party-title" class="text-lg font-semibold mb-2 text-red-400">Delete Party?</h3>
+			<p id="delete-party-description" class="text-sm mb-4 text-red-400">
+				Are you sure? This action cannot be undone. All squares, numbers, and winners will be
+				permanently deleted.
+			</p>
+			<div class="flex gap-2">
+				<button
+					bind:this={deleteCancelBtn}
+					onclick={cancelDeleteParty}
+					class="btn btn-secondary flex-1"
+					disabled={isDeleting}
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleDeleteParty}
+					class="btn flex-1"
+					style="background: #ef4444; color: white;"
+					disabled={isDeleting}
+				>
+					{isDeleting ? 'Deleting...' : 'Yes, Delete'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</dialog>
+
+<!-- Remove Player Confirmation Dialog — native <dialog>, same pattern. -->
+<dialog
+	bind:this={removePlayerDialogEl}
+	aria-labelledby="remove-player-title"
+	aria-describedby="remove-player-description"
+	onclose={cancelRemovePlayer}
+	onclick={(e) => {
+		if (e.target === removePlayerDialogEl) cancelRemovePlayer();
+	}}
+	class="confirm-dialog"
+>
+	{#if playerToRemove}
+		<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+			<h3 id="remove-player-title" class="text-lg font-semibold mb-2 text-red-400">
+				Remove Player?
+			</h3>
+			<p id="remove-player-description" class="text-sm mb-4 text-secondary">
+				Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free up
+				their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to claim.
+			</p>
+			<div class="flex gap-2">
+				<button
+					bind:this={removePlayerCancelBtn}
+					onclick={cancelRemovePlayer}
+					class="btn btn-secondary flex-1"
+					disabled={isRemovingPlayer}
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleRemovePlayer}
+					class="btn flex-1"
+					style="background: #ef4444; color: white;"
+					disabled={isRemovingPlayer}
+				>
+					{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</dialog>
 
 <style>
 	/* Hide number input spinner arrows */
@@ -1084,5 +1256,20 @@
 	input[type='number'] {
 		-moz-appearance: textfield;
 		appearance: textfield;
+	}
+
+	.confirm-dialog {
+		background: transparent;
+		border: none;
+		padding: 1rem;
+		max-width: min(calc(100vw - 2rem), 24rem);
+		width: 100%;
+		margin: auto;
+	}
+
+	.confirm-dialog::backdrop {
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 	}
 </style>

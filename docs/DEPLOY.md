@@ -9,6 +9,21 @@ Before deploying anywhere, you need:
 - A [Supabase](https://supabase.com) project with the migrations in `supabase/migrations/` applied (see [README.md](../README.md#database-setup))
 - The required environment variables ready to paste into the platform's dashboard
 
+### Migration ordering: deploy the client first
+
+Ship the Cloudflare Pages build **before** applying a migration that changes an RPC's
+return contract. Clients are PWA-cached, so a browser can keep running an old bundle
+for a while after a migration lands.
+
+Migration 033 is the live example: it changed `update_party_details`,
+`update_payout_structure`, and `remove_player` to return a NULL sentinel on a
+wrong/locked-out PIN instead of raising. A pre-033 bundle reads `remove_player`'s
+sentinel as `data || 0` — i.e. `removedCount: 0` — and reports a rejected removal as a
+success, clearing the player's squares locally even though the server changed nothing.
+(No server data is harmed and the grid self-heals on the next realtime event or reload,
+but the host sees a lie.) Deploying the client first means every browser already
+understands the sentinel by the time the DB starts returning it.
+
 ### Required env vars
 
 | Var                      | Purpose                    |

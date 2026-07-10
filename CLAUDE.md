@@ -53,20 +53,25 @@ UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid
 
 ## RPC Signatures
 
-| RPC                   | Parameters                                                                                                                                               | Returns       |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `create_party`        | `p_host_name VARCHAR(50), p_pin VARCHAR(4), p_square_price DECIMAL, p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT, [team overrides]` | `parties` row |
-| `claim_square`        | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                                                                                       | `BOOLEAN`     |
-| `unclaim_square`      | same pattern                                                                                                                                             | `BOOLEAN`     |
-| `claim_squares_batch` | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                                                                              | `INTEGER`     |
-| `lock_party`          | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                      | `BOOLEAN`     |
-| `update_score`        | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                             | `BOOLEAN`     |
-| `verify_host_pin`     | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                              | `BOOLEAN`     |
-| `delete_party`        | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                      | `BOOLEAN`     |
+| RPC                       | Parameters                                                                                                                                                                                                  | Returns                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `create_party`            | `p_host_name VARCHAR(50), p_pin VARCHAR(4), p_square_price DECIMAL, p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT, [team overrides]`                                                    | `parties` row                                                                           |
+| `claim_square`            | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                                                                                                                                          | `BOOLEAN`                                                                               |
+| `unclaim_square`          | same pattern                                                                                                                                                                                                | `BOOLEAN`                                                                               |
+| `claim_squares_batch`     | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                                                                                                                                 | `INTEGER`                                                                               |
+| `lock_party`              | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                               |
+| `update_score`            | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                                                                                | `BOOLEAN`                                                                               |
+| `verify_host_pin`         | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                                                                                 | `BOOLEAN`                                                                               |
+| `delete_party`            | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                               |
+| `update_party_details`    | `p_party_id UUID, p_pin VARCHAR(4), p_event_name VARCHAR(80), p_kickoff_at TIMESTAMPTZ, p_team_row_name VARCHAR(50), p_team_col_name VARCHAR(50), p_team_row_color VARCHAR(7), p_team_col_color VARCHAR(7)` | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE             |
+| `update_payout_structure` | `p_party_id UUID, p_pin VARCHAR(4), p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT`                                                                                                      | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE             |
+| `remove_player`           | `p_party_id UUID, p_pin VARCHAR(4), p_player_name_lower VARCHAR(50)`                                                                                                                                        | `INTEGER` (removed count) — **NULL sentinel on PIN failure** (migration 033), not RAISE |
 
 ## BroadcastMessage Wire Protocol
 
-`BroadcastMessage.type` string values (`claim_intent`, `claim_rejected`, `unclaim_intent`) are sent over the wire between browser clients. Changing a value on one side silently breaks the other with NO TypeScript error. Treat these strings as a wire protocol contract — document any change here and update ALL clients simultaneously.
+`BroadcastMessage.type` string values (`claim_intent`, `claim_rejected`, `unclaim_intent`, `unclaim_rejected`) are sent over the wire between browser clients. Changing a value on one side silently breaks the other with NO TypeScript error. Treat these strings as a wire protocol contract — document any change here and update ALL clients simultaneously.
+
+- `unclaim_rejected` (added): sent by an unclaiming client when its `unclaim_square` RPC is rejected (error OR a BOOLEAN `false` domain rejection — see migration 029). Observers that optimistically cleared the square on the matching `unclaim_intent` restore it. Adding a new type is backward-compatible: `handleBroadcastMessage` dispatches with an if/else-if chain, so an older client receiving an unknown type simply no-ops (never throws). New types may be added additively; never change or remove an existing value.
 
 ## Do NOT Rules
 
@@ -77,6 +82,7 @@ UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid
 - Never change CSS variable names in app.css
 - Never set `player_name_lower` directly — it's auto-generated
 - Never change BroadcastMessage.type string values without updating all clients
+- Never `RAISE` on PIN/lockout failure in `update_party_details`, `update_payout_structure`, or `remove_player` — return the sentinel (`NULL`) instead. PostgREST runs each RPC as ONE transaction, so a `RAISE` rolls back `check_pin_lockout`'s own `pin_attempts` increment, silently stopping the brute-force throttle and reopening a 10,000-PIN oracle (migration 033). Every OTHER failure in these RPCs keeps its existing `RAISE`.
 
 ## Testing
 

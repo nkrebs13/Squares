@@ -44,6 +44,7 @@
 
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
+	let gestureHintRef = $state<GestureHint | null>(null);
 
 	async function checkIsHost() {
 		if (browser && code) {
@@ -140,9 +141,33 @@
 				</h1>
 				<p class="mt-1 text-sm text-secondary">{matchupLabel}</p>
 			</div>
-			{#if isHost}
-				<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>
-			{/if}
+			<div class="header-actions">
+				{#if isHost}
+					<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>
+				{/if}
+				<button
+					type="button"
+					class="help-btn"
+					onclick={() => gestureHintRef?.reopen()}
+					aria-label="Show gesture help"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<circle cx="12" cy="12" r="10"></circle>
+						<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+						<line x1="12" y1="17" x2="12.01" y2="17"></line>
+					</svg>
+				</button>
+			</div>
 		</header>
 
 		<!-- Desktop Two-Column Layout -->
@@ -153,8 +178,12 @@
 					<!-- Mobile sidebar content (above grid) -->
 					<div class="lg:hidden">
 						<PartySidebar variant="mobile" />
-						<GestureHint />
 					</div>
+
+					<!-- Mounted at every breakpoint: the header's help button calls reopen() on it,
+					     and GestureHint picks touch vs pointer copy itself. Nesting it in the
+					     lg:hidden wrapper above would make that button dead on desktop. -->
+					<GestureHint bind:this={gestureHintRef} />
 
 					<!-- Main Grid -->
 					<div class="mb-4 lg:mb-0">
@@ -177,6 +206,36 @@
 </div>
 
 <style>
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.help-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		color: var(--text-secondary);
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-color);
+		border-radius: 999px;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.help-btn:hover {
+		background: rgba(255, 255, 255, 0.08);
+		color: var(--text-primary);
+	}
+
+	.help-btn:focus-visible {
+		outline: 2px solid rgba(100, 210, 200, 0.9);
+		outline-offset: 2px;
+	}
+
 	/* Mobile-first: viewport-fitting layout */
 	.party-page {
 		min-height: 100vh;

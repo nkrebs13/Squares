@@ -176,9 +176,12 @@
 				handleSquareClick(row, col);
 			}
 		} else {
-			// Mouse/pen - end drag selection
+			// Mouse/pen - end drag selection, or a plain click (e.g. unclaiming an
+			// owned square, which never enters drag because canSelectCell excludes it)
 			if (isDragging) {
 				handleDragEnd();
+			} else if (pointerStartCell && pointerStartCell.row === row && pointerStartCell.col === col) {
+				handleSquareClick(row, col);
 			}
 		}
 		pointerStartCell = null;
@@ -265,7 +268,7 @@
 	});
 
 	// Current user's player color for the legend swatch
-	const myColor = $derived($userName ? getPlayerColor($userName) : null);
+	const myColor = $derived($userName ? getPlayerColor(normalizePlayerName($userName)) : null);
 
 	const rows = Array.from({ length: 10 }, (_, i) => i);
 	const cols = Array.from({ length: 10 }, (_, i) => i);

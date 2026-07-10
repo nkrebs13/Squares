@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
+import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import type { Party, Scores, Square } from '$lib/types';
@@ -79,6 +80,20 @@ function createMockSquare(row: number, col: number, overrides: Partial<Square> =
 	};
 }
 
+function createSquareForPlayer(
+	row: number,
+	col: number,
+	playerName: string,
+	overrides: Partial<Square> = {}
+): Square {
+	return createMockSquare(row, col, {
+		player_name: playerName,
+		player_name_lower: playerName.toLowerCase(),
+		claimed_at: new Date().toISOString(),
+		...overrides,
+	});
+}
+
 function createFullGrid(): Square[] {
 	const grid: Square[] = [];
 	for (let row = 0; row < 10; row++) {
@@ -105,6 +120,59 @@ function renderAuthorizedAdmin(partyOverrides: Partial<Party> = {}, scoresData?:
 	scores.set(scoresData ?? createMockScores());
 	sessionStorageMock.setItem('squares_pin_TEST123', '1234');
 	return render(AdminPage);
+}
+
+/**
+ * Queue the six-call from() chain loadParty(code) issues (parties, game_scores
+ * auto-detect, squares, numbers, scores, winners) so a post-save reload resolves
+ * with the given committed scores. Mirrors the manual chains used elsewhere in
+ * this file, condensed for the FIX 1 auto-advance tests.
+ */
+function mockLoadPartyReload(reloadedScores: Scores, partyOverrides: Partial<Party> = {}) {
+	mockSupabaseClient.from
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({
+				data: createMockParty({ status: 'active', ...partyOverrides }),
+				error: null,
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			neq: vi.fn().mockReturnThis(),
+			limit: vi.fn().mockReturnThis(),
+			maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+		} as unknown as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			order: vi.fn().mockReturnValue({
+				order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({
+				data: {
+					party_id: 'test-party-id',
+					row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+					col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+				},
+				error: null,
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({ data: reloadedScores, error: null }),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			order: vi.fn().mockResolvedValue({ data: [], error: null }),
+		} as ReturnType<typeof mockSupabaseClient.from>);
 }
 
 describe('Admin Page - Score Entry', () => {
@@ -259,6 +327,75 @@ describe('Admin Page - Score Entry', () => {
 
 			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
 			expect(select.value).toBe('q2');
+		});
+	});
+
+	describe('Manual Score Entry Persistence (Regression — live tick must not clobber overrides)', () => {
+		it('still auto-advances to the next quarter on cold render (baseline)', () => {
+			renderAuthorizedAdmin(
+				{ status: 'active' },
+				createMockScores({
+					q1_row_score: 7,
+					q1_col_score: 3,
+					q2_row_score: 14,
+					q2_col_score: 10,
+				})
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('q3');
+		});
+
+		it('preserves a host-selected quarter across a live score tick', async () => {
+			const initialScores = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
+			renderAuthorizedAdmin({ status: 'active' }, initialScores);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			// nextQuarter auto-advances to q2 (q1 already scored)
+			expect(select.value).toBe('q2');
+
+			const user = userEvent.setup();
+			// Host deliberately corrects q1 instead of continuing to q2
+			await user.selectOptions(select, 'q1');
+			expect(select.value).toBe('q1');
+
+			// Simulate a live tick: postgres_changes replaces the whole `scores`
+			// row (new object reference) because the game_scores_live_propagate
+			// trigger updated its live_* columns — the committed q1-final values
+			// are unchanged.
+			scores.set({ ...initialScores });
+			await tick();
+
+			expect(select.value).toBe('q1');
+		});
+
+		it('preserves typed row/col scores across a live score tick', async () => {
+			const initialScores = createMockScores();
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				initialScores
+			);
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '21');
+			await user.clear(colInput);
+			await user.type(colInput, '14');
+
+			expect(rowInput).toHaveValue(21);
+			expect(colInput).toHaveValue(14);
+
+			// Live tick: same committed values, new object reference — simulates
+			// the game_scores_live_propagate trigger updating only the scores
+			// row's live_* columns (migration 017:199-219), which the app's
+			// Scores type doesn't even model.
+			scores.set({ ...initialScores });
+			await tick();
+
+			expect(rowInput).toHaveValue(21);
+			expect(colInput).toHaveValue(14);
 		});
 	});
 
@@ -783,6 +920,113 @@ describe('Admin Page - Score Entry', () => {
 		});
 	});
 
+	describe('Quarter Auto-Advance After Save (FIX 1 — real-money overwrite regression)', () => {
+		it('advances the selector to Q2 and resyncs inputs after a successful Q1 save', async () => {
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				createMockScores()
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('q1');
+
+			// update_score succeeds; reload shows Q1 committed at 7-3, Q2 still unscored.
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockLoadPartyReload(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '7');
+			await user.clear(colInput);
+			await user.type(colInput, '3');
+
+			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
+
+			// Selector advances to Q2 so the next submit can't silently overwrite Q1.
+			await waitFor(() => expect(select.value).toBe('q2'));
+			// Inputs resync to Q2's stored values (unscored → 0/0), NOT the typed 7/3.
+			expect(rowInput).toHaveValue(0);
+			expect(colInput).toHaveValue(0);
+		});
+
+		it('guard still holds: a live-only scores tick does not advance the quarter or clobber typing', async () => {
+			const initial = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				initial
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			// Cold render auto-advances to q2 (q1 already scored).
+			expect(select.value).toBe('q2');
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			await user.clear(rowInput);
+			await user.type(rowInput, '99');
+
+			// A live tick: the game_scores_live_propagate trigger replaces the whole
+			// scores row (new object ref) but the committed q1-final values are the
+			// same. This must NOT advance the quarter or clobber the in-progress typing.
+			scores.set({ ...initial });
+			await tick();
+
+			expect(select.value).toBe('q2');
+			expect(rowInput).toHaveValue(99);
+		});
+
+		it('after the final quarter is saved the selector stays on Final (no nonsensical advance)', async () => {
+			const throughQ3 = createMockScores({
+				q1_row_score: 7,
+				q1_col_score: 3,
+				q2_row_score: 14,
+				q2_col_score: 10,
+				q3_row_score: 21,
+				q3_col_score: 17,
+			});
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				throughQ3
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('final');
+
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockLoadPartyReload(
+				createMockScores({
+					q1_row_score: 7,
+					q1_col_score: 3,
+					q2_row_score: 14,
+					q2_col_score: 10,
+					q3_row_score: 21,
+					q3_col_score: 17,
+					final_row_score: 28,
+					final_col_score: 24,
+				})
+			);
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '28');
+			await user.clear(colInput);
+			await user.type(colInput, '24');
+
+			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
+
+			await waitFor(() => expect(screen.getByText(/Score updated for Final!/)).toBeInTheDocument());
+			// Never advances past 'final' — deriveNextQuarter caps at 'final'.
+			expect(select.value).toBe('final');
+			// Inputs resync to final's committed values.
+			expect(rowInput).toHaveValue(28);
+			expect(colInput).toHaveValue(24);
+		});
+	});
+
 	describe('Filling Phase Controls', () => {
 		it('shows editable event details while party is filling', () => {
 			renderAuthorizedAdmin({
@@ -1033,6 +1277,45 @@ describe('Admin Page - Score Entry', () => {
 			renderAuthorizedAdmin({ status: 'complete' });
 			expect(screen.getByText('Danger Zone')).toBeInTheDocument();
 		});
+
+		it('REGRESSION: clears cached host credentials after a successful delete', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			const { goto } = await import('$app/navigation');
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(goto).toHaveBeenCalledWith('/');
+			});
+
+			// removeHostPin(code) — IndexedDB-backed, falls back to writing the
+			// pruned pins map via idb-keyval's `set`
+			expect(mockIdbSet).toHaveBeenCalledWith('squares_host_pins', expect.any(Object));
+			// removeSessionItem(partyPinKey(code))
+			expect(sessionStorageMock.removeItem).toHaveBeenCalledWith('squares_pin_TEST123');
+			// removeRecentParty(code)
+			expect(mockIdbSet).toHaveBeenCalledWith('squares_recent_parties', expect.any(Array));
+		});
+
+		it('does NOT clear cached host credentials when delete fails', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			// delete_party RPC succeeds but reports an invalid PIN (data: false)
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(screen.getByText('Invalid PIN')).toBeInTheDocument();
+			});
+
+			expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith('squares_pin_TEST123');
+		});
 	});
 
 	describe('Manual Score Entry Visibility with game_id', () => {
@@ -1091,6 +1374,292 @@ describe('Admin Page - Score Entry', () => {
 			expect(
 				screen.getByText(/Enter scores and calculate winners for each quarter/)
 			).toBeInTheDocument();
+		});
+	});
+
+	describe('Party Load Failure (Regression — blank page after external deletion)', () => {
+		it('shows an error state with a way home instead of a blank page when authorized but the party failed to load', async () => {
+			// Do NOT set the party store — simulates loadParty failing (e.g. the
+			// party was deleted from another tab/host action) while a cached
+			// host PIN is still present, which used to leave isAuthorized=true
+			// and $party=null matching neither template branch (blank page).
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			mockSupabaseClient.from.mockReturnValueOnce({
+				select: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				single: vi.fn().mockResolvedValue({
+					data: null,
+					error: { message: 'not found' },
+				}),
+			} as ReturnType<typeof mockSupabaseClient.from>);
+
+			const { container } = render(AdminPage);
+
+			await waitFor(() => {
+				expect(screen.getByText('Party not found')).toBeInTheDocument();
+				expect(screen.getByRole('link', { name: /Go Home/i })).toBeInTheDocument();
+			});
+
+			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+			expect(screen.queryByText('Party Status')).not.toBeInTheDocument();
+			// The rendered content must not be an empty host-panel shell — the
+			// error card is present.
+			expect(container.querySelector('.card')).not.toBeNull();
+		});
+
+		it('shows a loading state (not a blank page) while the party is still being fetched', () => {
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			// Never resolves during this synchronous assertion — mirrors the
+			// brief window between mount and loadParty() settling.
+			mockSupabaseClient.from.mockReturnValueOnce({
+				select: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				single: vi.fn(() => new Promise(() => {})),
+			} as ReturnType<typeof mockSupabaseClient.from>);
+
+			render(AdminPage);
+
+			expect(screen.getByText(/Loading party/i)).toBeInTheDocument();
+			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('Delete Party Confirmation Dialog (native <dialog>)', () => {
+		it('opens on trigger', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+		});
+
+		it('Escape closes the dialog WITHOUT deleting the party', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+
+			// jsdom's <dialog> polyfill (src/tests/setup.ts) doesn't implement
+			// native Escape-to-cancel semantics (no keydown handling, no
+			// automatic 'close' event dispatch), so simulate what a real
+			// browser does on Escape: fire the 'close' event the component's
+			// onclose handler listens to.
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="delete-party-title"]'
+			);
+			if (!dialogEl) throw new Error('delete-party dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
+			});
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+		});
+
+		it('Cancel closes the dialog without deleting the party', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+		});
+
+		it('Confirm deletes the party exactly once', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			const { goto } = await import('$app/navigation');
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(goto).toHaveBeenCalledWith('/');
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('delete_party', {
+				p_party_id: 'test-party-id',
+				p_pin: '1234',
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('focuses Cancel (never the destructive action) on open, and returns focus to the trigger on close', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Delete Party' });
+
+			await user.click(triggerButton);
+
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
+		});
+	});
+
+	describe('Remove Player Confirmation Dialog (native <dialog>)', () => {
+		function renderWithRemovablePlayer() {
+			party.set(createMockParty({ status: 'filling', host_name_lower: 'hostie' }));
+			squares.set([createSquareForPlayer(0, 0, 'Alice'), createSquareForPlayer(0, 1, 'Alice')]);
+			scores.set(createMockScores());
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+			return render(AdminPage);
+		}
+
+		it('opens on trigger', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+		});
+
+		it('Escape closes the dialog WITHOUT removing the player', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="remove-player-title"]'
+			);
+			if (!dialogEl) throw new Error('remove-player dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+			});
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+		});
+
+		it('Cancel closes the dialog without removing the player', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+		});
+
+		it('Confirm removes the player exactly once', async () => {
+			renderWithRemovablePlayer();
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+					p_party_id: 'test-party-id',
+					p_pin: '1234',
+					p_player_name_lower: 'alice',
+				});
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('returns focus to the triggering Remove button on close', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Remove' });
+
+			await user.click(triggerButton);
+
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+			// Focus moves into the dialog (Cancel button), not left on the trigger.
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
+		});
+
+		it('Escape restores focus to the triggering Remove button (cancel path, not the success target)', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Remove' });
+
+			await user.click(triggerButton);
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="remove-player-title"]'
+			);
+			if (!dialogEl) throw new Error('remove-player dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
+		});
+
+		describe('Focus after a successful removal (CodeRabbit — stale-trigger a11y regression)', () => {
+			function renderWithTwoRemovablePlayers() {
+				party.set(createMockParty({ status: 'filling', host_name_lower: 'hostie' }));
+				squares.set([createSquareForPlayer(0, 0, 'Alice'), createSquareForPlayer(0, 1, 'Bob')]);
+				scores.set(createMockScores());
+				sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+				return render(AdminPage);
+			}
+
+			it('moves focus to the Party Status heading (not document.body) when other players remain', async () => {
+				renderWithTwoRemovablePlayers();
+				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+				const user = userEvent.setup();
+				const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
+				await user.click(removeButtons[0]);
+				await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+				await waitFor(() => {
+					expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+				});
+
+				// The removed player's row (and its Remove button, the saved trigger)
+				// is gone from the DOM — focus must NOT have silently dropped to
+				// <body>. It lands on the always-rendered Party Status heading.
+				expect(document.activeElement).not.toBe(document.body);
+				expect(document.activeElement).toBe(screen.getByText('Party Status'));
+			});
+
+			it('last-player case: removing the final player still leaves focus on a connected, non-body element', async () => {
+				renderWithRemovablePlayer();
+				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+
+				const user = userEvent.setup();
+				await user.click(screen.getByRole('button', { name: 'Remove' }));
+				await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+				await waitFor(() => {
+					// Removing the sole remaining player empties $playerSummary, so
+					// the whole "Manage Players" card (and the trigger button inside
+					// it) unmounts.
+					expect(screen.queryByText('Manage Players')).not.toBeInTheDocument();
+				});
+
+				expect(document.activeElement).not.toBe(document.body);
+				expect(document.activeElement).not.toBeNull();
+				expect(document.body.contains(document.activeElement)).toBe(true);
+				expect(document.activeElement).toBe(screen.getByText('Party Status'));
+			});
 		});
 	});
 });

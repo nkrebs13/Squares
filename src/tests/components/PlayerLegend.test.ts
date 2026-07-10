@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import PlayerLegend from '$lib/components/PlayerLegend.svelte';
 import { party, squares, selectedPlayerFilter } from '$lib/stores/game';
 import { get } from 'svelte/store';
+import { getPlayerColor } from '$lib/utils/colors';
 import type { Party, Square } from '$lib/types';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
@@ -122,5 +123,19 @@ describe('PlayerLegend Component', () => {
 		await user.click(screen.getByText('Alice'));
 
 		expect(get(selectedPlayerFilter)).toBeNull();
+	});
+
+	it('colors the pill dot from the normalized (lowercase) player name, not the raw casing (Bug 2 regression)', () => {
+		squares.set([createMockSquare(0, 0, 'JOHN')]);
+		render(PlayerLegend);
+
+		const dot = document.querySelector('.player-dot') as HTMLElement;
+		expect(dot).toBeTruthy();
+
+		// The pill must hash on normalizePlayerName('JOHN') === 'john', not the
+		// raw stored casing — otherwise "JOHN" and "John" squares for the same
+		// logical player would render different swatch colors.
+		const expectedColor = getPlayerColor('john');
+		expect(dot.getAttribute('style')).toBe(`background: ${expectedColor.text};`);
 	});
 });

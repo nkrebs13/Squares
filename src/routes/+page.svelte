@@ -114,21 +114,6 @@
 		</div>
 	</section>
 
-	<section class="trust-row" aria-label="Production highlights">
-		<div>
-			<strong>~50</strong>
-			<span>live players</span>
-		</div>
-		<div>
-			<strong>0</strong>
-			<span>support requests</span>
-		</div>
-		<div>
-			<strong>5</strong>
-			<span>CI gates</span>
-		</div>
-	</section>
-
 	<section class="recent-section" aria-label="Recent parties">
 		<p class="recent-hint">Join multiple parties and they will all appear below.</p>
 		<RecentParties />
@@ -303,35 +288,6 @@
 		border-color: rgba(100, 200, 130, 0.6);
 	}
 
-	.trust-row {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.75rem;
-	}
-
-	.trust-row div {
-		padding: 0.9rem;
-		background: rgba(255, 255, 255, 0.035);
-		border: 1px solid var(--border-color);
-		border-radius: 8px;
-	}
-
-	.trust-row strong,
-	.trust-row span {
-		display: block;
-	}
-
-	.trust-row strong {
-		font-size: 1.35rem;
-		line-height: 1;
-	}
-
-	.trust-row span {
-		margin-top: 0.35rem;
-		color: var(--text-muted);
-		font-size: 0.82rem;
-	}
-
 	.recent-section {
 		display: flex;
 		flex-direction: column;
@@ -370,8 +326,7 @@
 	}
 
 	@media (max-width: 520px) {
-		.join-form,
-		.trust-row {
+		.join-form {
 			grid-template-columns: 1fr;
 		}
 

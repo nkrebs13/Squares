@@ -124,13 +124,17 @@ describe('party update RLS hardening', () => {
 			p_player_name: 'Alice',
 		});
 
+		// Migration 033: a rejected PIN is refused via a NULL sentinel return (NOT
+		// a RAISE), so the check_pin_lockout throttle increment can durably commit.
+		// The refusal is therefore a null-data / no-error result, and no squares
+		// are removed (verified by the correct-PIN call below still removing 2).
 		const { data: wrongPinData, error: wrongPinError } = await client.rpc('remove_player', {
 			p_party_id: party.id,
 			p_pin: '9999',
 			p_player_name_lower: 'alice',
 		});
 		expect(wrongPinData).toBeNull();
-		expect(wrongPinError).toBeTruthy();
+		expect(wrongPinError).toBeNull();
 
 		const { data: removedCount, error } = await client.rpc('remove_player', {
 			p_party_id: party.id,
@@ -145,6 +149,8 @@ describe('party update RLS hardening', () => {
 	it('allows payout updates only through the host PIN RPC', async () => {
 		const party = await createParty();
 
+		// Migration 033: a rejected PIN is refused via a NULL sentinel return (NOT
+		// a RAISE) so the check_pin_lockout throttle increment durably commits.
 		const { data: wrongPinData, error: wrongPinError } = await client.rpc(
 			'update_payout_structure',
 			{
@@ -156,8 +162,10 @@ describe('party update RLS hardening', () => {
 				p_split_final: 40,
 			}
 		);
-		expect(wrongPinData).toBeNull();
-		expect(wrongPinError).toBeTruthy();
+		// A NULL `RETURNS parties` value surfaces as an all-null-column row object,
+		// so the refusal is signalled by the absent id (not bare null).
+		expect(wrongPinData == null || wrongPinData.id == null).toBe(true);
+		expect(wrongPinError).toBeNull();
 
 		const { data: updated, error } = await client.rpc('update_payout_structure', {
 			p_party_id: party.id,

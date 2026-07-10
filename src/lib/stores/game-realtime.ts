@@ -1,5 +1,6 @@
 import { get, writable, type Readable } from 'svelte/store';
 import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
+import { browser } from '$app/environment';
 import { getSupabaseClient } from '$lib/supabase';
 import type { BroadcastMessage } from '$lib/types';
 import {
@@ -21,6 +22,8 @@ import {
 	pendingOperations,
 	pendingTimeouts,
 	PENDING_TIMEOUT_MS,
+	selectedPlayerFilter,
+	restoreSelectedPlayerFilter,
 	applySquareUpdate,
 	applyPartyUpdate,
 	applyNumbersUpdate,
@@ -49,16 +52,34 @@ interface ChannelState {
 	channel: RealtimeChannel | null;
 	reconnectAttempts: number;
 	reconnectTimeout: ReturnType<typeof setTimeout> | null;
+	// Monotonic per-key instance token, bumped every time a channel is (re)created
+	// for this key. Each channel's status callback captures the token it was born
+	// under; handleChannelStatus ignores any callback whose token is no longer the
+	// current one. This is finer-grained than `currentGeneration` (which only bumps
+	// on subscribe/teardown, NOT on the internal reconnect timer's replace-in-place):
+	// it defeats the CLOSED an OLD channel fires ASYNCHRONOUSLY after the reconnect
+	// timer unsubscribed it, which would otherwise pass the generation guard (same
+	// generation) and schedule a reconnect that tears down the healthy NEW channel —
+	// endless churn while the UI still reads "connected".
+	instanceToken: number;
 }
 
 const channelStates: Record<string, ChannelState> = {
-	party: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
-	broadcast: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
-	game: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
+	party: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
+	broadcast: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
+	game: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
 };
 
 const MAX_RECONNECT = 5;
 const BASE_DELAY = 1000;
+
+// Monotonic subscription generation. Every (re)subscribe and every intentional
+// teardown bumps this; each channel's status callback captures the generation it
+// was created under and only (re)connects while that generation is still current.
+// This defeats the CLOSED event Supabase fires ASYNCHRONOUSLY after an intentional
+// unsubscribe(): the stale callback's captured generation no longer matches, so it
+// can never resurrect a channel for a party we've already left or navigated away from.
+let currentGeneration = 0;
 
 // ─── Connection status (surfaced to the UI via ConnectionBanner) ──────────
 export type ConnectionStatus = 'connected' | 'reconnecting' | 'failed';
@@ -74,6 +95,60 @@ const _connectionStatus = writable<ConnectionStatusState>({ status: 'connected',
 export const connectionStatus: Readable<ConnectionStatusState> = {
 	subscribe: _connectionStatus.subscribe,
 };
+
+// ─── Network connectivity (independent of the realtime channel status) ───
+// navigator.onLine + window 'online'/'offline' events reflect actual browser
+// network connectivity — distinct from connectionStatus above, which only
+// tracks the Supabase realtime channel's own connect/reconnect lifecycle.
+// A user can be fully offline (no network at all) while connectionStatus is
+// still 'connected' from its last known state, or the reverse.
+//
+// SSR-safe: navigator/window are undefined during SvelteKit server render,
+// so every access is guarded by `browser` from $app/environment (same guard
+// theme.ts uses for its own browser-only DOM access).
+const _isOffline = writable<boolean>(browser ? !navigator.onLine : false);
+
+/** Public read-only store reflecting actual network connectivity (navigator.onLine). */
+export const isOffline: Readable<boolean> = { subscribe: _isOffline.subscribe };
+
+function handleNetworkOnline() {
+	_isOffline.set(false);
+}
+
+function handleNetworkOffline() {
+	_isOffline.set(true);
+}
+
+let offlineListenersActive = false;
+
+/**
+ * Resync isOffline from the current navigator.onLine value, and register the
+ * window online/offline listeners exactly once. Safe to call on every
+ * subscribeToParty() — idempotent, mirrors the channel setup below.
+ */
+function registerOfflineListeners() {
+	if (!browser) return;
+	_isOffline.set(!navigator.onLine);
+	if (offlineListenersActive) return;
+	window.addEventListener('online', handleNetworkOnline);
+	window.addEventListener('offline', handleNetworkOffline);
+	offlineListenersActive = true;
+}
+
+/**
+ * Tear down the window online/offline listeners and resync isOffline to the
+ * current navigator.onLine value. Mirrors cleanupChannels()'s teardown of the
+ * realtime channels — called from there so listeners never leak across
+ * navigations.
+ */
+function unregisterOfflineListeners() {
+	if (browser && offlineListenersActive) {
+		window.removeEventListener('online', handleNetworkOnline);
+		window.removeEventListener('offline', handleNetworkOffline);
+		offlineListenersActive = false;
+	}
+	_isOffline.set(browser ? !navigator.onLine : false);
+}
 
 function recomputeAggregateStatus() {
 	let maxAttempts = 0;
@@ -134,8 +209,24 @@ function resetReconnectState(channelKey: string) {
 function handleChannelStatus(
 	channelKey: string,
 	status: `${REALTIME_SUBSCRIBE_STATES}`,
-	setupFn: () => void
+	setupFn: () => void,
+	generation: number,
+	token: number
 ) {
+	// Ignore any status from a channel that belongs to a superseded generation —
+	// e.g. the async CLOSED delivered after an intentional unsubscribe(). Without
+	// this guard, CLOSED would schedule a reconnect that resurrects a channel for a
+	// party we've already left (or unsubscribes the new party's channel to reopen the old).
+	if (generation !== currentGeneration) return;
+
+	// Ignore any status from a channel this key has since replaced in-place. The
+	// internal reconnect timer swaps channelStates[key].channel WITHOUT bumping the
+	// generation, so an OLD channel's late CLOSED shares the current generation and
+	// would pass the guard above — then schedule a reconnect that unsubscribes the
+	// healthy NEW channel. The instance token, bumped on every (re)creation, is what
+	// distinguishes them.
+	if (token !== channelStates[channelKey].instanceToken) return;
+
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
 	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -179,7 +270,18 @@ export function schedulePendingTimeout(key: string) {
 					)
 				);
 
-				toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
+				// A rolled-back unclaim restores the square, so restore any filter the
+				// optimistic clear nulled too (no-op for claim ops / unchanged filters).
+				if (op.type === 'unclaim') {
+					restoreSelectedPlayerFilter(op.filterSnapshot);
+				}
+
+				// Only alert the user about THEIR OWN failed operation. Remote ops
+				// (id "remote-<clientId>-<key>") are mirrors of another client's action;
+				// their timeout is a silent self-heal, not something this user did.
+				if (!op.id.startsWith('remote-')) {
+					toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
+				}
 				return newOps;
 			}
 			return ops;
@@ -241,11 +343,13 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 		// Schedule timeout cleanup for remote pending operations
 		schedulePendingTimeout(key);
 	} else if (message.type === 'claim_rejected') {
-		// Another user's claim was rejected - remove their pending claim
+		// Another user's claim was rejected - remove ONLY that user's pending claim.
+		// Match on the full remote op id (remote-<clientId>-<key>) so a rejection from
+		// one client can never roll back a different client's still-valid pending preview.
 		pendingOperations.update((ops) => {
 			const newOps = new Map(ops);
 			const op = newOps.get(key);
-			if (op && op.id.startsWith('remote-')) {
+			if (op && op.id === `remote-${message.clientId}-${key}`) {
 				// Rollback to original state
 				squares.update((current) =>
 					current.map((s) =>
@@ -264,9 +368,38 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 			return newOps;
 		});
 	} else if (message.type === 'unclaim_intent') {
-		// Another user is unclaiming - show optimistically
+		// Another user is unclaiming - show optimistically.
 		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
 		if (!existingSquare || !existingSquare.player_name) return;
+
+		// Track as a pending op (symmetric with remote claim_intent) so we can self-heal
+		// if the unclaim is rejected server-side. A rejected unclaim_square changes ZERO
+		// rows, so no postgres_changes event arrives to restore the square — the pending
+		// op's timeout (or an unclaim_rejected broadcast) is the only thing that heals us.
+		// Snapshot the filter before the optimistic clear below, mirroring the local
+		// unclaim path: if the unclaiming player is this observer's active filter and
+		// this is their last square, the self-clearing subscription nulls it. A later
+		// unclaim_rejected (or the pending-op timeout) restores it from here.
+		const filterSnapshot = get(selectedPlayerFilter);
+
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			newOps.set(key, {
+				id: `remote-${message.clientId}-${key}`,
+				type: 'unclaim',
+				row,
+				col,
+				timestamp: message.timestamp,
+				status: 'pending',
+				originalState: {
+					player_name: existingSquare.player_name,
+					player_name_lower: existingSquare.player_name_lower,
+					claimed_at: existingSquare.claimed_at,
+				},
+				filterSnapshot,
+			});
+			return newOps;
+		});
 
 		squares.update((current) =>
 			current.map((s) =>
@@ -275,6 +408,35 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 					: s
 			)
 		);
+
+		// Schedule timeout cleanup for the remote pending unclaim
+		schedulePendingTimeout(key);
+	} else if (message.type === 'unclaim_rejected') {
+		// The unclaiming client's server call was rejected - restore the square we cleared.
+		// Match on the full remote op id so only the pending op we created for THIS client's
+		// unclaim is restored.
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			const op = newOps.get(key);
+			if (op && op.id === `remote-${message.clientId}-${key}`) {
+				squares.update((current) =>
+					current.map((s) =>
+						s.row_num === row && s.col_num === col
+							? {
+									...s,
+									player_name: op.originalState.player_name,
+									player_name_lower: op.originalState.player_name_lower,
+									claimed_at: op.originalState.claimed_at,
+								}
+							: s
+					)
+				);
+				// Square restored → restore the filter the optimistic clear may have nulled.
+				restoreSelectedPlayerFilter(op.filterSnapshot);
+				newOps.delete(key);
+			}
+			return newOps;
+		});
 	}
 }
 
@@ -319,19 +481,27 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		});
 }
 
-function setupBroadcastChannel(partyId: string) {
+function setupBroadcastChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.broadcast.instanceToken;
 	channelStates.broadcast.channel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
 		.on('broadcast', { event: 'score_update' }, handleScoreUpdateBroadcast)
 		.subscribe((status) => {
-			handleChannelStatus('broadcast', status, () => setupBroadcastChannel(partyId));
+			handleChannelStatus(
+				'broadcast',
+				status,
+				() => setupBroadcastChannel(partyId, generation),
+				generation,
+				token
+			);
 		});
 }
 
-function setupPartyChannel(partyId: string) {
+function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.party.instanceToken;
 	channelStates.party.channel = supabase
 		.channel(`party:${partyId}`)
 		.on(
@@ -416,12 +586,19 @@ function setupPartyChannel(partyId: string) {
 			}
 		)
 		.subscribe((status) => {
-			handleChannelStatus('party', status, () => setupPartyChannel(partyId));
+			handleChannelStatus(
+				'party',
+				status,
+				() => setupPartyChannel(partyId, generation),
+				generation,
+				token
+			);
 		});
 }
 
-function setupGameChannel(gameId: string) {
+function setupGameChannel(gameId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.game.instanceToken;
 	channelStates.game.channel = supabase
 		.channel(`game:${gameId}`)
 		.on(
@@ -442,11 +619,24 @@ function setupGameChannel(gameId: string) {
 			}
 		)
 		.subscribe((status) => {
-			handleChannelStatus('game', status, () => setupGameChannel(gameId));
+			handleChannelStatus(
+				'game',
+				status,
+				() => setupGameChannel(gameId, generation),
+				generation,
+				token
+			);
 		});
 }
 
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
+	// Register (or resync) the offline-detection listeners for this session.
+	registerOfflineListeners();
+
+	// Bump the generation FIRST so any async CLOSED fired by the unsubscribe() calls
+	// below is treated as stale and cannot schedule a reconnect against the old party.
+	const generation = ++currentGeneration;
+
 	// Unsubscribe from previous channels and clear reconnect state.
 	// IMPORTANT: resetReconnectState() must be called BEFORE setting up new channels
 	// to cancel any pending reconnect timeouts that might capture stale partyId/gameId.
@@ -465,15 +655,17 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	}
 
 	// Set up channels with reconnection support
-	setupBroadcastChannel(partyId);
-	setupPartyChannel(partyId);
+	setupBroadcastChannel(partyId, generation);
+	setupPartyChannel(partyId, generation);
 
 	// Subscribe to live game scores if party is linked to a game
 	if (gameId) {
-		setupGameChannel(gameId);
+		setupGameChannel(gameId, generation);
 	}
 
 	return () => {
+		// Bump the generation so the CLOSED events from these unsubscribes are ignored.
+		++currentGeneration;
 		if (channelStates.party.channel) {
 			channelStates.party.channel.unsubscribe();
 			channelStates.party.channel = null;
@@ -516,6 +708,9 @@ export function broadcastScoreUpdate() {
 
 // Cleanup channels (called from game-admin cleanup)
 export function cleanupChannels() {
+	// Bump the generation so the CLOSED events from these unsubscribes are ignored
+	// and cannot resurrect a subscription after teardown.
+	++currentGeneration;
 	if (channelStates.party.channel) {
 		channelStates.party.channel.unsubscribe();
 		channelStates.party.channel = null;
@@ -531,4 +726,5 @@ export function cleanupChannels() {
 		channelStates.game.channel = null;
 		resetReconnectState('game');
 	}
+	unregisterOfflineListeners();
 }

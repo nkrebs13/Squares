@@ -1,8 +1,21 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { assertLocalSupabaseUrl } from './assertLocalDb';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
+// Precedence matches vitest.config.integration.ts's `test.env` block so the
+// main vitest process (which runs globalSetup/globalTeardown) and worker
+// threads (which run the test bodies) always resolve the same URL.
+const SUPABASE_URL =
+	process.env.TEST_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
+const SUPABASE_KEY =
+	process.env.TEST_SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'not-set';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'not-set';
+
+// Fires at module load, before any client can be constructed or any network
+// call made. This is the only way a non-local host is accepted:
+// ALLOW_REMOTE_INTEGRATION_DB=1. See assertLocalDb.ts for why this exists —
+// cleanupAllTestParties() below runs as a service-role DELETE against
+// whatever SUPABASE_URL resolves to.
+assertLocalSupabaseUrl(SUPABASE_URL, process.env.ALLOW_REMOTE_INTEGRATION_DB === '1');
 
 /**
  * Create a Supabase client for integration tests.
@@ -128,6 +141,20 @@ export async function cleanupParty(client: SupabaseClient, partyId: string): Pro
 	// Use the delete_party RPC (SECURITY DEFINER) — direct DELETE is blocked by RLS
 	// (no DELETE policy on parties table). The RPC cascades to squares, numbers, scores, winners.
 	await client.rpc('delete_party', { p_party_id: partyId, p_pin: '1234' });
+}
+
+/**
+ * Force-delete a party via the service-role client, bypassing RLS and the
+ * check_pin_lockout gate inside delete_party. Required for tests that
+ * intentionally drive a party into PIN lockout: delete_party('1234') would
+ * itself be refused while the lockout is active (the correct PIN is throttled
+ * too), leaking the row. Cascades to squares/numbers/scores/winners via the FK
+ * ON DELETE CASCADE.
+ */
+export async function forceDeleteParty(partyId: string): Promise<void> {
+	const service = getServiceRoleClient();
+	const { error } = await service.from('parties').delete().eq('id', partyId);
+	if (error) throw new Error(`forceDeleteParty failed: ${error.message}`);
 }
 
 /**

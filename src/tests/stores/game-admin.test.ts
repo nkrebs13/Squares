@@ -9,6 +9,7 @@ import {
 	deleteParty,
 	party,
 	squares,
+	selectedPlayerFilter,
 	cleanup,
 } from '$lib/stores/game';
 import type { Party, Square } from '$lib/types';
@@ -152,15 +153,20 @@ describe('updateScore', () => {
 		});
 	});
 
-	it('returns error when data is false', async () => {
+	it('returns a truthful error when data is false, without asserting the PIN is the sole cause', async () => {
 		party.set(createMockParty({ status: 'active' }));
 		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
 
 		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result).toEqual({
-			success: false,
-			error: 'Failed to update score - check PIN',
-		});
+		expect(result.success).toBe(false);
+		// update_score (migration 014) returns FALSE for several distinct reasons —
+		// invalid/locked-out PIN, inactive party, bad score/quarter, or a null_winner
+		// data-integrity guard. The RPC only returns a boolean, so the client can't
+		// tell which fired; the message must not claim "check PIN" as the only cause.
+		expect(result.error).not.toBe('Failed to update score - check PIN');
+		expect(result.error).not.toMatch(/^Failed to update score - check PIN$/);
+		expect(result.error).toMatch(/PIN/);
+		expect(result.error).toMatch(/not active|invalid/i);
 	});
 });
 
@@ -207,6 +213,26 @@ describe('updatePayoutStructure', () => {
 			final: 25,
 		});
 		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
+	});
+
+	it('returns Invalid PIN when server returns the null sentinel with no error (033)', async () => {
+		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
+		// increment commits. PostgREST surfaces a NULL `RETURNS parties` value as a
+		// row object with all-null columns (id included), not bare null — cover
+		// both shapes so both predicate operands are exercised.
+		for (const data of [null, { id: null }]) {
+			cleanup();
+			party.set(createMockParty());
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data, error: null });
+
+			const result = await updatePayoutStructure('9999', {
+				q1: 25,
+				q2: 25,
+				q3: 25,
+				final: 25,
+			});
+			expect(result).toEqual({ success: false, error: 'Invalid PIN' });
+		}
 	});
 
 	it('returns error when splits do not sum to 100', async () => {
@@ -373,6 +399,29 @@ describe('updatePartyDetails', () => {
 		expect(get(party)?.team_row_name).toBe('Ravens');
 	});
 
+	it('returns Invalid PIN when server returns the null sentinel with no error (033)', async () => {
+		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
+		// increment commits. PostgREST surfaces a NULL `RETURNS parties` value as a
+		// row object with all-null columns (id included), not bare null — cover
+		// both shapes so both predicate operands are exercised.
+		for (const data of [null, { id: null }]) {
+			cleanup();
+			party.set(createMockParty());
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data, error: null });
+
+			const result = await updatePartyDetails('9999', {
+				eventName: '2027 Championship',
+				kickoffAt: null,
+				teamRowName: 'Ravens',
+				teamColName: 'Lions',
+				teamRowColor: '#241773',
+				teamColColor: '#0076B6',
+			});
+
+			expect(result).toEqual({ success: false, error: 'Invalid PIN' });
+		}
+	});
+
 	it('humanizes RPC validation errors', async () => {
 		party.set(createMockParty());
 		mockSupabaseClient.rpc.mockResolvedValueOnce({
@@ -451,6 +500,21 @@ describe('removePlayer', () => {
 		});
 	});
 
+	it('returns Invalid PIN when server returns a null sentinel with no error (033)', async () => {
+		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
+		// increment commits. NULL is distinct from a legitimate removed-count of 0;
+		// the client maps the null sentinel to 'Invalid PIN' and does NOT report a
+		// silent success.
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: null });
+
+		const result = await removePlayer('9999', 'alice');
+		expect(result).toEqual({ success: false, removedCount: 0, error: 'Invalid PIN' });
+		// Local state must NOT be mutated on a rejected PIN.
+		expect(get(squares)[0].player_name).toBe('Alice');
+	});
+
 	it('removes player squares and updates local state', async () => {
 		party.set(createMockParty());
 		squares.set([
@@ -482,6 +546,26 @@ describe('removePlayer', () => {
 		expect(currentSquares[0].player_name).toBeNull();
 		expect(currentSquares[1].player_name).toBeNull();
 		expect(currentSquares[2].player_name).toBe('Bob');
+	});
+
+	it('clears an active player filter via the game-state subscription alone (FIX 5)', async () => {
+		// Guards the deletion of removePlayer's former "belt and braces" explicit
+		// filter clear: removing a player must still null a filter pointed at them,
+		// handled solely by playerSummary's self-clearing subscription in game-state.ts.
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
+		]);
+		selectedPlayerFilter.set('alice');
+
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+		const result = await removePlayer('1234', 'alice');
+
+		expect(result).toEqual({ success: true, removedCount: 1 });
+		// Alice owns zero squares now → the subscription cleared the filter.
+		expect(get(selectedPlayerFilter)).toBeNull();
 	});
 
 	it('returns error on Supabase error', async () => {

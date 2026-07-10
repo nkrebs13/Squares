@@ -90,11 +90,4 @@ describe('Home Page', () => {
 		render(HomePage);
 		expect(screen.getByText('Football squares pools for any game')).toBeInTheDocument();
 	});
-
-	it('renders production highlights', () => {
-		render(HomePage);
-		expect(screen.getByText('live players')).toBeInTheDocument();
-		expect(screen.getByText('support requests')).toBeInTheDocument();
-		expect(screen.getByText('CI gates')).toBeInTheDocument();
-	});
 });

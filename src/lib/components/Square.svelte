@@ -52,13 +52,17 @@
 		return name.substring(0, 2).toUpperCase();
 	}
 
-	const isMine = $derived($userName && square.player_name_lower === normalizePlayerName($userName));
+	const isMine = $derived(
+		Boolean($userName) && square.player_name_lower === normalizePlayerName($userName ?? '')
+	);
 
 	const isWinner = $derived(winners.length > 0);
 
 	const initials = $derived(square.player_name ? getInitials(square.player_name) : '');
 
-	const playerColor = $derived(square.player_name ? getPlayerColor(square.player_name) : null);
+	const playerColor = $derived(
+		square.player_name ? getPlayerColor(normalizePlayerName(square.player_name)) : null
+	);
 
 	const classes = $derived(
 		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPending ? 'square-pending' : ''}`
@@ -107,7 +111,7 @@
 	{onclick}
 	disabled={isLocked || (square.player_name !== null && !isMine)}
 	aria-label={ariaLabel}
-	aria-pressed={isSelected}
+	aria-pressed={isMine}
 	title={square.player_name || undefined}
 >
 	{#if initials}

@@ -1,8 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { leadingSquare, party, numbers, gameScores, squareKey, cleanup } from '$lib/stores/game';
+import {
+	leadingSquare,
+	party,
+	numbers,
+	gameScores,
+	squareKey,
+	cleanup,
+	squares,
+	selectedPlayerFilter,
+	removePlayer,
+} from '$lib/stores/game';
 import { resolveHomeIsRow } from '$lib/stores/game-state';
-import type { Party, Numbers, GameScoresRow } from '$lib/types';
+import type { Party, Numbers, GameScoresRow, Square } from '$lib/types';
+import { mockSupabaseClient } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
@@ -27,6 +38,19 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
 		game_id: null,
 		home_team_is_row: null,
+		...overrides,
+	};
+}
+
+function createMockSquare(row: number, col: number, overrides: Partial<Square> = {}): Square {
+	return {
+		id: `sq-${row}-${col}`,
+		party_id: 'test-party-id',
+		row_num: row,
+		col_num: col,
+		player_name: null,
+		player_name_lower: null,
+		claimed_at: null,
 		...overrides,
 	};
 }
@@ -324,5 +348,82 @@ describe('squareKey', () => {
 		expect(squareKey(0, 0)).toBe('0-0');
 		expect(squareKey(5, 3)).toBe('5-3');
 		expect(squareKey(9, 9)).toBe('9-9');
+	});
+});
+
+describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
+	beforeEach(() => {
+		cleanup();
+		selectedPlayerFilter.set(null);
+	});
+
+	it('clears the filter when the last matching square is unclaimed directly on the squares store', () => {
+		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+		selectedPlayerFilter.set('alice');
+		expect(get(selectedPlayerFilter)).toBe('alice');
+
+		// Mirrors what unclaimSquareOptimistic / applySquareUpdate do to squares
+		// when a player's last square is unclaimed.
+		squares.update((current) =>
+			current.map((s) =>
+				s.row_num === 0 && s.col_num === 0
+					? { ...s, player_name: null, player_name_lower: null }
+					: s
+			)
+		);
+
+		expect(get(selectedPlayerFilter)).toBeNull();
+	});
+
+	it('clears the filter when removePlayer bulk-clears the filtered players squares', async () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+		selectedPlayerFilter.set('alice');
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+		await removePlayer('1234', 'alice');
+
+		expect(get(selectedPlayerFilter)).toBeNull();
+	});
+
+	it('leaves an unrelated filter untouched when a different player is removed', async () => {
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
+		]);
+		selectedPlayerFilter.set('bob');
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+		await removePlayer('1234', 'alice');
+
+		expect(get(selectedPlayerFilter)).toBe('bob');
+	});
+
+	it('leaves the filter untouched while the filtered player still has other squares remaining', () => {
+		squares.set([
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Alice', player_name_lower: 'alice' }),
+		]);
+		selectedPlayerFilter.set('alice');
+
+		squares.update((current) =>
+			current.map((s) =>
+				s.row_num === 0 && s.col_num === 0
+					? { ...s, player_name: null, player_name_lower: null }
+					: s
+			)
+		);
+
+		expect(get(selectedPlayerFilter)).toBe('alice');
+	});
+
+	it('does not touch the filter when it is already null', () => {
+		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+		expect(get(selectedPlayerFilter)).toBeNull();
+
+		squares.set([]);
+
+		expect(get(selectedPlayerFilter)).toBeNull();
 	});
 });
