@@ -11,14 +11,21 @@
  * Requires the preview server to be running at http://localhost:4173 OR
  * the dev server at http://localhost:5173. Set BASE_URL env var to override.
  * Credentials are read from .env (VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY).
+ *
+ * Refuses to run against a non-local Supabase host (the repo's .env points
+ * VITE_SUPABASE_URL at production) — see assertLocalDb.ts. Override the
+ * local-only VITE_SUPABASE_URL by exporting it in your shell before running,
+ * e.g. from `supabase status -o env`. To intentionally target a remote
+ * project, set ALLOW_REMOTE_INTEGRATION_DB=1.
  */
 
-import { chromium } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { execSync } from 'child_process';
+import { assertLocalSupabaseUrl } from '../src/tests/integration/assertLocalDb';
 
 // Load .env then .env.local (local takes precedence, matching Vite's convention)
 dotenv.config({ path: path.resolve(import.meta.dirname, '../.env') });
@@ -41,6 +48,14 @@ if (!SUPABASE_URL || !CLIENT_KEY) {
 	process.exit(1);
 }
 
+// This script creates AND deletes real rows (create_party, claim_squares_batch,
+// lock_party, delete_party) against whatever VITE_SUPABASE_URL resolves to. The
+// repo's .env sets that var to the PRODUCTION Supabase project, so running this
+// script unguarded mutates live data. Fires before any client is constructed or
+// any network/browser call is made. See assertLocalDb.ts for the full rationale
+// (shared with the integration test suite's identical guard).
+assertLocalSupabaseUrl(SUPABASE_URL, process.env.ALLOW_REMOTE_INTEGRATION_DB === '1');
+
 const supabase = createClient(SUPABASE_URL, CLIENT_KEY);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -59,6 +74,40 @@ function wait(ms: number) {
 	return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Guard against photographing the grid's loading skeleton.
+ *
+ * The party page renders <GridSkeleton> (`.grid-skeleton`) while `loadParty()`
+ * is in flight, and only swaps in the real <SimpleGrid> (`[role="grid"]` with
+ * `[role="gridcell"]` cells) once `$party` resolves. If the app the browser
+ * loads points at a DIFFERENT Supabase than this script (e.g. the dev server
+ * still on the production .env while the script seeds a LOCAL party), the party
+ * code never resolves, the skeleton renders forever, and an unguarded
+ * `page.screenshot()` silently captures a blank skeleton and exits 0.
+ *
+ * This asserts, before each party-page screenshot, that the skeleton is gone
+ * AND real grid cells are present — throwing (→ non-zero exit) on timeout so a
+ * broken capture fails loudly instead of shipping a placeholder image.
+ */
+async function waitForGridReady(page: Page, label: string) {
+	try {
+		await page.waitForSelector('.grid-skeleton', { state: 'detached', timeout: 15000 });
+		await page.waitForSelector('[role="grid"] [role="gridcell"]', {
+			state: 'visible',
+			timeout: 15000,
+		});
+	} catch {
+		throw new Error(
+			`Grid never loaded for "${label}" screenshot — the real <SimpleGrid> did not replace ` +
+				`<GridSkeleton> within 15s. The app server the browser loads is almost certainly ` +
+				`pointed at a different Supabase than this script: start the dev/preview server with ` +
+				`the SAME VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY this script uses (the local ` +
+				`values from 'supabase status -o env'), not the production values in .env. Refusing ` +
+				`to write a skeleton placeholder.`
+		);
+	}
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -68,7 +117,15 @@ async function main() {
 	// Remove any stale frames from a previous run
 	fs.readdirSync(FRAMES_DIR).forEach((f) => fs.unlinkSync(path.join(FRAMES_DIR, f)));
 
-	const browser = await chromium.launch({ headless: true });
+	// Default to Playwright's bundled Chromium. On machines where that browser
+	// build can't be installed (e.g. a blocked download for the revision this
+	// playwright-core pins), set PLAYWRIGHT_CHANNEL=chrome to drive the
+	// system-installed Google Chrome instead.
+	const channel = process.env.PLAYWRIGHT_CHANNEL;
+	const browser = await chromium.launch({
+		headless: true,
+		...(channel ? { channel } : {}),
+	});
 	const page = await browser.newPage();
 	await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -122,6 +179,7 @@ async function main() {
 
 		await page.goto(partyUrl);
 		await page.waitForLoadState('networkidle');
+		await waitForGridReady(page, 'f002-empty');
 		await wait(1500);
 		await page.screenshot({ path: path.join(FRAMES_DIR, 'f002-empty.png') });
 
@@ -179,6 +237,7 @@ async function main() {
 		);
 		await page.reload();
 		await page.waitForLoadState('networkidle');
+		await waitForGridReady(page, 'filling');
 		await wait(1500);
 		console.log('Capturing filling state…');
 		await page.screenshot({ path: path.join(OUT_DIR, 'filling.png') });
@@ -229,6 +288,7 @@ async function main() {
 		);
 		await page.reload();
 		await page.waitForLoadState('networkidle');
+		await waitForGridReady(page, 'active');
 		await wait(1500);
 		console.log('Capturing active state…');
 		await page.screenshot({ path: path.join(OUT_DIR, 'active.png') });
@@ -288,6 +348,7 @@ async function main() {
 			);
 			await page.reload();
 			await page.waitForLoadState('networkidle');
+			await waitForGridReady(page, 'complete');
 			await wait(1500);
 			console.log('Capturing complete state (with winner)…');
 			await page.screenshot({ path: path.join(OUT_DIR, 'complete.png') });
@@ -317,6 +378,7 @@ async function main() {
 		);
 		await page.goto(partyUrl);
 		await page.waitForLoadState('networkidle');
+		await waitForGridReady(page, 'hero');
 		await wait(1500);
 		await page.screenshot({ path: path.join(OUT_DIR, 'hero.png') });
 		console.log('Captured hero.png');
