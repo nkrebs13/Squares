@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 
 // Must mock before importing the component
 vi.mock('$lib/storage', () => ({
@@ -16,14 +17,47 @@ import { hasSeenGestureHint, markGestureHintSeen } from '$lib/storage';
 const mockHasSeenGestureHint = vi.mocked(hasSeenGestureHint);
 const mockMarkGestureHintSeen = vi.mocked(markGestureHintSeen);
 
+// Mirrors the component's own MOBILE_LAYOUT_QUERY constant (Tailwind `lg` breakpoint
+// boundary). Tests build a matchMedia mock that can answer this query independently
+// from the `(pointer: coarse)` touch-device query.
+const MOBILE_LAYOUT_QUERY = '(max-width: 1023px)';
+
+function createMatchMediaMock(queryMatches: Record<string, boolean>) {
+	return vi.fn().mockImplementation((query: string) => ({
+		matches: queryMatches[query] ?? false,
+		media: query,
+	}));
+}
+
+// Waits for onMount's async `hasSeenGestureHint()` check to be invoked and for the
+// resulting state change (or lack thereof) to flush to the DOM. A bare `vi.waitFor`
+// on a negative assertion (".not.toBeInTheDocument()") is a false-negative trap: it
+// resolves on its very first synchronous check, before the async mount logic has had
+// a chance to run, so it can't actually prove the hint stayed hidden.
+async function waitForMountDecision() {
+	await vi.waitFor(() => {
+		expect(mockHasSeenGestureHint).toHaveBeenCalled();
+	});
+	await tick();
+}
+
 describe('GestureHint Component', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Default: mobile-width layout, non-touch pointer. Individual tests override
+		// this before calling render() when they need a different breakpoint/pointer.
+		window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: true });
+	});
+
+	afterEach(() => {
+		// @ts-expect-error - cleaning up the test-only override between tests
+		delete window.matchMedia;
 	});
 
 	describe('Visibility', () => {
-		it('shows the hint when user has not seen it before', async () => {
+		it('shows the hint when user has not seen it before, on a mobile-width layout', async () => {
 			mockHasSeenGestureHint.mockResolvedValue(false);
+			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: true });
 
 			render(GestureHint);
 			// Wait for the async onMount to resolve
@@ -36,13 +70,30 @@ describe('GestureHint Component', () => {
 			mockHasSeenGestureHint.mockResolvedValue(true);
 
 			render(GestureHint);
-			// Give time for async mount
-			await vi.waitFor(
-				() => {
-					expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-				},
-				{ timeout: 100 }
-			);
+			await waitForMountDecision();
+
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+		});
+
+		it('does not auto-show the hint on a desktop-width layout, even when unseen', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(false);
+			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
+
+			render(GestureHint);
+			await waitForMountDecision();
+
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+		});
+
+		it('does not auto-show the hint when matchMedia is unavailable, even when unseen', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(false);
+			// @ts-expect-error - simulating an environment without matchMedia support
+			delete window.matchMedia;
+
+			render(GestureHint);
+			await waitForMountDecision();
+
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 		});
 	});
 
@@ -138,6 +189,22 @@ describe('GestureHint Component', () => {
 	describe('Reopen (help affordance)', () => {
 		it('re-shows the hint via the exported reopen() after it was dismissed', async () => {
 			mockHasSeenGestureHint.mockResolvedValue(true); // already seen -> not shown on mount
+
+			const { component } = render(GestureHint);
+			await vi.waitFor(() => {
+				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			});
+
+			component.reopen();
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
+		});
+
+		it('re-shows the hint via reopen() on a desktop-width layout (the "?" help button works everywhere)', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(true);
+			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
 
 			const { component } = render(GestureHint);
 			await vi.waitFor(() => {
