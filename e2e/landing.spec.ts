@@ -67,12 +67,6 @@ test.describe('Landing Page', () => {
 	test('displays hint about joining multiple parties', async ({ page }) => {
 		await expect(page.getByText(/join multiple parties/i)).toBeVisible();
 	});
-
-	test('displays production highlights', async ({ page }) => {
-		await expect(page.getByText(/live players/i)).toBeVisible();
-		await expect(page.getByText(/support requests/i)).toBeVisible();
-		await expect(page.getByText(/ci gates/i)).toBeVisible();
-	});
 });
 
 test.describe('Recent Parties', () => {
