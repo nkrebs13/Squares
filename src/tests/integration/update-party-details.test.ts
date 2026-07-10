@@ -1,5 +1,10 @@
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
-import { cleanupParty, ensureSupabaseReady, getServiceRoleClient, getTestClient } from './helpers';
+import {
+	ensureSupabaseReady,
+	forceDeleteParty,
+	getServiceRoleClient,
+	getTestClient,
+} from './helpers';
 
 const client = getTestClient();
 const createdPartyIds: string[] = [];
@@ -32,9 +37,11 @@ describe('update_party_details RPC', () => {
 	});
 
 	afterEach(async () => {
+		// Force-delete via service role: some tests below intentionally drive the
+		// party into PIN lockout, which would refuse delete_party('1234') too.
 		while (createdPartyIds.length > 0) {
 			const partyId = createdPartyIds.pop();
-			if (partyId) await cleanupParty(client, partyId);
+			if (partyId) await forceDeleteParty(partyId);
 		}
 	});
 
@@ -67,10 +74,14 @@ describe('update_party_details RPC', () => {
 		expect(expiresAt.getTime()).toBeGreaterThanOrEqual(twoWeeksAfterKickoff.getTime());
 	});
 
-	it('rejects edits with the wrong host PIN', async () => {
+	it('rejects edits with the wrong host PIN via the null sentinel (033)', async () => {
 		const party = await createParty();
 
-		const { error } = await client.rpc('update_party_details', {
+		// Migration 033: a wrong PIN is refused with a NULL sentinel return (NOT a
+		// RAISE) so the check_pin_lockout throttle increment durably commits. A
+		// NULL `RETURNS parties` value surfaces as a row object with all-null
+		// columns (id included), so assert the refusal via the absent id.
+		const { data, error } = await client.rpc('update_party_details', {
 			p_party_id: party.id,
 			p_pin: '9999',
 			p_event_name: 'Wrong Pin Edit',
@@ -81,8 +92,16 @@ describe('update_party_details RPC', () => {
 			p_team_col_color: '#0076B6',
 		});
 
-		expect(error).toBeTruthy();
-		expect(error?.message).toMatch(/invalid party or PIN/i);
+		expect(error).toBeNull();
+		expect(data == null || data.id == null).toBe(true);
+
+		// And the durable throttle actually incremented.
+		const { data: row } = await getServiceRoleClient()
+			.from('parties')
+			.select('pin_attempts')
+			.eq('id', party.id)
+			.single();
+		expect(row?.pin_attempts).toBe(1);
 	});
 
 	it('rejects same-team matchup edits', async () => {
@@ -108,8 +127,10 @@ describe('update_party_details RPC', () => {
 
 		// Build up a durable lockout via lock_party. lock_party signals PIN
 		// failure with `RETURN FALSE` (not RAISE), so check_pin_lockout's
-		// pin_attempts increment commits normally on every failed call -- unlike
-		// update_party_details itself (see the next test).
+		// pin_attempts increment commits normally on every failed call. As of
+		// migration 033, update_party_details's own wrong-PIN attempts commit the
+		// increment too (see the next test) -- so this cross-RPC lockout is now
+		// merely one of several ways to reach the same locked state.
 		for (let i = 0; i < 5; i++) {
 			await client.rpc('lock_party', { p_party_id: party.id, p_pin: '0000' });
 		}
@@ -124,45 +145,86 @@ describe('update_party_details RPC', () => {
 		expect(row?.pin_locked_until).not.toBeNull();
 		expect(new Date(row?.pin_locked_until as string).getTime()).toBeGreaterThan(Date.now());
 
-		// Before migration 032, update_party_details authenticated with a raw
-		// `host_pin = p_pin` check that never consulted pin_locked_until, so the
-		// correct PIN would have succeeded here regardless of the active
-		// lockout. After 032 it calls check_pin_lockout() like every sibling
-		// RPC, so the lockout -- once established -- is now respected even
-		// though update_party_details's OWN wrong-PIN attempts can't durably
-		// contribute to it (see the next test and the migration 032 header
-		// comment for why).
-		const { error: lockedOutError } = await client.rpc('update_party_details', {
+		// Migration 033 keeps update_party_details routed through
+		// check_pin_lockout(), whose lockout short-circuit returns FALSE before
+		// any write, so the RPC refuses even the CORRECT PIN while the lockout is
+		// active. The refusal is now a NULL sentinel return (not a RAISE), so the
+		// throttle increment can commit -- assert the null-data / no-error shape.
+		const { data: lockedOutData, error: lockedOutError } = await client.rpc(
+			'update_party_details',
+			{
+				p_party_id: party.id,
+				p_pin: '1234',
+				p_event_name: 'Should Be Locked Out',
+				p_kickoff_at: null,
+				p_team_row_name: 'Ravens',
+				p_team_col_name: 'Lions',
+				p_team_row_color: '#241773',
+				p_team_col_color: '#0076B6',
+			}
+		);
+
+		expect(lockedOutError).toBeNull();
+		expect(lockedOutData == null || lockedOutData.id == null).toBe(true);
+	});
+
+	it('durably increments pin_attempts on its own wrong-PIN attempts and engages lockout (033)', async () => {
+		const party = await createParty();
+
+		// Migration 033 supersedes migration 032's documented limitation.
+		// update_party_details now signals PIN failure with a NULL sentinel return
+		// instead of RAISE. Because a normal RETURN commits the RPC's
+		// single-statement PostgREST transaction (whereas an uncaught RAISE aborted
+		// it and rolled back check_pin_lockout's own pin_attempts UPDATE), five
+		// wrong PINs from THIS RPC alone now durably accumulate and engage the
+		// 5-failure lockout. This is the assertion that FAILED before 033
+		// (pin_attempts stayed 0) and PASSES after it.
+		for (let i = 0; i < 5; i++) {
+			const { data, error } = await client.rpc('update_party_details', {
+				p_party_id: party.id,
+				p_pin: '0000',
+				p_event_name: `Attempt ${i}`,
+				p_kickoff_at: null,
+				p_team_row_name: 'Ravens',
+				p_team_col_name: 'Lions',
+				p_team_row_color: '#241773',
+				p_team_col_color: '#0076B6',
+			});
+			expect(error).toBeNull();
+			expect(data == null || data.id == null).toBe(true);
+		}
+
+		const { data: row, error: readError } = await getServiceRoleClient()
+			.from('parties')
+			.select('pin_attempts, pin_locked_until')
+			.eq('id', party.id)
+			.single();
+
+		expect(readError).toBeNull();
+		expect(row?.pin_attempts).toBeGreaterThanOrEqual(5);
+		expect(row?.pin_locked_until).not.toBeNull();
+		expect(new Date(row?.pin_locked_until as string).getTime()).toBeGreaterThan(Date.now());
+
+		// The 6th call, now WITH the correct PIN, is still refused while locked.
+		const { data: lockedData, error: lockedError } = await client.rpc('update_party_details', {
 			p_party_id: party.id,
 			p_pin: '1234',
-			p_event_name: 'Should Be Locked Out',
+			p_event_name: 'Correct PIN But Locked',
 			p_kickoff_at: null,
 			p_team_row_name: 'Ravens',
 			p_team_col_name: 'Lions',
 			p_team_row_color: '#241773',
 			p_team_col_color: '#0076B6',
 		});
-
-		expect(lockedOutError).toBeTruthy();
-		expect(lockedOutError?.message).toMatch(/invalid party or PIN/i);
+		expect(lockedError).toBeNull();
+		expect(lockedData == null || lockedData.id == null).toBe(true);
 	});
 
-	it('documents a known limitation: its own wrong-PIN attempts do not durably increment pin_attempts (032)', async () => {
+	it('lets the correct PIN succeed and resets pin_attempts to 0 (033)', async () => {
 		const party = await createParty();
 
-		// update_party_details signals PIN failure via RAISE EXCEPTION (needed
-		// to carry a descriptive message back to existing callers), and an
-		// uncaught RAISE aborts update_party_details's entire transaction --
-		// including check_pin_lockout's own pin_attempts UPDATE performed
-		// earlier in that same call. This is a pre-existing PL/pgSQL
-		// transaction-semantics gap shared with update_payout_structure (028)
-		// and remove_player (029), NOT introduced by 032, and NOT fully
-		// closeable without either a new autonomous-transaction extension or a
-		// breaking change to the client error contract -- see the migration 032
-		// header comment for the full writeup and recommended follow-up. This
-		// test exists so the limitation is an explicit, characterized
-		// assertion rather than a silent gap.
-		for (let i = 0; i < 5; i++) {
+		// A few wrong PINs (below the 5-failure threshold) accumulate...
+		for (let i = 0; i < 3; i++) {
 			await client.rpc('update_party_details', {
 				p_party_id: party.id,
 				p_pin: '0000',
@@ -175,15 +237,34 @@ describe('update_party_details RPC', () => {
 			});
 		}
 
-		const { data: row, error: readError } = await getServiceRoleClient()
+		const { data: mid } = await getServiceRoleClient()
+			.from('parties')
+			.select('pin_attempts')
+			.eq('id', party.id)
+			.single();
+		expect(mid?.pin_attempts).toBe(3);
+
+		// ...then the correct PIN succeeds and check_pin_lockout resets the counter.
+		const { data: updated, error } = await client.rpc('update_party_details', {
+			p_party_id: party.id,
+			p_pin: '1234',
+			p_event_name: 'Recovered',
+			p_kickoff_at: null,
+			p_team_row_name: 'Ravens',
+			p_team_col_name: 'Lions',
+			p_team_row_color: '#241773',
+			p_team_col_color: '#0076B6',
+		});
+		expect(error).toBeNull();
+		expect(updated?.event_name).toBe('Recovered');
+
+		const { data: after } = await getServiceRoleClient()
 			.from('parties')
 			.select('pin_attempts, pin_locked_until')
 			.eq('id', party.id)
 			.single();
-
-		expect(readError).toBeNull();
-		expect(row?.pin_attempts).toBe(0);
-		expect(row?.pin_locked_until).toBeNull();
+		expect(after?.pin_attempts).toBe(0);
+		expect(after?.pin_locked_until).toBeNull();
 	});
 
 	it('rejects edits after the grid is locked', async () => {

@@ -131,6 +131,20 @@ export async function cleanupParty(client: SupabaseClient, partyId: string): Pro
 }
 
 /**
+ * Force-delete a party via the service-role client, bypassing RLS and the
+ * check_pin_lockout gate inside delete_party. Required for tests that
+ * intentionally drive a party into PIN lockout: delete_party('1234') would
+ * itself be refused while the lockout is active (the correct PIN is throttled
+ * too), leaking the row. Cascades to squares/numbers/scores/winners via the FK
+ * ON DELETE CASCADE.
+ */
+export async function forceDeleteParty(partyId: string): Promise<void> {
+	const service = getServiceRoleClient();
+	const { error } = await service.from('parties').delete().eq('id', partyId);
+	if (error) throw new Error(`forceDeleteParty failed: ${error.message}`);
+}
+
+/**
  * Delete all test parties created more than 1 hour ago.
  * Catches orphans from interrupted test runs. Safe to call in globalSetup/globalTeardown.
  */

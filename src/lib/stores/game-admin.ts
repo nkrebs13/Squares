@@ -118,6 +118,16 @@ export async function updatePayoutStructure(
 		return { success: false, error: humanizePayoutError(updateError.message) };
 	}
 
+	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
+	// (not RAISE) so check_pin_lockout's attempt increment durably commits.
+	// PostgREST renders a NULL `RETURNS parties` value as a row object whose
+	// columns are all null (id included), NOT JSON null, so detect the refusal
+	// by the absent id. Same outcome the error-message branch above yields for
+	// an older DB that still RAISEs 'invalid party or PIN'.
+	if (data == null || data.id == null) {
+		return { success: false, error: 'Invalid PIN' };
+	}
+
 	const updatedParty = parseParty(data);
 	if (!updatedParty) {
 		return { success: false, error: 'Server returned unexpected payout details. Please refresh.' };
@@ -160,6 +170,16 @@ export async function updatePartyDetails(
 
 	if (updateError) {
 		return { success: false, error: humanizePartyDetailsError(updateError.message) };
+	}
+
+	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
+	// (not RAISE) so check_pin_lockout's attempt increment durably commits.
+	// PostgREST renders a NULL `RETURNS parties` value as a row object whose
+	// columns are all null (id included), NOT JSON null, so detect the refusal
+	// by the absent id. Same outcome the error-message branch above yields for
+	// an older DB that still RAISEs 'invalid party or PIN'.
+	if (data == null || data.id == null) {
+		return { success: false, error: 'Invalid PIN' };
 	}
 
 	const updatedParty = parseParty(data);
@@ -211,7 +231,16 @@ export async function removePlayer(
 		};
 	}
 
-	const removedCount = data || 0;
+	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
+	// (not RAISE) so check_pin_lockout's attempt increment durably commits. A
+	// null return with no error means the PIN was rejected — distinct from a
+	// legitimate count of 0 (which means "matched no squares"). Same outcome the
+	// error-message branch above yields for an older DB that still RAISEs.
+	if (data == null) {
+		return { success: false, removedCount: 0, error: 'Invalid PIN' };
+	}
+
+	const removedCount = data;
 
 	// Update local state
 	squares.update((current) =>
