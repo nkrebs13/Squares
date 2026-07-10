@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { playerSummary, availableCount, party, selectedPlayerFilter } from '$lib/stores/game';
 	import { getPlayerColor } from '$lib/utils/colors';
+	import { normalizePlayerName } from '$lib/stores/user';
 
 	interface Props {
 		// 'block' (default): renders the full Players section with header. Used in
@@ -21,7 +22,7 @@
 
 {#snippet pills()}
 	{#each $playerSummary as player (player.normalizedName)}
-		{@const color = getPlayerColor(player.name)}
+		{@const color = getPlayerColor(normalizePlayerName(player.name))}
 		<button
 			class="player-pill"
 			class:selected={$selectedPlayerFilter === player.normalizedName}

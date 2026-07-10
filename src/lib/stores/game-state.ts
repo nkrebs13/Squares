@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
 import type {
 	Party,
@@ -206,6 +206,20 @@ export const availableCount = derived(
 
 // Player filter for highlighting squares by player (shared between sidebar and grid)
 export const selectedPlayerFilter = writable<string | null>(null);
+
+// Self-clearing: if the currently selected filter no longer matches any player
+// in playerSummary (their last square was unclaimed, or the host removed them),
+// clear it. Without this, a stale filter dims the entire grid with no pill left
+// to click to undo it. This is a plain subscription — not a derived — because
+// selectedPlayerFilter must never be written to from inside a derived store that
+// reads it (that would create a reactive loop). playerSummary is derived only
+// from `squares`, so writing selectedPlayerFilter here is safe.
+playerSummary.subscribe(($playerSummary) => {
+	const current = get(selectedPlayerFilter);
+	if (current && !$playerSummary.some((p) => p.normalizedName === current)) {
+		selectedPlayerFilter.set(null);
+	}
+});
 
 // Track pending optimistic operations
 export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());

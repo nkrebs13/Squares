@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 import Square from '$lib/components/Square.svelte';
 import type { Square as SquareType, Winner } from '$lib/types';
 import { userName } from '$lib/stores/user';
+import { getPlayerColor } from '$lib/utils/colors';
 
 // Helper to create a mock square
 function createMockSquare(overrides: Partial<SquareType> = {}): SquareType {
@@ -249,7 +250,6 @@ describe('Square Component', () => {
 
 			const button = screen.getByRole('button');
 			expect(button).toHaveClass('square-selected');
-			expect(button).toHaveAttribute('aria-pressed', 'true');
 		});
 
 		it('applies pending class when isPending is true', () => {
@@ -264,6 +264,71 @@ describe('Square Component', () => {
 			});
 
 			expect(screen.getByRole('button')).toHaveClass('square-pending');
+		});
+	});
+
+	describe('aria-pressed tracks ownership, not the drag-select preview (Bug 4 regression)', () => {
+		it('reports aria-pressed=true for a square the current user owns', async () => {
+			await userName.setName('myname');
+			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
+
+			render(Square, { props: { square, isLocked: false } });
+
+			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+		});
+
+		it('reports aria-pressed=false for an empty, un-owned square that is mid-drag (isSelected=true)', () => {
+			const square = createMockSquare();
+
+			render(Square, { props: { square, isLocked: false, isSelected: true } });
+
+			const button = screen.getByRole('button');
+			expect(button).toHaveClass('square-selected');
+			expect(button).toHaveAttribute('aria-pressed', 'false');
+		});
+
+		it('reports aria-pressed=true for an owned square even when isSelected is false', async () => {
+			await userName.setName('myname');
+			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
+
+			render(Square, { props: { square, isLocked: false, isSelected: false } });
+
+			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+		});
+
+		it('reports aria-pressed=false for a square claimed by someone else', async () => {
+			await userName.setName('currentuser');
+			const square = createMockSquare({
+				player_name: 'Other Player',
+				player_name_lower: 'other player',
+			});
+
+			render(Square, { props: { square, isLocked: false } });
+
+			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'false');
+		});
+	});
+
+	describe('Color Normalization (Bug 2 regression)', () => {
+		it('uses the same background color regardless of player name casing', () => {
+			const expectedColor = getPlayerColor('john');
+			const lowerSquare = createMockSquare({ player_name: 'john', player_name_lower: 'john' });
+			const upperSquare = createMockSquare({ player_name: 'JOHN', player_name_lower: 'john' });
+
+			const { unmount } = render(Square, { props: { square: lowerSquare, isLocked: false } });
+			expect(screen.getByRole('button')).toHaveStyle({ background: expectedColor.bg });
+			unmount();
+
+			render(Square, { props: { square: upperSquare, isLocked: false } });
+			expect(screen.getByRole('button')).toHaveStyle({ background: expectedColor.bg });
+		});
+
+		it('keeps the displayed player name casing unchanged', () => {
+			const square = createMockSquare({ player_name: 'jOhN', player_name_lower: 'john' });
+
+			render(Square, { props: { square, isLocked: false } });
+
+			expect(screen.getByRole('button')).toHaveAttribute('title', 'jOhN');
 		});
 	});
 

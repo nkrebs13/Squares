@@ -11,6 +11,7 @@ import {
 	pendingTimeouts,
 	isLoading,
 	error,
+	selectedPlayerFilter,
 } from './game-state';
 import { cleanupChannels } from './game-realtime';
 import { parseParty } from '$lib/validators/realtime';
@@ -211,6 +212,13 @@ export async function removePlayer(
 				: s
 		)
 	);
+
+	// Belt and braces: playerSummary's subscription in game-state.ts already
+	// self-clears a stale filter, but clear explicitly here too since this is
+	// the removePlayer trigger path.
+	if (get(selectedPlayerFilter) === playerNameLower) {
+		selectedPlayerFilter.set(null);
+	}
 
 	return { success: true, removedCount };
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
+import { tick } from 'svelte';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 import {
@@ -9,6 +10,7 @@ import {
 	winners,
 	pendingOperations,
 	selectedPlayerFilter,
+	removePlayer,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import { theme } from '$lib/stores/theme';
@@ -220,6 +222,34 @@ describe('SimpleGrid Component', () => {
 
 			expect(screen.getByText('Winner')).toBeInTheDocument();
 		});
+
+		it('colors the "Yours" swatch to match the owned square even when the stored casing differs (Bug 2 regression)', () => {
+			// Local userName was typed as "JOHN" this session; the square itself
+			// was claimed (possibly on another device/session) as "John". Both
+			// normalize to the same player, so the swatch and the square must
+			// render the identical color.
+			setupStores({
+				withUser: 'JOHN',
+				withNumbers: true,
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'John', player_name_lower: 'john' },
+				],
+			});
+			render(SimpleGrid);
+
+			const swatch = document.querySelector('.legend-mine') as HTMLElement;
+			const ownedSquare = document.querySelector('.square-mine') as HTMLElement;
+			expect(swatch).toBeTruthy();
+			expect(ownedSquare).toBeTruthy();
+
+			const swatchBg = swatch.getAttribute('style')?.match(/background:\s*(rgba\([^)]+\))/)?.[1];
+			const squareBg = ownedSquare
+				.getAttribute('style')
+				?.match(/background:\s*(rgba\([^)]+\))/)?.[1];
+
+			expect(swatchBg).toBeDefined();
+			expect(swatchBg).toBe(squareBg);
+		});
 	});
 
 	describe('Zoom Control', () => {
@@ -275,10 +305,11 @@ describe('SimpleGrid Component', () => {
 				pointerType: 'mouse',
 			});
 
-			// The selection indicator shouldn't appear until drag moves
-			// But isDragging should be set
-			// We verify by checking class changes
-			expect(emptySquares[0]).toHaveAttribute('aria-pressed', 'true');
+			// Drag-select is reflected via the square-selected class. aria-pressed
+			// tracks ownership (isMine), not the transient drag preview (Bug 4) —
+			// an empty, un-owned square mid-drag must report aria-pressed=false.
+			expect(emptySquares[0]).toHaveClass('square-selected');
+			expect(emptySquares[0]).toHaveAttribute('aria-pressed', 'false');
 		});
 
 		it('does not start drag on right-click', async () => {
@@ -336,6 +367,166 @@ describe('SimpleGrid Component', () => {
 
 			// Touch should NOT start drag selection
 			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+		});
+
+		it('claims an empty square on tap (pointerdown+pointerup, no drag)', async () => {
+			setupStores({ withUser: 'TestUser', withNumbers: true });
+			render(SimpleGrid);
+
+			const emptySquares = screen
+				.getAllByRole('button')
+				.filter((b) => b.classList.contains('square-empty'));
+
+			await fireEvent.pointerDown(emptySquares[0], { button: 0, pointerType: 'touch' });
+			await fireEvent.pointerUp(emptySquares[0]);
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+				p_party_id: 'test-party',
+				p_row: 0,
+				p_col: 0,
+				p_player_name: 'TestUser',
+			});
+		});
+
+		it('unclaims an owned square on tap (pointerdown+pointerup, no drag)', async () => {
+			setupStores({
+				withUser: 'TestUser',
+				withNumbers: true,
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'TestUser', player_name_lower: 'testuser' },
+				],
+			});
+			render(SimpleGrid);
+
+			const ownedSquare = document.querySelector('.square-mine') as HTMLElement;
+			expect(ownedSquare).toBeTruthy();
+
+			await fireEvent.pointerDown(ownedSquare, { button: 0, pointerType: 'touch' });
+			await fireEvent.pointerUp(ownedSquare);
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('unclaim_square', {
+				p_party_id: 'test-party',
+				p_row: 0,
+				p_col: 0,
+				p_player_name: 'TestUser',
+			});
+		});
+	});
+
+	describe('Mouse Click Unclaim (Bug 1 regression)', () => {
+		it('unclaims an owned square via mouse pointerdown+pointerup (no drag)', async () => {
+			setupStores({
+				withUser: 'TestUser',
+				withNumbers: true,
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'TestUser', player_name_lower: 'testuser' },
+				],
+			});
+			render(SimpleGrid);
+
+			const ownedSquare = document.querySelector('.square-mine') as HTMLElement;
+			expect(ownedSquare).toBeTruthy();
+
+			// Owned squares are never selectable (canSelectCell excludes them), so
+			// pointerdown must not start a drag — only the click-detection fallback
+			// in the non-touch branch of handlePointerUp can reach the unclaim.
+			await fireEvent.pointerDown(ownedSquare, { button: 0, pointerType: 'mouse' });
+			await fireEvent.pointerUp(ownedSquare);
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('unclaim_square', {
+				p_party_id: 'test-party',
+				p_row: 0,
+				p_col: 0,
+				p_player_name: 'TestUser',
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not double-fire when the browser also dispatches a native click (detail=1) after the pointer sequence', async () => {
+			setupStores({
+				withUser: 'TestUser',
+				withNumbers: true,
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'TestUser', player_name_lower: 'testuser' },
+				],
+			});
+			render(SimpleGrid);
+
+			const ownedSquare = document.querySelector('.square-mine') as HTMLElement;
+
+			await fireEvent.pointerDown(ownedSquare, { button: 0, pointerType: 'mouse' });
+			await fireEvent.pointerUp(ownedSquare);
+			// Real mouse interactions also dispatch a native click with detail=1;
+			// handleSquareKeyboardClick must ignore it (that discriminator exists
+			// to let keyboard Enter/Space, detail=0, activate a square).
+			await fireEvent(ownedSquare, new MouseEvent('click', { bubbles: true, detail: 1 }));
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not regress mouse drag-claim of an empty square', async () => {
+			setupStores({ withUser: 'TestUser', withNumbers: true });
+			render(SimpleGrid);
+
+			const emptySquares = screen
+				.getAllByRole('button')
+				.filter((b) => b.classList.contains('square-empty'));
+
+			await fireEvent.pointerDown(emptySquares[0], { button: 0, pointerType: 'mouse' });
+			await fireEvent.pointerUp(emptySquares[0]);
+
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares_batch', {
+				p_party_id: 'test-party',
+				p_player_name: 'TestUser',
+				p_cells: [{ row: 0, col: 0 }],
+			});
+		});
+	});
+
+	describe('Player Filter Self-Clearing (Bug 3 regression)', () => {
+		it('clears a stale filter and un-dims all squares when the filtered players last square is unclaimed', async () => {
+			setupStores({
+				withNumbers: true,
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'Alice', player_name_lower: 'alice' },
+				],
+			});
+			selectedPlayerFilter.set('alice');
+			render(SimpleGrid);
+
+			expect(document.querySelectorAll('.square-wrapper.dimmed').length).toBeGreaterThan(0);
+
+			// Simulate Alice's last square being unclaimed (mirrors what
+			// unclaimSquareOptimistic / applySquareUpdate do to the squares store).
+			squares.update((current) =>
+				current.map((s) =>
+					s.row_num === 0 && s.col_num === 0
+						? { ...s, player_name: null, player_name_lower: null }
+						: s
+				)
+			);
+			await tick();
+
+			expect(get(selectedPlayerFilter)).toBeNull();
+			expect(document.querySelectorAll('.square-wrapper.dimmed').length).toBe(0);
+		});
+
+		it('clears a stale filter and un-dims all squares when the host removes that player', async () => {
+			setupStores({
+				withNumbers: true,
+				partyOverrides: { status: 'filling' },
+				squareOverrides: [
+					{ row_num: 0, col_num: 0, player_name: 'Alice', player_name_lower: 'alice' },
+				],
+			});
+			selectedPlayerFilter.set('alice');
+			render(SimpleGrid);
+
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+			await removePlayer('1234', 'alice');
+
+			expect(get(selectedPlayerFilter)).toBeNull();
+			expect(document.querySelectorAll('.square-wrapper.dimmed').length).toBe(0);
 		});
 	});
 
