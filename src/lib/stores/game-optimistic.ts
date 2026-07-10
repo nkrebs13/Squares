@@ -4,7 +4,7 @@ import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
 import { userName, normalizePlayerName } from './user';
 import { clientId, party, squares, pendingOperations, squareKey } from './game-state';
-import { broadcast, schedulePendingTimeout } from './game-realtime';
+import { broadcast, schedulePendingTimeout, isOffline } from './game-realtime';
 
 /**
  * Optimistic claim — updates UI immediately, then confirms with server.
@@ -36,6 +36,13 @@ export function claimSquareOptimistic(row: number, col: number): void {
 	const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
 
 	if (!existingSquare || existingSquare.player_name) return; // Already claimed
+
+	// Fail fast when offline instead of optimistically applying and waiting on
+	// the 10s pending timeout — there's no network to reach the server over.
+	if (get(isOffline)) {
+		toast.error("You're offline — reconnect to claim squares");
+		return;
+	}
 
 	const timestamp = Date.now();
 	const operationId = `${clientId}-${key}-${timestamp}`;
@@ -160,6 +167,13 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 	// Can only unclaim own squares
 	if (existingSquare.player_name_lower !== normalizePlayerName(currentUser)) return;
 
+	// Fail fast when offline instead of optimistically applying and waiting on
+	// the 10s pending timeout — there's no network to reach the server over.
+	if (get(isOffline)) {
+		toast.error("You're offline — reconnect to unclaim squares");
+		return;
+	}
+
 	const timestamp = Date.now();
 	const operationId = `${clientId}-${key}-${timestamp}`;
 
@@ -282,6 +296,13 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 	});
 
 	if (claimableCells.length === 0) return;
+
+	// Fail fast when offline instead of optimistically applying and waiting on
+	// the 10s pending timeout — there's no network to reach the server over.
+	if (get(isOffline)) {
+		toast.error("You're offline — reconnect to claim squares");
+		return;
+	}
 
 	// 1. Create pending operations for all cells
 	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(

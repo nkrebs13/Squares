@@ -8,10 +8,12 @@ import {
 	squares,
 	pendingOperations,
 	cleanup,
+	subscribeToParty,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
+import { toast } from '$lib/stores/toast';
 import type { Party, Square } from '$lib/types';
-import { mockSupabaseClient } from '../setup';
+import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
@@ -435,5 +437,92 @@ describe('claimSquaresBatchOptimistic', () => {
 
 		claimSquaresBatchOptimistic([{ row: 0, col: 0 }]);
 		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+});
+
+describe('offline handling', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	// Activates the isOffline store the same way a real session does:
+	// subscribeToParty() registers the window online/offline listeners, then
+	// an 'offline' event flips isOffline to true.
+	function goOffline() {
+		subscribeToParty('test-party-id');
+		window.dispatchEvent(new Event('offline'));
+	}
+
+	it('claimSquareOptimistic fails immediately when offline: no mutation, pending op, broadcast, or RPC', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		goOffline();
+
+		claimSquareOptimistic(0, 0);
+
+		expect(get(squares)[0].player_name).toBeNull();
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+		const toasts = get(toast);
+		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+	});
+
+	it('unclaimSquareOptimistic fails immediately when offline: no mutation, pending op, broadcast, or RPC', () => {
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, {
+				player_name: 'Alice',
+				player_name_lower: 'alice',
+				claimed_at: new Date().toISOString(),
+			}),
+		]);
+		goOffline();
+
+		unclaimSquareOptimistic(0, 0);
+
+		expect(get(squares)[0].player_name).toBe('Alice');
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+		const toasts = get(toast);
+		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+	});
+
+	it('claimSquaresBatchOptimistic fails immediately when offline: no mutation, pending ops, broadcast, or RPC', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		goOffline();
+
+		claimSquaresBatchOptimistic([
+			{ row: 0, col: 0 },
+			{ row: 1, col: 1 },
+		]);
+
+		const current = get(squares);
+		expect(current.find((s) => s.row_num === 0 && s.col_num === 0)?.player_name).toBeNull();
+		expect(current.find((s) => s.row_num === 1 && s.col_num === 1)?.player_name).toBeNull();
+		expect(get(pendingOperations).size).toBe(0);
+		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+		const toasts = get(toast);
+		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+	});
+
+	it('does not block claims once back online', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		goOffline();
+		window.dispatchEvent(new Event('online'));
+
+		mockSupabaseClient.rpc.mockReturnValue({
+			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
+		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+
+		claimSquareOptimistic(0, 0);
+
+		expect(mockSupabaseClient.rpc).toHaveBeenCalled();
+		expect(get(squares)[0].player_name).toBe('Alice');
 	});
 });

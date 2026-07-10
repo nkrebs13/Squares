@@ -152,15 +152,20 @@ describe('updateScore', () => {
 		});
 	});
 
-	it('returns error when data is false', async () => {
+	it('returns a truthful error when data is false, without asserting the PIN is the sole cause', async () => {
 		party.set(createMockParty({ status: 'active' }));
 		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
 
 		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result).toEqual({
-			success: false,
-			error: 'Failed to update score - check PIN',
-		});
+		expect(result.success).toBe(false);
+		// update_score (migration 014) returns FALSE for several distinct reasons —
+		// invalid/locked-out PIN, inactive party, bad score/quarter, or a null_winner
+		// data-integrity guard. The RPC only returns a boolean, so the client can't
+		// tell which fired; the message must not claim "check PIN" as the only cause.
+		expect(result.error).not.toBe('Failed to update score - check PIN');
+		expect(result.error).not.toMatch(/^Failed to update score - check PIN$/);
+		expect(result.error).toMatch(/PIN/);
+		expect(result.error).toMatch(/not active|invalid/i);
 	});
 });
 

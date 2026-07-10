@@ -80,6 +80,20 @@ function createMockSquare(row: number, col: number, overrides: Partial<Square> =
 	};
 }
 
+function createSquareForPlayer(
+	row: number,
+	col: number,
+	playerName: string,
+	overrides: Partial<Square> = {}
+): Square {
+	return createMockSquare(row, col, {
+		player_name: playerName,
+		player_name_lower: playerName.toLowerCase(),
+		claimed_at: new Date().toISOString(),
+		...overrides,
+	});
+}
+
 function createFullGrid(): Square[] {
 	const grid: Square[] = [];
 	for (let row = 0; row < 10; row++) {
@@ -1249,6 +1263,173 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.getByText(/Loading party/i)).toBeInTheDocument();
 			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('Delete Party Confirmation Dialog (native <dialog>)', () => {
+		it('opens on trigger', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+		});
+
+		it('Escape closes the dialog WITHOUT deleting the party', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+
+			// jsdom's <dialog> polyfill (src/tests/setup.ts) doesn't implement
+			// native Escape-to-cancel semantics (no keydown handling, no
+			// automatic 'close' event dispatch), so simulate what a real
+			// browser does on Escape: fire the 'close' event the component's
+			// onclose handler listens to.
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="delete-party-title"]'
+			);
+			if (!dialogEl) throw new Error('delete-party dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
+			});
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+		});
+
+		it('Cancel closes the dialog without deleting the party', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+		});
+
+		it('Confirm deletes the party exactly once', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			const { goto } = await import('$app/navigation');
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(goto).toHaveBeenCalledWith('/');
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('delete_party', {
+				p_party_id: 'test-party-id',
+				p_pin: '1234',
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('focuses Cancel (never the destructive action) on open, and returns focus to the trigger on close', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Delete Party' });
+
+			await user.click(triggerButton);
+
+			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
+		});
+	});
+
+	describe('Remove Player Confirmation Dialog (native <dialog>)', () => {
+		function renderWithRemovablePlayer() {
+			party.set(createMockParty({ status: 'filling', host_name_lower: 'hostie' }));
+			squares.set([createSquareForPlayer(0, 0, 'Alice'), createSquareForPlayer(0, 1, 'Alice')]);
+			scores.set(createMockScores());
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+			return render(AdminPage);
+		}
+
+		it('opens on trigger', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+		});
+
+		it('Escape closes the dialog WITHOUT removing the player', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="remove-player-title"]'
+			);
+			if (!dialogEl) throw new Error('remove-player dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+			});
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+		});
+
+		it('Cancel closes the dialog without removing the player', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+		});
+
+		it('Confirm removes the player exactly once', async () => {
+			renderWithRemovablePlayer();
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Remove' }));
+			await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+			await waitFor(() => {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+					p_party_id: 'test-party-id',
+					p_pin: '1234',
+					p_player_name_lower: 'alice',
+				});
+			});
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		});
+
+		it('returns focus to the triggering Remove button on close', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Remove' });
+
+			await user.click(triggerButton);
+
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+			// Focus moves into the dialog (Cancel button), not left on the trigger.
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
 		});
 	});
 });

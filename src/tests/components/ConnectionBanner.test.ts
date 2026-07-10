@@ -7,28 +7,35 @@ interface BannerState {
 	attempt: number;
 }
 
-// vi.hoisted runs before vi.mock so the store reference is initialized in time.
-const { mockStore } = vi.hoisted(() => {
+// vi.hoisted runs before vi.mock so the store references are initialized in time.
+const { mockStore, mockOfflineStore } = vi.hoisted(() => {
 	// eslint-disable-next-line @typescript-eslint/no-require-imports -- hoisted setup, ESM dynamic import not available here
 	const { writable } = require('svelte/store');
-	return { mockStore: writable({ status: 'connected', attempt: 0 }) };
+	return {
+		mockStore: writable({ status: 'connected', attempt: 0 }),
+		mockOfflineStore: writable(false),
+	};
 });
 
 vi.mock('$lib/stores/game-realtime', () => ({
 	connectionStatus: { subscribe: mockStore.subscribe },
+	isOffline: { subscribe: mockOfflineStore.subscribe },
 }));
 
 import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 
 const setStatus = (state: BannerState) => mockStore.set(state);
+const setOffline = (offline: boolean) => mockOfflineStore.set(offline);
 
 describe('ConnectionBanner', () => {
 	beforeEach(() => {
 		setStatus({ status: 'connected', attempt: 0 });
+		setOffline(false);
 	});
 
 	afterEach(() => {
 		setStatus({ status: 'connected', attempt: 0 });
+		setOffline(false);
 	});
 
 	it('renders nothing when status is connected', () => {
@@ -99,5 +106,51 @@ describe('ConnectionBanner', () => {
 			configurable: true,
 			value: originalLocation,
 		});
+	});
+
+	it('renders the offline banner when offline', async () => {
+		render(ConnectionBanner);
+		setOffline(true);
+		await tick();
+
+		const banner = document.querySelector('.banner-offline');
+		expect(banner).toBeInTheDocument();
+		expect(banner).toHaveAttribute('role', 'alert');
+		expect(banner).toHaveAttribute('aria-live', 'assertive');
+		expect(banner?.textContent).toMatch(/offline/i);
+	});
+
+	it('renders reconnecting copy when the channel is reconnecting and the network is up', async () => {
+		render(ConnectionBanner);
+		setOffline(false);
+		setStatus({ status: 'reconnecting', attempt: 1 });
+		await tick();
+
+		expect(document.querySelector('.banner-offline')).toBeNull();
+		const banner = document.querySelector('.banner-reconnecting');
+		expect(banner).toBeInTheDocument();
+		expect(banner?.textContent).toMatch(/Reconnecting/);
+	});
+
+	it('offline banner takes precedence when both offline and reconnecting', async () => {
+		render(ConnectionBanner);
+		setStatus({ status: 'reconnecting', attempt: 3 });
+		setOffline(true);
+		await tick();
+
+		expect(document.querySelector('.banner-reconnecting')).toBeNull();
+		expect(document.querySelector('.banner-failed')).toBeNull();
+		const banner = document.querySelector('.banner-offline');
+		expect(banner).toBeInTheDocument();
+	});
+
+	it('offline banner takes precedence over the failed banner', async () => {
+		render(ConnectionBanner);
+		setStatus({ status: 'failed', attempt: 5 });
+		setOffline(true);
+		await tick();
+
+		expect(document.querySelector('.banner-failed')).toBeNull();
+		expect(document.querySelector('.banner-offline')).toBeInTheDocument();
 	});
 });

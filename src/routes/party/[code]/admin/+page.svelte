@@ -87,10 +87,62 @@
 	// Delete confirmation
 	let showDeleteConfirm = $state(false);
 	let isDeleting = $state(false);
+	let deleteDialogEl: HTMLDialogElement | null = null;
+	// $state: bound inside the {#if showDeleteConfirm} block below, so the
+	// element is created/destroyed on each open/close (same reasoning as
+	// join/+page.svelte's `pinInputEl`, which is $state for the same reason
+	// while its always-mounted `pinDialogEl` sibling is plain `let`).
+	let deleteCancelBtn = $state<HTMLButtonElement | null>(null);
+	let deleteTriggerEl: HTMLElement | null = null;
+
+	// Native <dialog> for real focus trapping, backdrop, and Escape handling —
+	// mirrors src/routes/join/+page.svelte's PIN-challenge dialog pattern.
+	$effect(() => {
+		if (showDeleteConfirm) {
+			if (deleteDialogEl && !deleteDialogEl.open) {
+				deleteTriggerEl = document.activeElement as HTMLElement | null;
+				deleteDialogEl.showModal();
+				// Focus Cancel first, never the destructive action, so a stray
+				// Enter keypress can't trigger deletion.
+				deleteCancelBtn?.focus();
+			}
+		} else {
+			if (deleteDialogEl?.open) deleteDialogEl.close();
+			deleteTriggerEl?.focus();
+			deleteTriggerEl = null;
+		}
+	});
+
+	function cancelDeleteParty() {
+		showDeleteConfirm = false;
+	}
 
 	// Player removal
 	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
 	let isRemovingPlayer = $state(false);
+	let removePlayerDialogEl: HTMLDialogElement | null = null;
+	// $state for the same reason as deleteCancelBtn above — bound inside the
+	// {#if playerToRemove} block, so it mounts/unmounts with the dialog.
+	let removePlayerCancelBtn = $state<HTMLButtonElement | null>(null);
+	let removePlayerTriggerEl: HTMLElement | null = null;
+
+	$effect(() => {
+		if (playerToRemove) {
+			if (removePlayerDialogEl && !removePlayerDialogEl.open) {
+				removePlayerTriggerEl = document.activeElement as HTMLElement | null;
+				removePlayerDialogEl.showModal();
+				removePlayerCancelBtn?.focus();
+			}
+		} else {
+			if (removePlayerDialogEl?.open) removePlayerDialogEl.close();
+			removePlayerTriggerEl?.focus();
+			removePlayerTriggerEl = null;
+		}
+	});
+
+	function cancelRemovePlayer() {
+		playerToRemove = null;
+	}
 
 	// Determine the next quarter that needs scores entered
 	const nextQuarter = $derived.by(() => {
@@ -1019,76 +1071,18 @@
 				<!-- Danger Zone - Delete Party -->
 				<div class="card border border-red-500/30">
 					<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
-					{#if !showDeleteConfirm}
-						<p class="text-sm mb-4 text-secondary">
-							Permanently delete this party and all associated data.
-						</p>
-						<button
-							onclick={() => (showDeleteConfirm = true)}
-							class="btn w-full"
-							style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
-						>
-							Delete Party
-						</button>
-					{:else}
-						<p class="text-sm mb-4 text-red-400">
-							Are you sure? This action cannot be undone. All squares, numbers, and winners will be
-							permanently deleted.
-						</p>
-						<div class="flex gap-2">
-							<button
-								onclick={() => (showDeleteConfirm = false)}
-								class="btn btn-secondary flex-1"
-								disabled={isDeleting}
-							>
-								Cancel
-							</button>
-							<button
-								onclick={handleDeleteParty}
-								class="btn flex-1"
-								style="background: #ef4444; color: white;"
-								disabled={isDeleting}
-							>
-								{isDeleting ? 'Deleting...' : 'Yes, Delete'}
-							</button>
-						</div>
-					{/if}
+					<p class="text-sm mb-4 text-secondary">
+						Permanently delete this party and all associated data.
+					</p>
+					<button
+						onclick={() => (showDeleteConfirm = true)}
+						class="btn w-full"
+						style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
+					>
+						Delete Party
+					</button>
 				</div>
 			</div>
-
-			<!-- Remove Player Confirmation Dialog -->
-			{#if playerToRemove}
-				<div
-					class="fixed inset-0 z-50 flex items-center justify-center p-4"
-					style="background: rgba(0, 0, 0, 0.7);"
-				>
-					<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
-						<h3 class="text-lg font-semibold mb-2 text-red-400">Remove Player?</h3>
-						<p class="text-sm mb-4 text-secondary">
-							Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free
-							up their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others
-							to claim.
-						</p>
-						<div class="flex gap-2">
-							<button
-								onclick={() => (playerToRemove = null)}
-								class="btn btn-secondary flex-1"
-								disabled={isRemovingPlayer}
-							>
-								Cancel
-							</button>
-							<button
-								onclick={handleRemovePlayer}
-								class="btn flex-1"
-								style="background: #ef4444; color: white;"
-								disabled={isRemovingPlayer}
-							>
-								{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
-							</button>
-						</div>
-					</div>
-				</div>
-			{/if}
 			{#snippet failed(_error, reset)}
 				<div class="card max-w-md mx-auto" style="border: 1px solid rgba(239, 68, 68, 0.3);">
 					<p class="text-sm" style="color: #f87171;">The admin panel encountered an error.</p>
@@ -1116,6 +1110,92 @@
 	{/if}
 </div>
 
+<!-- Delete Party Confirmation Dialog — native <dialog>, mirrors the join
+     page's PIN-challenge modal for focus trap / Escape / backdrop. Kept at
+     the template's top level (not nested inside an {#if}/{#each}/{#await}/
+     {#key} block) so bind:this stays a stable reference — see
+     https://svelte.dev/e/non_reactive_update. -->
+<dialog
+	bind:this={deleteDialogEl}
+	aria-labelledby="delete-party-title"
+	aria-describedby="delete-party-description"
+	onclose={cancelDeleteParty}
+	onclick={(e) => {
+		if (e.target === deleteDialogEl) cancelDeleteParty();
+	}}
+	class="confirm-dialog"
+>
+	{#if showDeleteConfirm}
+		<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+			<h3 id="delete-party-title" class="text-lg font-semibold mb-2 text-red-400">Delete Party?</h3>
+			<p id="delete-party-description" class="text-sm mb-4 text-red-400">
+				Are you sure? This action cannot be undone. All squares, numbers, and winners will be
+				permanently deleted.
+			</p>
+			<div class="flex gap-2">
+				<button
+					bind:this={deleteCancelBtn}
+					onclick={cancelDeleteParty}
+					class="btn btn-secondary flex-1"
+					disabled={isDeleting}
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleDeleteParty}
+					class="btn flex-1"
+					style="background: #ef4444; color: white;"
+					disabled={isDeleting}
+				>
+					{isDeleting ? 'Deleting...' : 'Yes, Delete'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</dialog>
+
+<!-- Remove Player Confirmation Dialog — native <dialog>, same pattern. -->
+<dialog
+	bind:this={removePlayerDialogEl}
+	aria-labelledby="remove-player-title"
+	aria-describedby="remove-player-description"
+	onclose={cancelRemovePlayer}
+	onclick={(e) => {
+		if (e.target === removePlayerDialogEl) cancelRemovePlayer();
+	}}
+	class="confirm-dialog"
+>
+	{#if playerToRemove}
+		<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
+			<h3 id="remove-player-title" class="text-lg font-semibold mb-2 text-red-400">
+				Remove Player?
+			</h3>
+			<p id="remove-player-description" class="text-sm mb-4 text-secondary">
+				Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free up
+				their {playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to claim.
+			</p>
+			<div class="flex gap-2">
+				<button
+					bind:this={removePlayerCancelBtn}
+					onclick={cancelRemovePlayer}
+					class="btn btn-secondary flex-1"
+					disabled={isRemovingPlayer}
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleRemovePlayer}
+					class="btn flex-1"
+					style="background: #ef4444; color: white;"
+					disabled={isRemovingPlayer}
+				>
+					{isRemovingPlayer ? 'Removing...' : 'Remove Player'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</dialog>
+
 <style>
 	/* Hide number input spinner arrows */
 	input[type='number']::-webkit-outer-spin-button,
@@ -1126,5 +1206,20 @@
 	input[type='number'] {
 		-moz-appearance: textfield;
 		appearance: textfield;
+	}
+
+	.confirm-dialog {
+		background: transparent;
+		border: none;
+		padding: 1rem;
+		max-width: min(calc(100vw - 2rem), 24rem);
+		width: 100%;
+		margin: auto;
+	}
+
+	.confirm-dialog::backdrop {
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 	}
 </style>

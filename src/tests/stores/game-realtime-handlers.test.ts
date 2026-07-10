@@ -899,6 +899,110 @@ describe('broadcast: score_update handler', () => {
 		expect(get(scores)).toEqual(mockScores);
 		expect(get(winners)).toEqual(mockWinners);
 	});
+
+	it('logs a warning and leaves the scores store untouched when the scores refetch errors', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		// handleScoreUpdateBroadcast calls from('scores') first, then from('winners').
+		// Fail the scores call; let winners succeed so only the scores branch is exercised.
+		let callCount = 0;
+		mockSupabaseClient.from.mockImplementation(() => {
+			const currentCall = callCount++;
+			const chainable = {
+				select: vi.fn().mockReturnThis(),
+				insert: vi.fn().mockReturnThis(),
+				update: vi.fn().mockReturnThis(),
+				delete: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				order: vi.fn().mockReturnThis(),
+				single: vi.fn().mockReturnThis(),
+				then: vi.fn((cb: (result: { data: unknown; error: unknown }) => void) => {
+					if (currentCall === 0) {
+						cb({ data: null, error: { message: 'scores fetch failed' } });
+					} else {
+						cb({ data: [], error: null });
+					}
+				}),
+			};
+			return chainable;
+		});
+
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:score_update'];
+		handler({ payload: { clientId: 'other-client-id' } });
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			'[realtime] failed to refetch scores after broadcast:',
+			'scores fetch failed'
+		);
+		// scores store was never set — cleanup() left it at null
+		expect(get(scores)).toBeNull();
+
+		warnSpy.mockRestore();
+	});
+
+	it('logs a warning and leaves the winners store untouched when the winners refetch errors', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const mockScores: Scores = {
+			party_id: 'test-party-id',
+			q1_row_score: 14,
+			q1_col_score: 7,
+			q2_row_score: null,
+			q2_col_score: null,
+			q3_row_score: null,
+			q3_col_score: null,
+			final_row_score: null,
+			final_col_score: null,
+		};
+
+		// handleScoreUpdateBroadcast calls from('scores') first, then from('winners').
+		// Let scores succeed; fail the winners call so only that branch is exercised.
+		let callCount = 0;
+		mockSupabaseClient.from.mockImplementation(() => {
+			const currentCall = callCount++;
+			const chainable = {
+				select: vi.fn().mockReturnThis(),
+				insert: vi.fn().mockReturnThis(),
+				update: vi.fn().mockReturnThis(),
+				delete: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				order: vi.fn().mockReturnThis(),
+				single: vi.fn().mockReturnThis(),
+				then: vi.fn((cb: (result: { data: unknown; error: unknown }) => void) => {
+					if (currentCall === 0) {
+						cb({ data: mockScores, error: null });
+					} else {
+						cb({ data: null, error: { message: 'winners fetch failed' } });
+					}
+				}),
+			};
+			return chainable;
+		});
+
+		subscribeToParty('test-party-id');
+
+		const handler = mockChannelHandlers['broadcast:score_update'];
+		handler({ payload: { clientId: 'other-client-id' } });
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			'[realtime] failed to refetch winners after broadcast:',
+			'winners fetch failed'
+		);
+		// winners store was never set — cleanup() left it at []
+		expect(get(winners)).toEqual([]);
+		// scores DID succeed, confirming only the winners branch failed
+		expect(get(scores)).toEqual(mockScores);
+
+		warnSpy.mockRestore();
+	});
 });
 
 describe('broadcast: unclaim_intent handler', () => {

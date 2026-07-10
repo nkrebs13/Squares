@@ -1,12 +1,19 @@
 <script lang="ts">
-	import { connectionStatus } from '$lib/stores/game';
+	import { connectionStatus, isOffline } from '$lib/stores/game';
 
 	function refresh() {
 		if (typeof location !== 'undefined') location.reload();
 	}
 </script>
 
-{#if $connectionStatus.status === 'reconnecting'}
+{#if $isOffline}
+	<!-- Offline takes precedence over the realtime channel status: there's no
+	     network at all, so "reconnecting" would be misleading. -->
+	<div class="banner banner-offline" role="alert" aria-live="assertive">
+		<span class="dot dot-offline" aria-hidden="true"></span>
+		<span class="message">You're offline — reconnect to keep playing</span>
+	</div>
+{:else if $connectionStatus.status === 'reconnecting'}
 	<div class="banner banner-reconnecting" role="status" aria-live="polite">
 		<span class="dot dot-reconnecting" aria-hidden="true"></span>
 		<span class="message">
@@ -34,6 +41,12 @@
 		font-weight: 500;
 	}
 
+	.banner-offline {
+		background: rgba(100, 116, 139, 0.2);
+		color: var(--text-primary);
+		border-bottom: 1px solid rgba(100, 116, 139, 0.5);
+	}
+
 	.banner-reconnecting {
 		background: rgba(245, 158, 11, 0.15);
 		color: var(--text-primary);
@@ -51,6 +64,10 @@
 		height: 0.625rem;
 		border-radius: 50%;
 		flex-shrink: 0;
+	}
+
+	.dot-offline {
+		background: rgb(100, 116, 139);
 	}
 
 	.dot-reconnecting {

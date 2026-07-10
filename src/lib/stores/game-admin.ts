@@ -74,7 +74,16 @@ export async function updateScore(
 	}
 
 	if (!data) {
-		return { success: false, error: 'Failed to update score - check PIN' };
+		// update_score (migration 014) returns FALSE on several distinct guards —
+		// invalid/locked-out PIN, party not active/locked, a bad quarter or negative
+		// score, or a null_winner data-integrity check unrelated to the PIN. The RPC
+		// only returns a boolean, so the client can't tell which one fired; don't
+		// assert a specific cause it can't know.
+		return {
+			success: false,
+			error:
+				'Failed to update score. Check the PIN — this can also happen if the party is not active or the score data is invalid.',
+		};
 	}
 
 	return { success: true };
