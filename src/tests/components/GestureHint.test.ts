@@ -47,15 +47,36 @@ describe('GestureHint Component', () => {
 	});
 
 	describe('Content', () => {
-		it('displays all gesture hints', async () => {
+		it('displays all gesture hints for non-touch (mouse) devices', async () => {
 			mockHasSeenGestureHint.mockResolvedValue(false);
 
 			render(GestureHint);
 			await vi.waitFor(() => {
 				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
-				expect(screen.getByText('Tap to claim')).toBeInTheDocument();
-				expect(screen.getByText('Hold to select multiple')).toBeInTheDocument();
+				expect(screen.getByText('Click to claim')).toBeInTheDocument();
+				expect(screen.getByText('Click again to unclaim your square')).toBeInTheDocument();
+				expect(screen.getByText('Click and drag to select multiple')).toBeInTheDocument();
 			});
+			// Touch-only copy must not leak into the non-touch branch
+			expect(screen.queryByText('Tap again to unclaim your square')).not.toBeInTheDocument();
+		});
+
+		it('displays touch-specific copy when the device reports coarse pointer', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(false);
+			window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+
+			render(GestureHint);
+			await vi.waitFor(() => {
+				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
+				expect(screen.getByText('Tap to claim')).toBeInTheDocument();
+				expect(screen.getByText('Tap again to unclaim your square')).toBeInTheDocument();
+			});
+			// Non-touch-only copy must not leak into the touch branch
+			expect(screen.queryByText('Click to claim')).not.toBeInTheDocument();
+			expect(screen.queryByText('Click and drag to select multiple')).not.toBeInTheDocument();
+
+			// @ts-expect-error - cleaning up the test-only override
+			delete window.matchMedia;
 		});
 
 		it('displays dismiss instructions', async () => {
@@ -64,6 +85,15 @@ describe('GestureHint Component', () => {
 			render(GestureHint);
 			await vi.waitFor(() => {
 				expect(screen.getByText('Tap to dismiss')).toBeInTheDocument();
+			});
+		});
+
+		it('announces itself to screen readers when shown', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(false);
+
+			render(GestureHint);
+			await vi.waitFor(() => {
+				expect(screen.getByRole('status')).toBeInTheDocument();
 			});
 		});
 	});
@@ -100,6 +130,61 @@ describe('GestureHint Component', () => {
 
 			expect(mockMarkGestureHintSeen).toHaveBeenCalledTimes(1);
 			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+
+			vi.useRealTimers();
+		});
+	});
+
+	describe('Reopen (help affordance)', () => {
+		it('re-shows the hint via the exported reopen() after it was dismissed', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(true); // already seen -> not shown on mount
+
+			const { component } = render(GestureHint);
+			await vi.waitFor(() => {
+				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			});
+
+			component.reopen();
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
+		});
+
+		it('does not clear the persisted seen-flag when reopened', async () => {
+			mockHasSeenGestureHint.mockResolvedValue(true);
+
+			const { component } = render(GestureHint);
+			await vi.waitFor(() => {
+				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			});
+
+			component.reopen();
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
+
+			// reopen() itself must not touch storage - only an explicit dismiss does
+			expect(mockMarkGestureHintSeen).not.toHaveBeenCalled();
+		});
+
+		it('still auto-dismisses 5 seconds after being reopened', async () => {
+			vi.useFakeTimers();
+			mockHasSeenGestureHint.mockResolvedValue(true);
+			mockMarkGestureHintSeen.mockResolvedValue(undefined);
+
+			const { component } = render(GestureHint);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+
+			component.reopen();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(mockMarkGestureHintSeen).toHaveBeenCalledTimes(1);
 
 			vi.useRealTimers();
 		});

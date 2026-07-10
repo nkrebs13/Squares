@@ -18,10 +18,7 @@
 		const seen = await hasSeenGestureHint();
 		if (!seen) {
 			show = true;
-			// Auto-dismiss after 5 seconds
-			timeout = setTimeout(() => {
-				dismiss();
-			}, 5000);
+			scheduleAutoDismiss();
 		}
 	});
 
@@ -31,15 +28,37 @@
 		}
 	});
 
+	function scheduleAutoDismiss() {
+		if (timeout) {
+			clearTimeout(timeout);
+		}
+		// Auto-dismiss after 5 seconds
+		timeout = setTimeout(() => {
+			dismiss();
+		}, 5000);
+	}
+
 	async function dismiss() {
 		show = false;
+		if (timeout) {
+			clearTimeout(timeout);
+			timeout = null;
+		}
 		await markGestureHintSeen();
+	}
+
+	// Re-shows the hint on demand (e.g. from a "?" help affordance) without
+	// touching the persisted seen-flag — the flag only tracks the first,
+	// automatic appearance.
+	export function reopen() {
+		show = true;
+		scheduleAutoDismiss();
 	}
 </script>
 
 {#if show}
 	<button class="gesture-hint-overlay" onclick={dismiss} aria-label="Dismiss hint">
-		<div class="gesture-hint-card">
+		<div class="gesture-hint-card" role="status" aria-live="polite">
 			<div class="hint-row">
 				<span class="hint-icon">
 					<svg
@@ -79,7 +98,7 @@
 						></path>
 					</svg>
 				</span>
-				<span>Tap to claim</span>
+				<span>{isTouchDevice ? 'Tap to claim' : 'Click to claim'}</span>
 			</div>
 			{#if isTouchDevice}
 				<div class="hint-row">
@@ -116,6 +135,26 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 						>
+							<path
+								d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+							></path>
+						</svg>
+					</span>
+					<span>Click again to unclaim your square</span>
+				</div>
+				<div class="hint-row">
+					<span class="hint-icon">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
 							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 							<line x1="9" y1="3" x2="9" y2="21"></line>
 							<line x1="15" y1="3" x2="15" y2="21"></line>
@@ -123,7 +162,7 @@
 							<line x1="3" y1="15" x2="21" y2="15"></line>
 						</svg>
 					</span>
-					<span>Hold to select multiple</span>
+					<span>Click and drag to select multiple</span>
 				</div>
 			{/if}
 			<div class="hint-dismiss">Tap to dismiss</div>

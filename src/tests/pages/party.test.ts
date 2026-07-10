@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import {
 	party,
 	squares,
@@ -46,10 +47,15 @@ vi.mock('$lib/storage', async (importOriginal) => {
 		getHostPin: vi.fn().mockResolvedValue(null),
 		setHostPin: vi.fn().mockResolvedValue(undefined),
 		getRecentParties: vi.fn().mockResolvedValue([]),
+		// Explicit vi.fn() overrides (rather than passthrough) so individual
+		// tests can control GestureHint's initial visibility.
+		hasSeenGestureHint: vi.fn().mockResolvedValue(false),
+		markGestureHintSeen: vi.fn().mockResolvedValue(undefined),
 	};
 });
 
 import PartyPage from '../../routes/party/[code]/+page.svelte';
+import { hasSeenGestureHint } from '$lib/storage';
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
@@ -346,6 +352,67 @@ describe('Party Page', () => {
 			render(PartyPage);
 
 			expect(screen.getAllByText('Eagles vs Chiefs').length).toBeGreaterThan(0);
+		});
+	});
+
+	describe('Gesture Help', () => {
+		beforeEach(() => {
+			isLoading.set(false);
+			error.set(null);
+			party.set(createMockParty());
+			squares.set(createEmptyGrid());
+			scores.set(null);
+			winners.set([]);
+			numbers.set(null);
+		});
+
+		it('shows a "?" help button with an accessible name', () => {
+			render(PartyPage);
+
+			expect(screen.getByRole('button', { name: /show gesture help/i })).toBeInTheDocument();
+		});
+
+		it('re-shows the gesture hint when clicked, after it was dismissed', async () => {
+			vi.mocked(hasSeenGestureHint).mockResolvedValue(false);
+			render(PartyPage);
+
+			// Hint auto-shows on mount since it hasn't been seen before
+			await waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
+
+			const user = userEvent.setup();
+			await user.click(screen.getByLabelText('Dismiss hint'));
+			await waitFor(() => {
+				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole('button', { name: /show gesture help/i }));
+
+			await waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
+		});
+
+		it('is keyboard-focusable and activatable via Enter', async () => {
+			vi.mocked(hasSeenGestureHint).mockResolvedValue(true);
+			render(PartyPage);
+
+			// Not shown initially since it was already marked as seen
+			await waitFor(() => {
+				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			});
+
+			const helpButton = screen.getByRole('button', { name: /show gesture help/i });
+			helpButton.focus();
+			expect(helpButton).toHaveFocus();
+
+			const user = userEvent.setup();
+			await user.keyboard('{Enter}');
+
+			await waitFor(() => {
+				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			});
 		});
 	});
 });
