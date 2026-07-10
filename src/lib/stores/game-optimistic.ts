@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
-import type { OptimisticOperation } from '$lib/types';
+import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
 import { userName, normalizePlayerName } from './user';
 import { clientId, party, squares, pendingOperations, squareKey } from './game-state';
@@ -96,8 +96,11 @@ export function claimSquareOptimistic(row: number, col: number): void {
 			p_col: col,
 			p_player_name: currentUser,
 		})
-		.then(({ error: claimError }) => {
-			if (claimError) {
+		.then(({ data, error: claimError }) => {
+			// claim_square returns BOOLEAN false when the square was already taken
+			// (domain rejection, no error). Treat it as failure and react immediately
+			// instead of waiting on a race with the real owner's postgres_changes event.
+			if (claimError || data === false) {
 				// Rollback on failure
 				pendingOperations.update((ops) => {
 					const op = ops.get(key);
@@ -211,8 +214,13 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 			p_col: col,
 			p_player_name: currentUser,
 		})
-		.then(({ error: unclaimError }) => {
-			if (unclaimError) {
+		.then(({ data, error: unclaimError }) => {
+			// unclaim_square returns BOOLEAN false for a DOMAIN rejection (row already
+			// changed / not ours — migration 029) with NO error. A false return changes
+			// zero rows, so no postgres_changes event ever arrives to heal us: we MUST
+			// roll back here, exactly as the error path does, or the square stays empty
+			// forever on this client while the DB still shows it owned.
+			if (unclaimError || data === false) {
 				// Rollback on failure
 				pendingOperations.update((ops) => {
 					const op = ops.get(key);
@@ -233,6 +241,16 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 									: s
 							)
 						);
+
+						// Tell observers (who optimistically cleared this square on our
+						// unclaim_intent) to restore it. Without this they'd show the square
+						// empty forever, since the failed unclaim produced no DB change.
+						broadcast(currentParty.id, {
+							type: 'unclaim_rejected',
+							squareKey: key,
+							playerName: currentUser,
+							timestamp,
+						});
 
 						return newOps;
 					}
@@ -382,7 +400,10 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 			const failed = claimableCells.length - claimed;
 
 			if (failed > 0) {
-				// Some claims failed - postgres_changes will handle reconciliation
+				// A short count means some cells were taken by someone else first. The RPC
+				// returns only a count, so refetch to learn WHICH cells we lost and roll them
+				// back immediately instead of racing each winner's postgres_changes event.
+				void reconcileShortBatchClaim(currentParty.id, currentUser, operations);
 				toast.error(`${failed} square${failed > 1 ? 's were' : ' was'} already claimed`);
 			}
 
@@ -390,4 +411,76 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 				toast.success(`Claimed ${claimed} square${claimed > 1 ? 's' : ''}`);
 			}
 		});
+}
+
+/**
+ * After a batch claim comes back short (claimed < requested), the RPC reports only HOW
+ * MANY cells we lost, not WHICH. Refetch the party's squares, find the cells the DB shows
+ * are no longer ours, roll those back on this client, and tell observers to do the same —
+ * rather than depending on a race with each winner's postgres_changes event to heal us.
+ * Best-effort: if the refetch fails, the per-cell 10s timeout + postgres_changes remain as
+ * backstops, exactly as before.
+ */
+async function reconcileShortBatchClaim(
+	partyId: string,
+	currentUser: string,
+	operations: Array<{ key: string; operation: OptimisticOperation }>
+): Promise<void> {
+	const supabase = getSupabaseClient();
+	const { data, error } = await supabase.from('squares').select('*').eq('party_id', partyId);
+	if (error || !data) return;
+
+	const rows = data as Square[];
+	const normalizedUser = normalizePlayerName(currentUser);
+
+	// A cell was lost unless the DB now shows it owned by us.
+	const candidates = operations.filter(({ operation }) => {
+		const dbSquare = rows.find((s) => s.row_num === operation.row && s.col_num === operation.col);
+		return !dbSquare || dbSquare.player_name_lower !== normalizedUser;
+	});
+
+	if (candidates.length === 0) return;
+
+	// Roll back only cells whose optimistic op is still the current pending op —
+	// postgres_changes may already have resolved some of them.
+	const rolledBack: Array<{ key: string; operation: OptimisticOperation }> = [];
+	pendingOperations.update((ops) => {
+		const newOps = new Map(ops);
+		for (const { key, operation } of candidates) {
+			if (newOps.get(key)?.id === operation.id) {
+				newOps.delete(key);
+				rolledBack.push({ key, operation });
+			}
+		}
+		return newOps;
+	});
+
+	if (rolledBack.length === 0) return;
+
+	const operationByKey = new Map(rolledBack.map(({ key, operation }) => [key, operation]));
+	const rolledBackKeys = new Set(operationByKey.keys());
+
+	squares.update((current) =>
+		current.map((s) => {
+			const key = squareKey(s.row_num, s.col_num);
+			const operation = operationByKey.get(key);
+			return operation && rolledBackKeys.has(key)
+				? {
+						...s,
+						player_name: operation.originalState.player_name,
+						player_name_lower: operation.originalState.player_name_lower,
+						claimed_at: operation.originalState.claimed_at,
+					}
+				: s;
+		})
+	);
+
+	for (const { key } of rolledBack) {
+		broadcast(partyId, {
+			type: 'claim_rejected',
+			squareKey: key,
+			playerName: currentUser,
+			timestamp: Date.now(),
+		});
+	}
 }

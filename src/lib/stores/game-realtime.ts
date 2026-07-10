@@ -60,6 +60,14 @@ const channelStates: Record<string, ChannelState> = {
 const MAX_RECONNECT = 5;
 const BASE_DELAY = 1000;
 
+// Monotonic subscription generation. Every (re)subscribe and every intentional
+// teardown bumps this; each channel's status callback captures the generation it
+// was created under and only (re)connects while that generation is still current.
+// This defeats the CLOSED event Supabase fires ASYNCHRONOUSLY after an intentional
+// unsubscribe(): the stale callback's captured generation no longer matches, so it
+// can never resurrect a channel for a party we've already left or navigated away from.
+let currentGeneration = 0;
+
 // ─── Connection status (surfaced to the UI via ConnectionBanner) ──────────
 export type ConnectionStatus = 'connected' | 'reconnecting' | 'failed';
 
@@ -134,8 +142,15 @@ function resetReconnectState(channelKey: string) {
 function handleChannelStatus(
 	channelKey: string,
 	status: `${REALTIME_SUBSCRIBE_STATES}`,
-	setupFn: () => void
+	setupFn: () => void,
+	generation: number
 ) {
+	// Ignore any status from a channel that belongs to a superseded generation —
+	// e.g. the async CLOSED delivered after an intentional unsubscribe(). Without
+	// this guard, CLOSED would schedule a reconnect that resurrects a channel for a
+	// party we've already left (or unsubscribes the new party's channel to reopen the old).
+	if (generation !== currentGeneration) return;
+
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
 	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -179,7 +194,12 @@ export function schedulePendingTimeout(key: string) {
 					)
 				);
 
-				toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
+				// Only alert the user about THEIR OWN failed operation. Remote ops
+				// (id "remote-<clientId>-<key>") are mirrors of another client's action;
+				// their timeout is a silent self-heal, not something this user did.
+				if (!op.id.startsWith('remote-')) {
+					toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
+				}
 				return newOps;
 			}
 			return ops;
@@ -241,11 +261,13 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 		// Schedule timeout cleanup for remote pending operations
 		schedulePendingTimeout(key);
 	} else if (message.type === 'claim_rejected') {
-		// Another user's claim was rejected - remove their pending claim
+		// Another user's claim was rejected - remove ONLY that user's pending claim.
+		// Match on the full remote op id (remote-<clientId>-<key>) so a rejection from
+		// one client can never roll back a different client's still-valid pending preview.
 		pendingOperations.update((ops) => {
 			const newOps = new Map(ops);
 			const op = newOps.get(key);
-			if (op && op.id.startsWith('remote-')) {
+			if (op && op.id === `remote-${message.clientId}-${key}`) {
 				// Rollback to original state
 				squares.update((current) =>
 					current.map((s) =>
@@ -264,9 +286,31 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 			return newOps;
 		});
 	} else if (message.type === 'unclaim_intent') {
-		// Another user is unclaiming - show optimistically
+		// Another user is unclaiming - show optimistically.
 		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
 		if (!existingSquare || !existingSquare.player_name) return;
+
+		// Track as a pending op (symmetric with remote claim_intent) so we can self-heal
+		// if the unclaim is rejected server-side. A rejected unclaim_square changes ZERO
+		// rows, so no postgres_changes event arrives to restore the square — the pending
+		// op's timeout (or an unclaim_rejected broadcast) is the only thing that heals us.
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			newOps.set(key, {
+				id: `remote-${message.clientId}-${key}`,
+				type: 'unclaim',
+				row,
+				col,
+				timestamp: message.timestamp,
+				status: 'pending',
+				originalState: {
+					player_name: existingSquare.player_name,
+					player_name_lower: existingSquare.player_name_lower,
+					claimed_at: existingSquare.claimed_at,
+				},
+			});
+			return newOps;
+		});
 
 		squares.update((current) =>
 			current.map((s) =>
@@ -275,6 +319,33 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 					: s
 			)
 		);
+
+		// Schedule timeout cleanup for the remote pending unclaim
+		schedulePendingTimeout(key);
+	} else if (message.type === 'unclaim_rejected') {
+		// The unclaiming client's server call was rejected - restore the square we cleared.
+		// Match on the full remote op id so only the pending op we created for THIS client's
+		// unclaim is restored.
+		pendingOperations.update((ops) => {
+			const newOps = new Map(ops);
+			const op = newOps.get(key);
+			if (op && op.id === `remote-${message.clientId}-${key}`) {
+				squares.update((current) =>
+					current.map((s) =>
+						s.row_num === row && s.col_num === col
+							? {
+									...s,
+									player_name: op.originalState.player_name,
+									player_name_lower: op.originalState.player_name_lower,
+									claimed_at: op.originalState.claimed_at,
+								}
+							: s
+					)
+				);
+				newOps.delete(key);
+			}
+			return newOps;
+		});
 	}
 }
 
@@ -319,18 +390,23 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		});
 }
 
-function setupBroadcastChannel(partyId: string) {
+function setupBroadcastChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	channelStates.broadcast.channel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
 		.on('broadcast', { event: 'score_update' }, handleScoreUpdateBroadcast)
 		.subscribe((status) => {
-			handleChannelStatus('broadcast', status, () => setupBroadcastChannel(partyId));
+			handleChannelStatus(
+				'broadcast',
+				status,
+				() => setupBroadcastChannel(partyId, generation),
+				generation
+			);
 		});
 }
 
-function setupPartyChannel(partyId: string) {
+function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	channelStates.party.channel = supabase
 		.channel(`party:${partyId}`)
@@ -416,11 +492,16 @@ function setupPartyChannel(partyId: string) {
 			}
 		)
 		.subscribe((status) => {
-			handleChannelStatus('party', status, () => setupPartyChannel(partyId));
+			handleChannelStatus(
+				'party',
+				status,
+				() => setupPartyChannel(partyId, generation),
+				generation
+			);
 		});
 }
 
-function setupGameChannel(gameId: string) {
+function setupGameChannel(gameId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	channelStates.game.channel = supabase
 		.channel(`game:${gameId}`)
@@ -442,11 +523,15 @@ function setupGameChannel(gameId: string) {
 			}
 		)
 		.subscribe((status) => {
-			handleChannelStatus('game', status, () => setupGameChannel(gameId));
+			handleChannelStatus('game', status, () => setupGameChannel(gameId, generation), generation);
 		});
 }
 
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
+	// Bump the generation FIRST so any async CLOSED fired by the unsubscribe() calls
+	// below is treated as stale and cannot schedule a reconnect against the old party.
+	const generation = ++currentGeneration;
+
 	// Unsubscribe from previous channels and clear reconnect state.
 	// IMPORTANT: resetReconnectState() must be called BEFORE setting up new channels
 	// to cancel any pending reconnect timeouts that might capture stale partyId/gameId.
@@ -465,15 +550,17 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	}
 
 	// Set up channels with reconnection support
-	setupBroadcastChannel(partyId);
-	setupPartyChannel(partyId);
+	setupBroadcastChannel(partyId, generation);
+	setupPartyChannel(partyId, generation);
 
 	// Subscribe to live game scores if party is linked to a game
 	if (gameId) {
-		setupGameChannel(gameId);
+		setupGameChannel(gameId, generation);
 	}
 
 	return () => {
+		// Bump the generation so the CLOSED events from these unsubscribes are ignored.
+		++currentGeneration;
 		if (channelStates.party.channel) {
 			channelStates.party.channel.unsubscribe();
 			channelStates.party.channel = null;
@@ -516,6 +603,9 @@ export function broadcastScoreUpdate() {
 
 // Cleanup channels (called from game-admin cleanup)
 export function cleanupChannels() {
+	// Bump the generation so the CLOSED events from these unsubscribes are ignored
+	// and cannot resurrect a subscription after teardown.
+	++currentGeneration;
 	if (channelStates.party.channel) {
 		channelStates.party.channel.unsubscribe();
 		channelStates.party.channel = null;

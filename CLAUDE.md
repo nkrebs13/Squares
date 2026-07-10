@@ -66,7 +66,9 @@ UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid
 
 ## BroadcastMessage Wire Protocol
 
-`BroadcastMessage.type` string values (`claim_intent`, `claim_rejected`, `unclaim_intent`) are sent over the wire between browser clients. Changing a value on one side silently breaks the other with NO TypeScript error. Treat these strings as a wire protocol contract — document any change here and update ALL clients simultaneously.
+`BroadcastMessage.type` string values (`claim_intent`, `claim_rejected`, `unclaim_intent`, `unclaim_rejected`) are sent over the wire between browser clients. Changing a value on one side silently breaks the other with NO TypeScript error. Treat these strings as a wire protocol contract — document any change here and update ALL clients simultaneously.
+
+- `unclaim_rejected` (added): sent by an unclaiming client when its `unclaim_square` RPC is rejected (error OR a BOOLEAN `false` domain rejection — see migration 029). Observers that optimistically cleared the square on the matching `unclaim_intent` restore it. Adding a new type is backward-compatible: `handleBroadcastMessage` dispatches with an if/else-if chain, so an older client receiving an unknown type simply no-ops (never throws). New types may be added additively; never change or remove an existing value.
 
 ## Do NOT Rules
 

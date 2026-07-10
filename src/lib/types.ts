@@ -168,7 +168,7 @@ export interface OptimisticOperation {
 }
 
 export interface BroadcastMessage {
-	type: 'claim_intent' | 'claim_rejected' | 'unclaim_intent';
+	type: 'claim_intent' | 'claim_rejected' | 'unclaim_intent' | 'unclaim_rejected';
 	squareKey: string;
 	playerName: string;
 	timestamp: number;

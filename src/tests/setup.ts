@@ -85,6 +85,25 @@ function simulateChannelStatus(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_O
 	subscribeCallbacks.forEach((cb) => cb(status));
 }
 
+/**
+ * Simulate a channel status change for a SINGLE captured subscribe callback, by the
+ * order it was registered. Channels are created in the order broadcast → party → game,
+ * accumulating across successive subscribeToParty() calls. This enables per-channel
+ * isolation tests — e.g. delivering the async CLOSED that Supabase fires on an
+ * intentionally-unsubscribed channel WITHOUT touching a newer channel's callback.
+ */
+function simulateChannelStatusAt(
+	index: number,
+	status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'
+) {
+	subscribeCallbacks[index]?.(status);
+}
+
+/** Number of subscribe callbacks captured so far (see simulateChannelStatusAt). */
+function subscribeCallbackCount(): number {
+	return subscribeCallbacks.length;
+}
+
 const mockSupabaseClient = {
 	from: vi.fn(() => ({
 		select: vi.fn().mockReturnThis(),
@@ -240,4 +259,6 @@ export {
 	localStorageMock,
 	sessionStorageMock,
 	simulateChannelStatus,
+	simulateChannelStatusAt,
+	subscribeCallbackCount,
 };
