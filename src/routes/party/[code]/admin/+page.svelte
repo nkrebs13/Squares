@@ -126,6 +126,23 @@
 	// {#if playerToRemove} block, so it mounts/unmounts with the dialog.
 	let removePlayerCancelBtn = $state<HTMLButtonElement | null>(null);
 	let removePlayerTriggerEl: HTMLElement | null = null;
+	// Set right before `playerToRemove = null` on a successful removal (see
+	// handleRemovePlayer). Distinguishes "closed because the removal
+	// succeeded" from "closed via Cancel/Escape" so the effect below knows
+	// whether the saved trigger element is still safe to focus.
+	let removePlayerSucceeded = false;
+	// Always-rendered heading (see the "Party Status" <h2> in the template)
+	// used as the focus target on a successful removal. The removed
+	// player's row — and, when it was the last player, the whole "Manage
+	// Players" card — is gone from the DOM by the time this runs, so
+	// `removePlayerTriggerEl` is detached and `.focus()` on it would
+	// silently drop focus to <body>. "Party Status" is rendered for every
+	// party status whenever $party is set, so it survives regardless of
+	// how many players remain after the removal.
+	// $state: bound inside the `{:else if $party}` branch (not always
+	// mounted — e.g. absent during PIN entry / loading), same reasoning as
+	// deleteCancelBtn / removePlayerCancelBtn above.
+	let partyStatusHeadingEl = $state<HTMLHeadingElement | null>(null);
 
 	$effect(() => {
 		if (playerToRemove) {
@@ -136,8 +153,14 @@
 			}
 		} else {
 			if (removePlayerDialogEl?.open) removePlayerDialogEl.close();
-			removePlayerTriggerEl?.focus();
-			removePlayerTriggerEl = null;
+			if (removePlayerSucceeded) {
+				removePlayerSucceeded = false;
+				removePlayerTriggerEl = null;
+				partyStatusHeadingEl?.focus();
+			} else {
+				removePlayerTriggerEl?.focus();
+				removePlayerTriggerEl = null;
+			}
 		}
 	});
 
@@ -540,6 +563,7 @@
 
 		if (result.success) {
 			showSuccess(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
+			removePlayerSucceeded = true;
 			playerToRemove = null;
 		} else {
 			error = result.error || 'Failed to remove player';
@@ -592,7 +616,9 @@
 			<div class="space-y-6 max-w-md mx-auto">
 				<!-- Current Status -->
 				<div class="card">
-					<h2 class="text-lg font-semibold mb-2">Party Status</h2>
+					<h2 class="text-lg font-semibold mb-2" bind:this={partyStatusHeadingEl} tabindex="-1">
+						Party Status
+					</h2>
 					<div class="text-2xl font-bold capitalize">
 						{$party.status === 'locked' ? 'Active' : $party.status}
 					</div>

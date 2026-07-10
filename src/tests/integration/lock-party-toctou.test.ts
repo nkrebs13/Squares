@@ -31,6 +31,17 @@ const { Client } = pg;
 const databaseUrl =
 	process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
+/**
+ * Owner name for square (row, col), matching fillAllSquares' `Player-R${row}C${col}`
+ * convention in ./helpers. Deriving it here (instead of a second hardcoded literal)
+ * keeps the two from silently drifting apart -- a mismatch here would make this
+ * test pass for the wrong reason (owner-name rejection) instead of the TOCTOU
+ * status re-check it's meant to exercise.
+ */
+function squareOwnerName(row: number, col: number): string {
+	return `Player-R${row}C${col}`;
+}
+
 let client: SupabaseClient;
 let party: TestParty;
 const openClients: InstanceType<typeof Client>[] = [];
@@ -101,7 +112,10 @@ describe('lock_party vs unclaim_square TOCTOU race (032)', () => {
 			const unclaimPromise = unclaimConn
 				.query<{
 					unclaim_square: boolean;
-				}>('SELECT unclaim_square($1, 0, 0, $2) AS unclaim_square', [party.id, 'Player-0-0'])
+				}>('SELECT unclaim_square($1, 0, 0, $2) AS unclaim_square', [
+					party.id,
+					squareOwnerName(0, 0),
+				])
 				.then((res) => res.rows[0].unclaim_square);
 
 			await waitUntilBlockedOnLock(lockConn, unclaimPid);
@@ -137,5 +151,39 @@ describe('lock_party vs unclaim_square TOCTOU race (032)', () => {
 		expect(squaresError).toBeNull();
 		expect(squares).toHaveLength(100);
 		expect(squares?.every((s) => s.player_name !== null)).toBe(true);
+	});
+});
+
+describe('unclaim_square owner-name sanity check', () => {
+	// Proves the `false` result asserted above is actually caused by the 032
+	// TOCTOU status re-check, not by an owner-name mismatch: the real owner
+	// (per fillAllSquares' Player-R${row}C${col} convention) genuinely CAN
+	// unclaim their own square while the party is still 'filling'. Runs
+	// against its own fresh party from beforeEach -- entirely separate from
+	// the party the race test above locks/commits -- so it can't interfere
+	// with that test's interleaving or leave residual state behind.
+	it('lets the true owner (Player-R0C0) unclaim square (0,0) while the party is still filling', async () => {
+		await fillAllSquares(client, party.id);
+
+		const { data, error } = await client.rpc('unclaim_square', {
+			p_party_id: party.id,
+			p_row: 0,
+			p_col: 0,
+			p_player_name: squareOwnerName(0, 0),
+		});
+
+		expect(error).toBeNull();
+		expect(data).toBe(true);
+
+		const service = getServiceRoleClient();
+		const { data: square, error: squareError } = await service
+			.from('squares')
+			.select('player_name')
+			.eq('party_id', party.id)
+			.eq('row_num', 0)
+			.eq('col_num', 0)
+			.single();
+		expect(squareError).toBeNull();
+		expect(square?.player_name).toBeNull();
 	});
 });

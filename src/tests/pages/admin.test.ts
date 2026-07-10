@@ -1591,5 +1591,75 @@ describe('Admin Page - Score Entry', () => {
 				expect(document.activeElement).toBe(triggerButton);
 			});
 		});
+
+		it('Escape restores focus to the triggering Remove button (cancel path, not the success target)', async () => {
+			renderWithRemovablePlayer();
+			const user = userEvent.setup();
+			const triggerButton = screen.getByRole('button', { name: 'Remove' });
+
+			await user.click(triggerButton);
+			expect(screen.getByText('Remove Player?')).toBeInTheDocument();
+
+			const dialogEl = document.querySelector<HTMLDialogElement>(
+				'dialog[aria-labelledby="remove-player-title"]'
+			);
+			if (!dialogEl) throw new Error('remove-player dialog not found');
+			dialogEl.dispatchEvent(new Event('close'));
+
+			await waitFor(() => {
+				expect(document.activeElement).toBe(triggerButton);
+			});
+		});
+
+		describe('Focus after a successful removal (CodeRabbit — stale-trigger a11y regression)', () => {
+			function renderWithTwoRemovablePlayers() {
+				party.set(createMockParty({ status: 'filling', host_name_lower: 'hostie' }));
+				squares.set([createSquareForPlayer(0, 0, 'Alice'), createSquareForPlayer(0, 1, 'Bob')]);
+				scores.set(createMockScores());
+				sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+				return render(AdminPage);
+			}
+
+			it('moves focus to the Party Status heading (not document.body) when other players remain', async () => {
+				renderWithTwoRemovablePlayers();
+				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+				const user = userEvent.setup();
+				const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
+				await user.click(removeButtons[0]);
+				await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+				await waitFor(() => {
+					expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
+				});
+
+				// The removed player's row (and its Remove button, the saved trigger)
+				// is gone from the DOM — focus must NOT have silently dropped to
+				// <body>. It lands on the always-rendered Party Status heading.
+				expect(document.activeElement).not.toBe(document.body);
+				expect(document.activeElement).toBe(screen.getByText('Party Status'));
+			});
+
+			it('last-player case: removing the final player still leaves focus on a connected, non-body element', async () => {
+				renderWithRemovablePlayer();
+				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+
+				const user = userEvent.setup();
+				await user.click(screen.getByRole('button', { name: 'Remove' }));
+				await user.click(screen.getByRole('button', { name: 'Remove Player' }));
+
+				await waitFor(() => {
+					// Removing the sole remaining player empties $playerSummary, so
+					// the whole "Manage Players" card (and the trigger button inside
+					// it) unmounts.
+					expect(screen.queryByText('Manage Players')).not.toBeInTheDocument();
+				});
+
+				expect(document.activeElement).not.toBe(document.body);
+				expect(document.activeElement).not.toBeNull();
+				expect(document.body.contains(document.activeElement)).toBe(true);
+				expect(document.activeElement).toBe(screen.getByText('Party Status'));
+			});
+		});
 	});
 });

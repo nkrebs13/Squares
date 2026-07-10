@@ -14,9 +14,26 @@ brew install supabase/tap/supabase
 
 # Per-session:
 supabase start                # starts containers + applies migrations
+
+# Point the suite at the local instance. If your .env holds production
+# credentials (it usually does), these TEST_* vars are required — they take
+# precedence over VITE_*, and without them the safety guard below aborts.
+eval "$(supabase status -o env | sed 's/^/export /')"
+export TEST_SUPABASE_URL="$API_URL"
+export TEST_SUPABASE_KEY="$ANON_KEY"
+export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+
 npm run test:integration      # runs against http://127.0.0.1:54321
 supabase stop                 # when done
 ```
+
+### Safety guard: integration tests refuse to run against a remote database
+
+`src/tests/integration/helpers.ts` resolves its target as `TEST_SUPABASE_URL || VITE_SUPABASE_URL || http://127.0.0.1:54321` (and the anon key as `TEST_SUPABASE_KEY || VITE_SUPABASE_ANON_KEY`), then asserts via `assertLocalDb.ts` that the hostname is one of `127.0.0.1`, `localhost`, `::1`, or `0.0.0.0` before constructing any Supabase client.
+
+This exists because the suite's global teardown deletes every party with `host_pin = '1234'` — a plausible PIN for a real host — older than an hour, using a **service-role** client. Your `.env` almost certainly sets `VITE_SUPABASE_URL` to the production project, and `globalSetup` runs in vitest's main process where `vitest.config.integration.ts`'s `test.env` override does _not_ apply. Without this guard, a bare `npm run test:integration` would create and lock real parties in the live database, and would delete real ones the moment a production service-role key was present in the environment.
+
+The guard fails closed: it throws before any client is built, so no request ever leaves the machine. Set the `TEST_*` vars above and it passes. If you genuinely need to target a non-local database, `ALLOW_REMOTE_INTEGRATION_DB=1` is the only accepted opt-out.
 
 ### Seed data
 
