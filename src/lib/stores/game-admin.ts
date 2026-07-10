@@ -24,6 +24,19 @@ export interface PartyDetailsInput {
 	teamColColor: string;
 }
 
+/**
+ * Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
+ * (not RAISE) so check_pin_lockout's attempt increment durably commits.
+ * PostgREST renders a NULL `RETURNS parties` value as a row object whose
+ * columns are all null (id included), NOT JSON null, so detect the refusal
+ * by the absent id. Same outcome the error-message branch above yields for
+ * an older DB that still RAISEs 'invalid party or PIN'.
+ */
+function isPinSentinelRow(data: unknown): boolean {
+	if (data == null) return true;
+	return (data as { id?: unknown }).id == null;
+}
+
 export async function lockParty(pin: string): Promise<{ success: boolean; error?: string }> {
 	const currentParty = get(party);
 	if (!currentParty) return { success: false, error: 'No party loaded' };
@@ -117,13 +130,7 @@ export async function updatePayoutStructure(
 		return { success: false, error: humanizePayoutError(updateError.message) };
 	}
 
-	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
-	// (not RAISE) so check_pin_lockout's attempt increment durably commits.
-	// PostgREST renders a NULL `RETURNS parties` value as a row object whose
-	// columns are all null (id included), NOT JSON null, so detect the refusal
-	// by the absent id. Same outcome the error-message branch above yields for
-	// an older DB that still RAISEs 'invalid party or PIN'.
-	if (data == null || data.id == null) {
+	if (isPinSentinelRow(data)) {
 		return { success: false, error: 'Invalid PIN' };
 	}
 
@@ -171,13 +178,7 @@ export async function updatePartyDetails(
 		return { success: false, error: humanizePartyDetailsError(updateError.message) };
 	}
 
-	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
-	// (not RAISE) so check_pin_lockout's attempt increment durably commits.
-	// PostgREST renders a NULL `RETURNS parties` value as a row object whose
-	// columns are all null (id included), NOT JSON null, so detect the refusal
-	// by the absent id. Same outcome the error-message branch above yields for
-	// an older DB that still RAISEs 'invalid party or PIN'.
-	if (data == null || data.id == null) {
+	if (isPinSentinelRow(data)) {
 		return { success: false, error: 'Invalid PIN' };
 	}
 
@@ -230,11 +231,10 @@ export async function removePlayer(
 		};
 	}
 
-	// Sentinel refusal: migration 033 makes PIN/lockout failure RETURN NULL
-	// (not RAISE) so check_pin_lockout's attempt increment durably commits. A
-	// null return with no error means the PIN was rejected — distinct from a
-	// legitimate count of 0 (which means "matched no squares"). Same outcome the
-	// error-message branch above yields for an older DB that still RAISEs.
+	// Sentinel refusal (see isPinSentinelRow above): a null return with no error
+	// means the PIN was rejected — distinct from a legitimate count of 0 (which
+	// means "matched no squares"). remove_player RETURNS INTEGER, not a parties
+	// row, so it can't reuse that predicate directly.
 	if (data == null) {
 		return { success: false, removedCount: 0, error: 'Invalid PIN' };
 	}

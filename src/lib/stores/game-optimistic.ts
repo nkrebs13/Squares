@@ -15,6 +15,17 @@ import {
 import { broadcast, schedulePendingTimeout, isOffline } from './game-realtime';
 
 /**
+ * Fail fast when offline instead of optimistically applying and waiting on
+ * the 10s pending timeout — there's no network to reach the server over.
+ * Toasts the user and returns true when the caller should bail immediately.
+ */
+function blockedByOffline(action: 'claim' | 'unclaim'): boolean {
+	if (!get(isOffline)) return false;
+	toast.error(`You're offline — reconnect to ${action} squares`);
+	return true;
+}
+
+/**
  * Optimistic claim — updates UI immediately, then confirms with server.
  * Non-blocking: returns immediately after the optimistic update.
  *
@@ -45,12 +56,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
 
 	if (!existingSquare || existingSquare.player_name) return; // Already claimed
 
-	// Fail fast when offline instead of optimistically applying and waiting on
-	// the 10s pending timeout — there's no network to reach the server over.
-	if (get(isOffline)) {
-		toast.error("You're offline — reconnect to claim squares");
-		return;
-	}
+	if (blockedByOffline('claim')) return;
 
 	const timestamp = Date.now();
 	const operationId = `${clientId}-${key}-${timestamp}`;
@@ -175,12 +181,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 	// Can only unclaim own squares
 	if (existingSquare.player_name_lower !== normalizePlayerName(currentUser)) return;
 
-	// Fail fast when offline instead of optimistically applying and waiting on
-	// the 10s pending timeout — there's no network to reach the server over.
-	if (get(isOffline)) {
-		toast.error("You're offline — reconnect to unclaim squares");
-		return;
-	}
+	if (blockedByOffline('unclaim')) return;
 
 	const timestamp = Date.now();
 	const operationId = `${clientId}-${key}-${timestamp}`;
@@ -317,12 +318,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 
 	if (claimableCells.length === 0) return;
 
-	// Fail fast when offline instead of optimistically applying and waiting on
-	// the 10s pending timeout — there's no network to reach the server over.
-	if (get(isOffline)) {
-		toast.error("You're offline — reconnect to claim squares");
-		return;
-	}
+	if (blockedByOffline('claim')) return;
 
 	// 1. Create pending operations for all cells
 	const operations: Array<{ key: string; operation: OptimisticOperation }> = claimableCells.map(

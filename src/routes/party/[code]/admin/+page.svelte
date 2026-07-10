@@ -421,12 +421,11 @@
 			broadcastScoreUpdate();
 			await loadParty(code);
 			// Auto-advance to the next unscored quarter after a discrete, successful
-			// save — restoring the behavior that main's paired $effects provided
-			// before the live-tick guard removed it. WITHOUT this, the selector stays
-			// on the just-saved quarter and the host's next submit silently overwrites
-			// it (recomputing that quarter's winner — real money). This advances ONLY
-			// on an explicit save, so it does NOT reintroduce the $scores live-tick
-			// clobber that manualScoreEntryInitialized guards against.
+			// save. WITHOUT this, the selector stays on the just-saved quarter and the
+			// host's next submit silently overwrites it (recomputing that quarter's
+			// winner — real money). This advances ONLY on an explicit save, so it does
+			// NOT reintroduce the $scores live-tick clobber that
+			// manualScoreEntryInitialized guards against.
 			//
 			// Compute directly from the freshly-reloaded get(scores) snapshot rather
 			// than reading the $derived nextQuarter: across the await boundary the
