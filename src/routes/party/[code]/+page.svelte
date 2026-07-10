@@ -178,8 +178,12 @@
 					<!-- Mobile sidebar content (above grid) -->
 					<div class="lg:hidden">
 						<PartySidebar variant="mobile" />
-						<GestureHint bind:this={gestureHintRef} />
 					</div>
+
+					<!-- Mounted at every breakpoint: the header's help button calls reopen() on it,
+					     and GestureHint picks touch vs pointer copy itself. Nesting it in the
+					     lg:hidden wrapper above would make that button dead on desktop. -->
+					<GestureHint bind:this={gestureHintRef} />
 
 					<!-- Main Grid -->
 					<div class="mb-4 lg:mb-0">

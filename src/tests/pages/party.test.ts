@@ -372,6 +372,18 @@ describe('Party Page', () => {
 			expect(screen.getByRole('button', { name: /show gesture help/i })).toBeInTheDocument();
 		});
 
+		it('mounts the gesture hint outside the lg:hidden wrapper so the help button works on desktop', async () => {
+			// Regression: the hint used to live inside `<div class="lg:hidden">` alongside the
+			// mobile sidebar, so at desktop widths the always-visible "?" button called reopen()
+			// on a display:none element. jsdom applies no CSS, so only the DOM relationship can
+			// catch this — assert the hint has no lg:hidden ancestor.
+			vi.mocked(hasSeenGestureHint).mockResolvedValue(false);
+			render(PartyPage);
+
+			const hint = await screen.findByLabelText('Dismiss hint');
+			expect(hint.closest('.lg\\:hidden')).toBeNull();
+		});
+
 		it('re-shows the gesture hint when clicked, after it was dismissed', async () => {
 			vi.mocked(hasSeenGestureHint).mockResolvedValue(false);
 			render(PartyPage);
