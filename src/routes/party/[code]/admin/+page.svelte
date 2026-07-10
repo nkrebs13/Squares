@@ -8,6 +8,9 @@
 		setHostPin,
 		getSessionItem,
 		setSessionItem,
+		removeHostPin,
+		removeSessionItem,
+		removeRecentParty,
 	} from '$lib/storage';
 	import {
 		party,
@@ -15,6 +18,8 @@
 		liveScores,
 		isGridFull,
 		filledCount,
+		isLoading,
+		error as partyLoadError,
 		loadParty,
 		lockParty,
 		updateScore,
@@ -111,17 +116,34 @@
 		}
 	}
 
-	// Update manualScores when quarter changes or scores change
-	$effect(() => {
-		const currentScores = getScoresForQuarter(manualScores.quarter);
+	function syncManualScoreFields(quarter: Quarter) {
+		const currentScores = getScoresForQuarter(quarter);
 		manualScores.rowScore = currentScores.row;
 		manualScores.colScore = currentScores.col;
-	});
+	}
 
-	// Set initial quarter to next one needing entry
+	// The quarter select's own change handler — a direct user action, so it's
+	// fine to resync row/col fields to the newly-selected quarter's committed
+	// values here.
+	function handleQuarterSelected() {
+		syncManualScoreFields(manualScores.quarter);
+	}
+
+	// Initialize the quarter selector (to the next quarter needing entry) and
+	// its row/col fields ONCE, from the current scores snapshot. `scores` is
+	// replaced wholesale on every postgres UPDATE of the scores row —
+	// including the game_scores_live_propagate trigger's live-tick updates
+	// (migration 017:199-219) — so re-running this on every `$scores` change
+	// would silently overwrite the host's in-progress manual override
+	// (destroying the exact feature this form exists for). Mirrors
+	// payoutSplitsInitialized / partyDetailsInitialized below: initialize
+	// once, never clobber unsaved work after that.
+	let manualScoreEntryInitialized = $state(false);
 	$effect(() => {
-		if (isGameInProgress($party?.status) && $scores) {
+		if (!manualScoreEntryInitialized && isGameInProgress($party?.status) && $scores) {
 			manualScores.quarter = nextQuarter;
+			syncManualScoreFields(nextQuarter);
+			manualScoreEntryInitialized = true;
 		}
 	});
 
@@ -417,6 +439,12 @@
 		const result = await deleteParty(storedPin);
 
 		if (result.success) {
+			// Clear cached host credentials so a revisit to this URL (back
+			// button, bookmark) doesn't leave isAuthorized=true pointed at a
+			// party that no longer exists.
+			await removeHostPin(code);
+			removeSessionItem(partyPinKey(code));
+			await removeRecentParty(code);
 			goto('/');
 		} else {
 			error = result.error || 'Failed to delete party';
@@ -927,7 +955,12 @@
 						<div class="space-y-4">
 							<div>
 								<label for="quarter-select" class="text-sm text-secondary">Quarter</label>
-								<select id="quarter-select" bind:value={manualScores.quarter} class="input mt-1">
+								<select
+									id="quarter-select"
+									bind:value={manualScores.quarter}
+									class="input mt-1"
+									onchange={handleQuarterSelected}
+								>
 									{#each quarters as q (q.value)}
 										<option value={q.value}>{q.label}</option>
 									{/each}
@@ -1071,6 +1104,15 @@
 				</div>
 			{/snippet}
 		</svelte:boundary>
+	{:else if $isLoading}
+		<div class="card max-w-md mx-auto text-center">
+			<p class="text-secondary">Loading party…</p>
+		</div>
+	{:else}
+		<div class="card max-w-md mx-auto text-center">
+			<p class="text-error">{$partyLoadError || 'This party could not be found.'}</p>
+			<a href="/" class="btn btn-secondary mt-4">Go Home</a>
+		</div>
 	{/if}
 </div>
 

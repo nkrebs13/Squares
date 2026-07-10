@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
+import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import type { Party, Scores, Square } from '$lib/types';
@@ -259,6 +260,75 @@ describe('Admin Page - Score Entry', () => {
 
 			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
 			expect(select.value).toBe('q2');
+		});
+	});
+
+	describe('Manual Score Entry Persistence (Regression — live tick must not clobber overrides)', () => {
+		it('still auto-advances to the next quarter on cold render (baseline)', () => {
+			renderAuthorizedAdmin(
+				{ status: 'active' },
+				createMockScores({
+					q1_row_score: 7,
+					q1_col_score: 3,
+					q2_row_score: 14,
+					q2_col_score: 10,
+				})
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('q3');
+		});
+
+		it('preserves a host-selected quarter across a live score tick', async () => {
+			const initialScores = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
+			renderAuthorizedAdmin({ status: 'active' }, initialScores);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			// nextQuarter auto-advances to q2 (q1 already scored)
+			expect(select.value).toBe('q2');
+
+			const user = userEvent.setup();
+			// Host deliberately corrects q1 instead of continuing to q2
+			await user.selectOptions(select, 'q1');
+			expect(select.value).toBe('q1');
+
+			// Simulate a live tick: postgres_changes replaces the whole `scores`
+			// row (new object reference) because the game_scores_live_propagate
+			// trigger updated its live_* columns — the committed q1-final values
+			// are unchanged.
+			scores.set({ ...initialScores });
+			await tick();
+
+			expect(select.value).toBe('q1');
+		});
+
+		it('preserves typed row/col scores across a live score tick', async () => {
+			const initialScores = createMockScores();
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				initialScores
+			);
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '21');
+			await user.clear(colInput);
+			await user.type(colInput, '14');
+
+			expect(rowInput).toHaveValue(21);
+			expect(colInput).toHaveValue(14);
+
+			// Live tick: same committed values, new object reference — simulates
+			// the game_scores_live_propagate trigger updating only the scores
+			// row's live_* columns (migration 017:199-219), which the app's
+			// Scores type doesn't even model.
+			scores.set({ ...initialScores });
+			await tick();
+
+			expect(rowInput).toHaveValue(21);
+			expect(colInput).toHaveValue(14);
 		});
 	});
 
@@ -1033,6 +1103,45 @@ describe('Admin Page - Score Entry', () => {
 			renderAuthorizedAdmin({ status: 'complete' });
 			expect(screen.getByText('Danger Zone')).toBeInTheDocument();
 		});
+
+		it('REGRESSION: clears cached host credentials after a successful delete', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+			const { goto } = await import('$app/navigation');
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(goto).toHaveBeenCalledWith('/');
+			});
+
+			// removeHostPin(code) — IndexedDB-backed, falls back to writing the
+			// pruned pins map via idb-keyval's `set`
+			expect(mockIdbSet).toHaveBeenCalledWith('squares_host_pins', expect.any(Object));
+			// removeSessionItem(partyPinKey(code))
+			expect(sessionStorageMock.removeItem).toHaveBeenCalledWith('squares_pin_TEST123');
+			// removeRecentParty(code)
+			expect(mockIdbSet).toHaveBeenCalledWith('squares_recent_parties', expect.any(Array));
+		});
+
+		it('does NOT clear cached host credentials when delete fails', async () => {
+			renderAuthorizedAdmin({ status: 'active' });
+			// delete_party RPC succeeds but reports an invalid PIN (data: false)
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
+			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
+
+			await waitFor(() => {
+				expect(screen.getByText('Invalid PIN')).toBeInTheDocument();
+			});
+
+			expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith('squares_pin_TEST123');
+		});
 	});
 
 	describe('Manual Score Entry Visibility with game_id', () => {
@@ -1091,6 +1200,55 @@ describe('Admin Page - Score Entry', () => {
 			expect(
 				screen.getByText(/Enter scores and calculate winners for each quarter/)
 			).toBeInTheDocument();
+		});
+	});
+
+	describe('Party Load Failure (Regression — blank page after external deletion)', () => {
+		it('shows an error state with a way home instead of a blank page when authorized but the party failed to load', async () => {
+			// Do NOT set the party store — simulates loadParty failing (e.g. the
+			// party was deleted from another tab/host action) while a cached
+			// host PIN is still present, which used to leave isAuthorized=true
+			// and $party=null matching neither template branch (blank page).
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			mockSupabaseClient.from.mockReturnValueOnce({
+				select: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				single: vi.fn().mockResolvedValue({
+					data: null,
+					error: { message: 'not found' },
+				}),
+			} as ReturnType<typeof mockSupabaseClient.from>);
+
+			const { container } = render(AdminPage);
+
+			await waitFor(() => {
+				expect(screen.getByText('Party not found')).toBeInTheDocument();
+				expect(screen.getByRole('link', { name: /Go Home/i })).toBeInTheDocument();
+			});
+
+			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
+			expect(screen.queryByText('Party Status')).not.toBeInTheDocument();
+			// The rendered content must not be an empty host-panel shell — the
+			// error card is present.
+			expect(container.querySelector('.card')).not.toBeNull();
+		});
+
+		it('shows a loading state (not a blank page) while the party is still being fetched', () => {
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			// Never resolves during this synchronous assertion — mirrors the
+			// brief window between mount and loadParty() settling.
+			mockSupabaseClient.from.mockReturnValueOnce({
+				select: vi.fn().mockReturnThis(),
+				eq: vi.fn().mockReturnThis(),
+				single: vi.fn(() => new Promise(() => {})),
+			} as ReturnType<typeof mockSupabaseClient.from>);
+
+			render(AdminPage);
+
+			expect(screen.getByText(/Loading party/i)).toBeInTheDocument();
+			expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
 		});
 	});
 });
