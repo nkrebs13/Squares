@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { browser } from '$app/environment';
 	import {
 		partyPinKey,
@@ -33,7 +34,7 @@
 		broadcastScoreUpdate,
 		cleanup,
 	} from '$lib/stores/game';
-	import type { Quarter } from '$lib/types';
+	import type { Quarter, Scores } from '$lib/types';
 	import { SPLIT_PRESETS, isGameInProgress } from '$lib/types';
 	import { formatQuarterLabel } from '$lib/utils/quarter';
 	import {
@@ -144,32 +145,40 @@
 		playerToRemove = null;
 	}
 
-	// Determine the next quarter that needs scores entered
-	const nextQuarter = $derived.by(() => {
-		if (!$scores) return 'q1' as Quarter;
-		if ($scores.q1_row_score === null) return 'q1' as Quarter;
-		if ($scores.q2_row_score === null) return 'q2' as Quarter;
-		if ($scores.q3_row_score === null) return 'q3' as Quarter;
-		return 'final' as Quarter;
-	});
+	// Determine the next quarter that needs scores entered, from an explicit
+	// scores snapshot. Pure so it can be evaluated against the reactive $scores
+	// (for the selector default) AND against a freshly-reloaded get(scores)
+	// snapshot in the save success path without depending on runes-batch timing.
+	// When all four quarters are already scored it returns 'final' (never a
+	// nonexistent "q5"), so advancing after the final save leaves the selector
+	// parked on 'final' rather than something nonsensical.
+	function deriveNextQuarter(s: Scores | null): Quarter {
+		if (!s) return 'q1';
+		if (s.q1_row_score === null) return 'q1';
+		if (s.q2_row_score === null) return 'q2';
+		if (s.q3_row_score === null) return 'q3';
+		return 'final';
+	}
 
-	// Get scores for the currently selected quarter
-	function getScoresForQuarter(quarter: Quarter): { row: number; col: number } {
-		if (!$scores) return { row: 0, col: 0 };
+	const nextQuarter = $derived.by(() => deriveNextQuarter($scores));
+
+	// Get scores for a quarter from an explicit snapshot.
+	function scoresForQuarter(s: Scores | null, quarter: Quarter): { row: number; col: number } {
+		if (!s) return { row: 0, col: 0 };
 		switch (quarter) {
 			case 'q1':
-				return { row: $scores.q1_row_score ?? 0, col: $scores.q1_col_score ?? 0 };
+				return { row: s.q1_row_score ?? 0, col: s.q1_col_score ?? 0 };
 			case 'q2':
-				return { row: $scores.q2_row_score ?? 0, col: $scores.q2_col_score ?? 0 };
+				return { row: s.q2_row_score ?? 0, col: s.q2_col_score ?? 0 };
 			case 'q3':
-				return { row: $scores.q3_row_score ?? 0, col: $scores.q3_col_score ?? 0 };
+				return { row: s.q3_row_score ?? 0, col: s.q3_col_score ?? 0 };
 			case 'final':
-				return { row: $scores.final_row_score ?? 0, col: $scores.final_col_score ?? 0 };
+				return { row: s.final_row_score ?? 0, col: s.final_col_score ?? 0 };
 		}
 	}
 
-	function syncManualScoreFields(quarter: Quarter) {
-		const currentScores = getScoresForQuarter(quarter);
+	function syncManualScoreFields(s: Scores | null, quarter: Quarter) {
+		const currentScores = scoresForQuarter(s, quarter);
 		manualScores.rowScore = currentScores.row;
 		manualScores.colScore = currentScores.col;
 	}
@@ -178,7 +187,7 @@
 	// fine to resync row/col fields to the newly-selected quarter's committed
 	// values here.
 	function handleQuarterSelected() {
-		syncManualScoreFields(manualScores.quarter);
+		syncManualScoreFields($scores, manualScores.quarter);
 	}
 
 	// Initialize the quarter selector (to the next quarter needing entry) and
@@ -194,7 +203,7 @@
 	$effect(() => {
 		if (!manualScoreEntryInitialized && isGameInProgress($party?.status) && $scores) {
 			manualScores.quarter = nextQuarter;
-			syncManualScoreFields(nextQuarter);
+			syncManualScoreFields($scores, nextQuarter);
 			manualScoreEntryInitialized = true;
 		}
 	});
@@ -411,6 +420,22 @@
 			);
 			broadcastScoreUpdate();
 			await loadParty(code);
+			// Auto-advance to the next unscored quarter after a discrete, successful
+			// save — restoring the behavior that main's paired $effects provided
+			// before the live-tick guard removed it. WITHOUT this, the selector stays
+			// on the just-saved quarter and the host's next submit silently overwrites
+			// it (recomputing that quarter's winner — real money). This advances ONLY
+			// on an explicit save, so it does NOT reintroduce the $scores live-tick
+			// clobber that manualScoreEntryInitialized guards against.
+			//
+			// Compute directly from the freshly-reloaded get(scores) snapshot rather
+			// than reading the $derived nextQuarter: across the await boundary the
+			// store is guaranteed current via get(), whereas the runes-batched
+			// $scores binding (and any derived over it) may not have flushed yet.
+			const reloadedScores = get(scores);
+			const next = deriveNextQuarter(reloadedScores);
+			manualScores.quarter = next;
+			syncManualScoreFields(reloadedScores, next);
 		} else {
 			error = result.error || 'Failed to update score';
 		}

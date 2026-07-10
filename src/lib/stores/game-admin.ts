@@ -11,7 +11,6 @@ import {
 	pendingTimeouts,
 	isLoading,
 	error,
-	selectedPlayerFilter,
 } from './game-state';
 import { cleanupChannels } from './game-realtime';
 import { parseParty } from '$lib/validators/realtime';
@@ -242,7 +241,12 @@ export async function removePlayer(
 
 	const removedCount = data;
 
-	// Update local state
+	// Update local state. This synchronous squares.update recomputes playerSummary
+	// (a derived over `squares`) and, in the same tick, fires the self-clearing
+	// subscription in game-state.ts — which nulls selectedPlayerFilter when the
+	// removed player was the active filter (they now own zero squares). No explicit
+	// filter clear is needed here; a previous "belt and braces" block that duplicated
+	// it was provably unreachable and was removed.
 	squares.update((current) =>
 		current.map((s) =>
 			s.player_name_lower === playerNameLower
@@ -250,13 +254,6 @@ export async function removePlayer(
 				: s
 		)
 	);
-
-	// Belt and braces: playerSummary's subscription in game-state.ts already
-	// self-clears a stale filter, but clear explicitly here too since this is
-	// the removePlayer trigger path.
-	if (get(selectedPlayerFilter) === playerNameLower) {
-		selectedPlayerFilter.set(null);
-	}
 
 	return { success: true, removedCount };
 }

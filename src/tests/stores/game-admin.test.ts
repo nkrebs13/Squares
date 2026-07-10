@@ -9,6 +9,7 @@ import {
 	deleteParty,
 	party,
 	squares,
+	selectedPlayerFilter,
 	cleanup,
 } from '$lib/stores/game';
 import type { Party, Square } from '$lib/types';
@@ -545,6 +546,26 @@ describe('removePlayer', () => {
 		expect(currentSquares[0].player_name).toBeNull();
 		expect(currentSquares[1].player_name).toBeNull();
 		expect(currentSquares[2].player_name).toBe('Bob');
+	});
+
+	it('clears an active player filter via the game-state subscription alone (FIX 5)', async () => {
+		// Guards the deletion of removePlayer's former "belt and braces" explicit
+		// filter clear: removing a player must still null a filter pointed at them,
+		// handled solely by playerSummary's self-clearing subscription in game-state.ts.
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
+		]);
+		selectedPlayerFilter.set('alice');
+
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+
+		const result = await removePlayer('1234', 'alice');
+
+		expect(result).toEqual({ success: true, removedCount: 1 });
+		// Alice owns zero squares now → the subscription cleared the filter.
+		expect(get(selectedPlayerFilter)).toBeNull();
 	});
 
 	it('returns error on Supabase error', async () => {

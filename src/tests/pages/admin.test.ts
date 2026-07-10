@@ -122,6 +122,59 @@ function renderAuthorizedAdmin(partyOverrides: Partial<Party> = {}, scoresData?:
 	return render(AdminPage);
 }
 
+/**
+ * Queue the six-call from() chain loadParty(code) issues (parties, game_scores
+ * auto-detect, squares, numbers, scores, winners) so a post-save reload resolves
+ * with the given committed scores. Mirrors the manual chains used elsewhere in
+ * this file, condensed for the FIX 1 auto-advance tests.
+ */
+function mockLoadPartyReload(reloadedScores: Scores, partyOverrides: Partial<Party> = {}) {
+	mockSupabaseClient.from
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({
+				data: createMockParty({ status: 'active', ...partyOverrides }),
+				error: null,
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			neq: vi.fn().mockReturnThis(),
+			limit: vi.fn().mockReturnThis(),
+			maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+		} as unknown as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			order: vi.fn().mockReturnValue({
+				order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({
+				data: {
+					party_id: 'test-party-id',
+					row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+					col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+				},
+				error: null,
+			}),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			single: vi.fn().mockResolvedValue({ data: reloadedScores, error: null }),
+		} as ReturnType<typeof mockSupabaseClient.from>)
+		.mockReturnValueOnce({
+			select: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			order: vi.fn().mockResolvedValue({ data: [], error: null }),
+		} as ReturnType<typeof mockSupabaseClient.from>);
+}
+
 describe('Admin Page - Score Entry', () => {
 	beforeEach(() => {
 		cleanup();
@@ -864,6 +917,113 @@ describe('Admin Page - Score Entry', () => {
 			await waitFor(() => {
 				expect(screen.getByText('Failed to update score. Please try again.')).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe('Quarter Auto-Advance After Save (FIX 1 — real-money overwrite regression)', () => {
+		it('advances the selector to Q2 and resyncs inputs after a successful Q1 save', async () => {
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				createMockScores()
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('q1');
+
+			// update_score succeeds; reload shows Q1 committed at 7-3, Q2 still unscored.
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockLoadPartyReload(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '7');
+			await user.clear(colInput);
+			await user.type(colInput, '3');
+
+			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
+
+			// Selector advances to Q2 so the next submit can't silently overwrite Q1.
+			await waitFor(() => expect(select.value).toBe('q2'));
+			// Inputs resync to Q2's stored values (unscored → 0/0), NOT the typed 7/3.
+			expect(rowInput).toHaveValue(0);
+			expect(colInput).toHaveValue(0);
+		});
+
+		it('guard still holds: a live-only scores tick does not advance the quarter or clobber typing', async () => {
+			const initial = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				initial
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			// Cold render auto-advances to q2 (q1 already scored).
+			expect(select.value).toBe('q2');
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			await user.clear(rowInput);
+			await user.type(rowInput, '99');
+
+			// A live tick: the game_scores_live_propagate trigger replaces the whole
+			// scores row (new object ref) but the committed q1-final values are the
+			// same. This must NOT advance the quarter or clobber the in-progress typing.
+			scores.set({ ...initial });
+			await tick();
+
+			expect(select.value).toBe('q2');
+			expect(rowInput).toHaveValue(99);
+		});
+
+		it('after the final quarter is saved the selector stays on Final (no nonsensical advance)', async () => {
+			const throughQ3 = createMockScores({
+				q1_row_score: 7,
+				q1_col_score: 3,
+				q2_row_score: 14,
+				q2_col_score: 10,
+				q3_row_score: 21,
+				q3_col_score: 17,
+			});
+			renderAuthorizedAdmin(
+				{ status: 'active', team_row_name: 'Eagles', team_col_name: 'Chiefs' },
+				throughQ3
+			);
+
+			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
+			expect(select.value).toBe('final');
+
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockLoadPartyReload(
+				createMockScores({
+					q1_row_score: 7,
+					q1_col_score: 3,
+					q2_row_score: 14,
+					q2_col_score: 10,
+					q3_row_score: 21,
+					q3_col_score: 17,
+					final_row_score: 28,
+					final_col_score: 24,
+				})
+			);
+
+			const user = userEvent.setup();
+			const rowInput = screen.getByLabelText('Eagles');
+			const colInput = screen.getByLabelText('Chiefs');
+			await user.clear(rowInput);
+			await user.type(rowInput, '28');
+			await user.clear(colInput);
+			await user.type(colInput, '24');
+
+			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
+
+			await waitFor(() => expect(screen.getByText(/Score updated for Final!/)).toBeInTheDocument());
+			// Never advances past 'final' — deriveNextQuarter caps at 'final'.
+			expect(select.value).toBe('final');
+			// Inputs resync to final's committed values.
+			expect(rowInput).toHaveValue(28);
+			expect(colInput).toHaveValue(24);
 		});
 	});
 

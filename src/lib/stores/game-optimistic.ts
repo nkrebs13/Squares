@@ -3,7 +3,15 @@ import { getSupabaseClient } from '$lib/supabase';
 import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
 import { userName, normalizePlayerName } from './user';
-import { clientId, party, squares, pendingOperations, squareKey } from './game-state';
+import {
+	clientId,
+	party,
+	squares,
+	pendingOperations,
+	squareKey,
+	selectedPlayerFilter,
+	restoreSelectedPlayerFilter,
+} from './game-state';
 import { broadcast, schedulePendingTimeout, isOffline } from './game-realtime';
 
 /**
@@ -177,6 +185,12 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 	const timestamp = Date.now();
 	const operationId = `${clientId}-${key}-${timestamp}`;
 
+	// Snapshot the active player filter BEFORE the optimistic clear below: clearing
+	// this player's last square recomputes playerSummary and the self-clearing
+	// subscription in game-state.ts nulls the filter. If the unclaim is rejected we
+	// restore it from here (see the rollback path).
+	const filterSnapshot = get(selectedPlayerFilter);
+
 	// 1. Create pending operation for rollback
 	const operation: OptimisticOperation = {
 		id: operationId,
@@ -190,6 +204,7 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 			player_name_lower: existingSquare.player_name_lower,
 			claimed_at: existingSquare.claimed_at,
 		},
+		filterSnapshot,
 	};
 
 	pendingOperations.update((ops) => {
@@ -255,6 +270,11 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 									: s
 							)
 						);
+
+						// Restore the player filter cleared by the optimistic unclaim (the
+						// square is back, so the filter should be too). No-op if the user set
+						// a different filter meanwhile — see restoreSelectedPlayerFilter.
+						restoreSelectedPlayerFilter(op.filterSnapshot);
 
 						// Tell observers (who optimistically cleared this square on our
 						// unclaim_intent) to restore it. Without this they'd show the square
@@ -485,14 +505,27 @@ async function reconcileShortBatchClaim(
 		current.map((s) => {
 			const key = squareKey(s.row_num, s.col_num);
 			const operation = operationByKey.get(key);
-			return operation && rolledBackKeys.has(key)
+			if (!operation || !rolledBackKeys.has(key)) return s;
+			// We just fetched the DB truth for these lost cells — apply the fetched owner
+			// rather than blanking to originalState (EMPTY). Writing the real owner means
+			// the cell is correct immediately and STAYS correct even if the winner's
+			// postgres_changes event is never delivered (a documented realtime-gap concern);
+			// blanking would leave it wrongly empty until reload in that case. Fall back to
+			// originalState only when the DB has no row for this cell at all.
+			const dbSquare = rows.find((row) => row.row_num === s.row_num && row.col_num === s.col_num);
+			return dbSquare
 				? {
+						...s,
+						player_name: dbSquare.player_name,
+						player_name_lower: dbSquare.player_name_lower,
+						claimed_at: dbSquare.claimed_at,
+					}
+				: {
 						...s,
 						player_name: operation.originalState.player_name,
 						player_name_lower: operation.originalState.player_name_lower,
 						claimed_at: operation.originalState.claimed_at,
-					}
-				: s;
+					};
 		})
 	);
 

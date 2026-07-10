@@ -22,6 +22,8 @@ import {
 	pendingOperations,
 	pendingTimeouts,
 	PENDING_TIMEOUT_MS,
+	selectedPlayerFilter,
+	restoreSelectedPlayerFilter,
 	applySquareUpdate,
 	applyPartyUpdate,
 	applyNumbersUpdate,
@@ -50,12 +52,22 @@ interface ChannelState {
 	channel: RealtimeChannel | null;
 	reconnectAttempts: number;
 	reconnectTimeout: ReturnType<typeof setTimeout> | null;
+	// Monotonic per-key instance token, bumped every time a channel is (re)created
+	// for this key. Each channel's status callback captures the token it was born
+	// under; handleChannelStatus ignores any callback whose token is no longer the
+	// current one. This is finer-grained than `currentGeneration` (which only bumps
+	// on subscribe/teardown, NOT on the internal reconnect timer's replace-in-place):
+	// it defeats the CLOSED an OLD channel fires ASYNCHRONOUSLY after the reconnect
+	// timer unsubscribed it, which would otherwise pass the generation guard (same
+	// generation) and schedule a reconnect that tears down the healthy NEW channel —
+	// endless churn while the UI still reads "connected".
+	instanceToken: number;
 }
 
 const channelStates: Record<string, ChannelState> = {
-	party: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
-	broadcast: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
-	game: { channel: null, reconnectAttempts: 0, reconnectTimeout: null },
+	party: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
+	broadcast: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
+	game: { channel: null, reconnectAttempts: 0, reconnectTimeout: null, instanceToken: 0 },
 };
 
 const MAX_RECONNECT = 5;
@@ -198,13 +210,22 @@ function handleChannelStatus(
 	channelKey: string,
 	status: `${REALTIME_SUBSCRIBE_STATES}`,
 	setupFn: () => void,
-	generation: number
+	generation: number,
+	token: number
 ) {
 	// Ignore any status from a channel that belongs to a superseded generation —
 	// e.g. the async CLOSED delivered after an intentional unsubscribe(). Without
 	// this guard, CLOSED would schedule a reconnect that resurrects a channel for a
 	// party we've already left (or unsubscribes the new party's channel to reopen the old).
 	if (generation !== currentGeneration) return;
+
+	// Ignore any status from a channel this key has since replaced in-place. The
+	// internal reconnect timer swaps channelStates[key].channel WITHOUT bumping the
+	// generation, so an OLD channel's late CLOSED shares the current generation and
+	// would pass the guard above — then schedule a reconnect that unsubscribes the
+	// healthy NEW channel. The instance token, bumped on every (re)creation, is what
+	// distinguishes them.
+	if (token !== channelStates[channelKey].instanceToken) return;
 
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
@@ -248,6 +269,12 @@ export function schedulePendingTimeout(key: string) {
 							: s
 					)
 				);
+
+				// A rolled-back unclaim restores the square, so restore any filter the
+				// optimistic clear nulled too (no-op for claim ops / unchanged filters).
+				if (op.type === 'unclaim') {
+					restoreSelectedPlayerFilter(op.filterSnapshot);
+				}
 
 				// Only alert the user about THEIR OWN failed operation. Remote ops
 				// (id "remote-<clientId>-<key>") are mirrors of another client's action;
@@ -349,6 +376,12 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 		// if the unclaim is rejected server-side. A rejected unclaim_square changes ZERO
 		// rows, so no postgres_changes event arrives to restore the square — the pending
 		// op's timeout (or an unclaim_rejected broadcast) is the only thing that heals us.
+		// Snapshot the filter before the optimistic clear below, mirroring the local
+		// unclaim path: if the unclaiming player is this observer's active filter and
+		// this is their last square, the self-clearing subscription nulls it. A later
+		// unclaim_rejected (or the pending-op timeout) restores it from here.
+		const filterSnapshot = get(selectedPlayerFilter);
+
 		pendingOperations.update((ops) => {
 			const newOps = new Map(ops);
 			newOps.set(key, {
@@ -363,6 +396,7 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 					player_name_lower: existingSquare.player_name_lower,
 					claimed_at: existingSquare.claimed_at,
 				},
+				filterSnapshot,
 			});
 			return newOps;
 		});
@@ -397,6 +431,8 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 							: s
 					)
 				);
+				// Square restored → restore the filter the optimistic clear may have nulled.
+				restoreSelectedPlayerFilter(op.filterSnapshot);
 				newOps.delete(key);
 			}
 			return newOps;
@@ -447,6 +483,7 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 
 function setupBroadcastChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.broadcast.instanceToken;
 	channelStates.broadcast.channel = supabase
 		.channel(`party-broadcast:${partyId}`)
 		.on('broadcast', { event: 'square_update' }, handleBroadcastMessage)
@@ -456,13 +493,15 @@ function setupBroadcastChannel(partyId: string, generation: number) {
 				'broadcast',
 				status,
 				() => setupBroadcastChannel(partyId, generation),
-				generation
+				generation,
+				token
 			);
 		});
 }
 
 function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.party.instanceToken;
 	channelStates.party.channel = supabase
 		.channel(`party:${partyId}`)
 		.on(
@@ -551,13 +590,15 @@ function setupPartyChannel(partyId: string, generation: number) {
 				'party',
 				status,
 				() => setupPartyChannel(partyId, generation),
-				generation
+				generation,
+				token
 			);
 		});
 }
 
 function setupGameChannel(gameId: string, generation: number) {
 	const supabase = getSupabaseClient();
+	const token = ++channelStates.game.instanceToken;
 	channelStates.game.channel = supabase
 		.channel(`game:${gameId}`)
 		.on(
@@ -578,7 +619,13 @@ function setupGameChannel(gameId: string, generation: number) {
 			}
 		)
 		.subscribe((status) => {
-			handleChannelStatus('game', status, () => setupGameChannel(gameId, generation), generation);
+			handleChannelStatus(
+				'game',
+				status,
+				() => setupGameChannel(gameId, generation),
+				generation,
+				token
+			);
 		});
 }
 

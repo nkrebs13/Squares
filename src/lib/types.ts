@@ -165,6 +165,13 @@ export interface OptimisticOperation {
 		player_name_lower: string | null;
 		claimed_at: string | null;
 	};
+	// Snapshot of selectedPlayerFilter taken when an unclaim is optimistically
+	// applied. Optimistically clearing a player's last square recomputes
+	// playerSummary, which fires game-state.ts's self-clearing subscription and
+	// nulls the filter. If the unclaim is then rejected, the square is restored
+	// but the filter would stay lost — so it is restored from this snapshot.
+	// Undefined for claim ops (claiming never clears a filter).
+	filterSnapshot?: string | null;
 }
 
 export interface BroadcastMessage {

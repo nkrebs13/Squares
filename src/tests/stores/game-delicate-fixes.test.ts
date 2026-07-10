@@ -8,6 +8,7 @@ import {
 	party,
 	squares,
 	pendingOperations,
+	selectedPlayerFilter,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
@@ -79,6 +80,25 @@ function rpcResolvesWith(result: { data?: unknown; error?: unknown }) {
 			return { catch: vi.fn() };
 		},
 	} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+}
+
+/** Capture the RPC's .then() callback so the test can resolve it later, simulating
+ *  an in-flight window during which the user can act. */
+function rpcDeferred() {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	let cb: Function | null = null;
+	mockSupabaseClient.rpc.mockReturnValue({
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		then: (fn: Function) => {
+			cb = fn;
+			return { catch: vi.fn() };
+		},
+	} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+	return {
+		resolve(result: { data?: unknown; error?: unknown }) {
+			cb?.(result);
+		},
+	};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,6 +177,55 @@ describe('BUG 1: intentional close does not resurrect a subscription', () => {
 		vi.advanceTimersByTime(5000);
 
 		expect(mockSupabaseClient.channel.mock.calls.length).toBeGreaterThan(channelCallsBefore);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 2: the internal reconnect timer replaces channelStates[key].channel
+// in-place WITHOUT bumping currentGeneration. The OLD channel's async CLOSED
+// therefore shares the current generation and, guarded only by generation,
+// would schedule a reconnect that tears down the healthy NEW channel — endless
+// churn. A per-channel instance token distinguishes old from new and rejects it.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('FIX 2: a late CLOSED from a replaced channel does not churn the reconnected one', () => {
+	beforeEach(() => {
+		cleanup();
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('ignores the old channel CLOSED and leaves the reconnected channel healthy', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+
+		const base = subscribeCallbackCount();
+		subscribeToParty('party-a'); // [base]=broadcastA, [base+1]=partyA
+		const idxPartyA = base + 1;
+
+		// Genuine transport error on the CURRENT party channel A → schedules reconnect.
+		simulateChannelStatusAt(idxPartyA, 'CHANNEL_ERROR');
+		// Advance past backoff: the timer unsubscribes A (queuing its async CLOSED)
+		// and creates party channel B in its place.
+		vi.advanceTimersByTime(5000);
+		const idxPartyB = base + 2;
+
+		// B subscribes successfully and resets the attempt counter.
+		simulateChannelStatusAt(idxPartyB, 'SUBSCRIBED');
+
+		const channelCallsBefore = mockSupabaseClient.channel.mock.calls.length;
+		const unsubBefore = mockSupabaseChannel.unsubscribe.mock.calls.length;
+
+		// A now delivers the CLOSED queued when the reconnect timer unsubscribed it.
+		// Same generation as B → only the instance-token guard can reject it.
+		simulateChannelStatusAt(idxPartyA, 'CLOSED');
+		vi.advanceTimersByTime(5000);
+
+		// No new channel created and B was not torn down: the stale callback was ignored.
+		expect(mockSupabaseClient.channel.mock.calls.length).toBe(channelCallsBefore);
+		expect(mockSupabaseChannel.unsubscribe.mock.calls.length).toBe(unsubBefore);
 	});
 });
 
@@ -431,9 +500,118 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
 		const sq01 = get(squares).find((s) => s.row_num === 0 && s.col_num === 1);
 
-		// Lost cell rolled back to empty immediately; won cell stays ours.
-		expect(sq00?.player_name).toBeNull();
+		// Lost cell shows its real fetched owner immediately (FIX 3) — so it stays
+		// correct even if the winner's postgres_changes event is never delivered;
+		// won cell stays ours.
+		expect(sq00?.player_name).toBe('Mallory');
+		expect(sq00?.player_name_lower).toBe('mallory');
 		expect(sq01?.player_name).toBe('Alice');
 		expect(get(pendingOperations).has('0-0')).toBe(false);
+	});
+
+	it('reconcile falls back to empty for a lost cell the refetch has no row for', async () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		// DB truth: (0,1) is ours; (0,0) is simply ABSENT from the refetch payload.
+		const dbRows = createEmptyGrid().filter((s) => !(s.row_num === 0 && s.col_num === 0));
+		const i = dbRows.findIndex((s) => s.row_num === 0 && s.col_num === 1);
+		dbRows[i] = {
+			...dbRows[i],
+			player_name: 'Alice',
+			player_name_lower: 'alice',
+			claimed_at: '2024-01-01T00:00:00Z',
+		};
+
+		mockSupabaseClient.from.mockImplementation(
+			() =>
+				({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockResolvedValue({ data: dbRows, error: null }),
+				}) as unknown as ReturnType<typeof mockSupabaseClient.from>
+		);
+
+		rpcResolvesWith({ data: 1, error: null });
+
+		claimSquaresBatchOptimistic([
+			{ row: 0, col: 0 },
+			{ row: 0, col: 1 },
+		]);
+
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
+		// No DB row for (0,0) → fall back to originalState (empty).
+		expect(sq00?.player_name).toBeNull();
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 4: optimistically unclaiming a player's LAST square nulls
+// selectedPlayerFilter via the self-clearing subscription in game-state.ts. If
+// the unclaim is then rejected the square is restored — so the filter must be
+// restored too, but a filter the user changed mid-flight must NOT be stomped.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('FIX 4: a rejected unclaim restores the cleared player filter', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it('restores the filter when the unclaim is rejected (data===false)', () => {
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, {
+				player_name: 'Alice',
+				player_name_lower: 'alice',
+				claimed_at: '2024-01-01T00:00:00Z',
+			}),
+		]);
+		subscribeToParty('test-party-id');
+		selectedPlayerFilter.set('alice');
+
+		rpcResolvesWith({ data: false, error: null });
+		unclaimSquareOptimistic(0, 0);
+
+		// Square restored AND the filter that the optimistic clear nulled is back.
+		expect(get(squares)[0].player_name).toBe('Alice');
+		expect(get(selectedPlayerFilter)).toBe('alice');
+	});
+
+	it('does not stomp a different filter the user set during the in-flight window', () => {
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, {
+				player_name: 'Alice',
+				player_name_lower: 'alice',
+				claimed_at: '2024-01-01T00:00:00Z',
+			}),
+			createMockSquare(0, 1, {
+				player_name: 'Bob',
+				player_name_lower: 'bob',
+				claimed_at: '2024-01-01T00:00:00Z',
+			}),
+		]);
+		subscribeToParty('test-party-id');
+		selectedPlayerFilter.set('alice');
+
+		const deferred = rpcDeferred();
+		unclaimSquareOptimistic(0, 0);
+
+		// Alice's last square cleared → filter self-cleared to null.
+		expect(get(selectedPlayerFilter)).toBeNull();
+
+		// User picks a still-valid filter (Bob owns 0,1) during the in-flight window.
+		selectedPlayerFilter.set('bob');
+
+		// The unclaim is then rejected.
+		deferred.resolve({ data: false, error: null });
+
+		// Square restored, but the user's deliberate 'bob' filter is preserved.
+		expect(get(squares)[0].player_name).toBe('Alice');
+		expect(get(selectedPlayerFilter)).toBe('bob');
 	});
 });

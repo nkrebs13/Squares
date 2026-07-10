@@ -221,6 +221,19 @@ playerSummary.subscribe(($playerSummary) => {
 	}
 });
 
+/**
+ * Restore a snapshotted player filter after an optimistic unclaim was rejected.
+ * Only restores when the snapshot was non-null AND the filter is currently null,
+ * so a filter the user deliberately set (or changed) during the in-flight window
+ * is never stomped. Pairs with OptimisticOperation.filterSnapshot — see the
+ * self-clearing subscription above for why the filter goes null in the first place.
+ */
+export function restoreSelectedPlayerFilter(snapshot: string | null | undefined): void {
+	if (snapshot != null && get(selectedPlayerFilter) == null) {
+		selectedPlayerFilter.set(snapshot);
+	}
+}
+
 // Track pending optimistic operations
 export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
 
