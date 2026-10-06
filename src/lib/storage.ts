@@ -110,37 +110,45 @@ export async function clearUserName(): Promise<void> {
 }
 
 // Recent parties storage
+function withoutExpired(parties: RecentParty[]): RecentParty[] {
+	const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+	const now = Date.now();
+	return parties.filter((p) => now - p.lastVisited < expiryMs);
+}
+
+function getLocalRecentParties(): RecentParty[] {
+	try {
+		const stored = getLocalItem(STORAGE_KEYS.recentParties);
+		return stored ? withoutExpired(JSON.parse(stored)) : [];
+	} catch {
+		return [];
+	}
+}
+
 export async function getRecentParties(): Promise<RecentParty[]> {
 	if (!browser) return [];
 
 	try {
 		const parties = await get<RecentParty[]>(STORAGE_KEYS.recentParties);
-		if (!parties) return [];
-
-		// Filter out expired parties
-		const now = Date.now();
-		const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-		return parties.filter((p) => now - p.lastVisited < expiryMs);
+		// No IndexedDB entry: the list may live in localStorage (see mutateRecentParties).
+		return parties ? withoutExpired(parties) : getLocalRecentParties();
 	} catch {
-		// Try localStorage fallback
-		try {
-			const stored = getLocalItem(STORAGE_KEYS.recentParties);
-			return stored ? JSON.parse(stored) : [];
-		} catch {
-			return [];
-		}
+		return getLocalRecentParties();
 	}
 }
 
-// Read-modify-write the recent-parties list: IndexedDB first, localStorage if that
-// fails. `fn` must be pure — it is re-applied to a fresh read on the fallback path.
+// Read-modify-write the recent-parties list: IndexedDB first, localStorage if the
+// IndexedDB write fails. `fn` must be pure — it is re-applied on the fallback path.
+// When IndexedDB can still be read but not written (e.g. quota exceeded), the stale
+// IndexedDB entry is deleted so getRecentParties falls through to localStorage;
+// otherwise every later read would return the IndexedDB list and drop this write.
 async function mutateRecentParties(fn: (parties: RecentParty[]) => RecentParty[]): Promise<void> {
 	try {
 		await set(STORAGE_KEYS.recentParties, fn(await getRecentParties()));
 	} catch {
-		// Fallback to localStorage
 		try {
 			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(fn(await getRecentParties())));
+			await del(STORAGE_KEYS.recentParties).catch(() => {});
 		} catch {
 			// Silently fail
 		}

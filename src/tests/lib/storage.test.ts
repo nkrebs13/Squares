@@ -409,6 +409,25 @@ describe('updatePartyNickname localStorage fallback', () => {
 	});
 });
 
+describe('recent parties when IndexedDB is readable but not writable', () => {
+	it('keeps a saved party visible after an IndexedDB write failure', async () => {
+		// IndexedDB reads work but writes fail (e.g. quota exceeded).
+		const idb = new Map<string, unknown>([
+			['squares_recent_parties', [createRecentParty({ code: 'OLD001' })]],
+		]);
+		mockIdbGet.mockImplementation(async (key) => idb.get(key as string) as never);
+		mockIdbSet.mockRejectedValue(new Error('QuotaExceededError'));
+		mockIdbDel.mockImplementation(async (key) => {
+			idb.delete(key as string);
+		});
+
+		await saveRecentParty(createRecentParty({ code: 'NEW001' }));
+
+		const codes = (await getRecentParties()).map((p) => p.code);
+		expect(codes).toEqual(['NEW001', 'OLD001']);
+	});
+});
+
 describe('getRecentParties fallback', () => {
 	it('returns empty when both IndexedDB and localStorage return nothing', async () => {
 		mockIdbGet.mockRejectedValueOnce(new Error('IDB error'));
