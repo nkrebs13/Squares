@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
@@ -1150,6 +1150,60 @@ describe('Admin Page - Score Entry', () => {
 
 			expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
 			expect(screen.getByRole('button', { name: 'Rising' })).toHaveClass('btn-secondary');
+		});
+
+		describe('payout editing', () => {
+			function splitInputValues(): string[] {
+				return (['q1', 'q2', 'q3', 'final'] as const).map(
+					(key) => (document.getElementById(`split-${key}`) as HTMLInputElement).value
+				);
+			}
+
+			it('copies a preset into the four inputs when picked', async () => {
+				renderAuthorizedAdmin({ status: 'filling' });
+				const user = userEvent.setup();
+				const [, , bigFinish] = SPLIT_PRESETS;
+
+				await user.click(screen.getByRole('button', { name: bigFinish.name }));
+
+				expect(splitInputValues()).toEqual(
+					[bigFinish.q1, bigFinish.q2, bigFinish.q3, bigFinish.final].map(String)
+				);
+				expect(screen.getByRole('button', { name: bigFinish.name })).toHaveClass('btn-primary');
+			});
+
+			it('keeps the current input values when Custom is picked', async () => {
+				renderAuthorizedAdmin({ status: 'filling' });
+				const user = userEvent.setup();
+				const before = splitInputValues();
+
+				await user.click(screen.getByRole('button', { name: 'Custom' }));
+
+				expect(splitInputValues()).toEqual(before);
+				expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+			});
+
+			it('flips to Custom and shows the invalid total after an input change', async () => {
+				const [rising] = SPLIT_PRESETS;
+				renderAuthorizedAdmin({
+					status: 'filling',
+					split_q1: rising.q1,
+					split_q2: rising.q2,
+					split_q3: rising.q3,
+					split_final: rising.final,
+				});
+				expect(screen.getByRole('button', { name: rising.name })).toHaveClass('btn-primary');
+				expect(screen.getByText(/Total: 100%/)).toHaveTextContent('✓');
+
+				const q1 = document.getElementById('split-q1') as HTMLInputElement;
+				await fireEvent.input(q1, { target: { value: String(rising.q1 + 5) } });
+				await fireEvent.change(q1);
+
+				expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+				expect(screen.getByRole('button', { name: rising.name })).toHaveClass('btn-secondary');
+				expect(screen.getByText('Total: 105% (must be 100%)')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Save Payout Structure/i })).toBeDisabled();
+			});
 		});
 
 		it('previews payout amounts from the current pot and split', async () => {
