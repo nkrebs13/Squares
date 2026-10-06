@@ -23,9 +23,9 @@
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import { APP_CONFIG } from '$lib/config';
+	import { GRID_SIZE } from '$lib/constants';
 	import { DragSelect } from '$lib/utils/dragSelect.svelte';
 	import {
-		NUM_COLS,
 		buildSquareMap,
 		buildWinnerMap,
 		cellKey,
@@ -145,8 +145,8 @@
 	// Current user's player color for the legend swatch
 	const myColor = $derived($userName ? getPlayerColor(normalizePlayerName($userName)) : null);
 
-	const rows = Array.from({ length: 10 }, (_, i) => i);
-	const cols = Array.from({ length: 10 }, (_, i) => i);
+	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
+	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
 
 	// Logo visibility — show logo when party team name matches the configured default team name
 	const showColLogo = $derived(
@@ -233,8 +233,8 @@
 					class="grid-11x11"
 					role="grid"
 					aria-label="Football squares grid, 10 by 10."
-					aria-rowcount={NUM_COLS + 1}
-					aria-colcount={NUM_COLS + 1}
+					aria-rowcount={GRID_SIZE + 1}
+					aria-colcount={GRID_SIZE + 1}
 				>
 					<div class="corner-cell" role="presentation"></div>
 

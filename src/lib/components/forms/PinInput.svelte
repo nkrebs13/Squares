@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { PIN_LENGTH } from '$lib/utils/partyForm';
+	import { PIN_LENGTH } from '$lib/constants';
+
+	import type { HTMLInputAttributes } from 'svelte/elements';
 
 	interface Props {
 		value: string;
 		class?: string;
+		autocomplete?: HTMLInputAttributes['autocomplete'];
 	}
 
-	let { value = $bindable(), class: className = '' }: Props = $props();
+	let { value = $bindable(), class: className = '', autocomplete }: Props = $props();
 </script>
 
 <input
@@ -16,5 +19,6 @@
 	maxlength={PIN_LENGTH}
 	pattern="[0-9]*"
 	inputmode="numeric"
+	{autocomplete}
 	class="input text-center text-2xl tracking-widest {className}"
 />

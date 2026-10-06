@@ -1,9 +1,7 @@
+import { MAX_EVENT_NAME_LENGTH, PIN_LENGTH } from '$lib/constants';
 import { findNflTeamPresetId } from '$lib/nflTeams';
 import { datetimeLocalToIso, formatKickoff } from '$lib/utils/datetime';
 import { areDistinctTeamNames } from '$lib/utils/teamNames';
-
-export const MAX_EVENT_NAME_LENGTH = 80;
-export const PIN_LENGTH = 4;
 
 /** Editable team fields shared by the team picker widgets. */
 export interface TeamSelection {

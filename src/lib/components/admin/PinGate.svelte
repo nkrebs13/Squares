@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { partyPinKey, setHostPin, setSessionItem } from '$lib/storage';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { PIN_LENGTH } from '$lib/utils/partyForm';
+	import { MAX_PIN_ATTEMPTS, PIN_LENGTH } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
-
-	const MAX_PIN_ATTEMPTS = 5;
 
 	interface Props {
 		code: string;

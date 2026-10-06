@@ -8,13 +8,13 @@
 	import { datetimeLocalToIso, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
+	import { MAX_EVENT_NAME_LENGTH, MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH } from '$lib/constants';
 	import {
 		formatKickoffPreview,
 		isValidEventName,
 		isValidHostName,
 		isValidMatchup,
 		isValidPin,
-		MAX_EVENT_NAME_LENGTH,
 		toTeamSelection,
 	} from '$lib/utils/partyForm';
 	import {
@@ -258,7 +258,7 @@
 					bind:value={hostName}
 					placeholder="Enter your name"
 					class="input mt-2"
-					maxlength="20"
+					maxlength={MAX_NAME_LENGTH}
 					autocomplete="name"
 					onblur={() => (hostName = hostName.trim())}
 				/>
@@ -285,7 +285,7 @@
 					bind:value={nickname}
 					placeholder="e.g. Work Pool, Family Game"
 					class="input mt-2"
-					maxlength="30"
+					maxlength={MAX_NICKNAME_LENGTH}
 				/>
 			</label>
 			<p class="mt-2 text-sm text-muted">Helps you tell games apart if you're in multiple pools</p>

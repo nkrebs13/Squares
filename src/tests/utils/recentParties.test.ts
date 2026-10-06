@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { APP_CONFIG } from '$lib/config';
-import {
-	MAX_NICKNAME_LENGTH,
-	getDetailLine,
-	getDisplayName,
-	getStatusBadge,
-} from '$lib/utils/recentParties';
+import { MAX_NICKNAME_LENGTH } from '$lib/constants';
+import { getDetailLine, getDisplayName, getStatusBadge } from '$lib/utils/recentParties';
 import { createMockRecentParty } from '../factories';
 
 describe('getStatusBadge', () => {

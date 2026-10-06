@@ -9,6 +9,7 @@ import type {
 	GameScoresRow,
 	LiveScores,
 } from '$lib/types';
+import { TOTAL_SQUARES } from '$lib/constants';
 import { userName, normalizePlayerName } from './user';
 import { resolveHomeIsRow } from './game-matching';
 
@@ -83,7 +84,7 @@ export const filledCount = derived(
 	($squares) => $squares.filter((s) => s.player_name !== null).length
 );
 
-export const isGridFull = derived(filledCount, ($count) => $count === 100);
+export const isGridFull = derived(filledCount, ($count) => $count === TOTAL_SQUARES);
 
 export const mySquares = derived([squares, userName], ([$squares, $name]) => {
 	if (!$name) return [];
