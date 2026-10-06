@@ -37,6 +37,7 @@
 		"check:pwa-registration": "node scripts/check-pwa-registration.mjs",
 		"screenshots": "tsx scripts/capture-screenshots.ts",
 		"build:analyze": "vite-bundle-visualizer",
+		"db:snapshot": "bash scripts/db-snapshot.sh",
 		"db:types": "supabase gen types typescript --local > src/lib/database.types.ts"
 	},
 	"lint-staged": {

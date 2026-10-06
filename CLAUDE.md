@@ -45,6 +45,8 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 ## Database Constraints
 
+- Current schema and RPC bodies: read `supabase/schema.snapshot.sql` (generated, never hand-edit). Regenerate after every new migration with `npm run db:snapshot` (needs local Supabase running).
+
 - `player_name_lower` is `GENERATED ALWAYS AS (LOWER(player_name)) STORED` — never set directly in INSERT/UPDATE, only set `player_name`
 - Splits CHECK: `split_q1 + split_q2 + split_q3 + split_final = 100`
 - Winners UNIQUE on `(party_id, quarter)`
