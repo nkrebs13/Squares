@@ -102,26 +102,6 @@ vi.mock('$lib/push', async () => {
 		}
 	}
 
-	async function unsubscribeFromPush(partyId: string): Promise<void> {
-		try {
-			const registration = await navigator.serviceWorker.ready;
-			const subscription = await registration.pushManager.getSubscription();
-			if (subscription) {
-				const endpoint = subscription.endpoint;
-				await subscription.unsubscribe();
-
-				const supabase = supabaseMod.getSupabaseClient();
-				await supabase
-					.from('push_subscriptions')
-					.delete()
-					.eq('party_id', partyId)
-					.eq('endpoint', endpoint);
-			}
-		} catch {
-			// Unsubscribe failed silently
-		}
-	}
-
 	async function isSubscribed(): Promise<boolean> {
 		if (!isPushSupported()) return false;
 
@@ -134,16 +114,10 @@ vi.mock('$lib/push', async () => {
 		}
 	}
 
-	return { isPushSupported, getPushPermission, subscribeToPush, unsubscribeFromPush, isSubscribed };
+	return { isPushSupported, getPushPermission, subscribeToPush, isSubscribed };
 });
 
-import {
-	isPushSupported,
-	subscribeToPush,
-	unsubscribeFromPush,
-	isSubscribed,
-	getPushPermission,
-} from '$lib/push';
+import { isPushSupported, subscribeToPush, isSubscribed, getPushPermission } from '$lib/push';
 
 describe('Push Notification Module', () => {
 	beforeEach(() => {
@@ -220,39 +194,6 @@ describe('Push Notification Module', () => {
 			const result = await subscribeToPush('party-123', 'Alice');
 
 			expect(result).toEqual({ success: false, error: 'Failed to save subscription' });
-		});
-	});
-
-	describe('unsubscribeFromPush', () => {
-		it('unsubscribes and removes from database', async () => {
-			mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
-
-			const eqInner = vi.fn().mockResolvedValue({ error: null });
-			const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
-			const deleteMock = vi.fn().mockReturnValue({ eq: eqOuter });
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(mockSupabaseClient.from as any).mockReturnValue({
-				delete: deleteMock,
-			});
-
-			await unsubscribeFromPush('party-123');
-
-			expect(mockSubscription.unsubscribe).toHaveBeenCalled();
-			expect(mockSupabaseClient.from).toHaveBeenCalledWith('push_subscriptions');
-			expect(deleteMock).toHaveBeenCalled();
-			expect(eqOuter).toHaveBeenCalledWith('party_id', 'party-123');
-			expect(eqInner).toHaveBeenCalledWith(
-				'endpoint',
-				'https://fcm.googleapis.com/fcm/send/test-endpoint'
-			);
-		});
-
-		it('does nothing when no subscription exists', async () => {
-			mockPushManager.getSubscription.mockResolvedValue(null);
-
-			await unsubscribeFromPush('party-123');
-
-			expect(mockSubscription.unsubscribe).not.toHaveBeenCalled();
 		});
 	});
 
