@@ -2,6 +2,7 @@
 	import { party } from '$lib/stores/game';
 	import { browser } from '$app/environment';
 	import { APP_CONFIG } from '$lib/config';
+	import { logError } from '$lib/utils/log';
 	import QRCode from 'qrcode';
 
 	let copied = $state(false);
@@ -68,8 +69,8 @@
 					},
 				});
 			} catch (err) {
-				// eslint-disable-next-line no-console -- QR failure is non-fatal but worth surfacing in devtools
-				console.error('QR generation failed:', err);
+				// Non-fatal, but worth surfacing in devtools.
+				logError('QR generation failed:', err);
 				qrError = 'QR code unavailable. Join link shown below.';
 				showManualLink = true;
 			}

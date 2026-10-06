@@ -1,5 +1,4 @@
 import { writable, derived, get } from 'svelte/store';
-import { getSupabaseClient } from '$lib/supabase';
 import type {
 	Party,
 	Square,
@@ -10,9 +9,8 @@ import type {
 	GameScoresRow,
 	LiveScores,
 } from '$lib/types';
-import { parseGameScores, parseParty } from '$lib/validators/realtime';
-import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
+import { resolveHomeIsRow } from './game-matching';
 
 // Unique client ID per browser tab (for broadcast deduplication)
 export const clientId =
@@ -44,76 +42,6 @@ export const gridState = derived(
 		} as GridState;
 	}
 );
-
-/**
- * Determine if the API's home team corresponds to the party's row team.
- * Compares team names (case-insensitive substring match) to handle cases
- * where party uses short names ("Seahawks") and API uses full names
- * ("Seattle Seahawks"). Falls back to home_team_is_row flag.
- */
-export function resolveHomeIsRow(gameScores: GameScoresRow, party: Party): boolean {
-	const homeLower = gameScores.home_team_name.toLowerCase();
-	const awayLower = gameScores.away_team_name.toLowerCase();
-	const rowLower = party.team_row_name.toLowerCase();
-	const colLower = party.team_col_name.toLowerCase();
-
-	const homeMatchesRow = homeLower.includes(rowLower) || rowLower.includes(homeLower);
-	const awayMatchesRow = awayLower.includes(rowLower) || rowLower.includes(awayLower);
-	const homeMatchesCol = homeLower.includes(colLower) || colLower.includes(homeLower);
-	const awayMatchesCol = awayLower.includes(colLower) || colLower.includes(awayLower);
-
-	// Home team name matches row team → home IS row
-	if (homeMatchesRow && !awayMatchesRow) return true;
-	// Away team name matches row team → home is NOT row
-	if (awayMatchesRow && !homeMatchesRow) return false;
-	// Home team name matches col team → home is NOT row
-	if (homeMatchesCol && !awayMatchesCol) return false;
-	// Away team name matches col team → home IS row
-	if (awayMatchesCol && !homeMatchesCol) return true;
-
-	// No name match — fall back to the DB flag
-	return party.home_team_is_row ?? true;
-}
-
-function teamNameMatches(gameName: string, gameAbbrev: string, partyName: string): boolean {
-	const normalizedGameName = gameName.toLowerCase();
-	const normalizedAbbrev = gameAbbrev.toLowerCase();
-	const normalizedPartyName = partyName.toLowerCase();
-
-	return (
-		normalizedGameName.includes(normalizedPartyName) ||
-		normalizedPartyName.includes(normalizedGameName) ||
-		normalizedAbbrev === normalizedPartyName
-	);
-}
-
-export function gameScoresMatchParty(
-	gameScores: GameScoresRow,
-	party: Pick<Party, 'team_row_name' | 'team_col_name'>
-): boolean {
-	const rowMatchesHome = teamNameMatches(
-		gameScores.home_team_name,
-		gameScores.home_team_abbrev,
-		party.team_row_name
-	);
-	const rowMatchesAway = teamNameMatches(
-		gameScores.away_team_name,
-		gameScores.away_team_abbrev,
-		party.team_row_name
-	);
-	const colMatchesHome = teamNameMatches(
-		gameScores.home_team_name,
-		gameScores.home_team_abbrev,
-		party.team_col_name
-	);
-	const colMatchesAway = teamNameMatches(
-		gameScores.away_team_name,
-		gameScores.away_team_abbrev,
-		party.team_col_name
-	);
-
-	return (rowMatchesHome && colMatchesAway) || (rowMatchesAway && colMatchesHome);
-}
 
 export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
 	[gameScores, party],
@@ -287,146 +215,4 @@ export function applyWinnerDelete(deleted: Winner): void {
 /** Apply an INSERT or UPDATE on the game_scores table; null clears it. */
 export function applyGameScoresUpdate(row: GameScoresRow | null): void {
 	gameScores.set(row);
-}
-
-export async function loadParty(code: string) {
-	isLoading.set(true);
-	error.set(null);
-
-	try {
-		const supabase = getSupabaseClient();
-
-		// Fetch party (exclude host_pin — it should never reach the client)
-		const { data: partyData, error: partyError } = await supabase
-			.from('parties')
-			.select(
-				'id, code, host_name_lower, event_name, kickoff_at, square_price, split_q1, split_q2, split_q3, split_final, status, team_row_name, team_col_name, team_row_color, team_col_color, created_at, updated_at, expires_at, game_id, home_team_is_row'
-			)
-			.eq('code', code.toUpperCase())
-			.single();
-
-		if (partyError || !partyData) {
-			error.set('Party not found');
-			isLoading.set(false);
-			return false;
-		}
-
-		// Auto-detect live game when party isn't linked to one. Only link when
-		// the active score row matches this party's matchup; otherwise an
-		// arbitrary game_scores row can show the wrong live context.
-		let effectiveGameId = partyData.game_id;
-		let detectedGameScores: GameScoresRow | null = null;
-		if (!effectiveGameId) {
-			const { data: activeGames, error: activeGamesError } = await supabase
-				.from('game_scores')
-				.select('*')
-				.neq('game_status', 'final')
-				.limit(10);
-
-			if (activeGamesError) {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn('[loadParty] active game auto-detect failed:', activeGamesError.message);
-			} else {
-				detectedGameScores =
-					activeGames
-						?.map((candidate) => parseGameScores(candidate))
-						.find(
-							(candidate): candidate is GameScoresRow =>
-								candidate !== null && gameScoresMatchParty(candidate, partyData)
-						) ?? null;
-
-				if (detectedGameScores) {
-					effectiveGameId = detectedGameScores.game_id;
-				}
-			}
-		}
-
-		party.set(
-			effectiveGameId !== partyData.game_id ? { ...partyData, game_id: effectiveGameId } : partyData
-		);
-
-		// Update theme with party colors
-		theme.setTeams({
-			rowColor: partyData.team_row_color,
-			colColor: partyData.team_col_color,
-			rowName: partyData.team_row_name,
-			colName: partyData.team_col_name,
-		});
-
-		// Fetch all remaining data in parallel — all are independent after the party + game fetch above
-		const [squaresRes, numbersRes, scoresRes, gameScoresRes, winnersRes] = await Promise.all([
-			supabase
-				.from('squares')
-				.select('*')
-				.eq('party_id', partyData.id)
-				.order('row_num')
-				.order('col_num'),
-			partyData.status !== 'filling'
-				? supabase.from('numbers').select('*').eq('party_id', partyData.id).single()
-				: Promise.resolve({ data: null, error: null }),
-			supabase.from('scores').select('*').eq('party_id', partyData.id).single(),
-			detectedGameScores
-				? Promise.resolve({ data: detectedGameScores, error: null })
-				: effectiveGameId
-					? supabase.from('game_scores').select('*').eq('game_id', effectiveGameId).single()
-					: Promise.resolve({ data: null, error: null }),
-			supabase.from('winners').select('*').eq('party_id', partyData.id).order('quarter'),
-		]);
-
-		squares.set(squaresRes.data || []);
-		numbers.set(numbersRes.data);
-		scores.set(scoresRes.data);
-		winners.set(winnersRes.data || []);
-
-		// Handle game scores + home_team_is_row auto-correction
-		if (effectiveGameId) {
-			const { data: gameScoresData, error: gameScoresError } = gameScoresRes;
-			// PGRST116 = "no rows returned" - expected when game hasn't started yet.
-			// Other errors are logged so they're visible during dev/observability.
-			// We still proceed because live scores are optional; realtime will pick up
-			// data when the game starts.
-			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn(
-					`[loadParty] live game_scores fetch failed for game ${effectiveGameId}:`,
-					gameScoresError.message
-				);
-			}
-			gameScores.set(gameScoresData || null);
-
-			// Auto-correct home_team_is_row server-side based on the linked game row.
-			// Backend triggers use this flag for winner calculation, so direct anon
-			// writes are intentionally disallowed.
-			if (gameScoresData) {
-				supabase
-					.rpc('sync_party_home_team_mapping', { p_party_id: partyData.id })
-					.then(({ data, error: mappingError }) => {
-						if (mappingError) {
-							// eslint-disable-next-line no-console -- diagnostic
-							console.warn('[loadParty] failed to sync home_team_is_row:', mappingError.message);
-							return;
-						}
-
-						const updatedParty = parseParty(data);
-						if (updatedParty) {
-							party.set(updatedParty);
-						}
-					});
-			}
-		} else {
-			gameScores.set(null);
-		}
-
-		isLoading.set(false);
-		return true;
-	} catch (e) {
-		// Preserve underlying message for diagnostics (logged + sent to Sentry);
-		// user-facing copy stays approachable.
-		const detail = e instanceof Error ? e.message : String(e);
-		// eslint-disable-next-line no-console -- diagnostic; Sentry hooks pick this up
-		console.error('[loadParty] fatal error loading party:', detail);
-		error.set("Couldn't load that party. Check your connection and try again.");
-		isLoading.set(false);
-		return false;
-	}
 }

@@ -150,7 +150,7 @@ function runSingleOptimistic(spec: SingleOptimisticSpec, row: number, col: numbe
 	);
 
 	// 3. Broadcast intent to other clients
-	broadcast(currentParty.id, {
+	broadcast({
 		type: spec.intent,
 		squareKey: key,
 		playerName: currentUser,
@@ -193,7 +193,7 @@ function runSingleOptimistic(spec: SingleOptimisticSpec, row: number, col: numbe
 						// optimistically cleared this square on our unclaim_intent) restore it;
 						// without this they'd show it empty forever, since the failed unclaim
 						// produced no DB change.
-						broadcast(currentParty.id, {
+						broadcast({
 							type: spec.rejection,
 							squareKey: key,
 							playerName: currentUser,
@@ -286,7 +286,7 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 
 	// 3. Broadcast intents for all cells
 	for (const cell of claimableCells) {
-		broadcast(currentParty.id, {
+		broadcast({
 			type: 'claim_intent',
 			squareKey: squareKey(cell.row, cell.col),
 			playerName: currentUser,
@@ -426,7 +426,7 @@ async function reconcileShortBatchClaim(
 	);
 
 	for (const { key } of rolledBack) {
-		broadcast(partyId, {
+		broadcast({
 			type: 'claim_rejected',
 			squareKey: key,
 			playerName: currentUser,

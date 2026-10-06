@@ -13,6 +13,7 @@ import {
 import { pendingOperations, pendingTimeouts, clearSquareFields } from './game-pending';
 import { cleanupChannels } from './game-realtime';
 import { parseParty } from '$lib/validators/realtime';
+import { humanizeRpcError, PARTY_FIELD_RULES, type RpcErrorRule } from '$lib/utils/rpcError';
 
 export interface PartyDetailsInput {
 	eventName: string;
@@ -28,17 +29,25 @@ export interface PartyDetailsInput {
  * (not RAISE) so check_pin_lockout's attempt increment durably commits.
  * PostgREST renders a NULL `RETURNS parties` value as a row object whose
  * columns are all null (id included), NOT JSON null, so detect the refusal
- * by the absent id. Same outcome the error-message branch above yields for
- * an older DB that still RAISEs 'invalid party or PIN'.
+ * by the absent id. Same outcome PIN_RULE yields for an older DB that still
+ * RAISEs 'invalid party or PIN'.
  */
 function isPinSentinelRow(data: unknown): boolean {
 	if (data == null) return true;
 	return (data as { id?: unknown }).id == null;
 }
 
-export async function lockParty(pin: string): Promise<{ success: boolean; error?: string }> {
+type AdminResult = { success: boolean; error?: string };
+type RemovePlayerResult = AdminResult & { removedCount: number };
+
+const NO_PARTY: AdminResult = { success: false, error: 'No party loaded' };
+
+const PIN_RULE: RpcErrorRule = [/invalid party or PIN/i, 'Invalid PIN'];
+const GRID_LOCKED = /before the grid is locked/i;
+
+export async function lockParty(pin: string): Promise<AdminResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY };
 
 	const supabase = getSupabaseClient();
 
@@ -48,7 +57,10 @@ export async function lockParty(pin: string): Promise<{ success: boolean; error?
 	});
 
 	if (lockError) {
-		return { success: false, error: 'Failed to lock party. Please try again.' };
+		return {
+			success: false,
+			error: humanizeRpcError(lockError.message, 'Failed to lock party. Please try again.'),
+		};
 	}
 
 	if (!data) {
@@ -66,9 +78,9 @@ export async function updateScore(
 	quarter: 'q1' | 'q2' | 'q3' | 'final',
 	rowScore: number,
 	colScore: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<AdminResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY };
 
 	const supabase = getSupabaseClient();
 
@@ -81,7 +93,10 @@ export async function updateScore(
 	});
 
 	if (scoreError) {
-		return { success: false, error: 'Failed to update score. Please try again.' };
+		return {
+			success: false,
+			error: humanizeRpcError(scoreError.message, 'Failed to update score. Please try again.'),
+		};
 	}
 
 	if (!data) {
@@ -100,12 +115,19 @@ export async function updateScore(
 	return { success: true };
 }
 
+const PAYOUT_ERROR_RULES: readonly RpcErrorRule[] = [
+	PIN_RULE,
+	[GRID_LOCKED, 'Grid is already locked'],
+	[/sum to exactly 100/i, 'Splits must add up to 100%'],
+	[/between 0 and 100/i, 'Each split must be between 0% and 100%.'],
+];
+
 export async function updatePayoutStructure(
 	pin: string,
 	splits: { q1: number; q2: number; q3: number; final: number }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<AdminResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY };
 	if (currentParty.status !== 'filling') return { success: false, error: 'Grid is already locked' };
 
 	// Verify splits add up to 100
@@ -126,7 +148,14 @@ export async function updatePayoutStructure(
 	});
 
 	if (updateError) {
-		return { success: false, error: humanizePayoutError(updateError.message) };
+		return {
+			success: false,
+			error: humanizeRpcError(
+				updateError.message,
+				'Failed to update payout structure. Please try again.',
+				PAYOUT_ERROR_RULES
+			),
+		};
 	}
 
 	if (isPinSentinelRow(data)) {
@@ -142,21 +171,19 @@ export async function updatePayoutStructure(
 	return { success: true };
 }
 
-function humanizePayoutError(raw: string): string {
-	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
-	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
-	if (/before the grid is locked/i.test(normalized)) return 'Grid is already locked';
-	if (/sum to exactly 100/i.test(normalized)) return 'Splits must add up to 100%';
-	if (/between 0 and 100/i.test(normalized)) return 'Each split must be between 0% and 100%.';
-	return normalized || 'Failed to update payout structure. Please try again.';
-}
+const PARTY_DETAILS_ERROR_RULES: readonly RpcErrorRule[] = [
+	PIN_RULE,
+	[GRID_LOCKED, 'Party details can only be changed before the grid is locked.'],
+	...PARTY_FIELD_RULES,
+	[/team_.*name/i, 'Team names cannot be blank.'],
+];
 
 export async function updatePartyDetails(
 	pin: string,
 	details: PartyDetailsInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<AdminResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY };
 	if (currentParty.status !== 'filling') {
 		return { success: false, error: 'Party details can only be changed before the grid is locked' };
 	}
@@ -174,7 +201,14 @@ export async function updatePartyDetails(
 	});
 
 	if (updateError) {
-		return { success: false, error: humanizePartyDetailsError(updateError.message) };
+		return {
+			success: false,
+			error: humanizeRpcError(
+				updateError.message,
+				'Failed to update party details. Please try again.',
+				PARTY_DETAILS_ERROR_RULES
+			),
+		};
 	}
 
 	if (isPinSentinelRow(data)) {
@@ -190,25 +224,18 @@ export async function updatePartyDetails(
 	return { success: true };
 }
 
-function humanizePartyDetailsError(raw: string): string {
-	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
-	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
-	if (/before the grid is locked/i.test(normalized)) {
-		return 'Party details can only be changed before the grid is locked.';
-	}
-	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
-	if (/different teams/i.test(normalized)) return 'Choose two different teams for the matchup.';
-	if (/team_.*name/i.test(normalized)) return 'Team names cannot be blank.';
-	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
-	return normalized || 'Failed to update party details. Please try again.';
-}
+const REMOVE_PLAYER_ERROR_RULES: readonly RpcErrorRule[] = [
+	PIN_RULE,
+	[GRID_LOCKED, 'Cannot remove players after grid is locked'],
+	[/player name/i, 'Player name is required'],
+];
 
 export async function removePlayer(
 	pin: string,
 	playerNameLower: string
-): Promise<{ success: boolean; removedCount: number; error?: string }> {
+): Promise<RemovePlayerResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, removedCount: 0, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY, removedCount: 0 };
 
 	// Only allow during filling phase
 	if (currentParty.status !== 'filling') {
@@ -226,7 +253,11 @@ export async function removePlayer(
 		return {
 			success: false,
 			removedCount: 0,
-			error: humanizeRemovePlayerError(removeError.message),
+			error: humanizeRpcError(
+				removeError.message,
+				'Failed to remove player. Please try again.',
+				REMOVE_PLAYER_ERROR_RULES
+			),
 		};
 	}
 
@@ -253,18 +284,9 @@ export async function removePlayer(
 	return { success: true, removedCount };
 }
 
-function humanizeRemovePlayerError(raw: string): string {
-	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
-	if (/invalid party or PIN/i.test(normalized)) return 'Invalid PIN';
-	if (/before the grid is locked/i.test(normalized))
-		return 'Cannot remove players after grid is locked';
-	if (/player name/i.test(normalized)) return 'Player name is required';
-	return normalized || 'Failed to remove player. Please try again.';
-}
-
-export async function deleteParty(pin: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteParty(pin: string): Promise<AdminResult> {
 	const currentParty = get(party);
-	if (!currentParty) return { success: false, error: 'No party loaded' };
+	if (!currentParty) return { ...NO_PARTY };
 
 	const supabase = getSupabaseClient();
 
@@ -274,7 +296,10 @@ export async function deleteParty(pin: string): Promise<{ success: boolean; erro
 	});
 
 	if (deleteError) {
-		return { success: false, error: 'Failed to delete party. Please try again.' };
+		return {
+			success: false,
+			error: humanizeRpcError(deleteError.message, 'Failed to delete party. Please try again.'),
+		};
 	}
 
 	if (!data) {

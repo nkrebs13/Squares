@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { loadParty, party, numbers, gameScores, isLoading, error, cleanup } from '$lib/stores/game';
-import { gameScoresMatchParty } from '$lib/stores/game-state';
+import { gameScoresMatchParty } from '$lib/stores/game-matching';
 import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 import { createMockParty, createMockGameScores } from '../factories';

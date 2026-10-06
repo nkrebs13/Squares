@@ -2,6 +2,7 @@ import { getSupabaseClient } from '$lib/supabase';
 import { parseParty } from '$lib/validators/realtime';
 import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 import { type Party } from '$lib/types';
+import { humanizeRpcError, PARTY_FIELD_RULES, type RpcErrorRule } from '$lib/utils/rpcError';
 
 /**
  * Input for creating a new party.
@@ -32,6 +33,19 @@ export interface CreatePartyError {
 	ok: false;
 	error: string;
 }
+
+/**
+ * `create_party` RAISEs explanatory text already; these rules polish the
+ * common validation failures into form-friendly copy.
+ */
+const CREATE_PARTY_ERROR_RULES: readonly RpcErrorRule[] = [
+	[/4 digits/i, 'PIN must be exactly 4 digits.'],
+	[/sum to exactly 100/i, 'Prize splits must total 100%.'],
+	[/host_name/i, 'Please enter a host name.'],
+	...PARTY_FIELD_RULES,
+	[/square_price/i, 'Square price must be greater than 0.'],
+	[/unique party code/i, 'Could not generate a unique party code — please try again.'],
+];
 
 /**
  * Create a new party via the `create_party` RPC (migration 023).
@@ -66,7 +80,14 @@ export async function createParty(
 	});
 
 	if (error) {
-		return { ok: false, error: humanizeRpcError(error.message) };
+		return {
+			ok: false,
+			error: humanizeRpcError(
+				error.message,
+				'Failed to create party. Please try again.',
+				CREATE_PARTY_ERROR_RULES
+			),
+		};
 	}
 
 	const party = parseParty(data);
@@ -78,24 +99,4 @@ export async function createParty(
 	}
 
 	return { ok: true, party };
-}
-
-/**
- * Translate raw Postgres error messages into user-facing copy. The RPC raises
- * `RAISE EXCEPTION` with explanatory text already; this layer trims the
- * `ERROR:  ` prefix and applies a small amount of polishing.
- */
-function humanizeRpcError(raw: string): string {
-	const normalized = raw.replace(/^ERROR:\s*/i, '').trim();
-	if (/4 digits/i.test(normalized)) return 'PIN must be exactly 4 digits.';
-	if (/sum to exactly 100/i.test(normalized)) return 'Prize splits must total 100%.';
-	if (/host_name/i.test(normalized)) return 'Please enter a host name.';
-	if (/event_name/i.test(normalized)) return 'Event name must be 80 characters or fewer.';
-	if (/different teams/i.test(normalized)) return 'Choose two different teams for the matchup.';
-	if (/colors/i.test(normalized)) return 'Team colors must be valid hex colors.';
-	if (/square_price/i.test(normalized)) return 'Square price must be greater than 0.';
-	if (/unique party code/i.test(normalized)) {
-		return 'Could not generate a unique party code — please try again.';
-	}
-	return normalized || 'Failed to create party. Please try again.';
 }

@@ -11,7 +11,7 @@ import {
 	selectedPlayerFilter,
 	removePlayer,
 } from '$lib/stores/game';
-import { resolveHomeIsRow } from '$lib/stores/game-state';
+import { resolveHomeIsRow } from '$lib/stores/game-matching';
 import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 import {
