@@ -156,7 +156,11 @@ export function claimSquareOptimistic(row: number, col: number): void {
 					return ops;
 				});
 
-				toast.error('Square already claimed');
+				// Only a BOOLEAN false means the square was taken; an RPC error
+				// (network, server) says nothing about ownership.
+				toast.error(
+					claimError ? "Couldn't save that claim — try again." : 'Square already claimed'
+				);
 			}
 			// Success case: postgres_changes will clear the pending operation
 		});
