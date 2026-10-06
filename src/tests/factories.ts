@@ -4,7 +4,15 @@
  * overrides (or wrap the factory locally) rather than fork the defaults.
  */
 import { vi } from 'vitest';
-import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
+import type {
+	Party,
+	Square,
+	Numbers,
+	Scores,
+	Winner,
+	GameScoresRow,
+	RecentParty,
+} from '$lib/types';
 
 /** A loosely-typed callback captured by a mock (Supabase channel handlers, subscribe callbacks). */
 export type MockCallback = (...args: unknown[]) => unknown;
@@ -126,6 +134,18 @@ export function createMockWinner(overrides: Partial<Winner> = {}): Winner {
 		player_name: 'John Doe',
 		amount: 250,
 		created_at: new Date().toISOString(),
+		...overrides,
+	};
+}
+
+export function createMockRecentParty(overrides: Partial<RecentParty> = {}): RecentParty {
+	return {
+		code: 'ABC123',
+		teamRowName: 'Seahawks',
+		teamColName: 'Patriots',
+		lastVisited: Date.now(),
+		status: 'filling',
+		isHost: false,
 		...overrides,
 	};
 }

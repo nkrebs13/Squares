@@ -16,23 +16,12 @@ import RecentParties from '$lib/components/RecentParties.svelte';
 import { goto } from '$app/navigation';
 import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
 import type { RecentParty } from '$lib/types';
+import { createMockRecentParty as createMockParty } from '../factories';
 
 const mockGetRecentParties = vi.mocked(getRecentParties);
 const mockRemoveRecentParty = vi.mocked(removeRecentParty);
 const mockUpdatePartyNickname = vi.mocked(updatePartyNickname);
 const mockGoto = vi.mocked(goto);
-
-function createMockParty(overrides: Partial<RecentParty> = {}): RecentParty {
-	return {
-		code: 'ABC123',
-		teamRowName: 'Seahawks',
-		teamColName: 'Patriots',
-		lastVisited: Date.now(),
-		status: 'filling',
-		isHost: false,
-		...overrides,
-	};
-}
 
 describe('RecentParties Component', () => {
 	beforeEach(() => {
