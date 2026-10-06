@@ -486,6 +486,43 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		expect(sq00?.player_name).toBeNull();
 		expect(get(pendingOperations).has('0-0')).toBe(false);
 	});
+
+	it('reconcile treats a malformed refetch row like a missing row', async () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+
+		// DB payload: (0,0) is malformed (player_name is a number) but would otherwise
+		// look owned by someone else. It must be dropped, not copied into the square.
+		const dbRows: unknown[] = createEmptyGrid().map((s) =>
+			s.row_num === 0 && s.col_num === 0
+				? { ...s, player_name: 123, player_name_lower: 'mallory' }
+				: s
+		);
+
+		mockSupabaseClient.from.mockImplementation(
+			() =>
+				({
+					select: vi.fn().mockReturnThis(),
+					eq: vi.fn().mockResolvedValue({ data: dbRows, error: null }),
+				}) as unknown as ReturnType<typeof mockSupabaseClient.from>
+		);
+
+		rpcResolvesWith({ data: 1, error: null });
+
+		claimSquaresBatchOptimistic([
+			{ row: 0, col: 0 },
+			{ row: 0, col: 1 },
+		]);
+
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
+		expect(sq00?.player_name).toBeNull();
+		expect(sq00?.player_name_lower).toBeNull();
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+	});
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
