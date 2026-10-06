@@ -36,6 +36,7 @@ export function generateEmptySquares(partyId: string) {
 				col_num: col,
 				player_name: null,
 				player_name_lower: null,
+				claimed_at: null as string | null,
 			});
 		}
 	}
@@ -53,6 +54,7 @@ export function generatePartiallyFilledSquares(
 			...squares[idx],
 			player_name: claim.name,
 			player_name_lower: claim.name.toLowerCase(),
+			claimed_at: new Date().toISOString(),
 		};
 	}
 	return squares;
@@ -71,6 +73,7 @@ export function generateFullSquares(partyId: string) {
 				col_num: col,
 				player_name: name,
 				player_name_lower: name.toLowerCase(),
+				claimed_at: new Date().toISOString(),
 			});
 		}
 	}
