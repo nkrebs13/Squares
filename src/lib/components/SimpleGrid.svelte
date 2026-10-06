@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
 	import MobilePlayerFilter from './MobilePlayerFilter.svelte';
+	import ZoomToggle from './ZoomToggle.svelte';
 	import {
 		squares,
 		numbers,
@@ -23,15 +23,19 @@
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import { APP_CONFIG } from '$lib/config';
+	import { DragSelect } from '$lib/utils/dragSelect.svelte';
+	import {
+		NUM_COLS,
+		buildSquareMap,
+		buildWinnerMap,
+		cellKey,
+		getEffectiveCellSize,
+		getFitCellSize,
+		getHeaderHeight,
+		shouldShowZoomControl,
+		type ZoomState,
+	} from '$lib/utils/gridLayout';
 	import type { Square as SquareType, Winner } from '$lib/types';
-
-	// Constants
-	const MIN_CELL_SIZE_MOBILE = 28;
-	const ZOOMED_CELL_SIZE = 64;
-	const GAP_SIZE = 2;
-	const NUM_COLS = 10;
-	const TEAM_LABEL_WIDTH = 48;
-	const SCROLL_CONTAINER_PADDING = 8;
 
 	// DOM refs
 	let scrollContainer: HTMLDivElement;
@@ -39,75 +43,36 @@
 
 	// Sizing state
 	let containerWidth = $state(0);
-	let zoomState = $state<'fit' | 'zoomed'>('fit');
+	let zoomState = $state<ZoomState>('fit');
 
-	// Selection state
-	let isDragging = $state(false);
-	const selectedCells = new SvelteSet<string>();
-	let dragStartCell = $state<{ row: number; col: number } | null>(null);
-
-	// Track pointer start for mobile tap detection
-	let pointerStartCell: { row: number; col: number } | null = null;
-	let isPointerTouch = false; // Track if current interaction is touch-based
+	// Pointer drag-select (see $lib/utils/dragSelect.svelte.ts)
+	const drag = new DragSelect({
+		canInteract: () => !!$userName && $party?.status === 'filling',
+		canSelectCell,
+		onCellClick: handleSquareClick,
+		// Non-blocking optimistic batch claim
+		onBatch: (cells) => claimSquaresBatchOptimistic(cells),
+	});
 
 	// Lifecycle guards
 	let isMounted = false;
 	let resizeObserver: ResizeObserver | null = null;
 
-	// Calculate fit-to-width cell size
-	function calculateFitCellSize(): number {
-		if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
-		const totalColumns = NUM_COLS + 1; // 10 data + 1 row header
-		const totalGaps = totalColumns - 1;
-		const gapTotal = totalGaps * GAP_SIZE;
-		const availableWidth = containerWidth - TEAM_LABEL_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
-		return Math.floor(availableWidth / totalColumns);
-	}
-
-	// Calculate fit cell size
-	const fitCellSize = $derived(Math.max(MIN_CELL_SIZE_MOBILE, calculateFitCellSize()));
-
-	// Effective cell size based on zoom state
-	const effectiveCellSize = $derived(zoomState === 'zoomed' ? ZOOMED_CELL_SIZE : fitCellSize);
-
-	// Show zoom control when zooming would cause horizontal scroll
-	const showZoomControl = $derived(fitCellSize < ZOOMED_CELL_SIZE);
-
-	// Header height scales with cell size
-	const headerHeight = $derived(Math.max(Math.floor(effectiveCellSize * 0.7), 24));
+	const fitCellSize = $derived(getFitCellSize(containerWidth));
+	const effectiveCellSize = $derived(getEffectiveCellSize(zoomState, fitCellSize));
+	const showZoomControl = $derived(shouldShowZoomControl(fitCellSize));
+	const headerHeight = $derived(getHeaderHeight(effectiveCellSize));
 
 	// Derived lookup maps for O(1) access
-	const squareMap = $derived.by(() => {
-		const map = new SvelteMap<string, SquareType>();
-		for (const s of $squares) {
-			map.set(`${s.row_num}-${s.col_num}`, s);
-		}
-		return map;
-	});
-
-	const winnerMap = $derived.by(() => {
-		if (!$numbers) return new SvelteMap<string, Winner[]>();
-		const map = new SvelteMap<string, Winner[]>();
-		for (const w of $winners) {
-			// winning_row and winning_col are grid positions (0-9), not header numbers
-			const key = `${w.winning_row}-${w.winning_col}`;
-			const existing = map.get(key) || [];
-			existing.push(w);
-			map.set(key, existing);
-		}
-		return map;
-	});
+	const squareMap = $derived(buildSquareMap($squares));
+	const winnerMap = $derived(buildWinnerMap($winners, !!$numbers));
 
 	function getSquare(row: number, col: number): SquareType | undefined {
-		return squareMap.get(`${row}-${col}`);
+		return squareMap.get(cellKey(row, col));
 	}
 
 	function getWinners(row: number, col: number): Winner[] {
-		return winnerMap.get(`${row}-${col}`) || [];
-	}
-
-	function cellKey(row: number, col: number): string {
-		return `${row}-${col}`;
+		return winnerMap.get(cellKey(row, col)) || [];
 	}
 
 	function canSelectCell(row: number, col: number): boolean {
@@ -126,82 +91,6 @@
 	function isSquareDimmed(square: SquareType): boolean {
 		if (!$selectedPlayerFilter) return false;
 		return square.player_name_lower !== $selectedPlayerFilter;
-	}
-
-	// Pointer handlers
-	function handlePointerDown(row: number, col: number, e: PointerEvent) {
-		if (!$userName || $party?.status !== 'filling') return;
-		if (e.button !== 0) return;
-
-		pointerStartCell = { row, col };
-		isPointerTouch = e.pointerType === 'touch';
-
-		// Mouse/pen - immediate drag selection (not touch)
-		if (!isPointerTouch && canSelectCell(row, col)) {
-			isDragging = true;
-			dragStartCell = { row, col };
-			selectedCells.clear();
-			selectedCells.add(cellKey(row, col));
-		}
-	}
-
-	function handlePointerMove(row: number, col: number) {
-		if (!isPointerTouch && isDragging && dragStartCell) {
-			handleDragExtend(row, col);
-		}
-	}
-
-	function handleDragExtend(row: number, col: number) {
-		if (!dragStartCell) return;
-
-		const minRow = Math.min(dragStartCell.row, row);
-		const maxRow = Math.max(dragStartCell.row, row);
-		const minCol = Math.min(dragStartCell.col, col);
-		const maxCol = Math.max(dragStartCell.col, col);
-
-		selectedCells.clear();
-		for (let r = minRow; r <= maxRow; r++) {
-			for (let c = minCol; c <= maxCol; c++) {
-				if (canSelectCell(r, c)) {
-					selectedCells.add(cellKey(r, c));
-				}
-			}
-		}
-	}
-
-	function handlePointerUp(row: number, col: number) {
-		if (isPointerTouch) {
-			// Touch - single tap to claim/unclaim
-			if (pointerStartCell && pointerStartCell.row === row && pointerStartCell.col === col) {
-				handleSquareClick(row, col);
-			}
-		} else {
-			// Mouse/pen - end drag selection, or a plain click (e.g. unclaiming an
-			// owned square, which never enters drag because canSelectCell excludes it)
-			if (isDragging) {
-				handleDragEnd();
-			} else if (pointerStartCell && pointerStartCell.row === row && pointerStartCell.col === col) {
-				handleSquareClick(row, col);
-			}
-		}
-		pointerStartCell = null;
-	}
-
-	function handleDragEnd() {
-		if (!isDragging) return;
-
-		isDragging = false;
-		dragStartCell = null;
-
-		if (selectedCells.size > 0) {
-			const cells = Array.from(selectedCells).map((key) => {
-				const [row, col] = key.split('-').map(Number);
-				return { row, col };
-			});
-			selectedCells.clear();
-			// Non-blocking optimistic batch claim
-			claimSquaresBatchOptimistic(cells);
-		}
 	}
 
 	function handleSquareClick(row: number, col: number) {
@@ -227,20 +116,6 @@
 	// Check if a square has a pending operation
 	function isSquarePending(row: number, col: number): boolean {
 		return $pendingOperations.has(cellKey(row, col));
-	}
-
-	function handleGlobalPointerUp() {
-		if (isDragging) {
-			handleDragEnd();
-		}
-		pointerStartCell = null;
-	}
-
-	function handleGlobalPointerCancel() {
-		isDragging = false;
-		dragStartCell = null;
-		selectedCells.clear();
-		pointerStartCell = null;
 	}
 
 	onMount(() => {
@@ -282,7 +157,10 @@
 	);
 </script>
 
-<svelte:window onpointerup={handleGlobalPointerUp} onpointercancel={handleGlobalPointerCancel} />
+<svelte:window
+	onpointerup={() => drag.globalPointerUp()}
+	onpointercancel={() => drag.globalPointerCancel()}
+/>
 
 <div class="space-y-4">
 	<!-- Player Stats Bar -->
@@ -400,13 +278,13 @@
 										rowNumber={$numbers?.row_numbers[row]}
 										colNumber={$numbers?.col_numbers[col]}
 										isLocked={$party?.status !== 'filling'}
-										isSelected={selectedCells.has(cellKey(row, col))}
+										isSelected={drag.selectedCells.has(cellKey(row, col))}
 										isPending={isSquarePending(row, col)}
 										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}
 										winners={getWinners(row, col)}
-										onpointerdown={(e) => handlePointerDown(row, col, e)}
-										onpointerenter={() => handlePointerMove(row, col)}
-										onpointerup={() => handlePointerUp(row, col)}
+										onpointerdown={(e) => drag.pointerDown(row, col, e)}
+										onpointerenter={() => drag.pointerEnter(row, col)}
+										onpointerup={() => drag.pointerUp(row, col)}
 										onclick={(e) => handleSquareKeyboardClick(row, col, e)}
 									/>
 								</div>
@@ -453,42 +331,10 @@
 
 			<!-- Zoom Toggle (shown when horizontal scroll would occur) -->
 			{#if showZoomControl}
-				<button
-					class="zoom-toggle-btn"
-					onclick={() => (zoomState = zoomState === 'fit' ? 'zoomed' : 'fit')}
-					aria-label={zoomState === 'fit' ? 'Zoom in for larger squares' : 'Fit grid to screen'}
-				>
-					{#if zoomState === 'fit'}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="11" cy="11" r="8" />
-							<path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
-						</svg>
-						<span>Zoom</span>
-					{:else}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-						</svg>
-						<span>Fit</span>
-					{/if}
-				</button>
+				<ZoomToggle
+					{zoomState}
+					ontoggle={() => (zoomState = zoomState === 'fit' ? 'zoomed' : 'fit')}
+				/>
 			{/if}
 		</div>
 
@@ -499,9 +345,9 @@
 	</div>
 
 	<!-- Selection indicator during drag -->
-	{#if isDragging && selectedCells.size > 0}
+	{#if drag.isDragging && drag.selectedCells.size > 0}
 		<div class="selection-indicator">
-			{`${selectedCells.size} squares`}
+			{`${drag.selectedCells.size} squares`}
 		</div>
 	{/if}
 </div>
@@ -714,37 +560,6 @@
 		outline-offset: -1px;
 	}
 
-	/* Zoom Toggle Button */
-	.zoom-toggle-btn {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.04);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 150ms ease;
-		min-height: 36px;
-	}
-
-	.zoom-toggle-btn svg {
-		opacity: 0.8;
-		flex-shrink: 0;
-	}
-
-	.zoom-toggle-btn:hover {
-		background: rgba(255, 255, 255, 0.08);
-		color: var(--text-primary);
-	}
-
-	.zoom-toggle-btn:active {
-		transform: scale(0.96);
-	}
-
 	/* Selection indicator */
 	.selection-indicator {
 		position: fixed;
@@ -789,8 +604,7 @@
 
 	/* Reduced motion support */
 	@media (prefers-reduced-motion: reduce) {
-		.square-wrapper,
-		.zoom-toggle-btn {
+		.square-wrapper {
 			transition: none;
 		}
 

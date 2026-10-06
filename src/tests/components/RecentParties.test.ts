@@ -16,23 +16,12 @@ import RecentParties from '$lib/components/RecentParties.svelte';
 import { goto } from '$app/navigation';
 import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
 import type { RecentParty } from '$lib/types';
+import { createMockRecentParty as createMockParty } from '../factories';
 
 const mockGetRecentParties = vi.mocked(getRecentParties);
 const mockRemoveRecentParty = vi.mocked(removeRecentParty);
 const mockUpdatePartyNickname = vi.mocked(updatePartyNickname);
 const mockGoto = vi.mocked(goto);
-
-function createMockParty(overrides: Partial<RecentParty> = {}): RecentParty {
-	return {
-		code: 'ABC123',
-		teamRowName: 'Seahawks',
-		teamColName: 'Patriots',
-		lastVisited: Date.now(),
-		status: 'filling',
-		isHost: false,
-		...overrides,
-	};
-}
 
 describe('RecentParties Component', () => {
 	beforeEach(() => {
@@ -462,6 +451,33 @@ describe('RecentParties Component', () => {
 			await vi.advanceTimersByTimeAsync(150);
 
 			expect(mockUpdatePartyNickname).toHaveBeenCalledWith('BLUR01', 'Blur Name');
+			vi.useRealTimers();
+		});
+
+		it('saves once when Enter and a pending blur race a slow save', async () => {
+			vi.useFakeTimers();
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'RACE01' })]);
+			// Hold the first save open so the blur timer fires while it is pending.
+			let finishSave = () => {};
+			mockUpdatePartyNickname.mockImplementation(
+				() => new Promise<void>((resolve) => (finishSave = resolve))
+			);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
+			});
+
+			await fireEvent.click(screen.getByLabelText('Add nickname'));
+			const input = screen.getByLabelText('Party nickname');
+			await fireEvent.input(input, { target: { value: 'Race Name' } });
+			await fireEvent.blur(input);
+			await fireEvent.keyDown(input, { key: 'Enter' });
+			await vi.advanceTimersByTimeAsync(150);
+			finishSave();
+
+			expect(mockUpdatePartyNickname).toHaveBeenCalledTimes(1);
+			expect(mockUpdatePartyNickname).toHaveBeenCalledWith('RACE01', 'Race Name');
 			vi.useRealTimers();
 		});
 
