@@ -5,6 +5,8 @@ import type { RecentParty } from './types';
 export const STORAGE_KEYS = {
 	userName: 'squares_user_name',
 	recentParties: 'squares_recent_parties',
+	// Set while localStorage holds a newer recent-parties list than IndexedDB.
+	recentPartiesInLocal: 'squares_recent_parties_in_local',
 	hostPins: 'squares_host_pins',
 	gestureHintShown: 'squares_gesture_hint_shown',
 } as const;
@@ -128,10 +130,12 @@ function getLocalRecentParties(): RecentParty[] {
 export async function getRecentParties(): Promise<RecentParty[]> {
 	if (!browser) return [];
 
+	// A failed IndexedDB write left the newer list in localStorage (see mutateRecentParties).
+	if (getLocalItem(STORAGE_KEYS.recentPartiesInLocal)) return getLocalRecentParties();
+
 	try {
 		const parties = await get<RecentParty[]>(STORAGE_KEYS.recentParties);
-		// No IndexedDB entry: the list may live in localStorage (see mutateRecentParties).
-		return parties ? withoutExpired(parties) : getLocalRecentParties();
+		return parties ? withoutExpired(parties) : [];
 	} catch {
 		return getLocalRecentParties();
 	}
@@ -139,16 +143,20 @@ export async function getRecentParties(): Promise<RecentParty[]> {
 
 // Read-modify-write the recent-parties list: IndexedDB first, localStorage if the
 // IndexedDB write fails. `fn` must be pure — it is re-applied on the fallback path.
-// When IndexedDB can still be read but not written (e.g. quota exceeded), the stale
-// IndexedDB entry is deleted so getRecentParties falls through to localStorage;
-// otherwise every later read would return the IndexedDB list and drop this write.
+// IndexedDB can stay readable while writes fail (e.g. quota exceeded), so a fallback
+// write also sets a marker that makes getRecentParties read localStorage; without it,
+// later reads would return the stale IndexedDB list and drop this write. The marker
+// is set only after the list write succeeds, and cleared by the next IndexedDB write.
 async function mutateRecentParties(fn: (parties: RecentParty[]) => RecentParty[]): Promise<void> {
 	try {
 		await set(STORAGE_KEYS.recentParties, fn(await getRecentParties()));
+		removeLocalItem(STORAGE_KEYS.recentPartiesInLocal);
 	} catch {
 		try {
-			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(fn(await getRecentParties())));
-			await del(STORAGE_KEYS.recentParties).catch(() => {});
+			const next = JSON.stringify(fn(await getRecentParties()));
+			if (setLocalItem(STORAGE_KEYS.recentParties, next)) {
+				setLocalItem(STORAGE_KEYS.recentPartiesInLocal, '1');
+			}
 		} catch {
 			// Silently fail
 		}
