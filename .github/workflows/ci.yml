@@ -23,11 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: ./.github/actions/setup-node-deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: ESLint
         run: npm run lint
       - name: Prettier
@@ -40,11 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: ./.github/actions/setup-node-deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: Vitest with coverage
         run: npm run test:coverage
       - name: Upload coverage artifact
@@ -56,7 +52,7 @@ jobs:
           retention-days: 7
       - name: Coverage comment on PR
         if: github.event_name == 'pull_request'
-        uses: MishaKav/jest-coverage-comment@fb83bcbaeb5ca467936175796f862a2992938833 # main @ 2026-04
+        uses: MishaKav/jest-coverage-comment@1b5d15445c8afba0c13bd00167bd31130b812d0a # v1.0.37
         with:
           coverage-summary-path: ./coverage/coverage-summary.json
           title: Test Coverage
@@ -70,11 +66,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: ./.github/actions/setup-node-deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: Build
         run: npm run build
       - name: Bundle size budget
@@ -87,26 +81,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: ./.github/actions/setup-node-deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
-        with:
-          version: 2.101.0
-      - name: Start local Supabase
-        run: supabase start --workdir .
-      - name: Capture local Supabase env
-        run: |
-          SUPABASE_ENV=$(supabase status --output env --workdir .)
-          ANON_KEY=$(echo "$SUPABASE_ENV" | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
-          SERVICE_ROLE_KEY=$(echo "$SUPABASE_ENV" | grep SERVICE_ROLE_KEY | cut -d'=' -f2- | tr -d '"')
-          echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
-      - name: Apply migrations
-        run: supabase db reset --workdir .
+      - uses: ./.github/actions/setup-supabase
       - name: Run integration tests
         run: npm run test:integration
       - name: Stop Supabase
@@ -118,28 +96,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: ./.github/actions/setup-node-deps
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
-        with:
-          version: 2.101.0
-      - name: Start local Supabase
-        run: supabase start --workdir .
-      - name: Capture local Supabase env
-        run: |
-          SUPABASE_ENV=$(supabase status --output env --workdir .)
-          ANON_KEY=$(echo "$SUPABASE_ENV" | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
-          SERVICE_ROLE_KEY=$(echo "$SUPABASE_ENV" | grep SERVICE_ROLE_KEY | cut -d'=' -f2- | tr -d '"')
-          echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
-      - name: Apply migrations
-        run: supabase db reset --workdir .
+      - uses: ./.github/actions/setup-supabase
       - name: Run Playwright
         run: npm run test:e2e
       - name: Upload Playwright report on failure

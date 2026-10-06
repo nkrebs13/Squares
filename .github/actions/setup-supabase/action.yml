@@ -1,0 +1,28 @@
+name: Set up local Supabase
+description: Installs the Supabase CLI, starts the local stack, exports its env to GITHUB_ENV and applies migrations. Run actions/checkout first.
+inputs:
+  cli-version:
+    description: Supabase CLI version
+    required: false
+    default: '2.101.0'
+runs:
+  using: composite
+  steps:
+    - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+      with:
+        version: ${{ inputs.cli-version }}
+    - name: Start local Supabase
+      shell: bash
+      run: supabase start --workdir .
+    - name: Capture local Supabase env
+      shell: bash
+      run: |
+        SUPABASE_ENV=$(supabase status --output env --workdir .)
+        ANON_KEY=$(echo "$SUPABASE_ENV" | grep ANON_KEY | cut -d'=' -f2- | tr -d '"')
+        SERVICE_ROLE_KEY=$(echo "$SUPABASE_ENV" | grep SERVICE_ROLE_KEY | cut -d'=' -f2- | tr -d '"')
+        echo "VITE_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+        echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+        echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+    - name: Apply migrations
+      shell: bash
+      run: supabase db reset --workdir .
