@@ -28,6 +28,7 @@ import type {
 	PartyStatus,
 	Quarter,
 } from '$lib/types';
+import { GRID_SIZE } from '$lib/constants';
 
 // ── Primitive guards ────────────────────────────────────────────────────────
 
@@ -162,9 +163,9 @@ export function parseNumbers(payload: unknown): Numbers | null {
 	if (!isObject(payload)) return warn('numbers', payload, 'not an object');
 	const p = payload;
 	if (!isStr(p.party_id)) return warn('numbers', p, 'party_id missing');
-	if (!isNumberArray(p.row_numbers) || p.row_numbers.length !== 10)
+	if (!isNumberArray(p.row_numbers) || p.row_numbers.length !== GRID_SIZE)
 		return warn('numbers', p, 'row_numbers not number[10]');
-	if (!isNumberArray(p.col_numbers) || p.col_numbers.length !== 10)
+	if (!isNumberArray(p.col_numbers) || p.col_numbers.length !== GRID_SIZE)
 		return warn('numbers', p, 'col_numbers not number[10]');
 	if (!isStr(p.assigned_at)) return warn('numbers', p, 'assigned_at missing');
 	return {

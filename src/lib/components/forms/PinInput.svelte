@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { PIN_LENGTH } from '$lib/constants';
-
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
 	interface Props {

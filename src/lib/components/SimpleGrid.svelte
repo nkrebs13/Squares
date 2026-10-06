@@ -232,7 +232,7 @@
 				<div
 					class="grid-11x11"
 					role="grid"
-					aria-label="Football squares grid, 10 by 10."
+					aria-label="Football squares grid, {GRID_SIZE} by {GRID_SIZE}."
 					aria-rowcount={GRID_SIZE + 1}
 					aria-colcount={GRID_SIZE + 1}
 				>
@@ -411,6 +411,7 @@
 		overflow-x: hidden;
 	}
 
+	/* 10 = GRID_SIZE, 11 = header column + GRID_SIZE (CSS can't import the constant). */
 	.grid-11x11 {
 		display: grid;
 		grid-template-columns: repeat(11, var(--cell-size));
