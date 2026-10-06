@@ -1,4 +1,4 @@
-import type { Quarter } from '$lib/types';
+import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
 
 export type PayoutSplits = Record<Quarter, number>;
 
@@ -35,4 +35,37 @@ export function buildPayoutRows(splits: PayoutSplits, totalPot: number): PayoutR
 		percent: splits[key],
 		amount: calculatePayoutAmount(totalPot, splits[key]),
 	}));
+}
+
+/** Name of the preset whose percentages are entered by hand. */
+export const CUSTOM_PRESET_NAME = 'Custom';
+
+/** The percentages a preset stands for. */
+export function presetToSplits(preset: SplitPreset): PayoutSplits {
+	return { q1: preset.q1, q2: preset.q2, q3: preset.q3, final: preset.final };
+}
+
+export function splitTotal(splits: PayoutSplits): number {
+	return splits.q1 + splits.q2 + splits.q3 + splits.final;
+}
+
+// Mirrors the DB CHECKs: each split an integer in 0..100, and they total 100.
+export function isValidSplit(splits: PayoutSplits): boolean {
+	const values = [splits.q1, splits.q2, splits.q3, splits.final];
+	return (
+		values.every((v) => Number.isInteger(v) && v >= 0 && v <= 100) && splitTotal(splits) === 100
+	);
+}
+
+/** Name of the non-custom preset matching these percentages, else 'Custom'. */
+export function findMatchingPresetName(splits: PayoutSplits): string {
+	const match = SPLIT_PRESETS.find(
+		(preset) =>
+			preset.name !== CUSTOM_PRESET_NAME &&
+			preset.q1 === splits.q1 &&
+			preset.q2 === splits.q2 &&
+			preset.q3 === splits.q3 &&
+			preset.final === splits.final
+	);
+	return match?.name ?? CUSTOM_PRESET_NAME;
 }

@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get } from 'svelte/store';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
-import type { Party, Scores, Square } from '$lib/types';
+import { toast } from '$lib/stores/toast';
+import { SPLIT_PRESETS, type Party, type Scores, type Square } from '$lib/types';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 
 const mockIdbGet = vi.mocked(idbGet);
@@ -25,6 +27,23 @@ vi.mock('$app/stores', async () => {
 // Import the page component AFTER mocks are set up
 import AdminPage from '../../routes/party/[code]/admin/+page.svelte';
 import { createMockParty, createMockScores, createMockSquare } from '../factories';
+
+/** Admin success/error feedback is surfaced through the global toast store. */
+function expectToast(matcher: string | RegExp) {
+	const messages = get(toast).map((t) => t.message);
+	const found =
+		typeof matcher === 'string'
+			? messages.includes(matcher)
+			: messages.some((m) => matcher.test(m));
+	expect(
+		found,
+		`expected a toast matching ${String(matcher)}, got ${JSON.stringify(messages)}`
+	).toBe(true);
+}
+
+function clearToasts() {
+	for (const t of get(toast)) toast.remove(t.id);
+}
 
 function createSquareForPlayer(
 	row: number,
@@ -124,6 +143,7 @@ function mockLoadPartyReload(reloadedScores: Scores, partyOverrides: Partial<Par
 describe('Admin Page - Score Entry', () => {
 	beforeEach(() => {
 		cleanup();
+		clearToasts();
 	});
 
 	describe('Score Entry Visibility', () => {
@@ -521,11 +541,9 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(lockButton);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(
-						'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
-					)
-				).toBeInTheDocument();
+				expectToast(
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+				);
 			});
 		});
 	});
@@ -754,7 +772,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(screen.getByText(/Score updated for Q1!/)).toBeInTheDocument();
+				expectToast(/Score updated for Q1!/);
 			});
 		});
 
@@ -861,7 +879,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(screen.getByText('DB error')).toBeInTheDocument();
+				expectToast('DB error');
 			});
 		});
 	});
@@ -964,7 +982,7 @@ describe('Admin Page - Score Entry', () => {
 
 			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
 
-			await waitFor(() => expect(screen.getByText(/Score updated for Final!/)).toBeInTheDocument());
+			await waitFor(() => expectToast(/Score updated for Final!/));
 			// Never advances past 'final' — deriveNextQuarter caps at 'final'.
 			expect(select.value).toBe('final');
 			// Inputs resync to final's committed values.
@@ -1024,7 +1042,7 @@ describe('Admin Page - Score Entry', () => {
 					})
 				);
 			});
-			expect(await screen.findByText('Party details updated!')).toBeInTheDocument();
+			await waitFor(() => expectToast('Party details updated!'));
 		});
 
 		it('uses NFL presets when editing future-game teams', async () => {
@@ -1105,6 +1123,87 @@ describe('Admin Page - Score Entry', () => {
 			renderAuthorizedAdmin({ status: 'filling' });
 
 			expect(screen.getByText('Payout Structure')).toBeInTheDocument();
+		});
+
+		it('highlights the preset matching the party splits on load', () => {
+			const [, equal] = SPLIT_PRESETS;
+			renderAuthorizedAdmin({
+				status: 'filling',
+				split_q1: equal.q1,
+				split_q2: equal.q2,
+				split_q3: equal.q3,
+				split_final: equal.final,
+			});
+
+			expect(screen.getByRole('button', { name: equal.name })).toHaveClass('btn-primary');
+			expect(screen.getByRole('button', { name: 'Rising' })).toHaveClass('btn-secondary');
+		});
+
+		it('highlights Custom when the party splits match no preset', () => {
+			renderAuthorizedAdmin({
+				status: 'filling',
+				split_q1: 5,
+				split_q2: 5,
+				split_q3: 5,
+				split_final: 85,
+			});
+
+			expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+			expect(screen.getByRole('button', { name: 'Rising' })).toHaveClass('btn-secondary');
+		});
+
+		describe('payout editing', () => {
+			function splitInputValues(): string[] {
+				return (['q1', 'q2', 'q3', 'final'] as const).map(
+					(key) => (document.getElementById(`split-${key}`) as HTMLInputElement).value
+				);
+			}
+
+			it('copies a preset into the four inputs when picked', async () => {
+				renderAuthorizedAdmin({ status: 'filling' });
+				const user = userEvent.setup();
+				const [, , bigFinish] = SPLIT_PRESETS;
+
+				await user.click(screen.getByRole('button', { name: bigFinish.name }));
+
+				expect(splitInputValues()).toEqual(
+					[bigFinish.q1, bigFinish.q2, bigFinish.q3, bigFinish.final].map(String)
+				);
+				expect(screen.getByRole('button', { name: bigFinish.name })).toHaveClass('btn-primary');
+			});
+
+			it('keeps the current input values when Custom is picked', async () => {
+				renderAuthorizedAdmin({ status: 'filling' });
+				const user = userEvent.setup();
+				const before = splitInputValues();
+
+				await user.click(screen.getByRole('button', { name: 'Custom' }));
+
+				expect(splitInputValues()).toEqual(before);
+				expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+			});
+
+			it('flips to Custom and shows the invalid total after an input change', async () => {
+				const [rising] = SPLIT_PRESETS;
+				renderAuthorizedAdmin({
+					status: 'filling',
+					split_q1: rising.q1,
+					split_q2: rising.q2,
+					split_q3: rising.q3,
+					split_final: rising.final,
+				});
+				expect(screen.getByRole('button', { name: rising.name })).toHaveClass('btn-primary');
+				expect(screen.getByText(/Total: 100%/)).toHaveTextContent('✓');
+
+				const q1 = document.getElementById('split-q1') as HTMLInputElement;
+				await fireEvent.input(q1, { target: { value: String(rising.q1 + 5) } });
+				await fireEvent.change(q1);
+
+				expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+				expect(screen.getByRole('button', { name: rising.name })).toHaveClass('btn-secondary');
+				expect(screen.getByText('Total: 105% (must be 100%)')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Save Payout Structure/i })).toBeDisabled();
+			});
 		});
 
 		it('previews payout amounts from the current pot and split', async () => {
@@ -1257,7 +1356,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
 
 			await waitFor(() => {
-				expect(screen.getByText('Invalid PIN')).toBeInTheDocument();
+				expectToast('Invalid PIN');
 			});
 
 			expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith('squares_pin_TEST123');
