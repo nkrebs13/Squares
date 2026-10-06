@@ -22,6 +22,7 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 
 - **Create flow**: `src/routes/create/+page.svelte` collects form state and calls `src/lib/services/createParty.ts`, which invokes the single transactional `create_party` RPC (migration 023). Inserts the party, 100 squares, and the scores row atomically — no client-side rollback needed.
 - **Game flow**: `src/lib/stores/game.ts` → RPCs + Realtime subscriptions
+- **Pending-op state**: `src/lib/stores/game-pending.ts` owns `pendingOperations`, the per-op 10s timeout, the snapshot/rollback helpers (`rollbackPendingOpIf`), and `applySquareUpdate`. Store import direction is `game-state` ← `game-pending` ← `game-realtime` ← `game-optimistic`; `game-pending` must never import from the latter two. Claim and unclaim share `runSingleOptimistic` in `game-optimistic.ts` (per-action differences live in `CLAIM_SPEC` / `UNCLAIM_SPEC`).
 - **Dual Realtime channels**: `subscribeToParty()` creates a broadcast channel (fast optimistic updates) AND a postgres_changes channel (5 tables: squares, parties, numbers, scores, winners). postgres_changes is source of truth.
 
 ### Optimistic Update Chain (do not alter)
@@ -32,7 +33,7 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 4. Broadcast sent via Supabase Realtime broadcast channel
 5. Timeout scheduled at 10,000ms
 6. **RPC fires via `.then()` pattern (non-blocking, NOT `await`)** — intentional, do not "improve" to await
-7. On success: `postgres_changes` clears pending op
+7. On success: `postgres_changes` calls `applySquareUpdate` (in `game-pending.ts`), which clears the pending op and its timeout
 8. On failure: rollback to `originalState`, broadcast `claim_rejected`, toast error
 
 ### State Machine

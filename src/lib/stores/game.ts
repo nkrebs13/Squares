@@ -1,5 +1,5 @@
 // Barrel re-export — all existing imports from '$lib/stores/game' continue working.
-// See game-state.ts, game-realtime.ts, game-optimistic.ts, game-admin.ts for implementations.
+// See game-state.ts, game-pending.ts, game-realtime.ts, game-optimistic.ts, game-admin.ts for implementations.
 
 export {
 	// Core stores
@@ -23,8 +23,6 @@ export {
 	playerSummary,
 	availableCount,
 	selectedPlayerFilter,
-	// Pending operations
-	pendingOperations,
 	// Functions
 	loadParty,
 	// Utilities
@@ -32,6 +30,9 @@ export {
 } from './game-state';
 
 export type { PlayerSummary } from './game-state';
+
+// Pending operations
+export { pendingOperations } from './game-pending';
 
 export {
 	subscribeToParty,

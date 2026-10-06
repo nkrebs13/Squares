@@ -43,7 +43,7 @@ function subscribeToParty(partyId: string, gameId: string | null) {
 
 2. **Resolution complexity.** Three sources of truth update the same `squares` store: local optimistic (instant), broadcast (~50ms), postgres_changes (~300ms). The pending-operations Map keys by `row-col` and serializes resolution. Documented inline in `game-optimistic.ts` and `game-realtime.ts`.
 
-3. **Testing surface area is bigger.** Each handler in `game-realtime.ts` has its own test cases for the four event types per table (INSERT/UPDATE/DELETE/?). The `apply*` functions in `game-state.ts` are designed for this — tests call `applySquareUpdate(payload)` directly without staging a full channel subscription.
+3. **Testing surface area is bigger.** Each handler in `game-realtime.ts` has its own test cases for the four event types per table (INSERT/UPDATE/DELETE/?). The `apply*` functions in `game-state.ts` (and `applySquareUpdate` in `game-pending.ts`) are designed for this — tests call `applySquareUpdate(payload)` directly without staging a full channel subscription.
 
 ### Failure modes and how we handle them
 
@@ -65,5 +65,6 @@ function subscribeToParty(partyId: string, gameId: string | null) {
 
 - `src/lib/stores/game-realtime.ts` — `subscribeToParty`, `setupBroadcastChannel`, `setupPartyChannel`
 - `src/lib/stores/game-state.ts` — `apply*` functions called by both channel paths
+- `src/lib/stores/game-pending.ts` — `pendingOperations`, pending timeouts, rollback helpers, `applySquareUpdate`
 - ADR-0002 (optimistic chain) — explains the local-update path that broadcast supplements
 - `src/lib/components/ConnectionBanner.svelte` — surfaces channel-failure states to the user

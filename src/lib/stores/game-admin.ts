@@ -7,11 +7,10 @@ import {
 	scores,
 	winners,
 	gameScores,
-	pendingOperations,
-	pendingTimeouts,
 	isLoading,
 	error,
 } from './game-state';
+import { pendingOperations, pendingTimeouts, clearSquareFields } from './game-pending';
 import { cleanupChannels } from './game-realtime';
 import { parseParty } from '$lib/validators/realtime';
 
@@ -248,11 +247,7 @@ export async function removePlayer(
 	// filter clear is needed here; a previous "belt and braces" block that duplicated
 	// it was provably unreachable and was removed.
 	squares.update((current) =>
-		current.map((s) =>
-			s.player_name_lower === playerNameLower
-				? { ...s, player_name: null, player_name_lower: null, claimed_at: null }
-				: s
-		)
+		current.map((s) => (s.player_name_lower === playerNameLower ? clearSquareFields(s) : s))
 	);
 
 	return { success: true, removedCount };
