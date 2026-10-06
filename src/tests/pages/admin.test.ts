@@ -3,7 +3,9 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { get } from 'svelte/store';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
+import { toast } from '$lib/stores/toast';
 import type { Party, Scores, Square } from '$lib/types';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 
@@ -25,6 +27,23 @@ vi.mock('$app/stores', async () => {
 // Import the page component AFTER mocks are set up
 import AdminPage from '../../routes/party/[code]/admin/+page.svelte';
 import { createMockParty, createMockScores, createMockSquare } from '../factories';
+
+/** Admin success/error feedback is surfaced through the global toast store. */
+function expectToast(matcher: string | RegExp) {
+	const messages = get(toast).map((t) => t.message);
+	const found =
+		typeof matcher === 'string'
+			? messages.includes(matcher)
+			: messages.some((m) => matcher.test(m));
+	expect(
+		found,
+		`expected a toast matching ${String(matcher)}, got ${JSON.stringify(messages)}`
+	).toBe(true);
+}
+
+function clearToasts() {
+	for (const t of get(toast)) toast.remove(t.id);
+}
 
 function createSquareForPlayer(
 	row: number,
@@ -124,6 +143,7 @@ function mockLoadPartyReload(reloadedScores: Scores, partyOverrides: Partial<Par
 describe('Admin Page - Score Entry', () => {
 	beforeEach(() => {
 		cleanup();
+		clearToasts();
 	});
 
 	describe('Score Entry Visibility', () => {
@@ -521,11 +541,9 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(lockButton);
 
 			await waitFor(() => {
-				expect(
-					screen.getByText(
-						'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
-					)
-				).toBeInTheDocument();
+				expectToast(
+					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+				);
 			});
 		});
 	});
@@ -754,7 +772,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(screen.getByText(/Score updated for Q1!/)).toBeInTheDocument();
+				expectToast(/Score updated for Q1!/);
 			});
 		});
 
@@ -861,7 +879,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(screen.getByText('DB error')).toBeInTheDocument();
+				expectToast('DB error');
 			});
 		});
 	});
@@ -964,7 +982,7 @@ describe('Admin Page - Score Entry', () => {
 
 			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
 
-			await waitFor(() => expect(screen.getByText(/Score updated for Final!/)).toBeInTheDocument());
+			await waitFor(() => expectToast(/Score updated for Final!/));
 			// Never advances past 'final' — deriveNextQuarter caps at 'final'.
 			expect(select.value).toBe('final');
 			// Inputs resync to final's committed values.
@@ -1024,7 +1042,7 @@ describe('Admin Page - Score Entry', () => {
 					})
 				);
 			});
-			expect(await screen.findByText('Party details updated!')).toBeInTheDocument();
+			await waitFor(() => expectToast('Party details updated!'));
 		});
 
 		it('uses NFL presets when editing future-game teams', async () => {
@@ -1257,7 +1275,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
 
 			await waitFor(() => {
-				expect(screen.getByText('Invalid PIN')).toBeInTheDocument();
+				expectToast('Invalid PIN');
 			});
 
 			expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith('squares_pin_TEST123');
