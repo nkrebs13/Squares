@@ -120,6 +120,7 @@
 			title="Matchup"
 			class="space-y-3"
 			pickersClass="space-y-3"
+			nameLabelClass="mt-2"
 		/>
 	</div>
 

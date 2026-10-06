@@ -21,8 +21,10 @@
 		class?: string;
 		/** Classes for the wrapper around the two pickers. */
 		pickersClass?: string;
-		/** Classes for the same-team warning and the matchup preview. */
-		feedbackClass?: string;
+		/** Classes for the same-team warning. */
+		warningClass?: string;
+		/** Classes for the matchup preview. */
+		previewClass?: string;
 	}
 
 	let {
@@ -38,7 +40,8 @@
 		nameMaxLength,
 		class: className = '',
 		pickersClass = '',
-		feedbackClass = '',
+		warningClass = '',
+		previewClass = '',
 	}: Props = $props();
 
 	const rowName = $derived(row.name.trim());
@@ -93,10 +96,10 @@
 	</div>
 </div>
 {#if bothNamed && !isDistinct}
-	<p class="text-sm text-error {feedbackClass}">Choose two different teams for the matchup.</p>
+	<p class="text-sm text-error {warningClass}">Choose two different teams for the matchup.</p>
 {/if}
 {#if bothNamed && isDistinct}
-	<div class="rounded-lg border border-white/10 p-3 {feedbackClass}">
+	<div class="rounded-lg border border-white/10 p-3 {previewClass}">
 		<div class="text-xs uppercase tracking-wide text-muted">Matchup preview</div>
 		<div class="mt-1 font-semibold">{rowName} vs {colName}</div>
 		<div class="mt-1 text-xs text-muted">

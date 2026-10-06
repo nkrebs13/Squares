@@ -244,7 +244,8 @@
 				labelClass="text-xs uppercase tracking-wide text-muted"
 				nameMaxLength={30}
 				pickersClass="mt-4 space-y-4"
-				feedbackClass="mt-3"
+				warningClass="mt-3"
+				previewClass="mt-4"
 			/>
 		</div>
 
