@@ -7,7 +7,6 @@ import type {
 	Scores,
 	Winner,
 	GridState,
-	OptimisticOperation,
 	GameScoresRow,
 	LiveScores,
 } from '$lib/types';
@@ -234,15 +233,6 @@ export function restoreSelectedPlayerFilter(snapshot: string | null | undefined)
 	}
 }
 
-// Track pending optimistic operations
-export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
-
-// Track timeout IDs for cleanup
-export const pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
-
-// Timeout for pending operations (10 seconds)
-export const PENDING_TIMEOUT_MS = 10000;
-
 // Helper to create square key
 export function squareKey(row: number, col: number): string {
 	return `${row}-${col}`;
@@ -255,23 +245,8 @@ export function squareKey(row: number, col: number): string {
 // row from postgres_changes (or refetched data) and updates the relevant
 // store. The transport layer is responsible for validating the payload first
 // (Phase 1's validators) so these functions can assume well-formed input.
-
-/** Apply an UPDATE on the squares table (single row by id). */
-export function applySquareUpdate(newSquare: Square): void {
-	const key = squareKey(newSquare.row_num, newSquare.col_num);
-	// DB is source of truth — clear any pending optimistic op + timeout for this square
-	const existingTimeout = pendingTimeouts.get(key);
-	if (existingTimeout) {
-		clearTimeout(existingTimeout);
-		pendingTimeouts.delete(key);
-	}
-	pendingOperations.update((ops) => {
-		const newOps = new Map(ops);
-		newOps.delete(key);
-		return newOps;
-	});
-	squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
-}
+// applySquareUpdate also clears pending optimistic state, so it lives in
+// game-pending.ts (which depends on this module, never the reverse).
 
 /** Apply an UPDATE on the parties table. */
 export function applyPartyUpdate(newParty: Party): void {
