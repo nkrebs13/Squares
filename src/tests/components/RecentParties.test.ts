@@ -454,6 +454,33 @@ describe('RecentParties Component', () => {
 			vi.useRealTimers();
 		});
 
+		it('saves once when Enter and a pending blur race a slow save', async () => {
+			vi.useFakeTimers();
+			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'RACE01' })]);
+			// Hold the first save open so the blur timer fires while it is pending.
+			let finishSave = () => {};
+			mockUpdatePartyNickname.mockImplementation(
+				() => new Promise<void>((resolve) => (finishSave = resolve))
+			);
+			render(RecentParties);
+
+			await vi.waitFor(() => {
+				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
+			});
+
+			await fireEvent.click(screen.getByLabelText('Add nickname'));
+			const input = screen.getByLabelText('Party nickname');
+			await fireEvent.input(input, { target: { value: 'Race Name' } });
+			await fireEvent.blur(input);
+			await fireEvent.keyDown(input, { key: 'Enter' });
+			await vi.advanceTimersByTimeAsync(150);
+			finishSave();
+
+			expect(mockUpdatePartyNickname).toHaveBeenCalledTimes(1);
+			expect(mockUpdatePartyNickname).toHaveBeenCalledWith('RACE01', 'Race Name');
+			vi.useRealTimers();
+		});
+
 		it('input click does not trigger navigation (stopPropagation)', async () => {
 			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'CLICK1' })]);
 			render(RecentParties);

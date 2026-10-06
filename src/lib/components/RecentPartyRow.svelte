@@ -66,10 +66,17 @@
 	async function saveEdit() {
 		if (!editing) return;
 
-		await onsavenickname(party.code, editValue.trim());
-
+		// Leave edit mode before awaiting so the Enter save and the pending blur
+		// save can't both pass the guard and write twice.
+		const nickname = editValue.trim();
 		editing = false;
 		editValue = '';
+		if (blurTimeoutId) {
+			clearTimeout(blurTimeoutId);
+			blurTimeoutId = null;
+		}
+
+		await onsavenickname(party.code, nickname);
 	}
 
 	function cancelEdit() {
