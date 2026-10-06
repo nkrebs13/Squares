@@ -49,8 +49,12 @@ export function splitTotal(splits: PayoutSplits): number {
 	return splits.q1 + splits.q2 + splits.q3 + splits.final;
 }
 
+// Mirrors the DB CHECKs: each split an integer in 0..100, and they total 100.
 export function isValidSplit(splits: PayoutSplits): boolean {
-	return splitTotal(splits) === 100;
+	const values = [splits.q1, splits.q2, splits.q3, splits.final];
+	return (
+		values.every((v) => Number.isInteger(v) && v >= 0 && v <= 100) && splitTotal(splits) === 100
+	);
 }
 
 /** Name of the non-custom preset matching these percentages, else 'Custom'. */

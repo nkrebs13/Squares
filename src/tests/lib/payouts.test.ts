@@ -47,6 +47,12 @@ describe('split helpers', () => {
 		expect(splitTotal(presetToSplits(equal))).toBe(100);
 		expect(isValidSplit(presetToSplits(equal))).toBe(true);
 		expect(isValidSplit({ q1: 30, q2: 25, q3: 25, final: 25 })).toBe(false);
+		// Totals 100 but breaks the per-split DB CHECK (0..100 integers).
+		expect(isValidSplit({ q1: -10, q2: 50, q3: 30, final: 30 })).toBe(false);
+		expect(isValidSplit({ q1: 120, q2: -20, q3: 0, final: 0 })).toBe(false);
+		expect(isValidSplit({ q1: 25.5, q2: 24.5, q3: 25, final: 25 })).toBe(false);
+		expect(isValidSplit({ q1: NaN, q2: 50, q3: 25, final: 25 })).toBe(false);
+		expect(isValidSplit({ q1: 0, q2: 0, q3: 0, final: 100 })).toBe(true);
 	});
 
 	it('finds the preset matching a split, else Custom', () => {
