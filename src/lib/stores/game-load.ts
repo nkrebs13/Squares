@@ -8,8 +8,15 @@
 // from() call order (tests queue from() mocks by call order).
 
 import { getSupabaseClient } from '$lib/supabase';
-import type { Party, GameScoresRow } from '$lib/types';
-import { parseGameScores, parseParty } from '$lib/validators/realtime';
+import type { Party, GameScoresRow, Square, Winner } from '$lib/types';
+import {
+	parseGameScores,
+	parseNumbers,
+	parseParty,
+	parseScores,
+	parseSquare,
+	parseWinner,
+} from '$lib/validators/realtime';
 import { logError, logWarn } from '$lib/utils/log';
 import { theme } from './theme';
 import {
@@ -118,9 +125,11 @@ export async function loadParty(code: string) {
 	try {
 		const supabase = getSupabaseClient();
 
-		const { data: partyData, error: partyError } = await fetchParty(supabase, code);
+		const { data: rawPartyData, error: partyError } = await fetchParty(supabase, code);
+		// An invalid party row is treated like a missing one.
+		const partyData = partyError ? null : parseParty(rawPartyData);
 
-		if (partyError || !partyData) {
+		if (!partyData) {
 			error.set('Party not found');
 			isLoading.set(false);
 			return false;
@@ -155,10 +164,11 @@ export async function loadParty(code: string) {
 			detectedGameScores
 		);
 
-		squares.set(squaresRes.data || []);
-		numbers.set(numbersRes.data);
-		scores.set(scoresRes.data);
-		winners.set(winnersRes.data || []);
+		// Validate each fetched row; invalid rows are dropped (single-row results become null).
+		squares.set((squaresRes.data ?? []).map(parseSquare).filter((r): r is Square => r !== null));
+		numbers.set(numbersRes.data ? parseNumbers(numbersRes.data) : null);
+		scores.set(scoresRes.data ? parseScores(scoresRes.data) : null);
+		winners.set((winnersRes.data ?? []).map(parseWinner).filter((r): r is Winner => r !== null));
 
 		// Handle game scores + home_team_is_row auto-correction
 		if (effectiveGameId) {
