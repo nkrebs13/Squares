@@ -1,5 +1,9 @@
 import { get, writable, type Readable } from 'svelte/store';
-import type { RealtimeChannel, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
+import type {
+	RealtimeChannel,
+	RealtimePostgresChangesPayload,
+	REALTIME_SUBSCRIBE_STATES,
+} from '@supabase/supabase-js';
 import { browser } from '$app/environment';
 import { getSupabaseClient } from '$lib/supabase';
 import type { BroadcastMessage } from '$lib/types';
@@ -40,10 +44,10 @@ import {
 /**
  * Per-channel reconnection state for handling connection failures.
  *
- * Cleanup semantics:
- * - When a component unmounts or party changes, resetReconnectState() is called
- * - This clears any pending reconnectTimeout to prevent stale closures from firing
- * - The reconnectAttempts counter is reset to allow fresh reconnection attempts
+ * Cleanup semantics (see teardownChannels):
+ * - When a component unmounts or party changes, every live channel is torn down
+ * - resetReconnectState() clears any pending reconnectTimeout so stale closures
+ *   never fire, and resets reconnectAttempts to allow fresh reconnection attempts
  * - Channel references are set to null to prevent memory leaks
  *
  * The cleanup order is important:
@@ -237,6 +241,22 @@ function handleChannelStatus(
 	}
 }
 
+/**
+ * Tear down every live channel in the fixed party → broadcast → game order:
+ * unsubscribe, drop the reference, cancel its reconnect state. Callers bump
+ * `currentGeneration` FIRST so the async CLOSED each unsubscribe() fires is
+ * treated as stale and cannot schedule a reconnect.
+ */
+function teardownChannels() {
+	for (const key of Object.keys(channelStates)) {
+		const state = channelStates[key];
+		if (!state.channel) continue;
+		state.channel.unsubscribe();
+		state.channel = null;
+		resetReconnectState(key);
+	}
+}
+
 // Helper to check if an operation is from this client
 function isOwnBroadcast(message: BroadcastMessage): boolean {
 	return message.clientId === clientId;
@@ -394,101 +414,96 @@ function setupBroadcastChannel(partyId: string, generation: number) {
 		});
 }
 
+type PostgresChangesPayload = RealtimePostgresChangesPayload<Record<string, unknown>>;
+
+/**
+ * The five tables the party channel listens to (postgres_changes is the source
+ * of truth). Each row is filtered to this party by `filterColumn`, and its
+ * handler validates the payload before applying it to state.
+ */
+const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
+	table: string;
+	filterColumn: 'party_id' | 'id';
+	handle: (payload: PostgresChangesPayload) => void;
+}> = [
+	{
+		table: 'squares',
+		filterColumn: 'party_id',
+		handle: (payload) => {
+			if (payload.eventType === 'UPDATE') {
+				const newSquare = parseSquare(payload.new);
+				if (newSquare) applySquareUpdate(newSquare);
+			}
+		},
+	},
+	{
+		table: 'parties',
+		filterColumn: 'id',
+		handle: (payload) => {
+			if (payload.eventType === 'UPDATE') {
+				const newParty = parseParty(payload.new);
+				if (newParty) applyPartyUpdate(newParty);
+			}
+		},
+	},
+	{
+		table: 'numbers',
+		filterColumn: 'party_id',
+		handle: (payload) => {
+			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+				const newNumbers = parseNumbers(payload.new);
+				if (newNumbers) applyNumbersUpdate(newNumbers);
+			}
+		},
+	},
+	{
+		table: 'scores',
+		filterColumn: 'party_id',
+		handle: (payload) => {
+			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+				const newScores = parseScores(payload.new);
+				if (newScores) applyScoresUpdate(newScores);
+			}
+		},
+	},
+	{
+		table: 'winners',
+		filterColumn: 'party_id',
+		handle: (payload) => {
+			if (payload.eventType === 'INSERT') {
+				const newWinner = parseWinner(payload.new);
+				if (newWinner) applyWinnerInsert(newWinner);
+			} else if (payload.eventType === 'UPDATE') {
+				const newWinner = parseWinner(payload.new);
+				if (newWinner) applyWinnerUpdate(newWinner);
+			} else if (payload.eventType === 'DELETE') {
+				const deleted = parseWinner(payload.old);
+				if (deleted) applyWinnerDelete(deleted);
+			}
+		},
+	},
+];
+
 function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	const token = ++channelStates.party.instanceToken;
-	channelStates.party.channel = supabase
-		.channel(`party:${partyId}`)
-		.on(
+	let channel = supabase.channel(`party:${partyId}`);
+	for (const { table, filterColumn, handle } of PARTY_TABLE_SUBSCRIPTIONS) {
+		channel = channel.on(
 			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'squares',
-				filter: `party_id=eq.${partyId}`,
-			},
-			(payload) => {
-				if (payload.eventType === 'UPDATE') {
-					const newSquare = parseSquare(payload.new);
-					if (newSquare) applySquareUpdate(newSquare);
-				}
-			}
-		)
-		.on(
-			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'parties',
-				filter: `id=eq.${partyId}`,
-			},
-			(payload) => {
-				if (payload.eventType === 'UPDATE') {
-					const newParty = parseParty(payload.new);
-					if (newParty) applyPartyUpdate(newParty);
-				}
-			}
-		)
-		.on(
-			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'numbers',
-				filter: `party_id=eq.${partyId}`,
-			},
-			(payload) => {
-				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					const newNumbers = parseNumbers(payload.new);
-					if (newNumbers) applyNumbersUpdate(newNumbers);
-				}
-			}
-		)
-		.on(
-			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'scores',
-				filter: `party_id=eq.${partyId}`,
-			},
-			(payload) => {
-				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-					const newScores = parseScores(payload.new);
-					if (newScores) applyScoresUpdate(newScores);
-				}
-			}
-		)
-		.on(
-			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'winners',
-				filter: `party_id=eq.${partyId}`,
-			},
-			(payload) => {
-				if (payload.eventType === 'INSERT') {
-					const newWinner = parseWinner(payload.new);
-					if (newWinner) applyWinnerInsert(newWinner);
-				} else if (payload.eventType === 'UPDATE') {
-					const newWinner = parseWinner(payload.new);
-					if (newWinner) applyWinnerUpdate(newWinner);
-				} else if (payload.eventType === 'DELETE') {
-					const deleted = parseWinner(payload.old);
-					if (deleted) applyWinnerDelete(deleted);
-				}
-			}
-		)
-		.subscribe((status) => {
-			handleChannelStatus(
-				'party',
-				status,
-				() => setupPartyChannel(partyId, generation),
-				generation,
-				token
-			);
-		});
+			{ event: '*', schema: 'public', table, filter: `${filterColumn}=eq.${partyId}` },
+			handle
+		);
+	}
+	channelStates.party.channel = channel.subscribe((status) => {
+		handleChannelStatus(
+			'party',
+			status,
+			() => setupPartyChannel(partyId, generation),
+			generation,
+			token
+		);
+	});
 }
 
 function setupGameChannel(gameId: string, generation: number) {
@@ -533,21 +548,9 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	const generation = ++currentGeneration;
 
 	// Unsubscribe from previous channels and clear reconnect state.
-	// IMPORTANT: resetReconnectState() must be called BEFORE setting up new channels
-	// to cancel any pending reconnect timeouts that might capture stale partyId/gameId.
-	if (channelStates.party.channel) {
-		channelStates.party.channel.unsubscribe();
-		resetReconnectState('party');
-	}
-	if (channelStates.broadcast.channel) {
-		channelStates.broadcast.channel.unsubscribe();
-		resetReconnectState('broadcast');
-	}
-	if (channelStates.game.channel) {
-		channelStates.game.channel.unsubscribe();
-		channelStates.game.channel = null;
-		resetReconnectState('game');
-	}
+	// IMPORTANT: this must run BEFORE setting up new channels, to cancel any
+	// pending reconnect timeouts that might capture stale partyId/gameId.
+	teardownChannels();
 
 	// Set up channels with reconnection support
 	setupBroadcastChannel(partyId, generation);
@@ -561,26 +564,12 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	return () => {
 		// Bump the generation so the CLOSED events from these unsubscribes are ignored.
 		++currentGeneration;
-		if (channelStates.party.channel) {
-			channelStates.party.channel.unsubscribe();
-			channelStates.party.channel = null;
-			resetReconnectState('party');
-		}
-		if (channelStates.broadcast.channel) {
-			channelStates.broadcast.channel.unsubscribe();
-			channelStates.broadcast.channel = null;
-			resetReconnectState('broadcast');
-		}
-		if (channelStates.game.channel) {
-			channelStates.game.channel.unsubscribe();
-			channelStates.game.channel = null;
-			resetReconnectState('game');
-		}
+		teardownChannels();
 	};
 }
 
 // Broadcast a message to other clients
-export function broadcast(partyId: string, message: Omit<BroadcastMessage, 'clientId'>) {
+export function broadcast(message: Omit<BroadcastMessage, 'clientId'>) {
 	if (!channelStates.broadcast.channel) return;
 
 	channelStates.broadcast.channel.send({
@@ -606,20 +595,6 @@ export function cleanupChannels() {
 	// Bump the generation so the CLOSED events from these unsubscribes are ignored
 	// and cannot resurrect a subscription after teardown.
 	++currentGeneration;
-	if (channelStates.party.channel) {
-		channelStates.party.channel.unsubscribe();
-		channelStates.party.channel = null;
-		resetReconnectState('party');
-	}
-	if (channelStates.broadcast.channel) {
-		channelStates.broadcast.channel.unsubscribe();
-		channelStates.broadcast.channel = null;
-		resetReconnectState('broadcast');
-	}
-	if (channelStates.game.channel) {
-		channelStates.game.channel.unsubscribe();
-		channelStates.game.channel = null;
-		resetReconnectState('game');
-	}
+	teardownChannels();
 	unregisterOfflineListeners();
 }
