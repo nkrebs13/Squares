@@ -7,6 +7,7 @@ import type {
 import { browser } from '$app/environment';
 import { getSupabaseClient } from '$lib/supabase';
 import type { BroadcastMessage } from '$lib/types';
+import { logWarn } from '$lib/utils/log';
 import {
 	parseSquare,
 	parseParty,
@@ -372,8 +373,7 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.single()
 		.then(({ data, error }) => {
 			if (error) {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn('[realtime] failed to refetch scores after broadcast:', error.message);
+				logWarn('[realtime] failed to refetch scores after broadcast:', error.message);
 				return;
 			}
 			const parsed = parseScores(data);
@@ -387,8 +387,7 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 		.order('quarter')
 		.then(({ data, error }) => {
 			if (error) {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn('[realtime] failed to refetch winners after broadcast:', error.message);
+				logWarn('[realtime] failed to refetch winners after broadcast:', error.message);
 				return;
 			}
 			const parsed = parseWinnerArray(data);

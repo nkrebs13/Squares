@@ -11,6 +11,7 @@ import type {
 	LiveScores,
 } from '$lib/types';
 import { parseGameScores, parseParty } from '$lib/validators/realtime';
+import { logError, logWarn } from '$lib/utils/log';
 import { theme } from './theme';
 import { userName, normalizePlayerName } from './user';
 
@@ -324,8 +325,7 @@ export async function loadParty(code: string) {
 				.limit(10);
 
 			if (activeGamesError) {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn('[loadParty] active game auto-detect failed:', activeGamesError.message);
+				logWarn('[loadParty] active game auto-detect failed:', activeGamesError.message);
 			} else {
 				detectedGameScores =
 					activeGames
@@ -386,8 +386,7 @@ export async function loadParty(code: string) {
 			// We still proceed because live scores are optional; realtime will pick up
 			// data when the game starts.
 			if (gameScoresError && gameScoresError.code !== 'PGRST116') {
-				// eslint-disable-next-line no-console -- diagnostic
-				console.warn(
+				logWarn(
 					`[loadParty] live game_scores fetch failed for game ${effectiveGameId}:`,
 					gameScoresError.message
 				);
@@ -402,8 +401,7 @@ export async function loadParty(code: string) {
 					.rpc('sync_party_home_team_mapping', { p_party_id: partyData.id })
 					.then(({ data, error: mappingError }) => {
 						if (mappingError) {
-							// eslint-disable-next-line no-console -- diagnostic
-							console.warn('[loadParty] failed to sync home_team_is_row:', mappingError.message);
+							logWarn('[loadParty] failed to sync home_team_is_row:', mappingError.message);
 							return;
 						}
 
@@ -423,8 +421,7 @@ export async function loadParty(code: string) {
 		// Preserve underlying message for diagnostics (logged + sent to Sentry);
 		// user-facing copy stays approachable.
 		const detail = e instanceof Error ? e.message : String(e);
-		// eslint-disable-next-line no-console -- diagnostic; Sentry hooks pick this up
-		console.error('[loadParty] fatal error loading party:', detail);
+		logError('[loadParty] fatal error loading party:', detail);
 		error.set("Couldn't load that party. Check your connection and try again.");
 		isLoading.set(false);
 		return false;
