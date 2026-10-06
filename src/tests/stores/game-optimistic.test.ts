@@ -17,12 +17,7 @@ import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
 import { createEmptyGrid, createMockParty, createMockSquare, mockThenable } from '../factories';
 
 function mockRpcResult(result: { data?: boolean; error?: { message: string } }) {
-	mockSupabaseClient.rpc.mockReturnValue({
-		then: (cb: (r: typeof result) => void) => {
-			cb(result);
-			return { catch: vi.fn() };
-		},
-	} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+	mockSupabaseClient.rpc.mockReturnValue(mockThenable(result));
 }
 
 function latestErrorToast(): string | undefined {
