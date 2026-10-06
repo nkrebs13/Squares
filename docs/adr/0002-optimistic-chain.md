@@ -38,7 +38,7 @@ export function claimSquareOptimistic(row: number, col: number): void {
         // 8. Rollback: restore originalState, broadcast claim_rejected, toast
       }
       // 7. Success path is implicit — postgres_changes UPDATE clears the
-      //    pending op via applySquareUpdate (in game-realtime.ts -> game-state.ts).
+      //    pending op via applySquareUpdate (in game-pending.ts).
     });
 }
 ```

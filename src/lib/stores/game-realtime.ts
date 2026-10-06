@@ -289,7 +289,6 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 		// Another user's claim was rejected - remove ONLY that user's pending claim.
 		// Match on the full remote op id (remote-<clientId>-<key>) so a rejection from
 		// one client can never roll back a different client's still-valid pending preview.
-		// Rollback to original state
 		rollbackPendingOpIf(key, (op) => op.id === `remote-${message.clientId}-${key}`);
 	} else if (message.type === 'unclaim_intent') {
 		// Another user is unclaiming - show optimistically.

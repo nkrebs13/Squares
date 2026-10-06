@@ -9,6 +9,7 @@ import {
 	pendingOperations,
 	cleanup,
 	subscribeToParty,
+	selectedPlayerFilter,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import { toast } from '$lib/stores/toast';
@@ -63,6 +64,21 @@ function createEmptyGrid(): Square[] {
 		}
 	}
 	return grid;
+}
+
+function mockRpcResult(result: { data?: boolean; error?: { message: string } }) {
+	mockSupabaseClient.rpc.mockReturnValue({
+		then: (cb: (r: typeof result) => void) => {
+			cb(result);
+			return { catch: vi.fn() };
+		},
+	} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+}
+
+function latestErrorToast(): string | undefined {
+	return get(toast)
+		.filter((t) => t.type === 'error')
+		.at(-1)?.message;
 }
 
 describe('claimSquareOptimistic', () => {
@@ -189,25 +205,10 @@ describe('claimSquareOptimistic', () => {
 		expect(ops.get('0-0')?.status).toBe('pending');
 	});
 
-	function mockClaimResult(result: { data?: boolean; error?: { message: string } }) {
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: (cb: (r: typeof result) => void) => {
-				cb(result);
-				return { catch: vi.fn() };
-			},
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
-	}
-
-	function latestErrorToast(): string | undefined {
-		return get(toast)
-			.filter((t) => t.type === 'error')
-			.at(-1)?.message;
-	}
-
 	it('toasts a retry message, not "already claimed", when the RPC errors', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockClaimResult({ error: { message: 'Failed to fetch' } });
+		mockRpcResult({ error: { message: 'Failed to fetch' } });
 
 		claimSquareOptimistic(0, 0);
 
@@ -218,7 +219,7 @@ describe('claimSquareOptimistic', () => {
 	it('toasts "already claimed" when the RPC returns false', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockClaimResult({ data: false });
+		mockRpcResult({ data: false });
 
 		claimSquareOptimistic(0, 0);
 
@@ -336,6 +337,25 @@ describe('unclaimSquareOptimistic', () => {
 		expect(ops.has('0-0')).toBe(true);
 		expect(ops.get('0-0')?.type).toBe('unclaim');
 	});
+	it.each([
+		['errors', { error: { message: 'Failed to fetch' } }],
+		['returns false', { data: false }],
+	] as const)(
+		'on rejection when the RPC %s, restores the square, the player filter, and toasts',
+		(_label, result) => {
+			party.set(createMockParty());
+			squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+			selectedPlayerFilter.set('alice');
+			mockRpcResult(result);
+
+			unclaimSquareOptimistic(0, 0);
+
+			expect(get(squares)[0].player_name).toBe('Alice');
+			expect(get(pendingOperations).has('0-0')).toBe(false);
+			expect(get(selectedPlayerFilter)).toBe('alice');
+			expect(latestErrorToast()).toBe("Couldn't unclaim that square — try again.");
+		}
+	);
 });
 
 describe('claimSquaresBatchOptimistic', () => {

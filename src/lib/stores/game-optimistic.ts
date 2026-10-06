@@ -49,9 +49,13 @@ interface SingleOptimisticSpec {
 	canAct: (existingSquare: Square, currentUser: string) => boolean;
 	/** The optimistic local change applied to the square. */
 	patch: (s: Square, currentUser: string) => Square;
-	/** Toast copy when the RPC errors vs. when it returns BOOLEAN false. */
+	/**
+	 * Toast copy when the RPC errors vs. when it returns BOOLEAN false. Only a
+	 * BOOLEAN false is a domain rejection; an RPC error (network, server) says
+	 * nothing about ownership. `rejectedToast` defaults to `errorToast`.
+	 */
 	errorToast: string;
-	rejectedToast: string;
+	rejectedToast?: string;
 }
 
 const CLAIM_SPEC: SingleOptimisticSpec = {
@@ -66,8 +70,6 @@ const CLAIM_SPEC: SingleOptimisticSpec = {
 		player_name_lower: normalizePlayerName(currentUser),
 		claimed_at: new Date().toISOString(),
 	}),
-	// Only a BOOLEAN false means the square was taken; an RPC error
-	// (network, server) says nothing about ownership.
 	errorToast: "Couldn't save that claim — try again.",
 	rejectedToast: 'Square already claimed',
 };
@@ -83,7 +85,6 @@ const UNCLAIM_SPEC: SingleOptimisticSpec = {
 		existingSquare.player_name_lower === normalizePlayerName(currentUser),
 	patch: (s) => clearSquareFields(s),
 	errorToast: "Couldn't unclaim that square — try again.",
-	rejectedToast: "Couldn't unclaim that square — try again.",
 };
 
 /**
@@ -92,11 +93,11 @@ const UNCLAIM_SPEC: SingleOptimisticSpec = {
  *
  * The full 8-step chain (also documented in CLAUDE.md):
  *   1. User action invokes claimSquareOptimistic / unclaimSquareOptimistic.
- *   2. Pending op added to `pendingOperations` (keyed "row-col") — see step 1 below.
- *   3. Local `squares` store updated immediately — see step 2 below.
- *   4. Broadcast sent on the Supabase Realtime broadcast channel — see step 3 below.
- *   5. Timeout scheduled (PENDING_TIMEOUT_MS, default 10s) — see step 4 below.
- *   6. RPC fires via `.then()`, NOT `await` — non-blocking — see step 5 below.
+ *   2. Pending op added to `pendingOperations` (keyed "row-col") (body step 1).
+ *   3. Local `squares` store updated immediately (body step 2).
+ *   4. Broadcast sent on the Supabase Realtime broadcast channel (body step 3).
+ *   5. Timeout scheduled (PENDING_TIMEOUT_MS, default 10s) (body step 4).
+ *   6. RPC fires via `.then()`, NOT `await` — non-blocking (body step 5).
  *      Why .then(): the function returns immediately so the UI doesn't block;
  *      changing this to `await` would defeat the optimistic UX. Do not refactor.
  *   7. On success: `postgres_changes` (transport layer) calls
@@ -201,7 +202,7 @@ function runSingleOptimistic(spec: SingleOptimisticSpec, row: number, col: numbe
 					}
 				);
 
-				toast.error(rpcError ? spec.errorToast : spec.rejectedToast);
+				toast.error(rpcError ? spec.errorToast : (spec.rejectedToast ?? spec.errorToast));
 			}
 			// Success case: postgres_changes will clear the pending operation
 		});

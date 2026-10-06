@@ -13,7 +13,7 @@ import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
 import { squares, squareKey, restoreSelectedPlayerFilter } from './game-state';
 
-export type SquareSnapshot = OptimisticOperation['originalState'];
+type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
 
 // Track pending optimistic operations
 export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
@@ -49,7 +49,7 @@ export function clearSquareFields(s: Square): Square {
 }
 
 /** Restore one square's ownership fields to a previously captured snapshot. */
-export function restoreSquare(row: number, col: number, originalState: SquareSnapshot): void {
+function restoreSquare(row: number, col: number, originalState: SquareSnapshot): void {
 	squares.update((current) =>
 		current.map((s) =>
 			s.row_num === row && s.col_num === col ? withSnapshot(s, originalState) : s
@@ -65,7 +65,7 @@ export function setPendingOp(key: string, op: OptimisticOperation): void {
 	});
 }
 
-export function deletePendingOp(key: string): void {
+function deletePendingOp(key: string): void {
 	pendingOperations.update((ops) => {
 		const newOps = new Map(ops);
 		newOps.delete(key);
@@ -81,7 +81,8 @@ export function deletePendingOp(key: string): void {
  * the check and the delete (a get()+delete split would reintroduce that race), and
  * `squares` subscribers see the restored square before `pendingOperations`
  * subscribers see the op removed — the same order as the hand-written blocks this
- * replaced.
+ * replaced. The squares write (and any broadcast in `onRollback`) is a nested
+ * side effect inside the updater on purpose; do not hoist or reorder it.
  */
 export function rollbackPendingOpIf(
 	key: string,
