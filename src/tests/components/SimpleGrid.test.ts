@@ -707,7 +707,6 @@ describe('SimpleGrid Component', () => {
 				row: 0,
 				col: 0,
 				timestamp: Date.now(),
-				status: 'pending',
 				originalState: { player_name: null, player_name_lower: null, claimed_at: null },
 			});
 			pendingOperations.set(ops);

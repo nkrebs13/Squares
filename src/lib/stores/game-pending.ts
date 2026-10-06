@@ -113,7 +113,7 @@ export function schedulePendingTimeout(key: string) {
 		// Operation timed out - rollback
 		rollbackPendingOpIf(
 			key,
-			(op) => op.status === 'pending',
+			() => true,
 			(op) => {
 				// A rolled-back unclaim restores the square, so restore any filter the
 				// optimistic clear nulled too (no-op for claim ops / unchanged filters).

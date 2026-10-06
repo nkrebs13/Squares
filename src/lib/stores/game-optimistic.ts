@@ -130,7 +130,6 @@ function runSingleOptimistic(spec: SingleOptimisticSpec, row: number, col: numbe
 		row,
 		col,
 		timestamp,
-		status: 'pending',
 		originalState: snapshotSquare(existingSquare),
 	};
 
@@ -254,7 +253,6 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 					row: cell.row,
 					col: cell.col,
 					timestamp,
-					status: 'pending' as const,
 					originalState: snapshotSquare(cell.square),
 				},
 			};
