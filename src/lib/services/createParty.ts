@@ -2,7 +2,7 @@ import { getSupabaseClient } from '$lib/supabase';
 import { parseParty } from '$lib/validators/realtime';
 import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 import { type Party } from '$lib/types';
-import { humanizeRpcError, type RpcErrorRule } from '$lib/utils/rpcError';
+import { humanizeRpcError, PARTY_FIELD_RULES, type RpcErrorRule } from '$lib/utils/rpcError';
 
 /**
  * Input for creating a new party.
@@ -42,9 +42,7 @@ const CREATE_PARTY_ERROR_RULES: readonly RpcErrorRule[] = [
 	[/4 digits/i, 'PIN must be exactly 4 digits.'],
 	[/sum to exactly 100/i, 'Prize splits must total 100%.'],
 	[/host_name/i, 'Please enter a host name.'],
-	[/event_name/i, 'Event name must be 80 characters or fewer.'],
-	[/different teams/i, 'Choose two different teams for the matchup.'],
-	[/colors/i, 'Team colors must be valid hex colors.'],
+	...PARTY_FIELD_RULES,
 	[/square_price/i, 'Square price must be greater than 0.'],
 	[/unique party code/i, 'Could not generate a unique party code — please try again.'],
 ];

@@ -37,41 +37,6 @@ describe('lockParty', () => {
 		});
 	});
 
-	it('returns error on RPC error', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'DB error' },
-		});
-
-		const result = await lockParty('1234');
-		// The humanized RPC error is passed through (it used to be discarded for
-		// the generic copy, which is now only the empty-message fallback).
-		expect(result).toEqual({ success: false, error: 'DB error' });
-	});
-
-	it('strips the ERROR: prefix from a passed-through RPC error', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'ERROR:  permission denied for function' },
-		});
-
-		const result = await lockParty('1234');
-		expect(result).toEqual({ success: false, error: 'permission denied for function' });
-	});
-
-	it('falls back to the generic copy when the RPC error has no message', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: '' } });
-
-		const result = await lockParty('1234');
-		expect(result).toEqual({
-			success: false,
-			error: 'Failed to lock party. Please try again.',
-		});
-	});
-
 	it('returns error when data is false', async () => {
 		party.set(createMockParty());
 		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
@@ -118,41 +83,6 @@ describe('updateScore', () => {
 			const result = await updateScore('1234', q, 10, 20);
 			expect(result).toEqual({ success: true });
 		}
-	});
-
-	it('returns error on RPC error', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'DB error' },
-		});
-
-		const result = await updateScore('1234', 'q1', 14, 7);
-		// The humanized RPC error is passed through (it used to be discarded for
-		// the generic copy, which is now only the empty-message fallback).
-		expect(result).toEqual({ success: false, error: 'DB error' });
-	});
-
-	it('strips the ERROR: prefix from a passed-through RPC error', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'ERROR:  permission denied for function' },
-		});
-
-		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result).toEqual({ success: false, error: 'permission denied for function' });
-	});
-
-	it('falls back to the generic copy when the RPC error has no message', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: '' } });
-
-		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result).toEqual({
-			success: false,
-			error: 'Failed to update score. Please try again.',
-		});
 	});
 
 	it('returns a truthful error when data is false, without asserting the PIN is the sole cause', async () => {
@@ -648,39 +578,36 @@ describe('deleteParty', () => {
 			p_pin: '1234',
 		});
 	});
+});
 
-	it('returns error on Supabase error', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'DB error' },
-		});
-
-		const result = await deleteParty('1234');
-		// The humanized RPC error is passed through (it used to be discarded for
-		// the generic copy, which is now only the empty-message fallback).
-		expect(result).toEqual({ success: false, error: 'DB error' });
+describe('lock / score / delete: RPC error copy', () => {
+	beforeEach(() => {
+		cleanup();
 	});
 
-	it('strips the ERROR: prefix from a passed-through RPC error', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'ERROR:  permission denied for function' },
-		});
+	it.each([
+		['lockParty', () => lockParty('1234'), 'Failed to lock party. Please try again.'],
+		[
+			'updateScore',
+			() => updateScore('1234', 'q1', 14, 7),
+			'Failed to update score. Please try again.',
+		],
+		['deleteParty', () => deleteParty('1234'), 'Failed to delete party. Please try again.'],
+	])(
+		'%s passes the humanized RPC error through, generic copy only as fallback',
+		async (_name, call, generic) => {
+			party.set(createMockParty({ status: 'active' }));
+			const rejectWith = (message: string) =>
+				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
 
-		const result = await deleteParty('1234');
-		expect(result).toEqual({ success: false, error: 'permission denied for function' });
-	});
+			rejectWith('DB error');
+			expect(await call()).toEqual({ success: false, error: 'DB error' });
 
-	it('falls back to the generic copy when the RPC error has no message', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: '' } });
+			rejectWith('ERROR:  permission denied for function');
+			expect(await call()).toEqual({ success: false, error: 'permission denied for function' });
 
-		const result = await deleteParty('1234');
-		expect(result).toEqual({
-			success: false,
-			error: 'Failed to delete party. Please try again.',
-		});
-	});
+			rejectWith('');
+			expect(await call()).toEqual({ success: false, error: generic });
+		}
+	);
 });

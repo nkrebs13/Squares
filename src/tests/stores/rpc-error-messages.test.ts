@@ -4,10 +4,14 @@
  * Written BEFORE the per-call-site humanize*Error copies were folded into one
  * shared `humanizeRpcError` util, to pin each call site's exact output strings
  * through its public entry point. If any row changes, a user-visible error
- * message changed.
+ * message changed. Each call site's fallback copy is pinned by the network
+ * table at the bottom (empty/whitespace handling is covered in rpcError.test.ts).
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+	lockParty,
+	updateScore,
+	deleteParty,
 	updatePartyDetails,
 	updatePayoutStructure,
 	removePlayer,
@@ -15,36 +19,21 @@ import {
 	cleanup,
 } from '$lib/stores/game';
 import { createParty } from '$lib/services/createParty';
-import type { Party } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-
-function fillingParty(): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-	};
-}
+import { createMockParty } from '../factories';
 
 type Row = [raw: string, expected: string];
+
+const SPLITS = { q1: 25, q2: 25, q3: 25, final: 25 };
+const DETAILS = {
+	eventName: 'Big Game',
+	kickoffAt: null,
+	teamRowName: 'Eagles',
+	teamColName: 'Chiefs',
+	teamRowColor: '#004C54',
+	teamColColor: '#E31837',
+};
+const CREATE_INPUT = { hostName: 'Nathan', hostPin: '1234', squarePrice: 1, splits: SPLITS };
 
 function rejectNextRpc(message: string) {
 	mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
@@ -53,7 +42,7 @@ function rejectNextRpc(message: string) {
 describe('RPC error copy (characterization)', () => {
 	beforeEach(() => {
 		cleanup();
-		party.set(fillingParty());
+		party.set(createMockParty());
 	});
 
 	const payoutRows: Row[] = [
@@ -62,12 +51,10 @@ describe('RPC error copy (characterization)', () => {
 		['splits must sum to exactly 100 (got 90)', 'Splits must add up to 100%'],
 		['each split must be between 0 and 100', 'Each split must be between 0% and 100%.'],
 		['ERROR: all split values must be provided', 'all split values must be provided'],
-		['  ', 'Failed to update payout structure. Please try again.'],
-		['', 'Failed to update payout structure. Please try again.'],
 	];
 	it.each(payoutRows)('updatePayoutStructure: %j → %j', async (raw, expected) => {
 		rejectNextRpc(raw);
-		const result = await updatePayoutStructure('1234', { q1: 25, q2: 25, q3: 25, final: 25 });
+		const result = await updatePayoutStructure('1234', SPLITS);
 		expect(result).toEqual({ success: false, error: expected });
 	});
 
@@ -83,18 +70,10 @@ describe('RPC error copy (characterization)', () => {
 		['team_col_name must be non-empty after trim', 'Team names cannot be blank.'],
 		['team colors must be 6-digit hex values', 'Team colors must be valid hex colors.'],
 		['ERROR: party not found', 'party not found'],
-		['', 'Failed to update party details. Please try again.'],
 	];
 	it.each(detailsRows)('updatePartyDetails: %j → %j', async (raw, expected) => {
 		rejectNextRpc(raw);
-		const result = await updatePartyDetails('1234', {
-			eventName: 'Big Game',
-			kickoffAt: null,
-			teamRowName: 'Eagles',
-			teamColName: 'Chiefs',
-			teamRowColor: '#004C54',
-			teamColColor: '#E31837',
-		});
+		const result = await updatePartyDetails('1234', DETAILS);
 		expect(result).toEqual({ success: false, error: expected });
 	});
 
@@ -106,7 +85,6 @@ describe('RPC error copy (characterization)', () => {
 		],
 		['player name is required', 'Player name is required'],
 		['ERROR: party not found', 'party not found'],
-		['', 'Failed to remove player. Please try again.'],
 	];
 	it.each(removeRows)('removePlayer: %j → %j', async (raw, expected) => {
 		rejectNextRpc(raw);
@@ -127,16 +105,51 @@ describe('RPC error copy (characterization)', () => {
 			'Could not generate a unique party code — please try again.',
 		],
 		['ERROR: something unexpected', 'something unexpected'],
-		['', 'Failed to create party. Please try again.'],
 	];
 	it.each(createRows)('createParty: %j → %j', async (raw, expected) => {
 		rejectNextRpc(raw);
-		const result = await createParty({
-			hostName: 'Nathan',
-			hostPin: '1234',
-			squarePrice: 1,
-			splits: { q1: 25, q2: 25, q3: 25, final: 25 },
-		});
+		const result = await createParty(CREATE_INPUT);
 		expect(result).toEqual({ ok: false, error: expected });
+	});
+
+	// supabase-js reports a rejected fetch as `${name}: ${message}`; none of these
+	// may reach the user — every call site shows its own fallback copy instead.
+	const networkMessages = [
+		'TypeError: Failed to fetch', // Chrome
+		'TypeError: NetworkError when attempting to fetch resource.', // Firefox
+		'TypeError: Load failed', // Safari
+		'TypeError: fetch failed', // Node / undici
+		'AbortError: The operation was aborted.',
+	];
+	const callSites: [name: string, run: () => Promise<unknown>, fallback: string][] = [
+		['lockParty', () => lockParty('1234'), 'Failed to lock party. Please try again.'],
+		[
+			'updateScore',
+			() => updateScore('1234', 'q1', 14, 7),
+			'Failed to update score. Please try again.',
+		],
+		['deleteParty', () => deleteParty('1234'), 'Failed to delete party. Please try again.'],
+		[
+			'updatePayoutStructure',
+			() => updatePayoutStructure('1234', SPLITS),
+			'Failed to update payout structure. Please try again.',
+		],
+		[
+			'updatePartyDetails',
+			() => updatePartyDetails('1234', DETAILS),
+			'Failed to update party details. Please try again.',
+		],
+		[
+			'removePlayer',
+			() => removePlayer('1234', 'alice'),
+			'Failed to remove player. Please try again.',
+		],
+		['createParty', () => createParty(CREATE_INPUT), 'Failed to create party. Please try again.'],
+	];
+	describe.each(callSites)('%s on a network failure', (_name, run, fallback) => {
+		it.each(networkMessages)('%j → its fallback copy', async (raw) => {
+			rejectNextRpc(raw);
+			expect(await run()).toMatchObject({ error: fallback });
+		});
 	});
 });

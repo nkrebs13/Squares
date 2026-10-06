@@ -20,7 +20,23 @@ describe('humanizeRpcError', () => {
 		expect(humanizeRpcError('host name is blank', 'fallback', rules)).toBe('second');
 	});
 
-	it('matches rules against the normalized message, not the raw one', () => {
-		expect(humanizeRpcError('ERROR: boom', 'fallback', [[/^boom$/, 'matched']])).toBe('matched');
+	it.each([
+		'TypeError: Failed to fetch',
+		'TypeError: NetworkError when attempting to fetch resource.',
+		'TypeError: Load failed',
+		'TypeError: fetch failed',
+		'FetchError: request to https://x failed',
+		'AbortError: The operation was aborted.',
+		'Network request failed',
+	])('maps network failure %j to the fallback, ahead of any rule', (raw) => {
+		expect(humanizeRpcError(raw, 'fallback', [[/fetch|load|abort|network/i, 'rule']])).toBe(
+			'fallback'
+		);
+	});
+
+	it('does not treat ordinary Postgres messages as network failures', () => {
+		expect(humanizeRpcError('ERROR: type error in column', 'fallback')).toBe(
+			'type error in column'
+		);
 	});
 });
