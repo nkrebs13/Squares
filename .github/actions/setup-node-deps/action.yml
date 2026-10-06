@@ -1,0 +1,16 @@
+name: Set up Node and install dependencies
+description: setup-node with npm cache, then npm ci. Run actions/checkout first.
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: '22'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+    - run: npm ci
+      shell: bash
