@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import {
 	getUserName,
@@ -406,6 +406,55 @@ describe('updatePartyNickname localStorage fallback', () => {
 		if (!stored) return;
 		const parsed = JSON.parse(stored);
 		expect(parsed[0].nickname).toBe('My Game');
+	});
+});
+
+describe('recent parties when IndexedDB is readable but not writable', () => {
+	// IndexedDB reads work but writes fail (e.g. quota exceeded).
+	let idb: Map<string, unknown>;
+	beforeEach(() => {
+		idb = new Map<string, unknown>([
+			['squares_recent_parties', [createRecentParty({ code: 'OLD001' })]],
+		]);
+		mockIdbGet.mockImplementation(async (key) => idb.get(key as string) as never);
+		mockIdbSet.mockRejectedValue(new Error('QuotaExceededError'));
+	});
+
+	const codes = async () => (await getRecentParties()).map((p) => p.code);
+
+	it('keeps a saved party visible after an IndexedDB write failure', async () => {
+		await saveRecentParty(createRecentParty({ code: 'NEW001' }));
+
+		expect(await codes()).toEqual(['NEW001', 'OLD001']);
+		// The IndexedDB copy is never deleted.
+		expect(idb.get('squares_recent_parties')).toHaveLength(1);
+	});
+
+	it('leaves IndexedDB as the source when the localStorage write also fails', async () => {
+		vi.mocked(localStorage.setItem).mockImplementation(() => {
+			throw new Error('QuotaExceededError');
+		});
+
+		await saveRecentParty(createRecentParty({ code: 'NEW001' }));
+
+		expect(await codes()).toEqual(['OLD001']);
+	});
+
+	it('moves back to IndexedDB once writes succeed again', async () => {
+		await saveRecentParty(createRecentParty({ code: 'NEW001' }));
+		mockIdbSet.mockImplementation(async (key, value) => {
+			idb.set(key as string, value);
+		});
+
+		await saveRecentParty(createRecentParty({ code: 'NEW002' }));
+
+		expect(await codes()).toEqual(['NEW002', 'NEW001', 'OLD001']);
+		expect(localStorage.getItem('squares_recent_parties_in_local')).toBeNull();
+		expect((idb.get('squares_recent_parties') as { code: string }[]).map((p) => p.code)).toEqual([
+			'NEW002',
+			'NEW001',
+			'OLD001',
+		]);
 	});
 });
 

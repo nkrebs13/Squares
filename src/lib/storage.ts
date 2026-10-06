@@ -2,9 +2,11 @@ import { get, set, del } from 'idb-keyval';
 import { browser } from '$app/environment';
 import type { RecentParty } from './types';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
 	userName: 'squares_user_name',
 	recentParties: 'squares_recent_parties',
+	// Set while localStorage holds a newer recent-parties list than IndexedDB.
+	recentPartiesInLocal: 'squares_recent_parties_in_local',
 	hostPins: 'squares_host_pins',
 	gestureHintShown: 'squares_gesture_hint_shown',
 } as const;
@@ -15,85 +17,49 @@ export const partyNicknameKey = (code: string) => `squares_nickname_${code}`;
 const MAX_RECENT_PARTIES = 10;
 const PARTY_EXPIRY_DAYS = 90;
 
-function getStorageItem(storage: Storage, key: string): string | null {
-	try {
-		return storage.getItem(key);
-	} catch {
-		return null;
-	}
+// Web Storage access can throw (blocked storage, quota, or even reading the
+// `localStorage`/`sessionStorage` global itself), so `resolve` is called lazily
+// inside the try block. All helpers no-op safely off the browser.
+function makeStorage(resolve: () => Storage) {
+	return {
+		get(key: string): string | null {
+			if (!browser) return null;
+			try {
+				return resolve().getItem(key);
+			} catch {
+				return null;
+			}
+		},
+		set(key: string, value: string): boolean {
+			if (!browser) return false;
+			try {
+				resolve().setItem(key, value);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+		remove(key: string): boolean {
+			if (!browser) return false;
+			try {
+				resolve().removeItem(key);
+				return true;
+			} catch {
+				return false;
+			}
+		},
+	};
 }
 
-function setStorageItem(storage: Storage, key: string, value: string): boolean {
-	try {
-		storage.setItem(key, value);
-		return true;
-	} catch {
-		return false;
-	}
-}
+const localStore = makeStorage(() => localStorage);
+const sessionStore = makeStorage(() => sessionStorage);
 
-function removeStorageItem(storage: Storage, key: string): boolean {
-	try {
-		storage.removeItem(key);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-export function getLocalItem(key: string): string | null {
-	if (!browser) return null;
-	try {
-		return getStorageItem(localStorage, key);
-	} catch {
-		return null;
-	}
-}
-
-export function setLocalItem(key: string, value: string): boolean {
-	if (!browser) return false;
-	try {
-		return setStorageItem(localStorage, key, value);
-	} catch {
-		return false;
-	}
-}
-
-export function removeLocalItem(key: string): boolean {
-	if (!browser) return false;
-	try {
-		return removeStorageItem(localStorage, key);
-	} catch {
-		return false;
-	}
-}
-
-export function getSessionItem(key: string): string | null {
-	if (!browser) return null;
-	try {
-		return getStorageItem(sessionStorage, key);
-	} catch {
-		return null;
-	}
-}
-
-export function setSessionItem(key: string, value: string): boolean {
-	if (!browser) return false;
-	try {
-		return setStorageItem(sessionStorage, key, value);
-	} catch {
-		return false;
-	}
-}
-
-export function removeSessionItem(key: string): boolean {
-	if (!browser) return false;
-	try {
-		return removeStorageItem(sessionStorage, key);
-	} catch {
-		return false;
-	}
-}
+export const getLocalItem = (key: string): string | null => localStore.get(key);
+export const setLocalItem = (key: string, value: string): boolean => localStore.set(key, value);
+export const removeLocalItem = (key: string): boolean => localStore.remove(key);
+export const getSessionItem = (key: string): string | null => sessionStore.get(key);
+export const setSessionItem = (key: string, value: string): boolean => sessionStore.set(key, value);
+export const removeSessionItem = (key: string): boolean => sessionStore.remove(key);
 
 // Request persistent storage for better data durability
 export async function requestPersistentStorage(): Promise<boolean> {
@@ -146,24 +112,53 @@ export async function clearUserName(): Promise<void> {
 }
 
 // Recent parties storage
+function withoutExpired(parties: RecentParty[]): RecentParty[] {
+	const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+	const now = Date.now();
+	return parties.filter((p) => now - p.lastVisited < expiryMs);
+}
+
+function getLocalRecentParties(): RecentParty[] {
+	try {
+		const stored = getLocalItem(STORAGE_KEYS.recentParties);
+		return stored ? withoutExpired(JSON.parse(stored)) : [];
+	} catch {
+		return [];
+	}
+}
+
 export async function getRecentParties(): Promise<RecentParty[]> {
 	if (!browser) return [];
 
+	// A failed IndexedDB write left the newer list in localStorage (see mutateRecentParties).
+	if (getLocalItem(STORAGE_KEYS.recentPartiesInLocal)) return getLocalRecentParties();
+
 	try {
 		const parties = await get<RecentParty[]>(STORAGE_KEYS.recentParties);
-		if (!parties) return [];
-
-		// Filter out expired parties
-		const now = Date.now();
-		const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-		return parties.filter((p) => now - p.lastVisited < expiryMs);
+		return parties ? withoutExpired(parties) : [];
 	} catch {
-		// Try localStorage fallback
+		return getLocalRecentParties();
+	}
+}
+
+// Read-modify-write the recent-parties list: IndexedDB first, localStorage if the
+// IndexedDB write fails. `fn` must be pure — it is re-applied on the fallback path.
+// IndexedDB can stay readable while writes fail (e.g. quota exceeded), so a fallback
+// write also sets a marker that makes getRecentParties read localStorage; without it,
+// later reads would return the stale IndexedDB list and drop this write. The marker
+// is set only after the list write succeeds, and cleared by the next IndexedDB write.
+async function mutateRecentParties(fn: (parties: RecentParty[]) => RecentParty[]): Promise<void> {
+	try {
+		await set(STORAGE_KEYS.recentParties, fn(await getRecentParties()));
+		removeLocalItem(STORAGE_KEYS.recentPartiesInLocal);
+	} catch {
 		try {
-			const stored = getLocalItem(STORAGE_KEYS.recentParties);
-			return stored ? JSON.parse(stored) : [];
+			const next = JSON.stringify(fn(await getRecentParties()));
+			if (setLocalItem(STORAGE_KEYS.recentParties, next)) {
+				setLocalItem(STORAGE_KEYS.recentPartiesInLocal, '1');
+			}
 		} catch {
-			return [];
+			// Silently fail
 		}
 	}
 }
@@ -171,9 +166,7 @@ export async function getRecentParties(): Promise<RecentParty[]> {
 export async function saveRecentParty(party: RecentParty): Promise<void> {
 	if (!browser) return;
 
-	try {
-		let parties = await getRecentParties();
-
+	await mutateRecentParties((parties) => {
 		// Find existing entry to preserve nickname
 		const existingParty = parties.find((p) => p.code === party.code);
 		const partyWithNickname = {
@@ -181,52 +174,18 @@ export async function saveRecentParty(party: RecentParty): Promise<void> {
 			nickname: party.nickname ?? existingParty?.nickname,
 		};
 
-		// Remove existing entry for this party code
-		parties = parties.filter((p) => p.code !== party.code);
-
-		// Add new entry at the beginning
-		parties.unshift(partyWithNickname);
-
-		// Keep only MAX_RECENT_PARTIES
-		parties = parties.slice(0, MAX_RECENT_PARTIES);
-
-		await set(STORAGE_KEYS.recentParties, parties);
-	} catch {
-		// Fallback to localStorage
-		try {
-			let parties = await getRecentParties();
-			const existingParty = parties.find((p) => p.code === party.code);
-			const partyWithNickname = {
-				...party,
-				nickname: party.nickname ?? existingParty?.nickname,
-			};
-			parties = parties.filter((p) => p.code !== party.code);
-			parties.unshift(partyWithNickname);
-			parties = parties.slice(0, MAX_RECENT_PARTIES);
-			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
-		} catch {
-			// Silently fail
-		}
-	}
+		// Replace any existing entry for this code, newest first, capped
+		return [partyWithNickname, ...parties.filter((p) => p.code !== party.code)].slice(
+			0,
+			MAX_RECENT_PARTIES
+		);
+	});
 }
 
 export async function removeRecentParty(code: string): Promise<void> {
 	if (!browser) return;
 
-	try {
-		let parties = await getRecentParties();
-		parties = parties.filter((p) => p.code !== code);
-		await set(STORAGE_KEYS.recentParties, parties);
-	} catch {
-		// Fallback to localStorage
-		try {
-			let parties = await getRecentParties();
-			parties = parties.filter((p) => p.code !== code);
-			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
-		} catch {
-			// Silently fail
-		}
-	}
+	await mutateRecentParties((parties) => parties.filter((p) => p.code !== code));
 }
 
 export async function updatePartyNickname(code: string, nickname: string): Promise<void> {
@@ -234,20 +193,9 @@ export async function updatePartyNickname(code: string, nickname: string): Promi
 
 	const trimmedNickname = nickname.trim() || undefined;
 
-	try {
-		let parties = await getRecentParties();
-		parties = parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p));
-		await set(STORAGE_KEYS.recentParties, parties);
-	} catch {
-		// Fallback to localStorage
-		try {
-			let parties = await getRecentParties();
-			parties = parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p));
-			setLocalItem(STORAGE_KEYS.recentParties, JSON.stringify(parties));
-		} catch {
-			// Silently fail
-		}
-	}
+	await mutateRecentParties((parties) =>
+		parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p))
+	);
 }
 
 // Host PIN storage

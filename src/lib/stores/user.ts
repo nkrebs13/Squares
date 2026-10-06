@@ -7,13 +7,12 @@ import {
 	getLocalItem,
 	setLocalItem,
 	removeLocalItem,
+	STORAGE_KEYS,
 } from '$lib/storage';
-
-const USER_NAME_STORAGE_KEY = 'squares_user_name';
 
 function createUserStore() {
 	// Initialize with localStorage value synchronously (for SSR compatibility)
-	const stored = getLocalItem(USER_NAME_STORAGE_KEY);
+	const stored = getLocalItem(STORAGE_KEYS.userName);
 	const { subscribe, set } = writable<string | null>(stored);
 
 	// Async initialization from IndexedDB
@@ -22,7 +21,7 @@ function createUserStore() {
 			if (name) {
 				set(name);
 				// Also update localStorage as sync fallback
-				setLocalItem(USER_NAME_STORAGE_KEY, name);
+				setLocalItem(STORAGE_KEYS.userName, name);
 			}
 		});
 	}
@@ -35,9 +34,7 @@ function createUserStore() {
 				// Update store immediately
 				set(trimmed);
 				// Sync to localStorage for immediate fallback
-				if (browser) {
-					setLocalItem(USER_NAME_STORAGE_KEY, trimmed);
-				}
+				setLocalItem(STORAGE_KEYS.userName, trimmed);
 				// Persist to IndexedDB
 				await setUserName(trimmed);
 			} else {
@@ -46,9 +43,7 @@ function createUserStore() {
 		},
 		clear: async () => {
 			set(null);
-			if (browser) {
-				removeLocalItem(USER_NAME_STORAGE_KEY);
-			}
+			removeLocalItem(STORAGE_KEYS.userName);
 			await clearUserName();
 		},
 	};
