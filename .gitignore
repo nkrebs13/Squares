@@ -36,6 +36,7 @@ supabase/.temp/
 # Claude Code
 .claude/plans/
 .claude/tasks/
+.claude/worktrees/
 .claude/settings.local.json
 .claude/vibe-state.local.md
 

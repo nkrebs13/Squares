@@ -73,6 +73,14 @@ export default ts.config(
 		},
 	},
 	{
-		ignores: ['.svelte-kit/', 'build/', 'dist/', 'node_modules/', '*.config.js', '*.config.ts'],
+		ignores: [
+			'.svelte-kit/',
+			'build/',
+			'dist/',
+			'node_modules/',
+			'.claude/',
+			'*.config.js',
+			'*.config.ts',
+		],
 	}
 );
