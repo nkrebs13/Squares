@@ -286,7 +286,17 @@ test.describe('Create Party - Submission', () => {
 			route.fulfill({
 				status: 201,
 				contentType: 'application/json',
-				body: JSON.stringify({ party_id: 'new-party-id' }),
+				body: JSON.stringify({
+					party_id: 'new-party-id',
+					q1_row_score: null,
+					q1_col_score: null,
+					q2_row_score: null,
+					q2_col_score: null,
+					q3_row_score: null,
+					q3_col_score: null,
+					final_row_score: null,
+					final_col_score: null,
+				}),
 			});
 		});
 

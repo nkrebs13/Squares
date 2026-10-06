@@ -135,7 +135,6 @@ describe('claimSquareOptimistic', () => {
 		const ops = get(pendingOperations);
 		expect(ops.has('0-0')).toBe(true);
 		expect(ops.get('0-0')?.type).toBe('claim');
-		expect(ops.get('0-0')?.status).toBe('pending');
 	});
 
 	it('toasts a retry message, not "already claimed", when the RPC errors', () => {

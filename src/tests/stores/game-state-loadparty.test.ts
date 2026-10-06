@@ -1,10 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { loadParty, party, numbers, gameScores, isLoading, error, cleanup } from '$lib/stores/game';
+import {
+	loadParty,
+	party,
+	squares,
+	numbers,
+	gameScores,
+	isLoading,
+	error,
+	cleanup,
+} from '$lib/stores/game';
 import { gameScoresMatchParty } from '$lib/stores/game-matching';
 import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-import { createMockParty, createMockGameScores } from '../factories';
+import { createMockParty, createMockSquare, createMockGameScores } from '../factories';
 
 // Reusable chain creators
 function makeQueryChain(resolveData: unknown, resolveError: unknown = null) {
@@ -73,6 +82,27 @@ describe('loadParty branches', () => {
 				)
 			).toBe(false);
 		});
+	});
+
+	it('drops a malformed squares row while the valid rows load', async () => {
+		const mockParty = createMockParty({ status: 'filling' });
+		const good = [createMockSquare(0, 0), createMockSquare(0, 1)];
+		const malformed = { ...createMockSquare(0, 2), player_name: 123 };
+
+		// Calls: parties, auto-detect, squares, scores, winners (filling → no numbers fetch)
+		mockSupabaseClient.from
+			.mockReturnValueOnce(makeQueryChain(mockParty) as ReturnType<typeof mockSupabaseClient.from>)
+			.mockReturnValueOnce(makeListQueryChain([]) as ReturnType<typeof mockSupabaseClient.from>)
+			.mockReturnValueOnce(
+				makeSquaresChain([good[0], malformed, good[1]]) as ReturnType<
+					typeof mockSupabaseClient.from
+				>
+			)
+			.mockReturnValueOnce(makeQueryChain(null) as ReturnType<typeof mockSupabaseClient.from>)
+			.mockReturnValueOnce(makeWinnersChain() as ReturnType<typeof mockSupabaseClient.from>);
+
+		expect(await loadParty('TEST123')).toBe(true);
+		expect(get(squares)).toEqual(good);
 	});
 
 	it('skips numbers fetch when party status is filling', async () => {

@@ -76,29 +76,6 @@ export async function subscribeToPush(
 	}
 }
 
-export async function unsubscribeFromPush(partyId: string): Promise<void> {
-	if (!browser) return;
-
-	try {
-		const registration = await navigator.serviceWorker.ready;
-		const subscription = await registration.pushManager.getSubscription();
-		if (subscription) {
-			const endpoint = subscription.endpoint;
-			await subscription.unsubscribe();
-
-			// Remove from Supabase
-			const supabase = getSupabaseClient();
-			await supabase
-				.from('push_subscriptions')
-				.delete()
-				.eq('party_id', partyId)
-				.eq('endpoint', endpoint);
-		}
-	} catch {
-		// Unsubscribe failed silently
-	}
-}
-
 export async function isSubscribed(): Promise<boolean> {
 	if (!browser || !isPushSupported()) return false;
 

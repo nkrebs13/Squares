@@ -414,7 +414,6 @@ describe('Game Store', () => {
 					row: 0,
 					col: 0,
 					timestamp: Date.now(),
-					status: 'pending',
 					originalState: {
 						player_name: null,
 						player_name_lower: null,
@@ -539,7 +538,6 @@ describe('Game Store', () => {
 					row: 0,
 					col: 0,
 					timestamp: Date.now(),
-					status: 'pending',
 					originalState: {
 						player_name: null,
 						player_name_lower: null,

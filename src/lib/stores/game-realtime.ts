@@ -286,7 +286,6 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 			row,
 			col,
 			timestamp: message.timestamp,
-			status: 'pending',
 			originalState: snapshotSquare(existingSquare),
 		});
 
@@ -332,7 +331,6 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 			row,
 			col,
 			timestamp: message.timestamp,
-			status: 'pending',
 			originalState: snapshotSquare(existingSquare),
 			filterSnapshot,
 		});

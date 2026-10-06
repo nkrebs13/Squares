@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
 import type { OptimisticOperation, Square } from '$lib/types';
+import { parseSquare } from '$lib/validators/realtime';
 import { toast } from './toast';
 import { userName, normalizePlayerName } from './user';
 import {
@@ -130,7 +131,6 @@ function runSingleOptimistic(spec: SingleOptimisticSpec, row: number, col: numbe
 		row,
 		col,
 		timestamp,
-		status: 'pending',
 		originalState: snapshotSquare(existingSquare),
 	};
 
@@ -254,7 +254,6 @@ export function claimSquaresBatchOptimistic(cells: Array<{ row: number; col: num
 					row: cell.row,
 					col: cell.col,
 					timestamp,
-					status: 'pending' as const,
 					originalState: snapshotSquare(cell.square),
 				},
 			};
@@ -379,7 +378,8 @@ async function reconcileShortBatchClaim(
 	const { data, error } = await supabase.from('squares').select('*').eq('party_id', partyId);
 	if (error || !data) return;
 
-	const rows = data as Square[];
+	// Validate each row; a malformed row is dropped and so is treated like a missing row.
+	const rows = data.map(parseSquare).filter((s): s is Square => s !== null);
 	const normalizedUser = normalizePlayerName(currentUser);
 
 	// A cell was lost unless the DB now shows it owned by us.

@@ -103,7 +103,9 @@ describe('loadParty', () => {
 		const result = await loadParty('TEST123');
 
 		expect(result).toBe(true);
-		expect(get(party)).toEqual(mockParty);
+		// parseParty drops host_pin, which the production select never returns anyway.
+		const { host_pin: _hostPin, ...expectedParty } = mockParty;
+		expect(get(party)).toEqual(expectedParty);
 		expect(get(squares)).toEqual(mockSquares);
 		expect(get(numbers)).toEqual(mockNumbers);
 		expect(get(isLoading)).toBe(false);
