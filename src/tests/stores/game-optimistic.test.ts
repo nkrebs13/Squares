@@ -188,6 +188,43 @@ describe('claimSquareOptimistic', () => {
 		expect(ops.get('0-0')?.type).toBe('claim');
 		expect(ops.get('0-0')?.status).toBe('pending');
 	});
+
+	function mockClaimResult(result: { data?: boolean; error?: { message: string } }) {
+		mockSupabaseClient.rpc.mockReturnValue({
+			then: (cb: (r: typeof result) => void) => {
+				cb(result);
+				return { catch: vi.fn() };
+			},
+		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+	}
+
+	function latestErrorToast(): string | undefined {
+		return get(toast)
+			.filter((t) => t.type === 'error')
+			.at(-1)?.message;
+	}
+
+	it('toasts a retry message, not "already claimed", when the RPC errors', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		mockClaimResult({ error: { message: 'Failed to fetch' } });
+
+		claimSquareOptimistic(0, 0);
+
+		expect(latestErrorToast()).toBe("Couldn't save that claim — try again.");
+		expect(get(squares)[0].player_name).toBeNull();
+	});
+
+	it('toasts "already claimed" when the RPC returns false', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		mockClaimResult({ data: false });
+
+		claimSquareOptimistic(0, 0);
+
+		expect(latestErrorToast()).toBe('Square already claimed');
+		expect(get(squares)[0].player_name).toBeNull();
+	});
 });
 
 describe('unclaimSquareOptimistic', () => {
