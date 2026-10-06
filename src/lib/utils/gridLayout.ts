@@ -1,10 +1,10 @@
+import { GRID_SIZE } from '$lib/constants';
 import type { Square, Winner } from '$lib/types';
 
 // Grid constants
 export const MIN_CELL_SIZE_MOBILE = 28;
 export const ZOOMED_CELL_SIZE = 64;
 export const GAP_SIZE = 2;
-export const NUM_COLS = 10;
 export const TEAM_LABEL_WIDTH = 48;
 export const SCROLL_CONTAINER_PADDING = 8;
 
@@ -16,7 +16,7 @@ export type ZoomState = 'fit' | 'zoomed';
 /** Fit-to-width cell size (unclamped) for the given container width. */
 export function calculateFitCellSize(containerWidth: number): number {
 	if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
-	const totalColumns = NUM_COLS + 1; // 10 data + 1 row header
+	const totalColumns = GRID_SIZE + 1; // 10 data + 1 row header
 	const totalGaps = totalColumns - 1;
 	const gapTotal = totalGaps * GAP_SIZE;
 	const availableWidth = containerWidth - TEAM_LABEL_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;

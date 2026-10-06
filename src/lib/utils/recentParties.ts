@@ -2,8 +2,6 @@ import { APP_CONFIG } from '$lib/config';
 import { formatKickoff } from '$lib/utils/datetime';
 import type { RecentParty, PartyStatus } from '$lib/types';
 
-export const MAX_NICKNAME_LENGTH = 30;
-
 export function getStatusBadge(status: PartyStatus): { text: string; class: string } {
 	switch (status) {
 		case 'filling':

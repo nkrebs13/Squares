@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { GRID_SIZE } from '$lib/constants';
+
 	// Skeleton loader for the grid while data is loading
-	const rows = Array.from({ length: 10 }, (_, i) => i);
-	const cols = Array.from({ length: 10 }, (_, i) => i);
+	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
+	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
 </script>
 
 <div class="grid-skeleton">
@@ -26,7 +28,10 @@
 			<div class="skeleton-row">
 				<div class="skeleton-number"></div>
 				{#each cols as col (col)}
-					<div class="skeleton-square" style="animation-delay: {(row * 10 + col) * 20}ms"></div>
+					<div
+						class="skeleton-square"
+						style="animation-delay: {(row * GRID_SIZE + col) * 20}ms"
+					></div>
 				{/each}
 			</div>
 		{/each}

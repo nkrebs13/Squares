@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { APP_CONFIG } from '$lib/config';
-import {
-	MAX_NICKNAME_LENGTH,
-	getDetailLine,
-	getDisplayName,
-	getStatusBadge,
-} from '$lib/utils/recentParties';
+import { getDetailLine, getDisplayName, getStatusBadge } from '$lib/utils/recentParties';
 import { createMockRecentParty } from '../factories';
 
 describe('getStatusBadge', () => {
@@ -87,11 +82,5 @@ describe('getDetailLine', () => {
 	it('appends the kickoff when present', () => {
 		const line = getDetailLine(createMockRecentParty({ nickname: 'Office', kickoffAt: KICKOFF }));
 		expect(line.startsWith('Seahawks vs Patriots - ')).toBe(true);
-	});
-});
-
-describe('MAX_NICKNAME_LENGTH', () => {
-	it('is 30', () => {
-		expect(MAX_NICKNAME_LENGTH).toBe(30);
 	});
 });

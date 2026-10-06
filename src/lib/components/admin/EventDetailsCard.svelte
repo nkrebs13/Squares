@@ -8,8 +8,8 @@
 		getLocalTimeZoneLabel,
 		toDatetimeLocalValue,
 	} from '$lib/utils/datetime';
+	import { MAX_EVENT_NAME_LENGTH } from '$lib/constants';
 	import {
-		MAX_EVENT_NAME_LENGTH,
 		formatKickoffPreview,
 		isValidEventName,
 		isValidMatchup,

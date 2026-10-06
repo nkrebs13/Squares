@@ -2,7 +2,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { userName } from '$lib/stores/user';
-	import { getSupabaseClient } from '$lib/supabase';
 	import { verifyHostPin } from '$lib/stores/game';
 	import {
 		getHostPin,
@@ -11,27 +10,18 @@
 		partyNicknameKey,
 		setSessionItem,
 	} from '$lib/storage';
-	import type { PartyStatus } from '$lib/types';
+	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
+	import PinInput from '$lib/components/forms/PinInput.svelte';
+	import {
+		fetchJoinTarget,
+		fetchPartyPreview,
+		type PartyPreview,
+	} from '$lib/services/partyPreview';
 	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
-
-	interface PartyPreview {
-		id: string;
-		eventName: string;
-		kickoffAt: string | null;
-		status: PartyStatus;
-		teamRowName: string;
-		teamColName: string;
-		squarePrice: number;
-		splitQ1: number;
-		splitQ2: number;
-		splitQ3: number;
-		splitFinal: number;
-		filledCount: number | null;
-	}
 
 	let code = $state('');
 	let name = $state('');
@@ -60,7 +50,6 @@
 	// PIN challenge state
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
-	let pinInputEl = $state<HTMLInputElement | null>(null);
 	let pinDialogEl: HTMLDialogElement | null = null;
 	let pinError = $state<string | null>(null);
 	let isVerifyingPin = $state(false);
@@ -106,24 +95,19 @@
 		error = null;
 
 		try {
-			const supabase = getSupabaseClient();
 			const upperCode = normalizePartyCode(code);
 
 			// Check if party exists and get host_name_lower
-			const { data: partyData, error: partyError } = await supabase
-				.from('parties')
-				.select('id, status, host_name_lower')
-				.eq('code', upperCode)
-				.single();
+			const partyData = await fetchJoinTarget(upperCode);
 
-			if (partyError || !partyData) {
+			if (!partyData) {
 				error = 'Party not found. Check the code and try again.';
 				return;
 			}
 
 			// Check if entered name matches host name (case-insensitive)
 			const enteredNameLower = name.trim().toLowerCase();
-			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
+			if (partyData.hostNameLower && enteredNameLower === partyData.hostNameLower) {
 				// Check if we have a valid stored PIN for this party
 				const storedPin = await getHostPin(upperCode);
 				if (storedPin) {
@@ -163,46 +147,17 @@
 		previewError = null;
 
 		try {
-			const supabase = getSupabaseClient();
-			const { data, error: partyError } = await supabase
-				.from('parties')
-				.select(
-					'id, event_name, kickoff_at, status, team_row_name, team_col_name, square_price, split_q1, split_q2, split_q3, split_final'
-				)
-				.eq('code', partyCode)
-				.single();
+			const result = await fetchPartyPreview(partyCode, () => requestId !== previewRequestId);
 
 			if (requestId !== previewRequestId) return;
 
-			if (partyError || !data) {
+			if (!result.ok) {
 				preview = null;
-				previewError = 'No party found for this code.';
+				previewError = result.error;
 				return;
 			}
 
-			const { data: squaresData } = await supabase
-				.from('squares')
-				.select('player_name, claimed_at')
-				.eq('party_id', data.id);
-
-			if (requestId !== previewRequestId) return;
-
-			preview = {
-				id: data.id,
-				eventName: data.event_name,
-				kickoffAt: data.kickoff_at,
-				status: data.status,
-				teamRowName: data.team_row_name,
-				teamColName: data.team_col_name,
-				squarePrice: data.square_price,
-				splitQ1: data.split_q1,
-				splitQ2: data.split_q2,
-				splitQ3: data.split_q3,
-				splitFinal: data.split_final,
-				filledCount: Array.isArray(squaresData)
-					? squaresData.filter((square) => square.player_name || square.claimed_at).length
-					: null,
-			};
+			preview = result.preview;
 		} catch {
 			if (requestId === previewRequestId) {
 				preview = null;
@@ -216,7 +171,7 @@
 	}
 
 	async function verifyPin() {
-		if (pinInput.length !== 4) return;
+		if (pinInput.length !== PIN_LENGTH) return;
 
 		isVerifyingPin = true;
 		pinError = null;
@@ -311,7 +266,9 @@
 							<div>
 								<div class="text-xs uppercase" style="color: var(--text-muted)">Open squares</div>
 								<div class="font-semibold">
-									{preview.filledCount === null ? 'Checking...' : 100 - preview.filledCount}
+									{preview.filledCount === null
+										? 'Checking...'
+										: TOTAL_SQUARES - preview.filledCount}
 								</div>
 							</div>
 						</div>
@@ -357,7 +314,7 @@
 					bind:value={name}
 					placeholder="Enter your name"
 					class="input mt-2"
-					maxlength="20"
+					maxlength={MAX_NAME_LENGTH}
 					autocomplete="name"
 					onblur={() => (name = name.trim())}
 				/>
@@ -376,7 +333,7 @@
 					bind:value={nickname}
 					placeholder="e.g. Work Pool, Family Game"
 					class="input mt-2"
-					maxlength="30"
+					maxlength={MAX_NICKNAME_LENGTH}
 				/>
 			</label>
 			<p class="mt-2 text-sm" style="color: var(--text-muted)">
@@ -428,17 +385,7 @@
 				<div>
 					<label class="block">
 						<span class="text-sm" style="color: var(--text-secondary)">Enter Host PIN</span>
-						<input
-							type="tel"
-							bind:value={pinInput}
-							bind:this={pinInputEl}
-							placeholder="0000"
-							maxlength="4"
-							pattern="[0-9]*"
-							inputmode="numeric"
-							class="input mt-2 text-center text-2xl tracking-widest"
-							autocomplete="off"
-						/>
+						<PinInput bind:value={pinInput} class="mt-2" autocomplete="off" />
 					</label>
 				</div>
 
@@ -455,7 +402,7 @@
 					<button
 						type="submit"
 						class="btn btn-primary flex-1"
-						disabled={pinInput.length !== 4 || isVerifyingPin}
+						disabled={pinInput.length !== PIN_LENGTH || isVerifyingPin}
 					>
 						{isVerifyingPin ? 'Verifying...' : 'Verify'}
 					</button>

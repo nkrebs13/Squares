@@ -1,3 +1,4 @@
+import { TOTAL_SQUARES } from '$lib/constants';
 import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
 
 export type PayoutSplits = Record<Quarter, number>;
@@ -20,7 +21,7 @@ function roundCurrency(amount: number): number {
 	return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
 
-export function calculateTotalPot(squarePrice: number, squareCount = 100): number {
+export function calculateTotalPot(squarePrice: number, squareCount = TOTAL_SQUARES): number {
 	return roundCurrency(squarePrice * squareCount);
 }
 
