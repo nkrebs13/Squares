@@ -7,12 +7,20 @@ export interface Toast {
 	duration?: number;
 }
 
+/** Errors stay up longer than confirmations so they can be read and acted on. */
+export const DEFAULT_TOAST_DURATION_MS = 3000;
+export const ERROR_TOAST_DURATION_MS = 6000;
+
 function createToastStore() {
 	const { subscribe, update } = writable<Toast[]>([]);
 
 	let idCounter = 0;
 
-	function show(message: string, type: Toast['type'] = 'info', duration = 3000) {
+	function show(
+		message: string,
+		type: Toast['type'] = 'info',
+		duration = DEFAULT_TOAST_DURATION_MS
+	) {
 		const id = `toast-${++idCounter}`;
 		const toast: Toast = { id, message, type, duration };
 
@@ -34,7 +42,8 @@ function createToastStore() {
 		subscribe,
 		show,
 		success: (message: string, duration?: number) => show(message, 'success', duration),
-		error: (message: string, duration?: number) => show(message, 'error', duration),
+		error: (message: string, duration = ERROR_TOAST_DURATION_MS) =>
+			show(message, 'error', duration),
 		info: (message: string, duration?: number) => show(message, 'info', duration),
 		remove,
 	};

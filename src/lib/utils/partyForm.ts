@@ -1,11 +1,26 @@
+import { findNflTeamPresetId } from '$lib/nflTeams';
 import { datetimeLocalToIso, formatKickoff } from '$lib/utils/datetime';
 import { areDistinctTeamNames } from '$lib/utils/teamNames';
 
 export const MAX_EVENT_NAME_LENGTH = 80;
+export const PIN_LENGTH = 4;
+
+/** Editable team fields shared by the team picker widgets. */
+export interface TeamSelection {
+	name: string;
+	color: string;
+	/** Selected NFL preset id, or '' for a custom team. */
+	presetId: string;
+}
+
+/** Team fields for a name/color pair, with the matching NFL preset pre-selected. */
+export function toTeamSelection(name: string, color: string): TeamSelection {
+	return { name, color, presetId: findNflTeamPresetId(name, color) };
+}
 
 /** A host PIN is exactly four digits. */
 export function isValidPin(pin: string): boolean {
-	return pin.length === 4 && /^\d+$/.test(pin);
+	return pin.length === PIN_LENGTH && /^\d+$/.test(pin);
 }
 
 export function isValidHostName(name: string): boolean {

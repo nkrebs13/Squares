@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { partyPinKey, setHostPin, setSessionItem } from '$lib/storage';
 	import { verifyHostPin } from '$lib/stores/game';
+	import { PIN_LENGTH } from '$lib/utils/partyForm';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 
 	const MAX_PIN_ATTEMPTS = 5;
@@ -19,7 +20,7 @@
 	let pinAttempts = $state(0);
 
 	async function verifyPin() {
-		if (enteredPin.length !== 4 || pinAttempts >= MAX_PIN_ATTEMPTS) return;
+		if (enteredPin.length !== PIN_LENGTH || pinAttempts >= MAX_PIN_ATTEMPTS) return;
 
 		isVerifyingPin = true;
 		pinError = null;
@@ -65,7 +66,9 @@
 		<button
 			type="submit"
 			class="btn btn-primary w-full"
-			disabled={enteredPin.length !== 4 || isVerifyingPin || pinAttempts >= MAX_PIN_ATTEMPTS}
+			disabled={enteredPin.length !== PIN_LENGTH ||
+				isVerifyingPin ||
+				pinAttempts >= MAX_PIN_ATTEMPTS}
 		>
 			{isVerifyingPin ? 'Verifying...' : 'Verify'}
 		</button>

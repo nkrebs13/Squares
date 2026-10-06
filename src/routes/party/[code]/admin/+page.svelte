@@ -201,8 +201,8 @@
 				<DangerZoneCard ondelete={() => (showDeleteConfirm = true)} />
 			</div>
 			{#snippet failed(_error, reset)}
-				<div class="card max-w-md mx-auto" style="border: 1px solid rgba(239, 68, 68, 0.3);">
-					<p class="text-sm" style="color: #f87171;">The admin panel encountered an error.</p>
+				<div class="card max-w-md mx-auto border border-red-500/30">
+					<p class="text-sm text-red-400">The admin panel encountered an error.</p>
 					<div class="flex gap-2 mt-2">
 						<button class="btn btn-secondary btn-sm" type="button" onclick={reset}>Try again</button
 						>

@@ -56,6 +56,34 @@ describe('Create Page', () => {
 			expect(button).toBeDisabled();
 		});
 
+		it('re-clicking Custom keeps the hand-entered split', async () => {
+			render(CreatePage);
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Custom' }));
+			const q1 = document.getElementById('split-q1') as HTMLInputElement;
+			await user.clear(q1);
+			await user.type(q1, '40');
+
+			await user.click(screen.getByRole('button', { name: 'Custom' }));
+
+			expect((document.getElementById('split-q1') as HTMLInputElement).value).toBe('40');
+		});
+
+		it('remembers the custom split across preset switches', async () => {
+			render(CreatePage);
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Custom' }));
+			const q1 = document.getElementById('split-q1') as HTMLInputElement;
+			await user.clear(q1);
+			await user.type(q1, '40');
+			await user.click(screen.getByRole('button', { name: 'Equal' }));
+			await user.click(screen.getByRole('button', { name: 'Custom' }));
+
+			expect((document.getElementById('split-q1') as HTMLInputElement).value).toBe('40');
+		});
+
 		it('Create button enabled when all fields valid', async () => {
 			render(CreatePage);
 			const user = userEvent.setup();

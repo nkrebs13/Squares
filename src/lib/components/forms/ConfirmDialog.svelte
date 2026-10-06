@@ -6,9 +6,7 @@
 		/** Prefix for the generated `{idPrefix}-title` / `{idPrefix}-description` ids. */
 		idPrefix: string;
 		title: string;
-		titleClass?: string;
 		descriptionClass?: string;
-		cancelLabel?: string;
 		confirmLabel: string;
 		busyLabel: string;
 		busy?: boolean;
@@ -28,9 +26,7 @@
 		open,
 		idPrefix,
 		title,
-		titleClass = 'text-red-400',
 		descriptionClass = 'text-secondary',
-		cancelLabel = 'Cancel',
 		confirmLabel,
 		busyLabel,
 		busy = false,
@@ -85,7 +81,7 @@
 >
 	{#if open}
 		<div class="card max-w-sm w-full" style="background: var(--bg-secondary);">
-			<h3 id="{idPrefix}-title" class="text-lg font-semibold mb-2 {titleClass}">{title}</h3>
+			<h3 id="{idPrefix}-title" class="text-lg font-semibold mb-2 text-red-400">{title}</h3>
 			<p id="{idPrefix}-description" class="text-sm mb-4 {descriptionClass}">
 				{@render children()}
 			</p>
@@ -96,14 +92,9 @@
 					class="btn btn-secondary flex-1"
 					disabled={busy}
 				>
-					{cancelLabel}
+					Cancel
 				</button>
-				<button
-					onclick={onconfirm}
-					class="btn flex-1"
-					style="background: #ef4444; color: white;"
-					disabled={busy}
-				>
+				<button onclick={onconfirm} class="btn btn-danger flex-1" disabled={busy}>
 					{busy ? busyLabel : confirmLabel}
 				</button>
 			</div>

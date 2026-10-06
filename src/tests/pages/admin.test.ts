@@ -6,7 +6,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { get } from 'svelte/store';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import { toast } from '$lib/stores/toast';
-import type { Party, Scores, Square } from '$lib/types';
+import { SPLIT_PRESETS, type Party, type Scores, type Square } from '$lib/types';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 
 const mockIdbGet = vi.mocked(idbGet);
@@ -1123,6 +1123,33 @@ describe('Admin Page - Score Entry', () => {
 			renderAuthorizedAdmin({ status: 'filling' });
 
 			expect(screen.getByText('Payout Structure')).toBeInTheDocument();
+		});
+
+		it('highlights the preset matching the party splits on load', () => {
+			const [, equal] = SPLIT_PRESETS;
+			renderAuthorizedAdmin({
+				status: 'filling',
+				split_q1: equal.q1,
+				split_q2: equal.q2,
+				split_q3: equal.q3,
+				split_final: equal.final,
+			});
+
+			expect(screen.getByRole('button', { name: equal.name })).toHaveClass('btn-primary');
+			expect(screen.getByRole('button', { name: 'Rising' })).toHaveClass('btn-secondary');
+		});
+
+		it('highlights Custom when the party splits match no preset', () => {
+			renderAuthorizedAdmin({
+				status: 'filling',
+				split_q1: 5,
+				split_q2: 5,
+				split_q3: 5,
+				split_final: 85,
+			});
+
+			expect(screen.getByRole('button', { name: 'Custom' })).toHaveClass('btn-primary');
+			expect(screen.getByRole('button', { name: 'Rising' })).toHaveClass('btn-secondary');
 		});
 
 		it('previews payout amounts from the current pot and split', async () => {

@@ -9,11 +9,5 @@
 <div class="card border border-red-500/30">
 	<h2 class="text-lg font-semibold mb-2 text-red-400">Danger Zone</h2>
 	<p class="text-sm mb-4 text-secondary">Permanently delete this party and all associated data.</p>
-	<button
-		onclick={ondelete}
-		class="btn w-full"
-		style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
-	>
-		Delete Party
-	</button>
+	<button onclick={ondelete} class="btn btn-danger-outline w-full"> Delete Party </button>
 </div>

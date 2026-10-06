@@ -1,5 +1,4 @@
 <script lang="ts">
-	/* eslint-disable prefer-const -- $bindable props are written through bind:, which prefer-const cannot see */
 	import { liveScores } from '$lib/stores/game';
 	import type { Party } from '$lib/types';
 	import { formatQuarterLabel } from '$lib/utils/quarter';

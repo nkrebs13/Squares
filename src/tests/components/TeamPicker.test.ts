@@ -69,16 +69,20 @@ describe('TeamPicker', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it('uses compact copy and a 30-char limit in the create variant', () => {
-		renderPicker({ variant: 'create', placeholder: 'e.g. Chiefs' });
+	it('applies the configured name limit, placeholder and preset label', () => {
+		renderPicker({
+			nameMaxLength: 30,
+			placeholder: 'e.g. Chiefs',
+			presetLabel: 'NFL preset',
+		});
 		const input = screen.getByRole('textbox') as HTMLInputElement;
 		expect(input.maxLength).toBe(30);
 		expect(input.placeholder).toBe('e.g. Chiefs');
 		expect(screen.getByText('NFL preset')).toBeInTheDocument();
 	});
 
-	it('uses inline copy and a 50-char limit in the admin variant', () => {
-		renderPicker({ variant: 'admin' });
+	it('defaults to a 50-char limit and a side-specific preset label', () => {
+		renderPicker();
 		expect((screen.getByRole('textbox') as HTMLInputElement).maxLength).toBe(50);
 		expect(screen.getByText('Left team NFL preset', { selector: 'span' })).toBeInTheDocument();
 	});

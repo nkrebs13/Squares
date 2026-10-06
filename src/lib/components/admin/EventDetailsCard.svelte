@@ -2,18 +2,20 @@
 	import { onMount } from 'svelte';
 	import { updatePartyDetails } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
-	import { APP_CONFIG } from '$lib/config';
-	import { findNflTeamPresetId } from '$lib/nflTeams';
 	import type { Party } from '$lib/types';
 	import {
 		datetimeLocalToIso,
 		getLocalTimeZoneLabel,
 		toDatetimeLocalValue,
 	} from '$lib/utils/datetime';
-	import { formatKickoffPreview, isValidEventName, isValidMatchup } from '$lib/utils/partyForm';
-	import TeamMatchupPicker, {
-		type TeamSelection,
-	} from '$lib/components/forms/TeamMatchupPicker.svelte';
+	import {
+		MAX_EVENT_NAME_LENGTH,
+		formatKickoffPreview,
+		isValidEventName,
+		isValidMatchup,
+		toTeamSelection,
+	} from '$lib/utils/partyForm';
+	import TeamMatchupPicker from '$lib/components/forms/TeamMatchupPicker.svelte';
 
 	interface Props {
 		party: Party;
@@ -22,40 +24,26 @@
 
 	const { party, storedPin }: Props = $props();
 
-	let eventName = $state('');
-	let kickoffInput = $state('');
-	let rowTeam = $state<TeamSelection>({
-		name: '',
-		color: APP_CONFIG.defaultTeams.row.color,
-		presetId: '',
-	});
-	let colTeam = $state<TeamSelection>({
-		name: '',
-		color: APP_CONFIG.defaultTeams.col.color,
-		presetId: '',
-	});
+	// Initialized from the party once. A realtime party update must NOT clobber
+	// the host's unsaved edits, so these never re-derive from `party`.
+	function initial() {
+		return {
+			eventName: party.event_name,
+			kickoffInput: toDatetimeLocalValue(party.kickoff_at),
+			rowTeam: toTeamSelection(party.team_row_name, party.team_row_color),
+			colTeam: toTeamSelection(party.team_col_name, party.team_col_color),
+		};
+	}
+	const start = initial();
+	let eventName = $state(start.eventName);
+	let kickoffInput = $state(start.kickoffInput);
+	let rowTeam = $state(start.rowTeam);
+	let colTeam = $state(start.colTeam);
 	let isUpdatingDetails = $state(false);
 	let kickoffTimeZone = $state('local time');
 
 	onMount(() => {
 		kickoffTimeZone = getLocalTimeZoneLabel();
-	});
-
-	// Initialize from party data once. After the host starts editing, a realtime
-	// party update must NOT clobber their unsaved work.
-	let initialized = $state(false);
-	$effect(() => {
-		if (!initialized) {
-			eventName = party.event_name;
-			kickoffInput = toDatetimeLocalValue(party.kickoff_at);
-			rowTeam.name = party.team_row_name;
-			rowTeam.color = party.team_row_color;
-			rowTeam.presetId = findNflTeamPresetId(party.team_row_name, party.team_row_color);
-			colTeam.name = party.team_col_name;
-			colTeam.color = party.team_col_color;
-			colTeam.presetId = findNflTeamPresetId(party.team_col_name, party.team_col_color);
-			initialized = true;
-		}
 	});
 
 	const isValid = $derived(
@@ -109,7 +97,7 @@
 				type="text"
 				bind:value={eventName}
 				class="input mt-1"
-				maxlength="80"
+				maxlength={MAX_EVENT_NAME_LENGTH}
 				autocomplete="off"
 				onblur={() => (eventName = eventName.trim())}
 			/>
@@ -129,7 +117,9 @@
 			bind:row={rowTeam}
 			bind:col={colTeam}
 			idPrefix="admin-team"
-			variant="admin"
+			title="Matchup"
+			class="space-y-3"
+			pickersClass="space-y-3"
 		/>
 	</div>
 

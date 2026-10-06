@@ -57,6 +57,15 @@ export default ts.config(
 		},
 	},
 	{
+		// Core prefer-const can't see $props()/$bindable() writes made through bind:;
+		// the Svelte-aware version can.
+		files: ['**/*.svelte'],
+		rules: {
+			'prefer-const': 'off',
+			'svelte/prefer-const': 'error',
+		},
+	},
+	{
 		// Service workers, edge functions, and CLI scripts use console as their only logging mechanism
 		files: ['static/push-sw.js', 'supabase/functions/**/index.ts', 'scripts/**/*.{js,mjs,ts}'],
 		rules: {

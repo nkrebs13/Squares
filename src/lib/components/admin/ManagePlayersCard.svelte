@@ -36,11 +36,7 @@
 						</div>
 					</div>
 					{#if player.normalizedName !== hostNameLower}
-						<button
-							onclick={() => onremove(player)}
-							class="btn btn-sm"
-							style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);"
-						>
+						<button onclick={() => onremove(player)} class="btn btn-sm btn-danger-soft">
 							Remove
 						</button>
 					{/if}

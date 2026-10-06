@@ -100,6 +100,28 @@ describe('Toast Store', () => {
 			expect(toasts[0].type).toBe('error');
 			expect(toasts[0].message).toBe('Error occurred');
 		});
+
+		it('defaults to a 6000ms duration, longer than success and info', () => {
+			toast.error('Error occurred');
+			toast.success('Saved');
+			toast.info('FYI');
+
+			const [error, success, info] = get(toast);
+			expect(error.duration).toBe(6000);
+			expect(success.duration).toBe(3000);
+			expect(info.duration).toBe(3000);
+
+			vi.advanceTimersByTime(3300);
+			expect(get(toast).map((t) => t.type)).toEqual(['error']);
+
+			vi.advanceTimersByTime(3000);
+			expect(get(toast)).toHaveLength(0);
+		});
+
+		it('respects an explicit error duration', () => {
+			toast.error('Quick', 1000);
+			expect(get(toast)[0].duration).toBe(1000);
+		});
 	});
 
 	describe('info', () => {

@@ -1,8 +1,5 @@
 <script lang="ts">
-	/* eslint-disable prefer-const -- $bindable props are written through bind:, which prefer-const cannot see */
 	import { NFL_TEAM_PRESETS, findNflTeamPreset } from '$lib/nflTeams';
-
-	type TeamPickerVariant = 'create' | 'admin';
 
 	interface Props {
 		/** Which side of the grid this team scores on. */
@@ -13,8 +10,13 @@
 		color: string;
 		/** Selected NFL preset id, or '' for a custom team. */
 		presetId: string;
-		/** 'create' = compact uppercase labels; 'admin' = inline sentence-case labels. */
-		variant?: TeamPickerVariant;
+		/** Visible label for the preset select. Defaults to "{Left|Top} team NFL preset". */
+		presetLabel?: string;
+		/** Classes for the small field labels. */
+		labelClass?: string;
+		/** Extra classes for the name field's label (e.g. top margin). */
+		nameLabelClass?: string;
+		nameMaxLength?: number;
 		placeholder?: string;
 	}
 
@@ -24,17 +26,14 @@
 		name = $bindable(),
 		color = $bindable(),
 		presetId = $bindable(),
-		variant = 'create',
+		presetLabel,
+		labelClass = 'text-sm text-secondary',
+		nameLabelClass = '',
+		nameMaxLength = 50,
 		placeholder,
 	}: Props = $props();
 
 	const sideLabel = $derived(side === 'row' ? 'Left' : 'Top');
-	const isCreate = $derived(variant === 'create');
-	const labelClass = $derived(
-		isCreate ? 'text-xs uppercase tracking-wide text-muted' : 'text-sm text-secondary'
-	);
-	const nameLabelMargin = $derived(isCreate ? '' : 'mt-2');
-	const maxLength = $derived(isCreate ? 30 : 50);
 
 	function applyPreset(teamId: string) {
 		const preset = findNflTeamPreset(teamId);
@@ -62,7 +61,7 @@
 	</label>
 	<div class="flex-1">
 		<label class="block">
-			<span class={labelClass}>{isCreate ? 'NFL preset' : `${sideLabel} team NFL preset`}</span>
+			<span class={labelClass}>{presetLabel ?? `${sideLabel} team NFL preset`}</span>
 			<select
 				id="{idPrefix}-preset"
 				bind:value={presetId}
@@ -76,7 +75,7 @@
 				{/each}
 			</select>
 		</label>
-		<label class="block {nameLabelMargin}">
+		<label class="block {nameLabelClass}">
 			<span class={labelClass}>{sideLabel} Team</span>
 			<input
 				id="{idPrefix}-name"
@@ -84,7 +83,7 @@
 				bind:value={name}
 				{placeholder}
 				class="input mt-1"
-				maxlength={maxLength}
+				maxlength={nameMaxLength}
 				oninput={() => (presetId = '')}
 				onblur={() => (name = name.trim())}
 			/>

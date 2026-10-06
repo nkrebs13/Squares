@@ -340,6 +340,24 @@ body {
 	box-shadow: 0 0 20px rgba(100, 200, 130, 0.2);
 }
 
+.btn-danger {
+	background: #ef4444;
+	color: white;
+}
+
+/* Tinted destructive buttons for in-card actions (not the confirm step). */
+.btn-danger-soft {
+	background: rgba(239, 68, 68, 0.15);
+	color: #f87171;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger-outline {
+	background: rgba(239, 68, 68, 0.2);
+	color: #ef4444;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 .btn-sm {
 	@apply px-3 py-1.5 text-sm;
 	border-radius: 8px;

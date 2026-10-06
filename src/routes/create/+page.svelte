@@ -1,28 +1,40 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { SPLIT_PRESETS } from '$lib/types';
+	import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin, partyPinKey, partyNicknameKey, setSessionItem } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { datetimeLocalToIso, getLocalTimeZoneLabel } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
-	import { findNflTeamPresetId } from '$lib/nflTeams';
 	import {
 		formatKickoffPreview,
 		isValidEventName,
 		isValidHostName,
 		isValidMatchup,
 		isValidPin,
+		MAX_EVENT_NAME_LENGTH,
+		toTeamSelection,
 	} from '$lib/utils/partyForm';
-	import { calculateTotalPot, type PayoutSplits } from '$lib/payouts';
+	import {
+		CUSTOM_PRESET_NAME,
+		calculateTotalPot,
+		isValidSplit,
+		presetToSplits,
+		splitTotal,
+	} from '$lib/payouts';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
-	import PayoutSplitEditor from '$lib/components/forms/PayoutSplitEditor.svelte';
+	import PayoutPresetButtons from '$lib/components/forms/PayoutPresetButtons.svelte';
 	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
-	import TeamMatchupPicker, {
-		type TeamSelection,
-	} from '$lib/components/forms/TeamMatchupPicker.svelte';
+	import TeamMatchupPicker from '$lib/components/forms/TeamMatchupPicker.svelte';
+
+	const QUARTERS: { key: Quarter; label: string }[] = [
+		{ key: 'q1', label: 'Q1' },
+		{ key: 'q2', label: 'Q2' },
+		{ key: 'q3', label: 'Q3' },
+		{ key: 'final', label: 'Final' },
+	];
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
 	let kickoffInput = $state('');
@@ -30,13 +42,13 @@
 	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
 	const isValidPrice = $derived(isValidAmount(squarePriceInput));
 	const DEFAULT_PRESET = SPLIT_PRESETS[0];
-	let selectedPreset = $state(DEFAULT_PRESET.name);
-	let currentSplit = $state<PayoutSplits>({
-		q1: DEFAULT_PRESET.q1,
-		q2: DEFAULT_PRESET.q2,
-		q3: DEFAULT_PRESET.q3,
-		final: DEFAULT_PRESET.final,
-	});
+	const EQUAL_PRESET = SPLIT_PRESETS.find((p) => p.name === 'Equal') ?? DEFAULT_PRESET;
+	let selectedPreset = $state<SplitPreset>(DEFAULT_PRESET);
+	// Hand-entered percentages. Kept apart from the presets so they survive
+	// switching to a preset and back.
+	const customSplit = $state(presetToSplits(EQUAL_PRESET));
+	const isCustom = $derived(selectedPreset.name === CUSTOM_PRESET_NAME);
+	const currentSplit = $derived(isCustom ? customSplit : presetToSplits(selectedPreset));
 	let hostPin = $state('');
 	let hostName = $state('');
 	let nickname = $state('');
@@ -46,24 +58,12 @@
 	let kickoffTimeZone = $state('local time');
 
 	// Team customization — pre-populated from env-configured defaults
-	let rowTeam = $state<TeamSelection>({
-		name: DEFAULT_TEAMS.row.name,
-		color: DEFAULT_TEAMS.row.color,
-		presetId: findNflTeamPresetId(DEFAULT_TEAMS.row.name, DEFAULT_TEAMS.row.color),
-	});
-	let colTeam = $state<TeamSelection>({
-		name: DEFAULT_TEAMS.col.name,
-		color: DEFAULT_TEAMS.col.color,
-		presetId: findNflTeamPresetId(DEFAULT_TEAMS.col.name, DEFAULT_TEAMS.col.color),
-	});
+	let rowTeam = $state(toTeamSelection(DEFAULT_TEAMS.row.name, DEFAULT_TEAMS.row.color));
+	let colTeam = $state(toTeamSelection(DEFAULT_TEAMS.col.name, DEFAULT_TEAMS.col.color));
 
-	const splitTotal = $derived(
-		currentSplit.q1 + currentSplit.q2 + currentSplit.q3 + currentSplit.final
-	);
 	const totalPot = $derived(calculateTotalPot(squarePrice));
-	const isValidSplit = $derived(splitTotal === 100);
 	const canCreate = $derived(
-		isValidSplit &&
+		isValidSplit(currentSplit) &&
 			isValidPin(hostPin) &&
 			isValidHostName(hostName) &&
 			isValidEventName(eventName) &&
@@ -124,7 +124,7 @@
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">
-		<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Back</a>
+		<a href="/" class="text-sm hover:opacity-100 text-secondary">← Back</a>
 		<h1 class="text-3xl font-bold mt-2">Create Party</h1>
 	</header>
 
@@ -139,31 +139,31 @@
 		<!-- Event Details -->
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Event name</span>
+				<span class="text-sm text-secondary">Event name</span>
 				<input
 					type="text"
 					bind:value={eventName}
 					placeholder="e.g. 2027 Super Bowl"
 					class="input mt-2"
-					maxlength="80"
+					maxlength={MAX_EVENT_NAME_LENGTH}
 					autocomplete="off"
 					onblur={() => (eventName = eventName.trim() || APP_CONFIG.defaultEventName)}
 				/>
 			</label>
 			<label class="block mt-4">
-				<span class="text-sm" style="color: var(--text-secondary)">Kickoff time</span>
-				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<span class="text-sm text-secondary">Kickoff time</span>
+				<span class="text-xs ml-1 text-muted">(optional)</span>
 				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
 			</label>
-			<p class="mt-2 text-xs" style="color: var(--text-muted)">
+			<p class="mt-2 text-xs text-muted">
 				Timezone: {kickoffTimeZone}
 			</p>
 			{#if kickoffPreview}
-				<p class="mt-1 text-sm" style="color: var(--text-secondary)">
+				<p class="mt-1 text-sm text-secondary">
 					Kickoff: {kickoffPreview}
 				</p>
 			{/if}
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+			<p class="mt-2 text-sm text-muted">
 				Use a specific event name so this pool still makes sense when shared or revisited later.
 			</p>
 		</div>
@@ -171,7 +171,7 @@
 		<!-- Square Price -->
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Price per square</span>
+				<span class="text-sm text-secondary">Price per square</span>
 				<div class="mt-2 flex items-center gap-2">
 					<span class="text-2xl">$</span>
 					<input
@@ -183,21 +183,50 @@
 					/>
 				</div>
 				{#if !isValidPrice && squarePriceInput !== ''}
-					<p class="mt-2 text-sm" style="color: #fca5a5">
-						Enter a valid amount (e.g., 1, 5.50, 10)
-					</p>
+					<p class="mt-2 text-sm text-error">Enter a valid amount (e.g., 1, 5.50, 10)</p>
 				{/if}
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
+			<p class="mt-2 text-sm text-muted">
 				Total pot: {formatPrice(totalPot)}
 			</p>
 		</div>
 
 		<!-- Prize Split -->
 		<div class="card">
-			<span class="text-sm" style="color: var(--text-secondary)">Prize split</span>
+			<span class="text-sm text-secondary">Prize split</span>
 
-			<PayoutSplitEditor bind:splits={currentSplit} bind:selectedPreset variant="create" />
+			<PayoutPresetButtons
+				selected={selectedPreset.name}
+				onselect={(preset) => (selectedPreset = preset)}
+				class="mt-3"
+			/>
+
+			<div class="mt-4 grid grid-cols-4 gap-3">
+				{#each QUARTERS as { key, label } (key)}
+					<div class="text-center">
+						<label for="split-{key}" class="text-xs uppercase block text-muted">{label}</label>
+						{#if isCustom}
+							<input
+								id="split-{key}"
+								type="number"
+								bind:value={customSplit[key]}
+								min="0"
+								max="100"
+								class="input mt-1 text-center p-2"
+								aria-label="{label} prize split percentage"
+							/>
+						{:else}
+							<div id="split-{key}" class="mt-1 text-lg font-bold">{currentSplit[key]}%</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			{#if !isValidSplit(currentSplit)}
+				<p class="mt-3 text-sm text-error">
+					Split must total 100% (currently {splitTotal(currentSplit)}%)
+				</p>
+			{/if}
 
 			<PayoutPreview splits={currentSplit} {squarePrice} testIdPrefix="create" class="mt-4" />
 		</div>
@@ -208,14 +237,21 @@
 				bind:row={rowTeam}
 				bind:col={colTeam}
 				idPrefix="create-team"
-				variant="create"
+				title="Teams"
+				helpText="Set the teams playing — scores run left ↕ for the Left Team, top ↔ for the Top Team"
+				placeholders={['e.g. Chiefs', 'e.g. Eagles']}
+				presetLabel="NFL preset"
+				labelClass="text-xs uppercase tracking-wide text-muted"
+				nameMaxLength={30}
+				pickersClass="mt-4 space-y-4"
+				feedbackClass="mt-3"
 			/>
 		</div>
 
 		<!-- Host Name -->
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Your Name (Host)</span>
+				<span class="text-sm text-secondary">Your Name (Host)</span>
 				<input
 					type="text"
 					bind:value={hostName}
@@ -226,27 +262,23 @@
 					onblur={() => (hostName = hostName.trim())}
 				/>
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				This name will be PIN-protected so only you can use it
-			</p>
+			<p class="mt-2 text-sm text-muted">This name will be PIN-protected so only you can use it</p>
 		</div>
 
 		<!-- Host PIN -->
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Choose your PIN (4 digits)</span>
+				<span class="text-sm text-secondary">Choose your PIN (4 digits)</span>
 				<PinInput bind:value={hostPin} class="mt-2" />
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				You'll need this to lock the grid and manage scores
-			</p>
+			<p class="mt-2 text-sm text-muted">You'll need this to lock the grid and manage scores</p>
 		</div>
 
 		<!-- Game Nickname (optional) -->
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Game Nickname</span>
-				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<span class="text-sm text-secondary">Game Nickname</span>
+				<span class="text-xs ml-1 text-muted">(optional)</span>
 				<input
 					type="text"
 					bind:value={nickname}
@@ -255,9 +287,7 @@
 					maxlength="30"
 				/>
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				Helps you tell games apart if you're in multiple pools
-			</p>
+			<p class="mt-2 text-sm text-muted">Helps you tell games apart if you're in multiple pools</p>
 		</div>
 
 		{#if error}
