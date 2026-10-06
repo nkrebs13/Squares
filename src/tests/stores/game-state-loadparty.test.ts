@@ -2,35 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { loadParty, party, numbers, gameScores, isLoading, error, cleanup } from '$lib/stores/game';
 import { gameScoresMatchParty } from '$lib/stores/game-state';
-import type { GameScoresRow, Party } from '$lib/types';
+import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
+import { createMockParty, createMockGameScores } from '../factories';
 
 // Reusable chain creators
 function makeQueryChain(resolveData: unknown, resolveError: unknown = null) {
@@ -50,31 +24,12 @@ function makeQueryChain(resolveData: unknown, resolveError: unknown = null) {
 }
 
 function makeGameScoresRow(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
-	return {
+	return createMockGameScores({
 		game_id: 'test-game',
-		sport: 'nfl',
-		home_team_abbrev: 'PHI',
-		away_team_abbrev: 'KC',
 		home_team_name: 'Philadelphia Eagles',
 		away_team_name: 'Kansas City Chiefs',
-		home_score: 0,
-		away_score: 0,
-		game_clock: '',
-		game_quarter: 0,
-		game_status: 'pregame',
-		q1_home: null,
-		q1_away: null,
-		q2_home: null,
-		q2_away: null,
-		q3_home: null,
-		q3_away: null,
-		q4_home: null,
-		q4_away: null,
-		final_home: null,
-		final_away: null,
-		updated_at: new Date().toISOString(),
 		...overrides,
-	};
+	});
 }
 
 function makeListQueryChain(resolveData: unknown[] | null, resolveError: unknown = null) {

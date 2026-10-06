@@ -12,63 +12,19 @@ import {
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
+import type { Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
 import {
 	mockChannelHandlers,
 	mockSupabaseChannel,
 	mockSupabaseClient,
 	simulateChannelStatus,
 } from '../setup';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
-
-function createMockSquare(row: number, col: number, overrides: Partial<Square> = {}): Square {
-	return {
-		id: `sq-${row}-${col}`,
-		party_id: 'test-party-id',
-		row_num: row,
-		col_num: col,
-		player_name: null,
-		player_name_lower: null,
-		claimed_at: null,
-		...overrides,
-	};
-}
-
-function createEmptyGrid(): Square[] {
-	const grid: Square[] = [];
-	for (let row = 0; row < 10; row++) {
-		for (let col = 0; col < 10; col++) {
-			grid.push(createMockSquare(row, col));
-		}
-	}
-	return grid;
-}
+import {
+	createEmptyGrid,
+	createMockParty,
+	createMockSquare,
+	createMockGameScores as baseGameScores,
+} from '../factories';
 
 describe('postgres_changes: parties handler', () => {
 	beforeEach(() => {
@@ -531,9 +487,8 @@ describe('postgres_changes: squares handler (completeness)', () => {
 
 describe('postgres_changes: game_scores handler', () => {
 	function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
-		return {
+		return baseGameScores({
 			game_id: 'game-123',
-			sport: 'nfl',
 			home_team_abbrev: 'KC',
 			away_team_abbrev: 'PHI',
 			home_team_name: 'Chiefs',
@@ -545,17 +500,8 @@ describe('postgres_changes: game_scores handler', () => {
 			game_status: 'in_progress',
 			q1_home: 7,
 			q1_away: 0,
-			q2_home: null,
-			q2_away: null,
-			q3_home: null,
-			q3_away: null,
-			q4_home: null,
-			q4_away: null,
-			final_home: null,
-			final_away: null,
-			updated_at: new Date().toISOString(),
 			...overrides,
-		};
+		});
 	}
 
 	beforeEach(() => {

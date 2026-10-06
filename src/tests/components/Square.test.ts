@@ -1,37 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import Square from '$lib/components/Square.svelte';
-import type { Square as SquareType, Winner } from '$lib/types';
+import type { Square as SquareType } from '$lib/types';
 import { userName } from '$lib/stores/user';
 import { getPlayerColor } from '$lib/utils/colors';
+import { createMockWinner, createMockSquare as baseSquare } from '../factories';
 
 // Helper to create a mock square
 function createMockSquare(overrides: Partial<SquareType> = {}): SquareType {
-	return {
-		id: 'test-square-id',
-		party_id: 'test-party-id',
-		row_num: 0,
-		col_num: 0,
-		player_name: null,
-		player_name_lower: null,
-		claimed_at: null,
-		...overrides,
-	};
-}
-
-// Helper to create a mock winner
-function createMockWinner(overrides: Partial<Winner> = {}): Winner {
-	return {
-		id: 'test-winner-id',
-		party_id: 'test-party-id',
-		quarter: 'q1',
-		winning_row: 3,
-		winning_col: 7,
-		player_name: 'John Doe',
-		amount: 250,
-		created_at: new Date().toISOString(),
-		...overrides,
-	};
+	return baseSquare(0, 0, { id: 'test-square-id', ...overrides });
 }
 
 describe('Square Component', () => {

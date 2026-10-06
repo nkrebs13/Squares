@@ -13,48 +13,8 @@ import {
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import type { Party, Square } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
-
-function createMockSquare(row: number, col: number, overrides: Partial<Square> = {}): Square {
-	return {
-		id: `sq-${row}-${col}`,
-		party_id: 'test-party-id',
-		row_num: row,
-		col_num: col,
-		player_name: null,
-		player_name_lower: null,
-		claimed_at: null,
-		...overrides,
-	};
-}
+import { createMockParty, createMockSquare } from '../factories';
 
 describe('loadParty', () => {
 	beforeEach(() => {

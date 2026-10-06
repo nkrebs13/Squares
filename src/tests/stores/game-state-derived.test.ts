@@ -12,85 +12,21 @@ import {
 	removePlayer,
 } from '$lib/stores/game';
 import { resolveHomeIsRow } from '$lib/stores/game-state';
-import type { Party, Numbers, GameScoresRow, Square } from '$lib/types';
+import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
-
-function createMockSquare(row: number, col: number, overrides: Partial<Square> = {}): Square {
-	return {
-		id: `sq-${row}-${col}`,
-		party_id: 'test-party-id',
-		row_num: row,
-		col_num: col,
-		player_name: null,
-		player_name_lower: null,
-		claimed_at: null,
-		...overrides,
-	};
-}
-
-function createMockNumbers(overrides: Partial<Numbers> = {}): Numbers {
-	return {
-		party_id: 'test-party-id',
-		row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		assigned_at: new Date().toISOString(),
-		...overrides,
-	};
-}
+import {
+	createMockNumbers,
+	createMockParty,
+	createMockSquare,
+	createMockGameScores as baseGameScores,
+} from '../factories';
 
 function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
-	return {
-		game_id: 'test-game-id',
-		sport: 'nfl',
-		home_team_abbrev: 'PHI',
-		away_team_abbrev: 'KC',
+	return baseGameScores({
 		home_team_name: 'Philadelphia Eagles',
 		away_team_name: 'Kansas City Chiefs',
-		home_score: 0,
-		away_score: 0,
-		game_clock: '',
-		game_quarter: 0,
-		game_status: 'pregame',
-		q1_home: null,
-		q1_away: null,
-		q2_home: null,
-		q2_away: null,
-		q3_home: null,
-		q3_away: null,
-		q4_home: null,
-		q4_away: null,
-		final_home: null,
-		final_away: null,
-		updated_at: new Date().toISOString(),
 		...overrides,
-	};
+	});
 }
 
 describe('resolveHomeIsRow', () => {

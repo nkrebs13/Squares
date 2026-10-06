@@ -16,6 +16,11 @@ import { userName } from '$lib/stores/user';
 import { theme } from '$lib/stores/theme';
 import type { Party, Square as SquareType, Numbers, Winner } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
+import {
+	createMockParty as baseParty,
+	createMockNumbers as baseNumbers,
+	createMockSquare,
+} from '../factories';
 
 // Helper to create mock squares for a full 10x10 grid
 function createMockSquares(overrides: Partial<SquareType>[] = []): SquareType[] {
@@ -23,55 +28,28 @@ function createMockSquares(overrides: Partial<SquareType>[] = []): SquareType[] 
 	for (let row = 0; row < 10; row++) {
 		for (let col = 0; col < 10; col++) {
 			const override = overrides.find((o) => o.row_num === row && o.col_num === col);
-			result.push({
-				id: `sq-${row}-${col}`,
-				party_id: 'test-party',
-				row_num: row,
-				col_num: col,
-				player_name: null,
-				player_name_lower: null,
-				claimed_at: null,
-				...override,
-			});
+			result.push(createMockSquare(row, col, { party_id: 'test-party', ...override }));
 		}
 	}
 	return result;
 }
 
 function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
+	return baseParty({
 		id: 'test-party',
 		code: 'ABC123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
 		square_price: 5,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
 		team_row_name: 'Seahawks',
 		team_col_name: 'Patriots',
 		team_row_color: '#69BE28',
 		team_col_color: '#C60C30',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 86400000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
 		...overrides,
-	};
+	});
 }
 
 function createMockNumbers(): Numbers {
-	return {
-		party_id: 'test-party',
-		row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		assigned_at: new Date().toISOString(),
-	};
+	return baseNumbers({ party_id: 'test-party' });
 }
 
 function setupStores(
