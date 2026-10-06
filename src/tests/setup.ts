@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import type { MockCallback } from './factories';
 
 // Mock SvelteKit's $app/environment
 vi.mock('$app/environment', () => ({
@@ -39,17 +40,14 @@ vi.mock('idb-keyval', () => ({
 
 // Mock Supabase client
 // Capture channel handlers for direct invocation in tests
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const mockChannelHandlers: Record<string, Function> = {};
+const mockChannelHandlers: Record<string, MockCallback> = {};
 
 // Capture subscribe callbacks for simulating channel status changes
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-let subscribeCallbacks: Function[] = [];
+let subscribeCallbacks: MockCallback[] = [];
 
 const mockSupabaseChannel = {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	on: vi.fn((event: string, filter: unknown, callback?: Function) => {
-		const cb = callback || (typeof filter === 'function' ? filter : undefined);
+	on: vi.fn((event: string, filter: unknown, callback?: MockCallback) => {
+		const cb = callback || (typeof filter === 'function' ? (filter as MockCallback) : undefined);
 		if (typeof cb === 'function') {
 			const key =
 				typeof filter === 'object' && filter !== null
@@ -59,8 +57,7 @@ const mockSupabaseChannel = {
 		}
 		return mockSupabaseChannel;
 	}),
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	subscribe: vi.fn((callback?: Function) => {
+	subscribe: vi.fn((callback?: MockCallback) => {
 		if (typeof callback === 'function') {
 			subscribeCallbacks.push(callback);
 		}
@@ -129,9 +126,8 @@ function restoreMockDefaults() {
 	subscribeCallbacks = [];
 
 	mockSupabaseChannel.on.mockImplementation(
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-		(event: string, filter: unknown, callback?: Function) => {
-			const cb = callback || (typeof filter === 'function' ? filter : undefined);
+		(event: string, filter: unknown, callback?: MockCallback) => {
+			const cb = callback || (typeof filter === 'function' ? (filter as MockCallback) : undefined);
 			if (typeof cb === 'function') {
 				const key =
 					typeof filter === 'object' && filter !== null
@@ -142,8 +138,7 @@ function restoreMockDefaults() {
 			return mockSupabaseChannel;
 		}
 	);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	mockSupabaseChannel.subscribe.mockImplementation((callback?: Function) => {
+	mockSupabaseChannel.subscribe.mockImplementation((callback?: MockCallback) => {
 		if (typeof callback === 'function') {
 			subscribeCallbacks.push(callback);
 		}

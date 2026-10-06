@@ -5,45 +5,15 @@ import PlayerLegend from '$lib/components/PlayerLegend.svelte';
 import { party, squares, selectedPlayerFilter } from '$lib/stores/game';
 import { get } from 'svelte/store';
 import { getPlayerColor } from '$lib/utils/colors';
-import type { Party, Square } from '$lib/types';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
+import type { Square } from '$lib/types';
+import { createMockParty, createMockSquare as baseSquare } from '../factories';
 
 function createMockSquare(row: number, col: number, playerName: string | null = null): Square {
-	return {
-		id: `sq-${row}-${col}`,
-		party_id: 'test-party-id',
-		row_num: row,
-		col_num: col,
+	return baseSquare(row, col, {
 		player_name: playerName,
 		player_name_lower: playerName?.toLowerCase() ?? null,
 		claimed_at: playerName ? new Date().toISOString() : null,
-	};
+	});
 }
 
 describe('PlayerLegend Component', () => {

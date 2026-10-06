@@ -3,79 +3,12 @@ import { render, screen } from '@testing-library/svelte';
 import ScoreBoard from '$lib/components/ScoreBoard.svelte';
 import { party, scores, gameScores } from '$lib/stores/game';
 import { theme } from '$lib/stores/theme';
-import type { Party, Scores, GameScoresRow } from '$lib/types';
+import type { Party } from '$lib/types';
+import { createMockGameScores, createMockScores, createMockParty as baseParty } from '../factories';
 
 // Helper to create mock party
 function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'active',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
-
-// Helper to create mock scores
-function createMockScores(overrides: Partial<Scores> = {}): Scores {
-	return {
-		party_id: 'test-party-id',
-		q1_row_score: null,
-		q1_col_score: null,
-		q2_row_score: null,
-		q2_col_score: null,
-		q3_row_score: null,
-		q3_col_score: null,
-		final_row_score: null,
-		final_col_score: null,
-		...overrides,
-	};
-}
-
-// Helper to create mock game scores
-function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
-	return {
-		game_id: 'test-game-id',
-		sport: 'nfl',
-		home_team_abbrev: 'PHI',
-		away_team_abbrev: 'KC',
-		home_team_name: 'Eagles',
-		away_team_name: 'Chiefs',
-		home_score: 0,
-		away_score: 0,
-		game_clock: '',
-		game_quarter: 0,
-		game_status: 'pregame',
-		q1_home: null,
-		q1_away: null,
-		q2_home: null,
-		q2_away: null,
-		q3_home: null,
-		q3_away: null,
-		q4_home: null,
-		q4_away: null,
-		final_home: null,
-		final_away: null,
-		updated_at: new Date().toISOString(),
-		...overrides,
-	};
+	return baseParty({ status: 'active', ...overrides });
 }
 
 describe('ScoreBoard Component', () => {

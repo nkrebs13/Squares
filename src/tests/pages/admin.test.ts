@@ -24,61 +24,7 @@ vi.mock('$app/stores', async () => {
 
 // Import the page component AFTER mocks are set up
 import AdminPage from '../../routes/party/[code]/admin/+page.svelte';
-
-function createMockParty(overrides: Partial<Party> = {}): Party {
-	return {
-		id: 'test-party-id',
-		code: 'TEST123',
-		host_pin: '1234',
-		host_name_lower: null,
-		event_name: 'Test Football Squares',
-		kickoff_at: null,
-		square_price: 10,
-		split_q1: 25,
-		split_q2: 25,
-		split_q3: 25,
-		split_final: 25,
-		status: 'filling',
-		team_row_name: 'Eagles',
-		team_col_name: 'Chiefs',
-		team_row_color: '#004C54',
-		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-		game_id: null,
-		home_team_is_row: null,
-		...overrides,
-	};
-}
-
-function createMockScores(overrides: Partial<Scores> = {}): Scores {
-	return {
-		party_id: 'test-party-id',
-		q1_row_score: null,
-		q1_col_score: null,
-		q2_row_score: null,
-		q2_col_score: null,
-		q3_row_score: null,
-		q3_col_score: null,
-		final_row_score: null,
-		final_col_score: null,
-		...overrides,
-	};
-}
-
-function createMockSquare(row: number, col: number, overrides: Partial<Square> = {}): Square {
-	return {
-		id: `sq-${row}-${col}`,
-		party_id: 'test-party-id',
-		row_num: row,
-		col_num: col,
-		player_name: null,
-		player_name_lower: null,
-		claimed_at: null,
-		...overrides,
-	};
-}
+import { createMockParty, createMockScores, createMockSquare } from '../factories';
 
 function createSquareForPlayer(
 	row: number,
