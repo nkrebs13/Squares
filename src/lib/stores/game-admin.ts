@@ -55,6 +55,11 @@ function withParty<R extends AdminResult>(
 	return currentParty ? run(currentParty) : Promise.resolve({ ...missing });
 }
 
+// lock_party, update_score and delete_party signal PIN/lockout and guard failures
+// by returning FALSE (never RAISE), so a set `error` is a transport/DB failure:
+// surface its humanized message, with the generic copy only for an empty one.
+// The falsy-data branch keeps each function's PIN-failure copy.
+
 export async function lockParty(pin: string): Promise<AdminResult> {
 	return withParty(NO_PARTY, async (currentParty) => {
 		const supabase = getSupabaseClient();
@@ -65,7 +70,10 @@ export async function lockParty(pin: string): Promise<AdminResult> {
 		});
 
 		if (lockError) {
-			return { success: false, error: 'Failed to lock party. Please try again.' };
+			return {
+				success: false,
+				error: humanizeRpcError(lockError.message, 'Failed to lock party. Please try again.'),
+			};
 		}
 
 		if (!data) {
@@ -97,7 +105,10 @@ export async function updateScore(
 		});
 
 		if (scoreError) {
-			return { success: false, error: 'Failed to update score. Please try again.' };
+			return {
+				success: false,
+				error: humanizeRpcError(scoreError.message, 'Failed to update score. Please try again.'),
+			};
 		}
 
 		if (!data) {
@@ -314,7 +325,10 @@ export async function deleteParty(pin: string): Promise<AdminResult> {
 		});
 
 		if (deleteError) {
-			return { success: false, error: 'Failed to delete party. Please try again.' };
+			return {
+				success: false,
+				error: humanizeRpcError(deleteError.message, 'Failed to delete party. Please try again.'),
+			};
 		}
 
 		if (!data) {

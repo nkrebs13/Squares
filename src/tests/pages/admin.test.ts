@@ -861,7 +861,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(screen.getByText('Failed to update score. Please try again.')).toBeInTheDocument();
+				expect(screen.getByText('DB error')).toBeInTheDocument();
 			});
 		});
 	});
