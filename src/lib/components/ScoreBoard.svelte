@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { hasDrawnNumbers } from '$lib/partyStatus';
-	import { scores, liveScores, party } from '$lib/stores/game';
-	import { theme } from '$lib/stores/theme';
-
+	import { scores, liveScores, party, teamTheme } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { QUARTERS, formatGamePeriod, latestScoredQuarter, quarterScore } from '$lib/quarters';
 
@@ -54,7 +52,7 @@
 <div class="card">
 	<div class="scoreboard">
 		<div class="score-team">
-			<div class="score-name team-row-text">{$theme.rowName}</div>
+			<div class="score-name team-row-text">{$teamTheme.rowName}</div>
 			<div class="score-value team-row-text" aria-live="polite" aria-atomic="true">
 				{displayRowScore}
 			</div>
@@ -77,7 +75,7 @@
 		</div>
 
 		<div class="score-team">
-			<div class="score-name team-col-text">{$theme.colName}</div>
+			<div class="score-name team-col-text">{$teamTheme.colName}</div>
 			<div class="score-value team-col-text" aria-live="polite" aria-atomic="true">
 				{displayColScore}
 			</div>

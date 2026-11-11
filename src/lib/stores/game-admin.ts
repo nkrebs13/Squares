@@ -1,16 +1,5 @@
 import { get } from 'svelte/store';
-import {
-	party,
-	squares,
-	numbers,
-	scores,
-	winners,
-	gameScores,
-	gameHomeIsRow,
-	selectedPlayerFilter,
-	isLoading,
-	error,
-} from './game-state';
+import { party, squares, numbers, scores, winners, resetPartyState } from './game-state';
 import { clearPendingOps, clearSquareFields } from './game-pending';
 import { broadcastScoreUpdate, cleanupChannels } from './game-realtime';
 import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
@@ -197,16 +186,7 @@ export async function deleteParty(pin: string): Promise<AdminResult> {
 export function cleanup() {
 	clearPendingOps();
 	cleanupChannels();
-	party.set(null);
-	squares.set([]);
-	numbers.set(null);
-	scores.set(null);
-	winners.set([]);
-	gameScores.set(null);
-	gameHomeIsRow.set(true);
-	selectedPlayerFilter.set(null);
-	isLoading.set(true);
-	error.set(null);
+	resetPartyState();
 }
 
 export async function verifyHostPin(code: string, pin: string): Promise<AdminResult> {

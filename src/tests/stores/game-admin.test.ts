@@ -417,3 +417,17 @@ describe('deleteParty', () => {
 		});
 	});
 });
+
+describe('cleanup resets every party store', () => {
+	it('leaves no party state behind', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		selectedPlayerFilter.set('alice');
+
+		cleanup();
+
+		expect(get(party)).toBeNull();
+		expect(get(squares)).toEqual([]);
+		expect(get(selectedPlayerFilter)).toBeNull();
+	});
+});

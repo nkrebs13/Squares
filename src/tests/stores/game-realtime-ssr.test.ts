@@ -20,10 +20,11 @@ describe('game-realtime SSR safety', () => {
 		}));
 
 		const mod = await import('$lib/stores/game-realtime');
+		const { isOffline } = await import('$lib/stores/connectivity');
 
-		expect(get(mod.isOffline)).toBe(false);
+		expect(get(isOffline)).toBe(false);
 		expect(() => mod.subscribeToParty('ssr-test-party')).not.toThrow();
 		expect(() => mod.cleanupChannels()).not.toThrow();
-		expect(get(mod.isOffline)).toBe(false);
+		expect(get(isOffline)).toBe(false);
 	});
 });

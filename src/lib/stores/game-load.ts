@@ -12,7 +12,6 @@ import {
 	parseWinner,
 } from '$lib/validators/realtime';
 import { logError } from '$lib/utils/log';
-import { theme } from './theme';
 import {
 	party,
 	squares,
@@ -59,12 +58,6 @@ export async function loadParty(code: string): Promise<boolean> {
 	if (!state || !partyData) return fail('Party not found');
 
 	party.set(partyData);
-	theme.setTeams({
-		rowColor: partyData.team_row_color,
-		colColor: partyData.team_col_color,
-		rowName: partyData.team_row_name,
-		colName: partyData.team_col_name,
-	});
 	// Invalid rows are dropped; an invalid single row becomes null.
 	squares.set(state.squares.map(parseSquare).filter((r): r is Square => r !== null));
 	numbers.set(state.numbers ? parseNumbers(state.numbers) : null);

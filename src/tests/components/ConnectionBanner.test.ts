@@ -19,6 +19,9 @@ const { mockStore, mockOfflineStore } = vi.hoisted(() => {
 
 vi.mock('$lib/stores/game-realtime', () => ({
 	connectionStatus: { subscribe: mockStore.subscribe },
+}));
+
+vi.mock('$lib/stores/connectivity', () => ({
 	isOffline: { subscribe: mockOfflineStore.subscribe },
 }));
 

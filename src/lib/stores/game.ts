@@ -11,6 +11,7 @@ export {
 	winners,
 	gameScores,
 	gameHomeIsRow,
+	teamTheme,
 	isLoading,
 	error,
 	// Derived stores
@@ -37,12 +38,9 @@ export type { PlayerSummary } from './game-state';
 // Pending operations
 export { pendingOperations } from './game-pending';
 
-export {
-	subscribeToParty,
-	broadcastScoreUpdate,
-	connectionStatus,
-	isOffline,
-} from './game-realtime';
+export { subscribeToParty, broadcastScoreUpdate, connectionStatus } from './game-realtime';
+
+export { isOffline } from './connectivity';
 
 export {
 	claimSquareOptimistic,

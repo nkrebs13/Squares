@@ -17,6 +17,7 @@
 		cleanup,
 		party,
 		gameScores,
+		teamTheme,
 		isLoading,
 		error,
 	} from '$lib/stores/game';
@@ -112,7 +113,11 @@
 	<meta name="twitter:description" content={pageDescription} />
 </svelte:head>
 
-<div class="party-page">
+<div
+	class="party-page"
+	style:--team-row-color={$teamTheme.rowColor}
+	style:--team-col-color={$teamTheme.colColor}
+>
 	<ConnectionBanner />
 	{#if $isLoading}
 		<div class="flex items-center justify-center h-screen">

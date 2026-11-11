@@ -8,6 +8,7 @@
 	import {
 		party,
 		gameScores,
+		teamTheme,
 		filledCount,
 		isLoading,
 		error as partyLoadError,
@@ -126,7 +127,11 @@
 	}
 </script>
 
-<div class="min-h-screen p-6">
+<div
+	class="min-h-screen p-6"
+	style:--team-row-color={$teamTheme.rowColor}
+	style:--team-col-color={$teamTheme.colColor}
+>
 	<header class="mb-8">
 		<a href="/party/{code}" class="text-sm hover:opacity-100 text-secondary">← Back to Game</a>
 		<h1 class="text-3xl font-bold mt-2">Host Panel</h1>

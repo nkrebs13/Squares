@@ -4,8 +4,8 @@ import type {
 	RealtimePostgresChangesPayload,
 	REALTIME_SUBSCRIBE_STATES,
 } from '@supabase/supabase-js';
-import { browser } from '$app/environment';
 import { getSupabaseClient } from '$lib/supabase';
+import { unwatchConnectivity, watchConnectivity } from './connectivity';
 import type { BroadcastMessage } from '$lib/types';
 import { logWarn } from '$lib/utils/log';
 import {
@@ -21,15 +21,13 @@ import {
 	clientId,
 	squares,
 	party,
+	numbers,
 	scores,
+	gameScores,
 	winners,
-	applyPartyUpdate,
-	applyNumbersUpdate,
-	applyScoresUpdate,
 	applyWinnerInsert,
 	applyWinnerUpdate,
 	applyWinnerDelete,
-	applyGameScoresUpdate,
 } from './game-state';
 import {
 	addPendingOps,
@@ -102,60 +100,6 @@ const _connectionStatus = writable<ConnectionStatusState>({ status: 'connected',
 export const connectionStatus: Readable<ConnectionStatusState> = {
 	subscribe: _connectionStatus.subscribe,
 };
-
-// ─── Network connectivity (independent of the realtime channel status) ───
-// navigator.onLine + window 'online'/'offline' events reflect actual browser
-// network connectivity — distinct from connectionStatus above, which only
-// tracks the Supabase realtime channel's own connect/reconnect lifecycle.
-// A user can be fully offline (no network at all) while connectionStatus is
-// still 'connected' from its last known state, or the reverse.
-//
-// SSR-safe: navigator/window are undefined during SvelteKit server render,
-// so every access is guarded by `browser` from $app/environment (same guard
-// theme.ts uses for its own browser-only DOM access).
-const _isOffline = writable<boolean>(browser ? !navigator.onLine : false);
-
-/** Public read-only store reflecting actual network connectivity (navigator.onLine). */
-export const isOffline: Readable<boolean> = { subscribe: _isOffline.subscribe };
-
-function handleNetworkOnline() {
-	_isOffline.set(false);
-}
-
-function handleNetworkOffline() {
-	_isOffline.set(true);
-}
-
-let offlineListenersActive = false;
-
-/**
- * Resync isOffline from the current navigator.onLine value, and register the
- * window online/offline listeners exactly once. Safe to call on every
- * subscribeToParty() — idempotent, mirrors the channel setup below.
- */
-function registerOfflineListeners() {
-	if (!browser) return;
-	_isOffline.set(!navigator.onLine);
-	if (offlineListenersActive) return;
-	window.addEventListener('online', handleNetworkOnline);
-	window.addEventListener('offline', handleNetworkOffline);
-	offlineListenersActive = true;
-}
-
-/**
- * Tear down the window online/offline listeners and resync isOffline to the
- * current navigator.onLine value. Mirrors cleanupChannels()'s teardown of the
- * realtime channels — called from there so listeners never leak across
- * navigations.
- */
-function unregisterOfflineListeners() {
-	if (browser && offlineListenersActive) {
-		window.removeEventListener('online', handleNetworkOnline);
-		window.removeEventListener('offline', handleNetworkOffline);
-		offlineListenersActive = false;
-	}
-	_isOffline.set(browser ? !navigator.onLine : false);
-}
 
 function recomputeAggregateStatus() {
 	let maxAttempts = 0;
@@ -385,7 +329,7 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		handle: (payload) => {
 			if (payload.eventType === 'UPDATE') {
 				const newParty = parseParty(payload.new);
-				if (newParty) applyPartyUpdate(newParty);
+				if (newParty) party.set(newParty);
 			}
 		},
 	},
@@ -395,7 +339,7 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		handle: (payload) => {
 			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 				const newNumbers = parseNumbers(payload.new);
-				if (newNumbers) applyNumbersUpdate(newNumbers);
+				if (newNumbers) numbers.set(newNumbers);
 			}
 		},
 	},
@@ -405,7 +349,7 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		handle: (payload) => {
 			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 				const newScores = parseScores(payload.new);
-				if (newScores) applyScoresUpdate(newScores);
+				if (newScores) scores.set(newScores);
 			}
 		},
 	},
@@ -465,9 +409,9 @@ function setupGameChannel(gameId: string, generation: number) {
 			(payload) => {
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newGameScores = parseGameScores(payload.new);
-					if (newGameScores) applyGameScoresUpdate(newGameScores);
+					if (newGameScores) gameScores.set(newGameScores);
 				} else if (payload.eventType === 'DELETE') {
-					applyGameScoresUpdate(null);
+					gameScores.set(null);
 				}
 			}
 		)
@@ -483,8 +427,7 @@ function setupGameChannel(gameId: string, generation: number) {
 }
 
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
-	// Register (or resync) the offline-detection listeners for this session.
-	registerOfflineListeners();
+	watchConnectivity();
 
 	// Bump the generation FIRST so any async CLOSED fired by the unsubscribe() calls
 	// below is treated as stale and cannot schedule a reconnect against the old party.
@@ -541,5 +484,5 @@ export function cleanupChannels() {
 	// and cannot resurrect a subscription after teardown.
 	++currentGeneration;
 	teardownChannels();
-	unregisterOfflineListeners();
+	unwatchConnectivity();
 }
