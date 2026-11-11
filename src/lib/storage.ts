@@ -72,16 +72,20 @@ export const jsonCodec = <T>(): Codec<T> => ({
 	},
 });
 
-/** A value kept in IndexedDB, falling back to localStorage when IndexedDB fails. */
-export function durable<T>(key: string, codec: Codec<T>) {
+/**
+ * A value kept in IndexedDB, falling back to localStorage when IndexedDB
+ * fails. A null codec means no fallback: the value is never written to
+ * localStorage (for secrets that must not outlive IndexedDB's lifetime rules).
+ */
+export function durable<T>(key: string, codec: Codec<T> | null) {
 	return {
 		async get(): Promise<T | null> {
 			if (!browser) return null;
 			try {
 				return (await get<T>(key)) ?? null;
 			} catch {
-				const raw = local.get(key);
-				return raw === null ? null : codec.decode(raw);
+				const raw = codec ? local.get(key) : null;
+				return raw === null || !codec ? null : codec.decode(raw);
 			}
 		},
 		/** Whether the value was stored (in either place). */
@@ -91,7 +95,7 @@ export function durable<T>(key: string, codec: Codec<T>) {
 				await set(key, value);
 				return true;
 			} catch {
-				return local.set(key, codec.encode(value));
+				return codec ? local.set(key, codec.encode(value)) : false;
 			}
 		},
 		async remove(): Promise<void> {
@@ -99,7 +103,7 @@ export function durable<T>(key: string, codec: Codec<T>) {
 			try {
 				await del(key);
 			} catch {
-				local.remove(key);
+				if (codec) local.remove(key);
 			}
 		},
 	};

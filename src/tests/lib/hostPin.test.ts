@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { forgetHostPin, recallHostPin, rememberHostPin } from '$lib/hostPin';
-import { sessionStorageMock } from '../setup';
+import { localStorageMock, sessionStorageMock } from '../setup';
 import { useFakeIdb } from './idbFake';
 
 describe('host PIN memory', () => {
@@ -19,10 +19,14 @@ describe('host PIN memory', () => {
 		expect(await recallHostPin('NOPE00')).toBeNull();
 	});
 
-	it('still works in this tab when IndexedDB is unavailable', async () => {
+	it('lasts only as long as the tab when IndexedDB is unavailable', async () => {
 		idb.state.failing = true;
 		await rememberHostPin('ABC123', '1234');
 		expect(await recallHostPin('ABC123')).toBe('1234');
+		expect(localStorageMock.getItem('squares_host_pins')).toBeNull();
+
+		sessionStorageMock.clear();
+		expect(await recallHostPin('ABC123')).toBeNull();
 	});
 
 	it('forgets a PIN everywhere and keeps the others', async () => {

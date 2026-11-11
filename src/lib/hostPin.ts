@@ -1,10 +1,11 @@
 // The host PIN a browser remembers per party, so the host isn't asked again.
-// Kept in IndexedDB (survives the tab) and in sessionStorage (works when
-// IndexedDB is unavailable); every caller goes through these three functions.
+// Kept in IndexedDB (survives the tab) and in sessionStorage (this tab only).
+// Never in localStorage: when IndexedDB is unavailable the PIN lasts as long as
+// the tab, as before. Every caller goes through these functions.
 
-import { durable, jsonCodec, session, STORAGE_KEYS } from '$lib/storage';
+import { durable, session, STORAGE_KEYS } from '$lib/storage';
 
-const pins = durable<Record<string, string>>(STORAGE_KEYS.hostPins, jsonCodec());
+const pins = durable<Record<string, string>>(STORAGE_KEYS.hostPins, null);
 
 export async function rememberHostPin(code: string, pin: string): Promise<void> {
 	session.set(STORAGE_KEYS.partyPin(code), pin);
