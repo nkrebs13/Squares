@@ -3,14 +3,8 @@
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import {
-		partyPinKey,
-		getHostPin,
-		getSessionItem,
-		removeHostPin,
-		removeSessionItem,
-		removeRecentParty,
-	} from '$lib/storage';
+	import { cachedHostPin, forgetHostPin, recallHostPin } from '$lib/hostPin';
+	import { removeRecentParty } from '$lib/recentParties';
 	import {
 		party,
 		gameScores,
@@ -68,10 +62,7 @@
 
 	onMount(async () => {
 		if (browser) {
-			storedPin = getSessionItem(partyPinKey(code));
-			if (!storedPin) {
-				storedPin = await getHostPin(code);
-			}
+			storedPin = cachedHostPin(code) ?? (await recallHostPin(code));
 		}
 
 		if (!$party) {
@@ -100,8 +91,7 @@
 			// Clear cached host credentials so a revisit to this URL (back
 			// button, bookmark) doesn't leave the panel authorized for a
 			// party that no longer exists.
-			await removeHostPin(code);
-			removeSessionItem(partyPinKey(code));
+			await forgetHostPin(code);
 			await removeRecentParty(code);
 			goto('/');
 		} else {

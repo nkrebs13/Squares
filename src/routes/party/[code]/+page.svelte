@@ -27,14 +27,8 @@
 		buildPartyShareDescription,
 		partyToShareMetadata,
 	} from '$lib/partyMeta';
-	import {
-		saveRecentParty,
-		hasHostPin,
-		partyPinKey,
-		partyNicknameKey,
-		getSessionItem,
-		removeSessionItem,
-	} from '$lib/storage';
+	import { saveRecentParty } from '$lib/recentParties';
+	import { recallHostPin } from '$lib/hostPin';
 	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
@@ -60,27 +54,15 @@
 
 	async function checkIsHost() {
 		if (browser && code) {
-			// Check IndexedDB first, then fallback to sessionStorage
-			isHost = (await hasHostPin(code)) || getSessionItem(partyPinKey(code)) !== null;
+			isHost = (await recallHostPin(code)) !== null;
 		}
 	}
 
 	async function saveToRecentParties() {
 		if (!$party) return;
 
-		// Check for nickname set during create/join flow
-		let nickname: string | undefined;
-		if (browser) {
-			const nicknameKey = partyNicknameKey($party.code);
-			nickname = getSessionItem(nicknameKey) || undefined;
-			if (nickname) {
-				removeSessionItem(nicknameKey);
-			}
-		}
-
 		const recentParty: RecentParty = {
 			code: $party.code,
-			nickname,
 			eventName: $party.event_name,
 			kickoffAt: $party.kickoff_at,
 			teamRowName: $party.team_row_name,

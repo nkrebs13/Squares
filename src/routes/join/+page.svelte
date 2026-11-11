@@ -3,13 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { userName } from '$lib/stores/user';
 	import { verifyHostPin } from '$lib/stores/game';
-	import {
-		getHostPin,
-		setHostPin,
-		partyPinKey,
-		partyNicknameKey,
-		setSessionItem,
-	} from '$lib/storage';
+	import { recallHostPin, rememberHostPin } from '$lib/hostPin';
+	import { stageNickname } from '$lib/recentParties';
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 	import {
@@ -109,14 +104,14 @@
 			const enteredNameLower = name.trim().toLowerCase();
 			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
 				// Check if we have a valid stored PIN for this party
-				const storedPin = await getHostPin(upperCode);
+				const storedPin = await recallHostPin(upperCode);
 				if (storedPin) {
 					// Verify stored PIN is still valid
 					const verified = await verifyHostPin(upperCode, storedPin);
 					if (verified.success) {
 						// Stored PIN is valid, proceed directly
 						userName.setName(name.trim());
-						storeNickname(upperCode);
+						stageNickname(upperCode, nickname);
 						goto(`/party/${upperCode}`);
 						return;
 					}
@@ -132,7 +127,7 @@
 
 			// Not the host name, proceed normally
 			userName.setName(name.trim());
-			storeNickname(upperCode);
+			stageNickname(upperCode, nickname);
 			goto(`/party/${upperCode}`);
 		} catch {
 			error = 'Something went wrong. Please try again.';
@@ -174,13 +169,11 @@
 			const result = await verifyHostPin(pendingPartyCode, pinInput);
 
 			if (result.success) {
-				// Store PIN in IndexedDB and session storage
-				await setHostPin(pendingPartyCode, pinInput);
-				setSessionItem(partyPinKey(pendingPartyCode), pinInput);
+				await rememberHostPin(pendingPartyCode, pinInput);
 
 				// Proceed to party
 				userName.setName(name.trim());
-				storeNickname(pendingPartyCode);
+				stageNickname(pendingPartyCode, nickname);
 				showPinChallenge = false;
 				goto(`/party/${pendingPartyCode}`);
 			} else {
@@ -191,12 +184,6 @@
 			pinError = 'Unable to verify PIN. Please try again.';
 		} finally {
 			isVerifyingPin = false;
-		}
-	}
-
-	function storeNickname(partyCode: string) {
-		if (nickname.trim()) {
-			setSessionItem(partyNicknameKey(partyCode), nickname.trim());
 		}
 	}
 

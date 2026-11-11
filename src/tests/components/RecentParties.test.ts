@@ -2,19 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 
 // Must mock before importing the component
-vi.mock('$lib/storage', () => ({
+vi.mock('$lib/recentParties', () => ({
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	removeRecentParty: vi.fn().mockResolvedValue(undefined),
 	updatePartyNickname: vi.fn().mockResolvedValue(undefined),
-	saveRecentParty: vi.fn().mockResolvedValue(undefined),
-	getUserName: vi.fn().mockResolvedValue(null),
-	setUserName: vi.fn().mockResolvedValue(undefined),
-	clearUserName: vi.fn().mockResolvedValue(undefined),
 }));
 
 import RecentParties from '$lib/components/RecentParties.svelte';
 import { goto } from '$app/navigation';
-import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
+import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
 import type { RecentParty } from '$lib/types';
 import { createMockRecentParty as createMockParty } from '../factories';
 

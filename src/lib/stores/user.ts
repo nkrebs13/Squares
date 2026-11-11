@@ -1,27 +1,24 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import {
-	getUserName,
-	setUserName,
-	clearUserName,
-	getLocalItem,
-	setLocalItem,
-	removeLocalItem,
-	STORAGE_KEYS,
-} from '$lib/storage';
+import { durable, local, STORAGE_KEYS } from '$lib/storage';
+
+// The player's name: in IndexedDB, mirrored to localStorage so the first render
+// (before IndexedDB answers) already knows it.
+const stored = durable<string>(STORAGE_KEYS.userName, {
+	encode: (name) => name,
+	decode: (raw) => raw,
+});
 
 function createUserStore() {
-	// Initialize with localStorage value synchronously (for SSR compatibility)
-	const stored = getLocalItem(STORAGE_KEYS.userName);
-	const { subscribe, set } = writable<string | null>(stored);
+	const { subscribe, set } = writable<string | null>(local.get(STORAGE_KEYS.userName));
+	let changedLocally = false;
 
-	// Async initialization from IndexedDB
 	if (browser) {
-		getUserName().then((name) => {
-			if (name) {
+		stored.get().then((name) => {
+			// Don't overwrite a name the user set while IndexedDB was answering.
+			if (name && !changedLocally) {
 				set(name);
-				// Also update localStorage as sync fallback
-				setLocalItem(STORAGE_KEYS.userName, name);
+				local.set(STORAGE_KEYS.userName, name);
 			}
 		});
 	}
@@ -29,22 +26,21 @@ function createUserStore() {
 	return {
 		subscribe,
 		setName: async (name: string) => {
+			changedLocally = true;
 			const trimmed = name.trim();
-			if (trimmed) {
-				// Update store immediately
-				set(trimmed);
-				// Sync to localStorage for immediate fallback
-				setLocalItem(STORAGE_KEYS.userName, trimmed);
-				// Persist to IndexedDB
-				await setUserName(trimmed);
-			} else {
+			if (!trimmed) {
 				set(null);
+				return;
 			}
+			set(trimmed);
+			local.set(STORAGE_KEYS.userName, trimmed);
+			await stored.set(trimmed);
 		},
 		clear: async () => {
+			changedLocally = true;
 			set(null);
-			removeLocalItem(STORAGE_KEYS.userName);
-			await clearUserName();
+			local.remove(STORAGE_KEYS.userName);
+			await stored.remove();
 		},
 	};
 }

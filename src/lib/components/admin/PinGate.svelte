@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { partyPinKey, setHostPin, setSessionItem } from '$lib/storage';
+	import { rememberHostPin } from '$lib/hostPin';
 	import { verifyHostPin } from '$lib/stores/game';
 	import { PIN_LENGTH } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
@@ -25,8 +25,7 @@
 		try {
 			const result = await verifyHostPin(code, enteredPin);
 			if (result.success) {
-				await setHostPin(code, enteredPin);
-				setSessionItem(partyPinKey(code), enteredPin);
+				await rememberHostPin(code, enteredPin);
 				onauthorized(enteredPin);
 			} else {
 				pinError = result.error ?? 'Incorrect PIN. Please try again.';

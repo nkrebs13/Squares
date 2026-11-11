@@ -2,20 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 
-// Must mock before importing the component
-vi.mock('$lib/storage', () => ({
-	hasSeenGestureHint: vi.fn().mockResolvedValue(true),
-	markGestureHintSeen: vi.fn().mockResolvedValue(undefined),
-	getUserName: vi.fn().mockResolvedValue(null),
-	setUserName: vi.fn().mockResolvedValue(undefined),
-	clearUserName: vi.fn().mockResolvedValue(undefined),
-}));
-
 import GestureHint from '$lib/components/GestureHint.svelte';
-import { hasSeenGestureHint, markGestureHintSeen } from '$lib/storage';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 
-const mockHasSeenGestureHint = vi.mocked(hasSeenGestureHint);
-const mockMarkGestureHintSeen = vi.mocked(markGestureHintSeen);
+const HINT_KEY = 'squares_gesture_hint_shown';
+
+/** Whether the browser has already recorded the hint as seen. */
+function hintAlreadySeen(seen: boolean) {
+	vi.mocked(idbGet).mockImplementation(
+		(key) => Promise.resolve(key === HINT_KEY ? seen : undefined) as never
+	);
+}
+
+const timesMarkedSeen = () =>
+	vi.mocked(idbSet).mock.calls.filter(([key, value]) => key === HINT_KEY && value === true).length;
 
 // Mirrors the component's own MOBILE_LAYOUT_QUERY constant (Tailwind `lg` breakpoint
 // boundary). Tests build a matchMedia mock that can answer this query independently
@@ -36,7 +36,7 @@ function createMatchMediaMock(queryMatches: Record<string, boolean>) {
 // a chance to run, so it can't actually prove the hint stayed hidden.
 async function waitForMountDecision() {
 	await vi.waitFor(() => {
-		expect(mockHasSeenGestureHint).toHaveBeenCalled();
+		expect(vi.mocked(idbGet)).toHaveBeenCalledWith(HINT_KEY);
 	});
 	await tick();
 }
@@ -56,7 +56,7 @@ describe('GestureHint Component', () => {
 
 	describe('Visibility', () => {
 		it('shows the hint when user has not seen it before, on a mobile-width layout', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: true });
 
 			render(GestureHint);
@@ -67,7 +67,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('does not show the hint when user has seen it before', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(true);
+			hintAlreadySeen(true);
 
 			render(GestureHint);
 			await waitForMountDecision();
@@ -76,7 +76,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('does not auto-show the hint on a desktop-width layout, even when unseen', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
 
 			render(GestureHint);
@@ -86,7 +86,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('does not auto-show the hint when matchMedia is unavailable, even when unseen', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 			// @ts-expect-error - simulating an environment without matchMedia support
 			delete window.matchMedia;
 
@@ -99,7 +99,7 @@ describe('GestureHint Component', () => {
 
 	describe('Content', () => {
 		it('displays all gesture hints for non-touch (mouse) devices', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 
 			render(GestureHint);
 			await vi.waitFor(() => {
@@ -113,7 +113,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('displays touch-specific copy when the device reports coarse pointer', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 			window.matchMedia = vi.fn().mockReturnValue({ matches: true });
 
 			render(GestureHint);
@@ -131,7 +131,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('displays dismiss instructions', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 
 			render(GestureHint);
 			await vi.waitFor(() => {
@@ -140,7 +140,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('announces itself to screen readers when shown', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
+			hintAlreadySeen(false);
 
 			render(GestureHint);
 			await vi.waitFor(() => {
@@ -151,8 +151,7 @@ describe('GestureHint Component', () => {
 
 	describe('Dismissal', () => {
 		it('hides and persists when clicked', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(false);
-			mockMarkGestureHintSeen.mockResolvedValue(undefined);
+			hintAlreadySeen(false);
 
 			render(GestureHint);
 			await vi.waitFor(() => {
@@ -161,14 +160,13 @@ describe('GestureHint Component', () => {
 
 			await fireEvent.click(screen.getByLabelText('Dismiss hint'));
 
-			expect(mockMarkGestureHintSeen).toHaveBeenCalledTimes(1);
+			expect(timesMarkedSeen()).toBe(1);
 			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 		});
 
 		it('auto-dismisses after 5 seconds', async () => {
 			vi.useFakeTimers();
-			mockHasSeenGestureHint.mockResolvedValue(false);
-			mockMarkGestureHintSeen.mockResolvedValue(undefined);
+			hintAlreadySeen(false);
 
 			render(GestureHint);
 
@@ -179,7 +177,7 @@ describe('GestureHint Component', () => {
 			// Advance past 5 second auto-dismiss
 			await vi.advanceTimersByTimeAsync(5000);
 
-			expect(mockMarkGestureHintSeen).toHaveBeenCalledTimes(1);
+			expect(timesMarkedSeen()).toBe(1);
 			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 
 			vi.useRealTimers();
@@ -188,7 +186,7 @@ describe('GestureHint Component', () => {
 
 	describe('Reopen (help affordance)', () => {
 		it('re-shows the hint via the exported reopen() after it was dismissed', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(true); // already seen -> not shown on mount
+			hintAlreadySeen(true); // already seen -> not shown on mount
 
 			const { component } = render(GestureHint);
 			await vi.waitFor(() => {
@@ -203,7 +201,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('re-shows the hint via reopen() on a desktop-width layout (the "?" help button works everywhere)', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(true);
+			hintAlreadySeen(true);
 			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
 
 			const { component } = render(GestureHint);
@@ -219,7 +217,7 @@ describe('GestureHint Component', () => {
 		});
 
 		it('does not clear the persisted seen-flag when reopened', async () => {
-			mockHasSeenGestureHint.mockResolvedValue(true);
+			hintAlreadySeen(true);
 
 			const { component } = render(GestureHint);
 			await vi.waitFor(() => {
@@ -232,13 +230,12 @@ describe('GestureHint Component', () => {
 			});
 
 			// reopen() itself must not touch storage - only an explicit dismiss does
-			expect(mockMarkGestureHintSeen).not.toHaveBeenCalled();
+			expect(timesMarkedSeen()).toBe(0);
 		});
 
 		it('still auto-dismisses 5 seconds after being reopened', async () => {
 			vi.useFakeTimers();
-			mockHasSeenGestureHint.mockResolvedValue(true);
-			mockMarkGestureHintSeen.mockResolvedValue(undefined);
+			hintAlreadySeen(true);
 
 			const { component } = render(GestureHint);
 			await vi.advanceTimersByTimeAsync(0);
@@ -251,7 +248,7 @@ describe('GestureHint Component', () => {
 			await vi.advanceTimersByTimeAsync(5000);
 
 			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-			expect(mockMarkGestureHintSeen).toHaveBeenCalledTimes(1);
+			expect(timesMarkedSeen()).toBe(1);
 
 			vi.useRealTimers();
 		});

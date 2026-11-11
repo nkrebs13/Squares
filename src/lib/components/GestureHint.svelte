@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { hasSeenGestureHint, markGestureHintSeen } from '$lib/storage';
+	import { durable, STORAGE_KEYS } from '$lib/storage';
+
+	const hintSeen = durable<boolean>(STORAGE_KEYS.gestureHintShown, {
+		encode: (seen) => String(seen),
+		decode: (raw) => raw === 'true',
+	});
 
 	// Matches Tailwind's `lg` breakpoint boundary. The hint auto-shows only in the
 	// mobile layout, where the pan/zoom gestures it describes actually apply. The
@@ -28,7 +33,7 @@
 				? window.matchMedia(MOBILE_LAYOUT_QUERY).matches
 				: false;
 
-		const seen = await hasSeenGestureHint();
+		const seen = (await hintSeen.get()) === true;
 		if (!seen && isMobileLayout) {
 			show = true;
 			scheduleAutoDismiss();
@@ -57,7 +62,7 @@
 			clearTimeout(timeout);
 			timeout = null;
 		}
-		await markGestureHintSeen();
+		await hintSeen.set(true);
 	}
 
 	// Re-shows the hint on demand (e.g. from a "?" help affordance) without
