@@ -222,7 +222,7 @@ describe('updatePayoutStructure', () => {
 
 	it.each([
 		['wrong_status', undefined, 'Grid is already locked'],
-		['invalid_input', 'splits', 'Splits must add up to 100%'],
+		['invalid_input', 'splits', 'Each split must be 0–100% and they must add up to 100%.'],
 	])('maps %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty());
 		refuse(code, field);

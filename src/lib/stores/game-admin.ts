@@ -173,7 +173,7 @@ export async function updatePayoutStructure(
 		{
 			failed: 'Failed to update payout structure. Please try again.',
 			wrong_status: 'Grid is already locked',
-			invalid_input: 'Splits must add up to 100%',
+			invalid_input: 'Each split must be 0–100% and they must add up to 100%.',
 		}
 	);
 	if (!result.ok) return { success: false, error: result.error };
