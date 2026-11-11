@@ -1526,106 +1526,10 @@ ALTER FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" c
 
 
 CREATE OR REPLACE FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
+    LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
     AS $$
-DECLARE
-  v_party RECORD;
-  v_pin_ok BOOLEAN;
-  v_row_digit INT;
-  v_col_digit INT;
-  v_winning_row INT;
-  v_winning_col INT;
-  v_winner_name TEXT;
-  v_total_pot NUMERIC;
-  v_quarter_pct INT;
-  v_amount NUMERIC;
-BEGIN
-  -- Check PIN with rate limiting
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    PERFORM log_audit_event('update_score_failed', p_party_id,
-      jsonb_build_object('reason', 'invalid_pin_or_lockout'));
-    RETURN FALSE;
-  END IF;
-
-  -- Get party
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND OR v_party.status NOT IN ('active', 'locked') THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Validate scores are non-negative
-  IF p_row_score < 0 OR p_col_score < 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Update the score
-  IF p_quarter = 'q1' THEN
-    UPDATE scores SET q1_row_score = p_row_score, q1_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q1;
-  ELSIF p_quarter = 'q2' THEN
-    UPDATE scores SET q2_row_score = p_row_score, q2_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q2;
-  ELSIF p_quarter = 'q3' THEN
-    UPDATE scores SET q3_row_score = p_row_score, q3_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q3;
-  ELSIF p_quarter = 'final' THEN
-    UPDATE scores SET final_row_score = p_row_score, final_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_final;
-  ELSE
-    RETURN FALSE;
-  END IF;
-
-  -- Calculate winning square
-  v_row_digit := p_row_score % 10;
-  v_col_digit := p_col_score % 10;
-
-  -- Find winning row/col in the numbers grid
-  SELECT
-    (SELECT idx FROM unnest(n.row_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_row_digit LIMIT 1) - 1,
-    (SELECT idx FROM unnest(n.col_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_col_digit LIMIT 1) - 1
-  INTO v_winning_row, v_winning_col
-  FROM numbers n
-  WHERE n.party_id = p_party_id;
-
-  IF v_winning_row IS NOT NULL AND v_winning_col IS NOT NULL THEN
-    -- Get winner name
-    SELECT player_name INTO v_winner_name
-    FROM squares
-    WHERE party_id = p_party_id AND row_num = v_winning_row AND col_num = v_winning_col;
-
-    -- Safety check: winner square must have a player (indicates data integrity issue if triggered)
-    IF v_winner_name IS NULL THEN
-      PERFORM log_audit_event('update_score_failed', p_party_id,
-        jsonb_build_object('reason', 'null_winner', 'row', v_winning_row, 'col', v_winning_col));
-      RETURN FALSE;
-    END IF;
-
-    -- Calculate amount
-    v_total_pot := v_party.square_price * 100;
-    v_amount := v_total_pot * v_quarter_pct / 100;
-
-    -- Insert or update winner
-    INSERT INTO winners (party_id, quarter, winning_row, winning_col, player_name, amount)
-    VALUES (p_party_id, p_quarter, v_winning_row, v_winning_col, v_winner_name, v_amount)
-    ON CONFLICT (party_id, quarter) DO UPDATE SET
-      winning_row = EXCLUDED.winning_row,
-      winning_col = EXCLUDED.winning_col,
-      player_name = EXCLUDED.player_name,
-      amount = EXCLUDED.amount;
-  END IF;
-
-  -- If final quarter, mark game as complete
-  IF p_quarter = 'final' THEN
-    UPDATE parties SET status = 'complete', updated_at = NOW() WHERE id = p_party_id;
-  END IF;
-
-  PERFORM log_audit_event('update_score_success', p_party_id,
-    jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
-
-  RETURN TRUE;
-END;
+    SELECT (host_record_score(p_party_id, p_pin, p_quarter, p_row_score, p_col_score) ->> 'ok')::BOOLEAN;
 $$;
 
 

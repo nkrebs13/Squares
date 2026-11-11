@@ -152,4 +152,20 @@ BEGIN
 END;
 $$;
 
+-- Clients still on an older bundle call update_score; give them the same rule
+-- until the legacy functions are dropped.
+CREATE OR REPLACE FUNCTION update_score(
+    p_party_id UUID,
+    p_pin VARCHAR,
+    p_quarter VARCHAR,
+    p_row_score INT,
+    p_col_score INT
+) RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+    SELECT (host_record_score(p_party_id, p_pin, p_quarter, p_row_score, p_col_score) ->> 'ok')::BOOLEAN;
+$$;
+
 GRANT EXECUTE ON FUNCTION host_record_score(UUID, VARCHAR, VARCHAR, INT, INT) TO anon, authenticated;
