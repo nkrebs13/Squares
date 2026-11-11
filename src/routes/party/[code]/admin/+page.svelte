@@ -79,7 +79,7 @@
 
 		// Subscribe to realtime updates (including live scores)
 		if ($party) {
-			unsubscribe = subscribeToParty($party.id, $gameScores?.game_id ?? null);
+			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
 		}
 	});
 

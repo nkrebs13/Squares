@@ -83,6 +83,15 @@ describe('loadParty', () => {
 		expect(get(squares)).toEqual([]);
 	});
 
+	it('reports a load that throws instead of hanging on the spinner', async () => {
+		mockSupabaseClient.rpc.mockRejectedValueOnce(new Error('boom'));
+
+		expect(await loadParty('test123')).toBe(false);
+
+		expect(get(isLoading)).toBe(false);
+		expect(get(error)).toBe("Couldn't load that party. Check your connection and try again.");
+	});
+
 	it('drops invalid rows rather than the whole party', async () => {
 		const grid = createEmptyGrid();
 		stateResponds({ squares: [...grid.slice(0, 99), { id: 'broken' }], numbers: { bad: true } });

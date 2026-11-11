@@ -1450,6 +1450,24 @@ $$;
 ALTER FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."sync_linked_home_team_side"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+BEGIN
+    UPDATE parties p
+    SET home_team_is_row = game_side(p.team_row_name, p.team_col_name, NEW)
+    WHERE p.game_id = NEW.game_id
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS NOT NULL
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS DISTINCT FROM p.home_team_is_row;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."sync_linked_home_team_side"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1992,6 +2010,10 @@ CREATE OR REPLACE TRIGGER "enforce_push_subscription_limit" BEFORE INSERT ON "pu
 
 
 
+CREATE OR REPLACE TRIGGER "game_scores_a_home_team_side" AFTER INSERT OR UPDATE OF "home_team_name", "away_team_name", "home_team_abbrev", "away_team_abbrev" ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."sync_linked_home_team_side"();
+
+
+
 CREATE OR REPLACE TRIGGER "game_scores_propagate" AFTER INSERT OR UPDATE ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."propagate_game_scores"();
 
 
@@ -2109,10 +2131,6 @@ ALTER TABLE "public"."winners" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
-
-
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."game_scores";
@@ -2611,6 +2629,11 @@ GRANT ALL ON FUNCTION "public"."set_home_team_side"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."sync_linked_home_team_side"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."sync_linked_home_team_side"() TO "service_role";
 
 
 

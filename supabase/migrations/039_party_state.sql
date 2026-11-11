@@ -56,6 +56,29 @@ CREATE TRIGGER parties_home_team_side
     BEFORE INSERT OR UPDATE OF game_id, team_row_name, team_col_name ON parties
     FOR EACH ROW EXECUTE FUNCTION set_home_team_side();
 
+-- A game row's team names can arrive or change after parties link to it.
+-- Triggers of one timing fire in name order, so this runs before
+-- game_scores_propagate scores anything with the side.
+CREATE FUNCTION sync_linked_home_team_side() RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+    UPDATE parties p
+    SET home_team_is_row = game_side(p.team_row_name, p.team_col_name, NEW)
+    WHERE p.game_id = NEW.game_id
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS NOT NULL
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS DISTINCT FROM p.home_team_is_row;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER game_scores_a_home_team_side
+    AFTER INSERT OR UPDATE OF home_team_name, away_team_name, home_team_abbrev, away_team_abbrev
+    ON game_scores
+    FOR EACH ROW EXECUTE FUNCTION sync_linked_home_team_side();
+
 -- Correct any linked party whose flag disagrees with the rule today.
 UPDATE parties p
 SET home_team_is_row = game_side(p.team_row_name, p.team_col_name, g)

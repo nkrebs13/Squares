@@ -100,7 +100,7 @@
 
 		const success = await loadParty(code);
 		if (success && $party) {
-			unsubscribe = subscribeToParty($party.id, $gameScores?.game_id ?? null);
+			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
 			// Save to recent parties
 			await saveToRecentParties();
 		}

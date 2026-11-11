@@ -150,4 +150,23 @@ describe('game_side via the trigger', () => {
 			.single();
 		expect(data?.home_team_is_row).toBe(false);
 	});
+
+	it('follows the game row when its team names arrive after the link', async () => {
+		const party = await newParty();
+		const gameId = await newGame(['TBD', 'TBD'], ['TBD', 'TBA']);
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+
+		await service
+			.from('game_scores')
+			.update({
+				home_team_name: 'Kansas City Chiefs',
+				home_team_abbrev: 'KC',
+				away_team_name: 'Philadelphia Eagles',
+				away_team_abbrev: 'PHI',
+			})
+			.eq('game_id', gameId);
+
+		const { game } = await state(party.code);
+		expect(game).toMatchObject({ linked: true, home_is_row: false });
+	});
 });
