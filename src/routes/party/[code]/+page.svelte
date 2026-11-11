@@ -173,7 +173,11 @@
 			<svelte:boundary>
 				<div class="main-content">
 					{#if !desktop.current}
-						<PartySidebar />
+						<!-- Block wrapper: .main-content is a flex column on mobile, where the
+						     sidebar's stacked mb-4 margins would stop collapsing. -->
+						<div>
+							<PartySidebar />
+						</div>
 					{/if}
 
 					<!-- Mounted in both layouts: the header's help button calls reopen() on it. -->
