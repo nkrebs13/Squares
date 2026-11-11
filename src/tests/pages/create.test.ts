@@ -41,7 +41,7 @@ describe('Create Page', () => {
 			await user.type(screen.getByPlaceholderText('Enter your name'), 'Alice');
 			await user.type(screen.getByPlaceholderText('0000'), '1234');
 
-			// Select Custom preset (defaults to 25/25/25/25 = 100)
+			// Select Custom (keeps the current percentages, which total 100)
 			const customButton = screen.getByRole('button', { name: 'Custom' });
 			await user.click(customButton);
 

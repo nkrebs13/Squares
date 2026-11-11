@@ -46,22 +46,19 @@
 
 <PayoutPresetButtons selected={highlighted} onselect={pick} />
 
-<div class="mt-4 grid grid-cols-4 gap-3">
+<div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
 	{#each QUARTERS as { key, short } (key)}
 		<label class="block text-center">
-			<span class="text-xs uppercase block text-muted">{short}</span>
-			<span class="mt-1 flex items-center justify-center gap-1">
-				<input
-					id="split-{key}"
-					type="number"
-					bind:value={splits[key]}
-					min="0"
-					max="100"
-					class="input input-no-spinner text-center p-2"
-					aria-label="{short} prize split percentage"
-				/>
-				<span class="text-sm text-secondary">%</span>
-			</span>
+			<span class="text-xs uppercase block text-muted">{short} %</span>
+			<input
+				id="split-{key}"
+				type="number"
+				bind:value={splits[key]}
+				min="0"
+				max="100"
+				class="input input-no-spinner mt-1 text-center px-1 py-2"
+				aria-label="{short} prize split percentage"
+			/>
 		</label>
 	{/each}
 </div>
