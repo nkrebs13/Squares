@@ -40,10 +40,12 @@ vi.stubGlobal('Notification', {
 });
 
 // push.ts reads VITE_VAPID_PUBLIC_KEY at import time, so stub it before importing.
-vi.stubEnv('VITE_VAPID_PUBLIC_KEY', 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U');
-const { isPushSupported, subscribeToPush, isSubscribed, getPushPermission } = await import(
-	'$lib/push'
+vi.stubEnv(
+	'VITE_VAPID_PUBLIC_KEY',
+	'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
 );
+const { isPushSupported, subscribeToPush, isSubscribed, getPushPermission } =
+	await import('$lib/push');
 
 describe('Push Notification Module', () => {
 	beforeEach(() => {
