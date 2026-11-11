@@ -20,6 +20,7 @@ const CLIENT_API = [
 	'host_create_party',
 	'host_delete_party',
 	'host_lock_party',
+	'host_record_score',
 	'host_remove_player',
 	'host_update_details',
 	'host_update_payouts',

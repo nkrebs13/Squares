@@ -67,78 +67,25 @@ CREATE OR REPLACE FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_
     SET "search_path" TO 'public', 'extensions'
     AS $$
 DECLARE
-  v_party RECORD;
-  v_row_digit INT;
-  v_col_digit INT;
-  v_winning_row INT;
-  v_winning_col INT;
-  v_winner_name TEXT;
-  v_total_pot NUMERIC;
-  v_quarter_pct INT;
-  v_amount NUMERIC;
+    v_problem TEXT;
 BEGIN
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND OR v_party.status NOT IN ('active', 'locked') THEN
-    RETURN FALSE;
-  END IF;
-
-  IF p_row_score < 0 OR p_col_score < 0 THEN RETURN FALSE; END IF;
-
-  -- Update the per-party score (same logic as update_score minus PIN)
-  IF p_quarter = 'q1' THEN
-    UPDATE scores SET q1_row_score = p_row_score, q1_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q1;
-  ELSIF p_quarter = 'q2' THEN
-    UPDATE scores SET q2_row_score = p_row_score, q2_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q2;
-  ELSIF p_quarter = 'q3' THEN
-    UPDATE scores SET q3_row_score = p_row_score, q3_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q3;
-  ELSIF p_quarter = 'final' THEN
-    UPDATE scores SET final_row_score = p_row_score, final_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_final;
-  ELSE
-    RETURN FALSE;
-  END IF;
-
-  -- Calculate winning square
-  v_row_digit := p_row_score % 10;
-  v_col_digit := p_col_score % 10;
-
-  SELECT
-    (SELECT idx FROM unnest(n.row_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_row_digit LIMIT 1) - 1,
-    (SELECT idx FROM unnest(n.col_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_col_digit LIMIT 1) - 1
-  INTO v_winning_row, v_winning_col
-  FROM numbers n WHERE n.party_id = p_party_id;
-
-  IF v_winning_row IS NOT NULL AND v_winning_col IS NOT NULL THEN
-    SELECT player_name INTO v_winner_name
-    FROM squares WHERE party_id = p_party_id AND row_num = v_winning_row AND col_num = v_winning_col;
-
-    IF v_winner_name IS NULL THEN
-      PERFORM log_audit_event('auto_update_score_failed', p_party_id,
-        jsonb_build_object('reason', 'null_winner', 'row', v_winning_row, 'col', v_winning_col));
-      RETURN FALSE;
-    END IF;
-
-    v_total_pot := v_party.square_price * 100;
-    v_amount := v_total_pot * v_quarter_pct / 100;
-
-    INSERT INTO winners (party_id, quarter, winning_row, winning_col, player_name, amount)
-    VALUES (p_party_id, p_quarter, v_winning_row, v_winning_col, v_winner_name, v_amount)
-    ON CONFLICT (party_id, quarter) DO UPDATE SET
-      winning_row = EXCLUDED.winning_row, winning_col = EXCLUDED.winning_col,
-      player_name = EXCLUDED.player_name, amount = EXCLUDED.amount;
-  END IF;
-
-  IF p_quarter = 'final' THEN
-    UPDATE parties SET status = 'complete', updated_at = NOW() WHERE id = p_party_id;
-  END IF;
-
-  PERFORM log_audit_event('auto_update_score_success', p_party_id,
-    jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
-
-  RETURN TRUE;
+    -- Everything, logging included, runs in the subtransaction: a party deleted
+    -- mid-trigger would otherwise fail the audit FK and abort the whole update.
+    BEGIN
+        v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score);
+        IF v_problem IS NOT NULL THEN
+            PERFORM log_audit_event('auto_update_score_failed', p_party_id,
+                jsonb_build_object('reason', v_problem, 'quarter', p_quarter));
+            RETURN FALSE;
+        END IF;
+        PERFORM log_audit_event('auto_update_score_success', p_party_id,
+            jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
+        RETURN TRUE;
+    EXCEPTION WHEN OTHERS THEN
+        PERFORM log_audit_event('auto_update_score_failed', NULL,
+            jsonb_build_object('party_id', p_party_id, 'reason', SQLERRM, 'quarter', p_quarter));
+        RETURN FALSE;
+    END;
 END;
 $$;
 
@@ -763,6 +710,43 @@ $$;
 ALTER FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+    v_refusal JSONB;
+    v_problem TEXT;
+BEGIN
+    v_refusal := host_gate(p_party_id, p_pin, 'record_score');
+    IF v_refusal IS NOT NULL THEN
+        RETURN v_refusal;
+    END IF;
+
+    v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score);
+    IF v_problem IS NOT NULL THEN
+        RETURN host_refusal(p_party_id, 'record_score', v_problem,
+            CASE WHEN v_problem = 'invalid_input' THEN 'score' END);
+    END IF;
+
+    PERFORM log_audit_event('record_score_success', p_party_id,
+        jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
+
+    RETURN jsonb_build_object(
+        'ok', true,
+        'party', (SELECT public_party_json(p) FROM parties p WHERE p.id = p_party_id),
+        'scores', (SELECT to_jsonb(s) FROM scores s WHERE s.party_id = p_party_id),
+        'winners', COALESCE(
+            (SELECT jsonb_agg(to_jsonb(w) ORDER BY w.quarter) FROM winners w WHERE w.party_id = p_party_id),
+            '[]'::jsonb)
+    );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1084,6 +1068,70 @@ $$;
 
 
 ALTER FUNCTION "public"."public_party_json"("p_party" "public"."parties") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) RETURNS "text"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $_$
+DECLARE
+    v_party parties;
+    v_winning_row INT;
+    v_winning_col INT;
+    v_winner_name TEXT;
+BEGIN
+    SELECT * INTO v_party FROM parties WHERE id = p_party_id FOR UPDATE;
+    IF NOT FOUND OR v_party.status NOT IN ('active', 'locked') THEN
+        RETURN 'wrong_status';
+    END IF;
+
+    IF p_quarter IS NULL OR p_quarter <> ALL (ARRAY['q1', 'q2', 'q3', 'final'])
+       OR p_row_score IS NULL OR p_col_score IS NULL
+       OR p_row_score < 0 OR p_col_score < 0 THEN
+        RETURN 'invalid_input';
+    END IF;
+
+    -- p_quarter is one of the four names above, so the column names are fixed.
+    EXECUTE format('UPDATE scores SET %I = $1, %I = $2 WHERE party_id = $3',
+                   p_quarter || '_row_score', p_quarter || '_col_score')
+        USING p_row_score, p_col_score, p_party_id;
+
+    -- The winner sits where each team's last digit appears in its numbers.
+    SELECT array_position(n.row_numbers, p_row_score % 10) - 1,
+           array_position(n.col_numbers, p_col_score % 10) - 1
+    INTO v_winning_row, v_winning_col
+    FROM numbers n WHERE n.party_id = p_party_id;
+
+    SELECT player_name INTO v_winner_name
+    FROM squares
+    WHERE party_id = p_party_id AND row_num = v_winning_row AND col_num = v_winning_col;
+
+    IF v_winner_name IS NULL THEN
+        RAISE EXCEPTION 'party % has no owner for winning square (%, %) in %',
+            p_party_id, v_winning_row, v_winning_col, p_quarter;
+    END IF;
+
+    INSERT INTO winners (party_id, quarter, winning_row, winning_col, player_name, amount)
+    VALUES (
+        p_party_id, p_quarter, v_winning_row, v_winning_col, v_winner_name,
+        v_party.square_price * 100 * (to_jsonb(v_party) ->> ('split_' || p_quarter))::INT / 100
+    )
+    ON CONFLICT (party_id, quarter) DO UPDATE SET
+        winning_row = EXCLUDED.winning_row,
+        winning_col = EXCLUDED.winning_col,
+        player_name = EXCLUDED.player_name,
+        amount = EXCLUDED.amount;
+
+    IF p_quarter = 'final' THEN
+        UPDATE parties SET status = 'complete' WHERE id = p_party_id;
+    END IF;
+
+    RETURN NULL;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) RETURNS integer
@@ -1478,106 +1526,10 @@ ALTER FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" c
 
 
 CREATE OR REPLACE FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
+    LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
     AS $$
-DECLARE
-  v_party RECORD;
-  v_pin_ok BOOLEAN;
-  v_row_digit INT;
-  v_col_digit INT;
-  v_winning_row INT;
-  v_winning_col INT;
-  v_winner_name TEXT;
-  v_total_pot NUMERIC;
-  v_quarter_pct INT;
-  v_amount NUMERIC;
-BEGIN
-  -- Check PIN with rate limiting
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    PERFORM log_audit_event('update_score_failed', p_party_id,
-      jsonb_build_object('reason', 'invalid_pin_or_lockout'));
-    RETURN FALSE;
-  END IF;
-
-  -- Get party
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND OR v_party.status NOT IN ('active', 'locked') THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Validate scores are non-negative
-  IF p_row_score < 0 OR p_col_score < 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Update the score
-  IF p_quarter = 'q1' THEN
-    UPDATE scores SET q1_row_score = p_row_score, q1_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q1;
-  ELSIF p_quarter = 'q2' THEN
-    UPDATE scores SET q2_row_score = p_row_score, q2_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q2;
-  ELSIF p_quarter = 'q3' THEN
-    UPDATE scores SET q3_row_score = p_row_score, q3_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_q3;
-  ELSIF p_quarter = 'final' THEN
-    UPDATE scores SET final_row_score = p_row_score, final_col_score = p_col_score WHERE party_id = p_party_id;
-    v_quarter_pct := v_party.split_final;
-  ELSE
-    RETURN FALSE;
-  END IF;
-
-  -- Calculate winning square
-  v_row_digit := p_row_score % 10;
-  v_col_digit := p_col_score % 10;
-
-  -- Find winning row/col in the numbers grid
-  SELECT
-    (SELECT idx FROM unnest(n.row_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_row_digit LIMIT 1) - 1,
-    (SELECT idx FROM unnest(n.col_numbers) WITH ORDINALITY AS t(val, idx) WHERE val = v_col_digit LIMIT 1) - 1
-  INTO v_winning_row, v_winning_col
-  FROM numbers n
-  WHERE n.party_id = p_party_id;
-
-  IF v_winning_row IS NOT NULL AND v_winning_col IS NOT NULL THEN
-    -- Get winner name
-    SELECT player_name INTO v_winner_name
-    FROM squares
-    WHERE party_id = p_party_id AND row_num = v_winning_row AND col_num = v_winning_col;
-
-    -- Safety check: winner square must have a player (indicates data integrity issue if triggered)
-    IF v_winner_name IS NULL THEN
-      PERFORM log_audit_event('update_score_failed', p_party_id,
-        jsonb_build_object('reason', 'null_winner', 'row', v_winning_row, 'col', v_winning_col));
-      RETURN FALSE;
-    END IF;
-
-    -- Calculate amount
-    v_total_pot := v_party.square_price * 100;
-    v_amount := v_total_pot * v_quarter_pct / 100;
-
-    -- Insert or update winner
-    INSERT INTO winners (party_id, quarter, winning_row, winning_col, player_name, amount)
-    VALUES (p_party_id, p_quarter, v_winning_row, v_winning_col, v_winner_name, v_amount)
-    ON CONFLICT (party_id, quarter) DO UPDATE SET
-      winning_row = EXCLUDED.winning_row,
-      winning_col = EXCLUDED.winning_col,
-      player_name = EXCLUDED.player_name,
-      amount = EXCLUDED.amount;
-  END IF;
-
-  -- If final quarter, mark game as complete
-  IF p_quarter = 'final' THEN
-    UPDATE parties SET status = 'complete', updated_at = NOW() WHERE id = p_party_id;
-  END IF;
-
-  PERFORM log_audit_event('update_score_success', p_party_id,
-    jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
-
-  RETURN TRUE;
-END;
+    SELECT (host_record_score(p_party_id, p_pin, p_quarter, p_row_score, p_col_score) ->> 'ok')::BOOLEAN;
 $$;
 
 
@@ -2354,6 +2306,13 @@ GRANT ALL ON FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" cha
 
 
 
+REVOKE ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "authenticated";
+
+
+
 REVOKE ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") TO "service_role";
 
@@ -2415,6 +2374,11 @@ GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) TO "service_role";
 
 
 
