@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { recallHostPin } from '$lib/hostPin';
 import { get } from 'svelte/store';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import { toast } from '$lib/stores/toast';
@@ -974,12 +975,7 @@ describe('Admin Page - Score Entry', () => {
 				expect(goto).toHaveBeenCalledWith('/');
 			});
 
-			// removeHostPin(code) — IndexedDB-backed, falls back to writing the
-			// pruned pins map via idb-keyval's `set`
-			expect(mockIdbSet).toHaveBeenCalledWith('squares_host_pins', expect.any(Object));
-			// removeSessionItem(partyPinKey(code))
-			expect(sessionStorageMock.removeItem).toHaveBeenCalledWith('squares_pin_TEST123');
-			// removeRecentParty(code)
+			expect(await recallHostPin('TEST123')).toBeNull();
 			expect(mockIdbSet).toHaveBeenCalledWith('squares_recent_parties', expect.any(Array));
 		});
 

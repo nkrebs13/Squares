@@ -1,6 +1,11 @@
+// Browser storage primitives. Each feature keeps its own data in its own module
+// (user name: stores/user.ts, host PINs: hostPin.ts, recent parties:
+// recentParties.ts, gesture hint: GestureHint.svelte) on top of these.
+//
+// Key names are what users' browsers already hold: never rename one.
+
 import { get, set, del } from 'idb-keyval';
 import { browser } from '$app/environment';
-import type { RecentParty } from './types';
 
 export const STORAGE_KEYS = {
 	userName: 'squares_user_name',
@@ -9,18 +14,14 @@ export const STORAGE_KEYS = {
 	recentPartiesInLocal: 'squares_recent_parties_in_local',
 	hostPins: 'squares_host_pins',
 	gestureHintShown: 'squares_gesture_hint_shown',
+	partyPin: (code: string) => `squares_pin_${code}`,
+	partyNickname: (code: string) => `squares_nickname_${code}`,
 } as const;
-
-export const partyPinKey = (code: string) => `squares_pin_${code}`;
-export const partyNicknameKey = (code: string) => `squares_nickname_${code}`;
-
-const MAX_RECENT_PARTIES = 10;
-const PARTY_EXPIRY_DAYS = 90;
 
 // Web Storage access can throw (blocked storage, quota, or even reading the
 // `localStorage`/`sessionStorage` global itself), so `resolve` is called lazily
-// inside the try block. All helpers no-op safely off the browser.
-function makeStorage(resolve: () => Storage) {
+// inside the try block. Everything no-ops safely off the browser.
+function webStorage(resolve: () => Storage) {
 	return {
 		get(key: string): string | null {
 			if (!browser) return null;
@@ -51,212 +52,69 @@ function makeStorage(resolve: () => Storage) {
 	};
 }
 
-const localStore = makeStorage(() => localStorage);
-const sessionStore = makeStorage(() => sessionStorage);
+export const local = webStorage(() => localStorage);
+export const session = webStorage(() => sessionStorage);
 
-export const getLocalItem = (key: string): string | null => localStore.get(key);
-export const setLocalItem = (key: string, value: string): boolean => localStore.set(key, value);
-export const removeLocalItem = (key: string): boolean => localStore.remove(key);
-export const getSessionItem = (key: string): string | null => sessionStore.get(key);
-export const setSessionItem = (key: string, value: string): boolean => sessionStore.set(key, value);
-export const removeSessionItem = (key: string): boolean => sessionStore.remove(key);
+/** How a durable value is written to localStorage when IndexedDB is unavailable. */
+export interface Codec<T> {
+	encode(value: T): string;
+	decode(raw: string): T | null;
+}
 
-// Request persistent storage for better data durability
+export const jsonCodec = <T>(): Codec<T> => ({
+	encode: (value) => JSON.stringify(value),
+	decode: (raw) => {
+		try {
+			return JSON.parse(raw) as T;
+		} catch {
+			return null;
+		}
+	},
+});
+
+/**
+ * A value kept in IndexedDB, falling back to localStorage when IndexedDB
+ * fails. A null codec means no fallback: the value is never written to
+ * localStorage (for secrets that must not outlive IndexedDB's lifetime rules).
+ */
+export function durable<T>(key: string, codec: Codec<T> | null) {
+	return {
+		async get(): Promise<T | null> {
+			if (!browser) return null;
+			try {
+				return (await get<T>(key)) ?? null;
+			} catch {
+				const raw = codec ? local.get(key) : null;
+				return raw === null || !codec ? null : codec.decode(raw);
+			}
+		},
+		/** Whether the value was stored (in either place). */
+		async set(value: T): Promise<boolean> {
+			if (!browser) return false;
+			try {
+				await set(key, value);
+				return true;
+			} catch {
+				return codec ? local.set(key, codec.encode(value)) : false;
+			}
+		},
+		async remove(): Promise<void> {
+			if (!browser) return;
+			try {
+				await del(key);
+			} catch {
+				if (codec) local.remove(key);
+			}
+		},
+	};
+}
+
+/** Ask the browser not to evict this site's storage. */
 export async function requestPersistentStorage(): Promise<boolean> {
 	if (!browser || !navigator.storage?.persist) return false;
-
 	try {
-		const isPersisted = await navigator.storage.persisted();
-		if (!isPersisted) {
-			return await navigator.storage.persist();
-		}
-		return isPersisted;
+		return (await navigator.storage.persisted()) || (await navigator.storage.persist());
 	} catch {
 		return false;
-	}
-}
-
-// User name storage
-export async function getUserName(): Promise<string | null> {
-	if (!browser) return null;
-
-	try {
-		const name = await get<string>(STORAGE_KEYS.userName);
-		return name ?? null;
-	} catch {
-		return getLocalItem(STORAGE_KEYS.userName);
-	}
-}
-
-export async function setUserName(name: string): Promise<void> {
-	if (!browser) return;
-
-	const trimmed = name.trim();
-	if (!trimmed) return;
-
-	try {
-		await set(STORAGE_KEYS.userName, trimmed);
-	} catch {
-		setLocalItem(STORAGE_KEYS.userName, trimmed);
-	}
-}
-
-export async function clearUserName(): Promise<void> {
-	if (!browser) return;
-
-	try {
-		await del(STORAGE_KEYS.userName);
-	} catch {
-		removeLocalItem(STORAGE_KEYS.userName);
-	}
-}
-
-// Recent parties storage
-function withoutExpired(parties: RecentParty[]): RecentParty[] {
-	const expiryMs = PARTY_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-	const now = Date.now();
-	return parties.filter((p) => now - p.lastVisited < expiryMs);
-}
-
-function getLocalRecentParties(): RecentParty[] {
-	try {
-		const stored = getLocalItem(STORAGE_KEYS.recentParties);
-		return stored ? withoutExpired(JSON.parse(stored)) : [];
-	} catch {
-		return [];
-	}
-}
-
-export async function getRecentParties(): Promise<RecentParty[]> {
-	if (!browser) return [];
-
-	// A failed IndexedDB write left the newer list in localStorage (see mutateRecentParties).
-	if (getLocalItem(STORAGE_KEYS.recentPartiesInLocal)) return getLocalRecentParties();
-
-	try {
-		const parties = await get<RecentParty[]>(STORAGE_KEYS.recentParties);
-		return parties ? withoutExpired(parties) : [];
-	} catch {
-		return getLocalRecentParties();
-	}
-}
-
-// Read-modify-write the recent-parties list: IndexedDB first, localStorage if the
-// IndexedDB write fails. `fn` must be pure — it is re-applied on the fallback path.
-// IndexedDB can stay readable while writes fail (e.g. quota exceeded), so a fallback
-// write also sets a marker that makes getRecentParties read localStorage; without it,
-// later reads would return the stale IndexedDB list and drop this write. The marker
-// is set only after the list write succeeds, and cleared by the next IndexedDB write.
-async function mutateRecentParties(fn: (parties: RecentParty[]) => RecentParty[]): Promise<void> {
-	try {
-		await set(STORAGE_KEYS.recentParties, fn(await getRecentParties()));
-		removeLocalItem(STORAGE_KEYS.recentPartiesInLocal);
-	} catch {
-		try {
-			const next = JSON.stringify(fn(await getRecentParties()));
-			if (setLocalItem(STORAGE_KEYS.recentParties, next)) {
-				setLocalItem(STORAGE_KEYS.recentPartiesInLocal, '1');
-			}
-		} catch {
-			// Silently fail
-		}
-	}
-}
-
-export async function saveRecentParty(party: RecentParty): Promise<void> {
-	if (!browser) return;
-
-	await mutateRecentParties((parties) => {
-		// Find existing entry to preserve nickname
-		const existingParty = parties.find((p) => p.code === party.code);
-		const partyWithNickname = {
-			...party,
-			nickname: party.nickname ?? existingParty?.nickname,
-		};
-
-		// Replace any existing entry for this code, newest first, capped
-		return [partyWithNickname, ...parties.filter((p) => p.code !== party.code)].slice(
-			0,
-			MAX_RECENT_PARTIES
-		);
-	});
-}
-
-export async function removeRecentParty(code: string): Promise<void> {
-	if (!browser) return;
-
-	await mutateRecentParties((parties) => parties.filter((p) => p.code !== code));
-}
-
-export async function updatePartyNickname(code: string, nickname: string): Promise<void> {
-	if (!browser) return;
-
-	const trimmedNickname = nickname.trim() || undefined;
-
-	await mutateRecentParties((parties) =>
-		parties.map((p) => (p.code === code ? { ...p, nickname: trimmedNickname } : p))
-	);
-}
-
-// Host PIN storage
-export async function getHostPin(code: string): Promise<string | null> {
-	if (!browser) return null;
-
-	try {
-		const pins = await get<Record<string, string>>(STORAGE_KEYS.hostPins);
-		return pins?.[code] ?? getSessionItem(partyPinKey(code));
-	} catch {
-		return getSessionItem(partyPinKey(code));
-	}
-}
-
-export async function setHostPin(code: string, pin: string): Promise<void> {
-	if (!browser) return;
-
-	try {
-		const pins = (await get<Record<string, string>>(STORAGE_KEYS.hostPins)) ?? {};
-		pins[code] = pin;
-		await set(STORAGE_KEYS.hostPins, pins);
-	} catch {
-		setSessionItem(partyPinKey(code), pin);
-	}
-}
-
-export async function removeHostPin(code: string): Promise<void> {
-	if (!browser) return;
-
-	try {
-		const pins = (await get<Record<string, string>>(STORAGE_KEYS.hostPins)) ?? {};
-		delete pins[code];
-		await set(STORAGE_KEYS.hostPins, pins);
-	} catch {
-		removeSessionItem(partyPinKey(code));
-	}
-}
-
-export async function hasHostPin(code: string): Promise<boolean> {
-	const pin = await getHostPin(code);
-	return pin !== null;
-}
-
-// Gesture hint storage
-export async function hasSeenGestureHint(): Promise<boolean> {
-	if (!browser) return true;
-
-	try {
-		const seen = await get<boolean>(STORAGE_KEYS.gestureHintShown);
-		return seen === true;
-	} catch {
-		return getLocalItem(STORAGE_KEYS.gestureHintShown) === 'true';
-	}
-}
-
-export async function markGestureHintSeen(): Promise<void> {
-	if (!browser) return;
-
-	try {
-		await set(STORAGE_KEYS.gestureHintShown, true);
-	} catch {
-		setLocalItem(STORAGE_KEYS.gestureHintShown, 'true');
 	}
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/storage';
+	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
 	import RecentPartyRow from './RecentPartyRow.svelte';
 	import type { RecentParty } from '$lib/types';
 

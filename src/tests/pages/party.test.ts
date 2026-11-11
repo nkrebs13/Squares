@@ -37,25 +37,21 @@ vi.mock('$lib/stores/game', async (importOriginal) => {
 	};
 });
 
-// Mock storage — must include all exports since user.ts imports from $lib/storage
-vi.mock('$lib/storage', async (importOriginal) => {
-	const original = (await importOriginal()) as Record<string, unknown>;
-	return {
-		...original,
-		saveRecentParty: vi.fn().mockResolvedValue(undefined),
-		hasHostPin: vi.fn().mockResolvedValue(false),
-		getHostPin: vi.fn().mockResolvedValue(null),
-		setHostPin: vi.fn().mockResolvedValue(undefined),
-		getRecentParties: vi.fn().mockResolvedValue([]),
-		// Explicit vi.fn() overrides (rather than passthrough) so individual
-		// tests can control GestureHint's initial visibility.
-		hasSeenGestureHint: vi.fn().mockResolvedValue(false),
-		markGestureHintSeen: vi.fn().mockResolvedValue(undefined),
-	};
-});
+vi.mock('$lib/recentParties', () => ({
+	saveRecentParty: vi.fn().mockResolvedValue(undefined),
+	getRecentParties: vi.fn().mockResolvedValue([]),
+	stageNickname: vi.fn(),
+}));
 
 import PartyPage from '../../routes/party/[code]/+page.svelte';
-import { hasSeenGestureHint } from '$lib/storage';
+import { get as idbGet } from 'idb-keyval';
+
+/** Whether the browser has already recorded the gesture hint as seen. */
+function hintAlreadySeen(seen: boolean) {
+	vi.mocked(idbGet).mockImplementation(
+		(key) => Promise.resolve(key === 'squares_gesture_hint_shown' ? seen : undefined) as never
+	);
+}
 import { createEmptyGrid, createMockParty } from '../factories';
 
 function createFullGrid(): Square[] {
@@ -236,9 +232,7 @@ describe('Party Page', () => {
 
 	describe('Host Controls', () => {
 		it('shows "Host Panel" link when isHost', async () => {
-			// Simulate host by setting session storage PIN
-			const { hasHostPin } = await import('$lib/storage');
-			vi.mocked(hasHostPin).mockResolvedValue(true);
+			// This browser remembers the host PIN for the party.
 			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
 
 			isLoading.set(false);
@@ -328,7 +322,7 @@ describe('Party Page', () => {
 			// mobile sidebar, so at desktop widths the always-visible "?" button called reopen()
 			// on a display:none element. jsdom applies no CSS, so only the DOM relationship can
 			// catch this — assert the hint has no lg:hidden ancestor.
-			vi.mocked(hasSeenGestureHint).mockResolvedValue(false);
+			hintAlreadySeen(false);
 			render(PartyPage);
 
 			const hint = await screen.findByLabelText('Dismiss hint');
@@ -336,7 +330,7 @@ describe('Party Page', () => {
 		});
 
 		it('re-shows the gesture hint when clicked, after it was dismissed', async () => {
-			vi.mocked(hasSeenGestureHint).mockResolvedValue(false);
+			hintAlreadySeen(false);
 			render(PartyPage);
 
 			// Hint auto-shows on mount since it hasn't been seen before
@@ -358,7 +352,7 @@ describe('Party Page', () => {
 		});
 
 		it('is keyboard-focusable and activatable via Enter', async () => {
-			vi.mocked(hasSeenGestureHint).mockResolvedValue(true);
+			hintAlreadySeen(true);
 			render(PartyPage);
 
 			// Not shown initially since it was already marked as seen
