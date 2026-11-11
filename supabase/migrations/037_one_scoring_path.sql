@@ -132,23 +132,23 @@ AS $$
 DECLARE
     v_problem TEXT;
 BEGIN
+    -- Everything, logging included, runs in the subtransaction: a party deleted
+    -- mid-trigger would otherwise fail the audit FK and abort the whole update.
     BEGIN
         v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score);
+        IF v_problem IS NOT NULL THEN
+            PERFORM log_audit_event('auto_update_score_failed', p_party_id,
+                jsonb_build_object('reason', v_problem, 'quarter', p_quarter));
+            RETURN FALSE;
+        END IF;
+        PERFORM log_audit_event('auto_update_score_success', p_party_id,
+            jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
+        RETURN TRUE;
     EXCEPTION WHEN OTHERS THEN
-        PERFORM log_audit_event('auto_update_score_failed', p_party_id,
-            jsonb_build_object('reason', SQLERRM, 'quarter', p_quarter));
+        PERFORM log_audit_event('auto_update_score_failed', NULL,
+            jsonb_build_object('party_id', p_party_id, 'reason', SQLERRM, 'quarter', p_quarter));
         RETURN FALSE;
     END;
-
-    IF v_problem IS NOT NULL THEN
-        PERFORM log_audit_event('auto_update_score_failed', p_party_id,
-            jsonb_build_object('reason', v_problem, 'quarter', p_quarter));
-        RETURN FALSE;
-    END IF;
-
-    PERFORM log_audit_event('auto_update_score_success', p_party_id,
-        jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
-    RETURN TRUE;
 END;
 $$;
 

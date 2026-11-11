@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
 import {
 	createTestParty,
 	ensureSupabaseReady,
@@ -175,5 +176,21 @@ describe('live scores (game_scores trigger)', () => {
 			.eq('party_id', broken.id)
 			.single();
 		expect(brokenScores?.q1_row_score).toBeNull();
+	});
+
+	it('a party deleted mid-update is skipped, not an error', async () => {
+		const db = new pg.Client({
+			connectionString:
+				process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+		});
+		await db.connect();
+		try {
+			const { rows } = await db.query(
+				"SELECT auto_update_score(gen_random_uuid(), 'q1', 7, 3) AS scored"
+			);
+			expect(rows[0].scored).toBe(false);
+		} finally {
+			await db.end();
+		}
 	});
 });
