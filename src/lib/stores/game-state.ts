@@ -25,7 +25,7 @@ export const numbers = writable<Numbers | null>(null);
 export const scores = writable<Scores | null>(null);
 export const winners = writable<Winner[]>([]);
 export const gameScores = writable<GameScoresRow | null>(null);
-/** Whether `gameScores`' home team is the party's row team (computed server-side, game_side). */
+/** For a detected, unlinked game: whether its home team is the party's row team (game_side, at load). */
 export const gameHomeIsRow = writable(true);
 export const isLoading = writable(true);
 export const error = writable<string | null>(null);
@@ -45,19 +45,22 @@ export const gridState = derived(
 	}
 );
 
-export const liveScores = derived<[typeof gameScores, typeof gameHomeIsRow], LiveScores | null>(
-	[gameScores, gameHomeIsRow],
-	([$gameScores, homeIsRow]) => {
-		if (!$gameScores) return null;
-		return {
-			rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
-			colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
-			clock: $gameScores.game_clock,
-			quarter: $gameScores.game_quarter,
-			status: $gameScores.game_status,
-		};
-	}
-);
+export const liveScores = derived<
+	[typeof gameScores, typeof gameHomeIsRow, typeof party],
+	LiveScores | null
+>([gameScores, gameHomeIsRow, party], ([$gameScores, $detectedHomeIsRow, $party]) => {
+	if (!$gameScores) return null;
+	// A linked game's side lives on the party row (kept current by realtime);
+	// a detected, unlinked game uses the side computed when it was loaded.
+	const homeIsRow = $party?.game_id ? $party.home_team_is_row !== false : $detectedHomeIsRow;
+	return {
+		rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
+		colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
+		clock: $gameScores.game_clock,
+		quarter: $gameScores.game_quarter,
+		status: $gameScores.game_status,
+	};
+});
 
 // The square currently "in the lead" based on live scores (last digit of each score → numbers lookup)
 export const leadingSquare = derived(

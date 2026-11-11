@@ -118,4 +118,22 @@ describe('loadParty', () => {
 		// An unlinked game is display-only: the party keeps its real (null) link.
 		expect(get(party)?.game_id).toBeNull();
 	});
+
+	it('follows a linked party when the server corrects its side', async () => {
+		stateResponds({
+			party: createMockParty({ status: 'active', game_id: 'g1', home_team_is_row: true }),
+			game: {
+				row: createMockGameScores({ game_id: 'g1', home_score: 14, away_score: 7 }),
+				home_is_row: true,
+				linked: true,
+			},
+		});
+		await loadParty('test123');
+		expect(get(liveScores)).toMatchObject({ rowScore: 14, colScore: 7 });
+
+		// A realtime parties UPDATE after the game's team names resolved.
+		party.update((p) => (p ? { ...p, home_team_is_row: false } : p));
+
+		expect(get(liveScores)).toMatchObject({ rowScore: 7, colScore: 14 });
+	});
 });
