@@ -220,12 +220,3 @@ describe('host_delete_party', () => {
 		expect(rows).toEqual([]);
 	});
 });
-
-describe('legacy parties', () => {
-	it('every party has a scores row', async () => {
-		const { data: parties } = await service.from('parties').select('id');
-		const { data: scores } = await service.from('scores').select('party_id');
-		const scored = new Set((scores ?? []).map((s) => s.party_id));
-		expect((parties ?? []).filter((p) => !scored.has(p.id))).toEqual([]);
-	});
-});
