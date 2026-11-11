@@ -193,6 +193,7 @@ describe('host_update_payouts', () => {
 	it.each([
 		[25, 25, 25, 26],
 		[-10, 40, 35, 35],
+		[2147483647, 1, 1, 1],
 	])('refuses splits %i/%i/%i/%i', async (q1, q2, q3, final) => {
 		const party = await newParty();
 		const { data } = await client.rpc('host_update_payouts', {

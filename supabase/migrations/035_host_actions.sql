@@ -262,6 +262,7 @@ BEGIN
     -- Same rule as the parties split CHECKs, answered as a refusal instead of a RAISE.
     IF p_split_q1 IS NULL OR p_split_q2 IS NULL OR p_split_q3 IS NULL OR p_split_final IS NULL
        OR LEAST(p_split_q1, p_split_q2, p_split_q3, p_split_final) < 0
+       OR GREATEST(p_split_q1, p_split_q2, p_split_q3, p_split_final) > 100
        OR p_split_q1 + p_split_q2 + p_split_q3 + p_split_final <> 100 THEN
         RETURN host_refusal(p_party_id, 'update_payouts', 'invalid_input', 'splits');
     END IF;
