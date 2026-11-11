@@ -53,6 +53,11 @@
 		e.preventDefault();
 		ondismiss();
 	}}
+	onclose={() => {
+		// A native close the parent didn't ask for (some browsers close on
+		// Escape without a cancelable 'cancel'); a programmatic close has open=false.
+		if (open) ondismiss();
+	}}
 	onclick={(e) => {
 		if (e.target === dialogEl) ondismiss();
 	}}
