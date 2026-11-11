@@ -1,3 +1,4 @@
+import { APP_CONFIG } from '$lib/config';
 import { MAX_EVENT_NAME_LENGTH, PIN_LENGTH } from '$lib/constants';
 import { findNflTeamPresetId } from '$lib/nflTeams';
 import { datetimeLocalToIso, formatKickoff } from '$lib/utils/datetime';
@@ -23,6 +24,11 @@ export function isValidPin(pin: string): boolean {
 
 export function isValidHostName(name: string): boolean {
 	return name.trim().length > 0;
+}
+
+/** A blank event name means the configured default; the server stores no default of its own. */
+export function eventNameOrDefault(name: string | undefined): string {
+	return name?.trim() || APP_CONFIG.defaultEventName;
 }
 
 export function isValidEventName(name: string): boolean {

@@ -6,7 +6,7 @@ vi.mock('$lib/supabase', () => ({
 }));
 
 import { createParty } from '$lib/services/createParty';
-import { DEFAULT_TEAMS } from '$lib/config';
+import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
 
 const validPartyRow = {
 	id: '11111111-1111-1111-1111-111111111111',
@@ -38,6 +38,7 @@ const validInput = {
 	hostPin: '1234',
 	squarePrice: 1.0,
 	splits: { q1: 25, q2: 25, q3: 25, final: 25 },
+	teams: { row: DEFAULT_TEAMS.row, col: DEFAULT_TEAMS.col },
 };
 
 describe('createParty service', () => {
@@ -45,12 +46,12 @@ describe('createParty service', () => {
 		mockRpc.mockReset();
 	});
 
-	it('forwards inputs to the create_party RPC and returns the typed party on success', async () => {
-		mockRpc.mockResolvedValueOnce({ data: validPartyRow, error: null });
+	it('sends every value to host_create_party and returns the typed party', async () => {
+		mockRpc.mockResolvedValueOnce({ data: { ok: true, party: validPartyRow }, error: null });
 
 		const result = await createParty(validInput);
 
-		expect(mockRpc).toHaveBeenCalledWith('create_party', {
+		expect(mockRpc).toHaveBeenCalledWith('host_create_party', {
 			p_host_name: 'Nathan',
 			p_pin: '1234',
 			p_square_price: 1.0,
@@ -65,101 +66,49 @@ describe('createParty service', () => {
 			p_event_name: '2027 Super Bowl',
 			p_kickoff_at: '2027-02-14T23:30:00.000Z',
 		});
-
-		expect(result.ok).toBe(true);
-		if (result.ok) {
-			expect(result.party.code).toBe('AB12CD');
-			expect(result.party.status).toBe('filling');
-		}
+		expect(result).toEqual({ ok: true, party: expect.objectContaining({ code: 'AB12CD' }) });
 	});
 
-	it('humanizes RPC error: PIN format', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'PIN must be exactly 4 digits' },
-		});
-		const result = await createParty({ ...validInput, hostPin: 'abc' });
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/4 digits/i);
+	it('sends the configured default event name for a blank one', async () => {
+		mockRpc.mockResolvedValueOnce({ data: { ok: true, party: validPartyRow }, error: null });
+
+		await createParty({ ...validInput, eventName: '   ' });
+
+		expect(mockRpc.mock.calls[0][1].p_event_name).toBe(APP_CONFIG.defaultEventName);
 	});
 
-	it('humanizes RPC error: split sum', async () => {
+	it.each([
+		['host_name', 'Please enter a host name.'],
+		['pin', 'PIN must be exactly 4 digits.'],
+		['square_price', 'Square price must be at least 0.01 and under 100,000,000.'],
+		['splits', 'Each split must be 0–100% and they must add up to 100%.'],
+		['event_name', 'Event name must be 1–80 characters.'],
+		['team_name', 'Team names must be 1–50 characters.'],
+		['teams', 'Choose two different teams for the matchup.'],
+		['team_color', 'Team colors must be valid hex colors.'],
+	])('shows the copy for an invalid %s', async (field, copy) => {
 		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'splits must sum to exactly 100 (got 110)' },
-		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/total 100/i);
-	});
-
-	it('humanizes RPC error: empty host name', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'host_name must be non-empty after trim' },
-		});
-		const result = await createParty({ ...validInput, hostName: '' });
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/host name/i);
-	});
-
-	it('humanizes RPC error: event name too long', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'event_name must be at most 80 characters' },
-		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/event name/i);
-	});
-
-	it('humanizes RPC error: duplicate matchup teams', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'matchup must use two different teams' },
-		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toBe('Choose two different teams for the matchup.');
-	});
-
-	it('humanizes RPC error: invalid team colors', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'team colors must be 6-digit hex values' },
-		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toBe('Team colors must be valid hex colors.');
-	});
-
-	it('humanizes RPC error: code-collision exhaustion', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'failed to generate unique party code after 5 attempts' },
-		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/unique party code/i);
-	});
-
-	it('returns an error if the RPC succeeds but the payload shape is invalid', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: { id: 'partial' }, // missing all required fields
+			data: { ok: false, error: 'invalid_input', field },
 			error: null,
 		});
-		const result = await createParty(validInput);
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toMatch(/unexpected shape/i);
+
+		expect(await createParty(validInput)).toEqual({ ok: false, error: copy });
 	});
 
-	it('falls back to generic message for unrecognized RPC errors', async () => {
-		mockRpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'connection refused' },
+	it('shows the generic copy when the request fails', async () => {
+		mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'TypeError: Failed to fetch' } });
+
+		expect(await createParty(validInput)).toEqual({
+			ok: false,
+			error: 'Failed to create party. Please try again.',
 		});
+	});
+
+	it('returns an error if the party in the response has an invalid shape', async () => {
+		mockRpc.mockResolvedValueOnce({ data: { ok: true, party: { id: 'x' } }, error: null });
+
 		const result = await createParty(validInput);
+
 		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error).toBe('connection refused');
 	});
 });

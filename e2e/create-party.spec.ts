@@ -245,31 +245,34 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		await page.route('**/rest/v1/rpc/create_party', async (route) => {
+		await page.route('**/rest/v1/rpc/host_create_party', async (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
 				body: JSON.stringify({
-					id: 'new-party-id',
-					code: 'XTEST1',
-					status: 'filling',
-					square_price: 1,
-					split_q1: 10,
-					split_q2: 20,
-					split_q3: 30,
-					split_final: 40,
-					event_name: 'Football Squares',
-					kickoff_at: null,
-					team_row_name: 'Seahawks',
-					team_col_name: 'Patriots',
-					team_row_color: '#69be28',
-					team_col_color: '#c60c30',
-					host_name_lower: 'test host',
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-					expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-					game_id: null,
-					home_team_is_row: true,
+					ok: true,
+					party: {
+						id: 'new-party-id',
+						code: 'XTEST1',
+						status: 'filling',
+						square_price: 1,
+						split_q1: 10,
+						split_q2: 20,
+						split_q3: 30,
+						split_final: 40,
+						event_name: 'Football Squares',
+						kickoff_at: null,
+						team_row_name: 'Seahawks',
+						team_col_name: 'Patriots',
+						team_row_color: '#69be28',
+						team_col_color: '#c60c30',
+						host_name_lower: 'test host',
+						created_at: new Date().toISOString(),
+						updated_at: new Date().toISOString(),
+						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+						game_id: null,
+						home_team_is_row: true,
+					},
 				}),
 			});
 		});
@@ -335,7 +338,7 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder('0000').fill('1234');
 
 		// Mock party creation failure — target the RPC endpoint used by createPartyService
-		await page.route('**/rest/v1/rpc/create_party', (route) => {
+		await page.route('**/rest/v1/rpc/host_create_party', (route) => {
 			route.fulfill({
 				status: 500,
 				contentType: 'application/json',
@@ -359,15 +362,18 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder('0000').fill('1234');
 
 		// Mock with delay to see loading state
-		await page.route('**/rest/v1/rpc/create_party', async (route) => {
+		await page.route('**/rest/v1/rpc/host_create_party', async (route) => {
 			await new Promise((r) => setTimeout(r, 2000));
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
 				body: JSON.stringify({
-					id: 'new-party-id',
-					code: 'XTEST1',
-					status: 'filling',
+					ok: true,
+					party: {
+						id: 'new-party-id',
+						code: 'XTEST1',
+						status: 'filling',
+					},
 				}),
 			});
 		});

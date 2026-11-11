@@ -157,11 +157,11 @@ describe('Create Page', () => {
 			home_team_is_row: null,
 		};
 
-		it('calls create_party RPC and navigates to /party/<CODE>', async () => {
+		it('calls host_create_party and navigates to /party/<CODE>', async () => {
 			const { goto } = await import('$app/navigation');
 
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
-				data: validPartyRow,
+				data: { ok: true, party: validPartyRow },
 				error: null,
 			});
 
@@ -174,7 +174,7 @@ describe('Create Page', () => {
 
 			await waitFor(() => {
 				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-					'create_party',
+					'host_create_party',
 					expect.objectContaining({
 						p_event_name: 'Football Squares',
 						p_kickoff_at: null,
@@ -198,7 +198,7 @@ describe('Create Page', () => {
 			const { set: idbSet } = await import('idb-keyval');
 
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
-				data: { ...validPartyRow, code: 'XYZ789' },
+				data: { ok: true, party: { ...validPartyRow, code: 'XYZ789' } },
 				error: null,
 			});
 
@@ -217,10 +217,10 @@ describe('Create Page', () => {
 	});
 
 	describe('Error Handling', () => {
-		it('displays humanized error when RPC fails', async () => {
+		it('shows the copy for the field the server refused', async () => {
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
-				data: null,
-				error: { message: 'PIN must be exactly 4 digits' },
+				data: { ok: false, error: 'invalid_input', field: 'pin' },
+				error: null,
 			});
 
 			render(CreatePage);
@@ -237,7 +237,7 @@ describe('Create Page', () => {
 			});
 		});
 
-		it('shows fallback message for unexpected RPC failure', async () => {
+		it('shows fallback message when the request fails', async () => {
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
 				data: null,
 				error: { message: 'connection refused' },
@@ -251,7 +251,7 @@ describe('Create Page', () => {
 			await user.click(screen.getByRole('button', { name: /Create Party/i }));
 
 			await waitFor(() => {
-				expect(screen.getByText('connection refused')).toBeInTheDocument();
+				expect(screen.getByText('Failed to create party. Please try again.')).toBeInTheDocument();
 			});
 		});
 

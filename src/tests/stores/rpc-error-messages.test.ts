@@ -1,7 +1,6 @@
 /**
- * Characterization table for the RPCs that still RAISE readable errors
- * (create_party, update_party_details, update_score). The host_* actions
- * answer with refusal codes instead; game-admin.test.ts covers their copy.
+ * Network-failure copy for every RPC call site. Refusal codes from the host_*
+ * actions are covered in game-admin.test.ts and createParty.test.ts.
  *
  * Written BEFORE the per-call-site humanize*Error copies were folded into one
  * shared `humanizeRpcError` util, to pin each call site's exact output strings
@@ -24,8 +23,6 @@ import { createParty } from '$lib/services/createParty';
 import { mockSupabaseClient } from '../setup';
 import { createMockParty } from '../factories';
 
-type Row = [raw: string, expected: string];
-
 const SPLITS = { q1: 25, q2: 25, q3: 25, final: 25 };
 const DETAILS = {
 	eventName: 'Big Game',
@@ -35,7 +32,16 @@ const DETAILS = {
 	teamRowColor: '#004C54',
 	teamColColor: '#E31837',
 };
-const CREATE_INPUT = { hostName: 'Nathan', hostPin: '1234', squarePrice: 1, splits: SPLITS };
+const CREATE_INPUT = {
+	hostName: 'Nathan',
+	hostPin: '1234',
+	squarePrice: 1,
+	splits: SPLITS,
+	teams: {
+		row: { name: 'Eagles', color: '#004C54' },
+		col: { name: 'Chiefs', color: '#E31837' },
+	},
+};
 
 function rejectNextRpc(message: string) {
 	mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
@@ -45,45 +51,6 @@ describe('RPC error copy (characterization)', () => {
 	beforeEach(() => {
 		cleanup();
 		party.set(createMockParty());
-	});
-
-	const detailsRows: Row[] = [
-		['ERROR:  invalid party or PIN', 'Invalid PIN'],
-		[
-			'party details can only be changed before the grid is locked',
-			'Party details can only be changed before the grid is locked.',
-		],
-		['event_name must be at most 80 characters', 'Event name must be 80 characters or fewer.'],
-		['matchup must use two different teams', 'Choose two different teams for the matchup.'],
-		['team_row_name must be non-empty after trim', 'Team names cannot be blank.'],
-		['team_col_name must be non-empty after trim', 'Team names cannot be blank.'],
-		['team colors must be 6-digit hex values', 'Team colors must be valid hex colors.'],
-		['ERROR: party not found', 'party not found'],
-	];
-	it.each(detailsRows)('updatePartyDetails: %j → %j', async (raw, expected) => {
-		rejectNextRpc(raw);
-		const result = await updatePartyDetails('1234', DETAILS);
-		expect(result).toEqual({ success: false, error: expected });
-	});
-
-	const createRows: Row[] = [
-		['ERROR:  PIN must be exactly 4 digits', 'PIN must be exactly 4 digits.'],
-		['splits must sum to exactly 100', 'Prize splits must total 100%.'],
-		['host_name must be non-empty', 'Please enter a host name.'],
-		['event_name must be at most 80 characters', 'Event name must be 80 characters or fewer.'],
-		['matchup must use two different teams', 'Choose two different teams for the matchup.'],
-		['team colors must be 6-digit hex values', 'Team colors must be valid hex colors.'],
-		['square_price must be positive', 'Square price must be greater than 0.'],
-		[
-			'could not generate a unique party code',
-			'Could not generate a unique party code — please try again.',
-		],
-		['ERROR: something unexpected', 'something unexpected'],
-	];
-	it.each(createRows)('createParty: %j → %j', async (raw, expected) => {
-		rejectNextRpc(raw);
-		const result = await createParty(CREATE_INPUT);
-		expect(result).toEqual({ ok: false, error: expected });
 	});
 
 	// supabase-js reports a rejected fetch as `${name}: ${message}`; none of these

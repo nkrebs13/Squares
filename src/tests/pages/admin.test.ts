@@ -835,7 +835,10 @@ describe('Admin Page - Score Entry', () => {
 			});
 
 			renderAuthorizedAdmin({ status: 'filling' });
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: true, party: updatedParty },
+				error: null,
+			});
 
 			const user = userEvent.setup();
 			await user.clear(screen.getByLabelText('Event name'));
@@ -849,7 +852,7 @@ describe('Admin Page - Score Entry', () => {
 
 			await waitFor(() => {
 				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-					'update_party_details',
+					'host_update_details',
 					expect.objectContaining({
 						p_party_id: 'test-party-id',
 						p_pin: '1234',
@@ -871,7 +874,10 @@ describe('Admin Page - Score Entry', () => {
 			});
 
 			renderAuthorizedAdmin({ status: 'filling' });
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: true, party: updatedParty },
+				error: null,
+			});
 
 			const user = userEvent.setup();
 			await user.selectOptions(screen.getByLabelText('Left team NFL preset'), 'bal');
@@ -884,7 +890,7 @@ describe('Admin Page - Score Entry', () => {
 
 			await waitFor(() => {
 				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-					'update_party_details',
+					'host_update_details',
 					expect.objectContaining({
 						p_team_row_name: 'Ravens',
 						p_team_col_name: 'Lions',
@@ -919,7 +925,7 @@ describe('Admin Page - Score Entry', () => {
 			expect(screen.getByText('Choose two different teams for the matchup.')).toBeInTheDocument();
 			expect(screen.getByRole('button', { name: /Save Event Details/i })).toBeDisabled();
 			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
-				'update_party_details',
+				'host_update_details',
 				expect.anything()
 			);
 		});
