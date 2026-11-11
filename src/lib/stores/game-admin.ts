@@ -1,5 +1,4 @@
 import { get } from 'svelte/store';
-import { getSupabaseClient } from '$lib/supabase';
 import {
 	party,
 	squares,
@@ -11,9 +10,9 @@ import {
 	error,
 } from './game-state';
 import { pendingOperations, pendingTimeouts, clearSquareFields } from './game-pending';
-import { cleanupChannels } from './game-realtime';
-import { parseNumbers, parseParty } from '$lib/validators/realtime';
-import { humanizeRpcError } from '$lib/utils/rpcError';
+import { broadcastScoreUpdate, cleanupChannels } from './game-realtime';
+import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
+import type { Quarter } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
 import { eventNameOrDefault } from '$lib/utils/partyForm';
 
@@ -54,43 +53,39 @@ export async function lockParty(pin: string): Promise<AdminResult> {
 
 export async function updateScore(
 	pin: string,
-	quarter: 'q1' | 'q2' | 'q3' | 'final',
+	quarter: Quarter,
 	rowScore: number,
 	colScore: number
 ): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };
 
-	const supabase = getSupabaseClient();
+	const result = await callHost(
+		'host_record_score',
+		{
+			p_party_id: currentParty.id,
+			p_pin: pin,
+			p_quarter: quarter,
+			p_row_score: rowScore,
+			p_col_score: colScore,
+		},
+		{
+			failed: 'Failed to update score. Please try again.',
+			wrong_status: 'Scores can only be entered while the game is running.',
+		}
+	);
+	if (!result.ok) return { success: false, error: result.error };
 
-	const { data, error: scoreError } = await supabase.rpc('update_score', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-		p_quarter: quarter,
-		p_row_score: rowScore,
-		p_col_score: colScore,
-	});
-
-	if (scoreError) {
-		return {
-			success: false,
-			error: humanizeRpcError(scoreError.message, 'Failed to update score. Please try again.'),
-		};
+	const updatedParty = parseParty(result.data.party);
+	const updatedScores = parseScores(result.data.scores);
+	const updatedWinners = parseWinnerArray(result.data.winners);
+	if (!updatedParty || !updatedScores || !updatedWinners) {
+		return { success: false, error: 'Score saved, but the page is out of date. Please refresh.' };
 	}
-
-	if (!data) {
-		// update_score (migration 014) returns FALSE on several distinct guards —
-		// invalid/locked-out PIN, party not active/locked, a bad quarter or negative
-		// score, or a null_winner data-integrity check unrelated to the PIN. The RPC
-		// only returns a boolean, so the client can't tell which one fired; don't
-		// assert a specific cause it can't know.
-		return {
-			success: false,
-			error:
-				'Failed to update score. Check the PIN — this can also happen if the party is not active or the score data is invalid.',
-		};
-	}
-
+	party.set(updatedParty);
+	scores.set(updatedScores);
+	winners.set(updatedWinners);
+	broadcastScoreUpdate();
 	return { success: true };
 }
 

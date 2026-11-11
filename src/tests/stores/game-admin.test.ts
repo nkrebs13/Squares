@@ -9,13 +9,15 @@ import {
 	deleteParty,
 	party,
 	squares,
+	scores,
+	winners,
 	selectedPlayerFilter,
 	cleanup,
 	numbers,
 	verifyHostPin,
 } from '$lib/stores/game';
 import { mockSupabaseClient } from '../setup';
-import { createMockParty, createMockSquare } from '../factories';
+import { createMockParty, createMockScores, createMockSquare } from '../factories';
 import { APP_CONFIG } from '$lib/config';
 
 const refuse = (error: string, field?: string) =>
@@ -153,46 +155,49 @@ describe('updateScore', () => {
 		expect(result).toEqual({ success: false, error: 'No party loaded' });
 	});
 
-	it('returns success for valid quarter', async () => {
+	it('applies the party, scores and winners from the response', async () => {
 		party.set(createMockParty({ status: 'active' }));
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		const recorded = createMockScores({ q1_row_score: 14, q1_col_score: 7 });
+		const winner = {
+			id: 'w1',
+			party_id: 'test-party-id',
+			quarter: 'q1',
+			winning_row: 4,
+			winning_col: 7,
+			player_name: 'Alice',
+			amount: 25,
+			created_at: '2027-02-14T23:30:00.000Z',
+		};
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: {
+				ok: true,
+				party: createMockParty({ status: 'active' }),
+				scores: recorded,
+				winners: [winner],
+			},
+			error: null,
+		});
 
-		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result).toEqual({ success: true });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_score', {
+		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_record_score', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
 			p_quarter: 'q1',
 			p_row_score: 14,
 			p_col_score: 7,
 		});
+		expect(get(scores)).toMatchObject({ q1_row_score: 14, q1_col_score: 7 });
+		expect(get(winners)).toEqual([expect.objectContaining({ player_name: 'Alice' })]);
 	});
 
-	it('handles all four quarters', async () => {
+	it.each([
+		['wrong_status', undefined, 'Scores can only be entered while the game is running.'],
+		['invalid_input', 'score', 'Scores must be whole numbers of 0 or more.'],
+		['invalid_pin', undefined, 'Incorrect PIN. Please try again.'],
+	])('maps %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty({ status: 'active' }));
-
-		const quarters = ['q1', 'q2', 'q3', 'final'] as const;
-		for (const q of quarters) {
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-			const result = await updateScore('1234', q, 10, 20);
-			expect(result).toEqual({ success: true });
-		}
-	});
-
-	it('returns a truthful error when data is false, without asserting the PIN is the sole cause', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
-
-		const result = await updateScore('1234', 'q1', 14, 7);
-		expect(result.success).toBe(false);
-		// update_score (migration 014) returns FALSE for several distinct reasons —
-		// invalid/locked-out PIN, inactive party, bad score/quarter, or a null_winner
-		// data-integrity guard. The RPC only returns a boolean, so the client can't
-		// tell which fired; the message must not claim "check PIN" as the only cause.
-		expect(result.error).not.toBe('Failed to update score - check PIN');
-		expect(result.error).not.toMatch(/^Failed to update score - check PIN$/);
-		expect(result.error).toMatch(/PIN/);
-		expect(result.error).toMatch(/not active|invalid/i);
+		refuse(code, field);
+		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({ success: false, error: copy });
 	});
 });
 
@@ -400,27 +405,6 @@ describe('deleteParty', () => {
 		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_delete_party', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
-		});
-	});
-});
-
-describe('updateScore: RPC error copy', () => {
-	beforeEach(() => {
-		cleanup();
-	});
-
-	it('passes the humanized RPC error through, generic copy only as fallback', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		const rejectWith = (message: string) =>
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
-
-		rejectWith('DB error');
-		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({ success: false, error: 'DB error' });
-
-		rejectWith('');
-		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({
-			success: false,
-			error: 'Failed to update score. Please try again.',
 		});
 	});
 });

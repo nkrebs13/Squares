@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
-	import { broadcastScoreUpdate, loadParty, scores, updateScore } from '$lib/stores/game';
+	import { scores, updateScore } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 	import { isGameInProgress, type Party, type Quarter, type Scores } from '$lib/types';
 	import { deriveNextQuarter, scoresForQuarter } from '$lib/utils/quarter';
 
 	interface Props {
 		party: Party;
-		code: string;
 		storedPin: string;
 		description: string;
 		/**
@@ -17,7 +16,7 @@
 		visible?: boolean;
 	}
 
-	const { party, code, storedPin, description, visible = true }: Props = $props();
+	const { party, storedPin, description, visible = true }: Props = $props();
 
 	const quarters: { value: Quarter; label: string }[] = [
 		{ value: 'q1', label: '1st Quarter' },
@@ -79,8 +78,6 @@
 			toast.success(
 				`Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`
 			);
-			broadcastScoreUpdate();
-			await loadParty(code);
 			// Auto-advance to the next unscored quarter after a discrete, successful
 			// save. WITHOUT this, the selector stays on the just-saved quarter and the
 			// host's next submit silently overwrites it (recomputing that quarter's
@@ -88,10 +85,8 @@
 			// NOT reintroduce the $scores live-tick clobber that
 			// manualScoreEntryInitialized guards against.
 			//
-			// Compute directly from the freshly-reloaded get(scores) snapshot rather
-			// than reading the $derived nextQuarter: across the await boundary the
-			// store is guaranteed current via get(), whereas the runes-batched
-			// $scores binding (and any derived over it) may not have flushed yet.
+			// updateScore has just set the store; read it with get() because the
+			// runes-batched $scores binding may not have flushed yet.
 			const reloadedScores = get(scores);
 			const next = deriveNextQuarter(reloadedScores);
 			manualScores.quarter = next;

@@ -33,6 +33,7 @@ const INPUT_FIELD_COPY: Record<string, string> = {
 	teams: 'Choose two different teams for the matchup.',
 	team_color: 'Team colors must be valid hex colors.',
 	player_name: 'Player name is required.',
+	score: 'Scores must be whole numbers of 0 or more.',
 };
 
 /** Per-action copy: `failed` for transport or unexpected errors, plus refusal overrides. */

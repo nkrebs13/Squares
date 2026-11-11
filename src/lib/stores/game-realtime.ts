@@ -577,6 +577,8 @@ export function broadcast(message: Omit<BroadcastMessage, 'clientId'>) {
 }
 
 // Broadcast score update notification to other clients
+// A backup to postgres_changes for score entries: added after scores failed to
+// reach clients through postgres_changes alone on game night (#64).
 export function broadcastScoreUpdate() {
 	if (!channelStates.broadcast.channel) return;
 

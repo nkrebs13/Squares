@@ -93,51 +93,16 @@ function renderAuthorizedAdmin(partyOverrides: Partial<Party> = {}, scoresData?:
  * with the given committed scores. Mirrors the manual chains used elsewhere in
  * this file, condensed for the FIX 1 auto-advance tests.
  */
-function mockLoadPartyReload(reloadedScores: Scores, partyOverrides: Partial<Party> = {}) {
-	mockSupabaseClient.from
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({
-				data: createMockParty({ status: 'active', ...partyOverrides }),
-				error: null,
-			}),
-		} as ReturnType<typeof mockSupabaseClient.from>)
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			neq: vi.fn().mockReturnThis(),
-			limit: vi.fn().mockReturnThis(),
-			maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			order: vi.fn().mockReturnValue({
-				order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-			}),
-		} as ReturnType<typeof mockSupabaseClient.from>)
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({
-				data: {
-					party_id: 'test-party-id',
-					row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-					col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-				},
-				error: null,
-			}),
-		} as ReturnType<typeof mockSupabaseClient.from>)
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: reloadedScores, error: null }),
-		} as ReturnType<typeof mockSupabaseClient.from>)
-		.mockReturnValueOnce({
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			order: vi.fn().mockResolvedValue({ data: [], error: null }),
-		} as ReturnType<typeof mockSupabaseClient.from>);
+function mockScoreRecorded(recordedScores: Scores, partyOverrides: Partial<Party> = {}) {
+	mockSupabaseClient.rpc.mockResolvedValueOnce({
+		data: {
+			ok: true,
+			party: createMockParty({ status: 'active', ...partyOverrides }),
+			scores: recordedScores,
+			winners: [],
+		},
+		error: null,
+	});
 }
 
 describe('Admin Page - Score Entry', () => {
@@ -446,57 +411,7 @@ describe('Admin Page - Score Entry', () => {
 				createMockScores()
 			);
 
-			// Mock the RPC call for updateScore
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain for after-update reload
-			mockSupabaseClient.from
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockParty({ status: 'active' }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockReturnValue({
-						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: {
-							party_id: 'test-party-id',
-							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-						},
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockScores({ q1_row_score: 14, q1_col_score: 7 }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				} as ReturnType<typeof mockSupabaseClient.from>);
+			mockScoreRecorded(createMockScores());
 
 			const user = userEvent.setup();
 
@@ -517,7 +432,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_score', {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_record_score', {
 					p_party_id: 'test-party-id',
 					p_pin: '1234',
 					p_quarter: 'q1',
@@ -530,57 +445,7 @@ describe('Admin Page - Score Entry', () => {
 		it('shows success message after score update', async () => {
 			renderAuthorizedAdmin({ status: 'active' }, createMockScores());
 
-			// Mock updateScore RPC success
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain for after-update reload
-			mockSupabaseClient.from
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockParty({ status: 'active' }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockReturnValue({
-						order: vi.fn().mockResolvedValue({ data: [], error: null }),
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: {
-							party_id: 'test-party-id',
-							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-						},
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockScores({ q1_row_score: 0, q1_col_score: 0 }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				} as ReturnType<typeof mockSupabaseClient.from>);
+			mockScoreRecorded(createMockScores());
 
 			const user = userEvent.setup();
 			const submitButton = screen.getByRole('button', {
@@ -599,57 +464,7 @@ describe('Admin Page - Score Entry', () => {
 				createMockScores()
 			);
 
-			// Mock the RPC call for updateScore
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain for after-update reload
-			mockSupabaseClient.from
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockParty({ status: 'locked' }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockReturnValue({
-						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: {
-							party_id: 'test-party-id',
-							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-						},
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockScores({ q1_row_score: 14, q1_col_score: 7 }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				} as ReturnType<typeof mockSupabaseClient.from>);
+			mockScoreRecorded(createMockScores(), { status: 'locked' });
 
 			const user = userEvent.setup();
 
@@ -670,7 +485,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_score', {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_record_score', {
 					p_party_id: 'test-party-id',
 					p_pin: '1234',
 					p_quarter: 'q1',
@@ -683,7 +498,6 @@ describe('Admin Page - Score Entry', () => {
 		it('shows error message when score update fails', async () => {
 			renderAuthorizedAdmin({ status: 'active' }, createMockScores());
 
-			// Mock updateScore RPC failure
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
 				data: null,
 				error: { message: 'DB error' },
@@ -696,7 +510,7 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(submitButton);
 
 			await waitFor(() => {
-				expectToast('DB error');
+				expectToast('Failed to update score. Please try again.');
 			});
 		});
 	});
@@ -712,8 +526,7 @@ describe('Admin Page - Score Entry', () => {
 			expect(select.value).toBe('q1');
 
 			// update_score succeeds; reload shows Q1 committed at 7-3, Q2 still unscored.
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-			mockLoadPartyReload(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
+			mockScoreRecorded(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
 
 			const user = userEvent.setup();
 			const rowInput = screen.getByLabelText('Eagles');
@@ -775,8 +588,7 @@ describe('Admin Page - Score Entry', () => {
 			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
 			expect(select.value).toBe('final');
 
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-			mockLoadPartyReload(
+			mockScoreRecorded(
 				createMockScores({
 					q1_row_score: 7,
 					q1_col_score: 3,

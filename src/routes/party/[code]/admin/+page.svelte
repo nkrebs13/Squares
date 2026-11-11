@@ -178,7 +178,6 @@
 					{/if}
 					<ScoreEntryCard
 						party={$party}
-						{code}
 						{storedPin}
 						visible={!$party.game_id || showManualOverride}
 						description={$party.game_id

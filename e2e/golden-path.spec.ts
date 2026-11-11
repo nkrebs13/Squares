@@ -129,15 +129,6 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 		scoresData = mockActiveScores;
 		winnersData = mockWinnersQ1;
 
-		// Mock update_score RPC
-		await page.route('**/rest/v1/rpc/update_score', (route) => {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(true),
-			});
-		});
-
 		// Reload to get active state
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({

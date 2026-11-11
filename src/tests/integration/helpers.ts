@@ -190,10 +190,10 @@ export async function lockParty(
 	partyId: string,
 	pin: string
 ): Promise<boolean> {
-	const { data, error } = await client.rpc('lock_party', {
+	const { data, error } = await client.rpc('host_lock_party', {
 		p_party_id: partyId,
 		p_pin: pin,
 	});
-	if (error) throw new Error(`lock_party RPC error: ${error.message}`);
-	return data as boolean;
+	if (error) throw new Error(`host_lock_party RPC error: ${error.message}`);
+	return data?.ok === true;
 }
