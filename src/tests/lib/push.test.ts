@@ -39,85 +39,11 @@ vi.stubGlobal('Notification', {
 	requestPermission: vi.fn().mockResolvedValue('granted' as NotificationPermission),
 });
 
-// We can't directly test push.ts because it reads VAPID_PUBLIC_KEY at import time
-// and import.meta.env.VITE_VAPID_PUBLIC_KEY is undefined in tests.
-// Instead, we mock the module with the same logic minus the VAPID check,
-// and the tests verify the correct integration patterns.
-vi.mock('$lib/push', async () => {
-	// Use the already-mocked supabase client from setup.ts
-	const supabaseMod = await import('$lib/supabase');
-
-	function isPushSupported(): boolean {
-		return 'serviceWorker' in navigator && 'PushManager' in window;
-	}
-
-	async function getPushPermission(): Promise<NotificationPermission> {
-		return Notification.permission;
-	}
-
-	async function subscribeToPush(
-		partyId: string,
-		playerName: string
-	): Promise<{ success: boolean; error?: string }> {
-		if (!isPushSupported()) {
-			return { success: false, error: 'Push notifications not supported' };
-		}
-
-		try {
-			const permission = await Notification.requestPermission();
-			if (permission !== 'granted') {
-				return { success: false, error: 'Permission denied' };
-			}
-
-			const registration = await navigator.serviceWorker.ready;
-			const subscription = await registration.pushManager.subscribe({
-				userVisibleOnly: true,
-				applicationServerKey: new Uint8Array([1, 2, 3]),
-			});
-
-			const json = subscription.toJSON();
-			if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-				return { success: false, error: 'Invalid subscription' };
-			}
-
-			const supabase = supabaseMod.getSupabaseClient();
-			const { error } = await supabase.from('push_subscriptions').upsert(
-				{
-					party_id: partyId,
-					player_name: playerName,
-					endpoint: json.endpoint,
-					p256dh: json.keys.p256dh,
-					auth: json.keys.auth,
-				},
-				{ onConflict: 'party_id,endpoint' }
-			);
-
-			if (error) {
-				return { success: false, error: 'Failed to save subscription' };
-			}
-
-			return { success: true };
-		} catch {
-			return { success: false, error: 'Failed to subscribe' };
-		}
-	}
-
-	async function isSubscribed(): Promise<boolean> {
-		if (!isPushSupported()) return false;
-
-		try {
-			const registration = await navigator.serviceWorker.ready;
-			const subscription = await registration.pushManager.getSubscription();
-			return !!subscription;
-		} catch {
-			return false;
-		}
-	}
-
-	return { isPushSupported, getPushPermission, subscribeToPush, isSubscribed };
-});
-
-import { isPushSupported, subscribeToPush, isSubscribed, getPushPermission } from '$lib/push';
+// push.ts reads VITE_VAPID_PUBLIC_KEY at import time, so stub it before importing.
+vi.stubEnv('VITE_VAPID_PUBLIC_KEY', 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U');
+const { isPushSupported, subscribeToPush, isSubscribed, getPushPermission } = await import(
+	'$lib/push'
+);
 
 describe('Push Notification Module', () => {
 	beforeEach(() => {
@@ -147,12 +73,8 @@ describe('Push Notification Module', () => {
 	});
 
 	describe('subscribeToPush', () => {
-		it('requests permission and subscribes successfully', async () => {
-			const upsertMock = vi.fn().mockResolvedValue({ error: null });
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(mockSupabaseClient.from as any).mockReturnValue({
-				upsert: upsertMock,
-			});
+		it('requests permission and saves the subscription through the RPC', async () => {
+			mockSupabaseClient.rpc.mockResolvedValue({ data: true, error: null });
 
 			const result = await subscribeToPush('party-123', 'Alice');
 
@@ -161,18 +83,22 @@ describe('Push Notification Module', () => {
 				userVisibleOnly: true,
 				applicationServerKey: expect.any(Uint8Array),
 			});
-			expect(mockSupabaseClient.from).toHaveBeenCalledWith('push_subscriptions');
-			expect(upsertMock).toHaveBeenCalledWith(
-				{
-					party_id: 'party-123',
-					player_name: 'Alice',
-					endpoint: 'https://fcm.googleapis.com/fcm/send/test-endpoint',
-					p256dh: 'test-p256dh-key',
-					auth: 'test-auth-key',
-				},
-				{ onConflict: 'party_id,endpoint' }
-			);
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('save_push_subscription', {
+				p_party_id: 'party-123',
+				p_player_name: 'Alice',
+				p_endpoint: 'https://fcm.googleapis.com/fcm/send/test-endpoint',
+				p_p256dh: 'test-p256dh-key',
+				p_auth: 'test-auth-key',
+			});
 			expect(result).toEqual({ success: true });
+		});
+
+		it('reports a non-player as unable to subscribe', async () => {
+			mockSupabaseClient.rpc.mockResolvedValue({ data: false, error: null });
+
+			const result = await subscribeToPush('party-123', 'Mallory');
+
+			expect(result).toEqual({ success: false, error: 'Claim a square to get notifications' });
 		});
 
 		it('returns error when permission denied', async () => {
@@ -185,11 +111,7 @@ describe('Push Notification Module', () => {
 		});
 
 		it('returns error when subscription save fails', async () => {
-			const upsertMock = vi.fn().mockResolvedValue({ error: { message: 'DB error' } });
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(mockSupabaseClient.from as any).mockReturnValue({
-				upsert: upsertMock,
-			});
+			mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
 			const result = await subscribeToPush('party-123', 'Alice');
 

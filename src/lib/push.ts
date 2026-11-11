@@ -53,21 +53,20 @@ export async function subscribeToPush(
 			return { success: false, error: 'Invalid subscription' };
 		}
 
-		// Save to Supabase
 		const supabase = getSupabaseClient();
-		const { error } = await supabase.from('push_subscriptions').upsert(
-			{
-				party_id: partyId,
-				player_name: playerName,
-				endpoint: json.endpoint,
-				p256dh: json.keys.p256dh,
-				auth: json.keys.auth,
-			},
-			{ onConflict: 'party_id,endpoint' }
-		);
+		const { data, error } = await supabase.rpc('save_push_subscription', {
+			p_party_id: partyId,
+			p_player_name: playerName,
+			p_endpoint: json.endpoint,
+			p_p256dh: json.keys.p256dh,
+			p_auth: json.keys.auth,
+		});
 
 		if (error) {
 			return { success: false, error: 'Failed to save subscription' };
+		}
+		if (data === false) {
+			return { success: false, error: 'Claim a square to get notifications' };
 		}
 
 		return { success: true };
