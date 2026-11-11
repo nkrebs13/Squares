@@ -277,8 +277,8 @@ describe('Join Page', () => {
 				>
 			);
 
-			// Second call: verify_host_pin RPC
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			// Second call: host_verify_pin RPC
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -322,7 +322,10 @@ describe('Join Page', () => {
 			);
 
 			// Wrong PIN
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: false, error: 'invalid_pin' },
+				error: null,
+			});
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -394,8 +397,8 @@ describe('Join Page', () => {
 				>
 			);
 
-			// verify_host_pin RPC returns true
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			// host_verify_pin RPC accepts the PIN
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 
 			render(JoinPage);
 			const user = userEvent.setup();

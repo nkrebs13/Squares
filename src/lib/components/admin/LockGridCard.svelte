@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { filledCount, isGridFull, loadParty, lockParty } from '$lib/stores/game';
+	import { filledCount, isGridFull, lockParty } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 
 	interface Props {
-		code: string;
 		storedPin: string;
 	}
 
-	const { code, storedPin }: Props = $props();
+	const { storedPin }: Props = $props();
 
 	let isLocking = $state(false);
 
@@ -19,17 +18,9 @@
 		const result = await lockParty(storedPin);
 
 		if (result.success) {
-			// Reload party data so the page reactively shows score entry controls
-			try {
-				await loadParty(code);
-				toast.success(
-					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
-				);
-			} catch {
-				toast.error(
-					'Game started, but failed to reload the latest game data. Please refresh the page.'
-				);
-			}
+			toast.success(
+				'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+			);
 		} else {
 			toast.error(result.error || 'Failed to lock grid');
 		}

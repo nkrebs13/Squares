@@ -168,7 +168,7 @@
 						onremove={(player) => (playerToRemove = player)}
 					/>
 					<PayoutStructureCard party={$party} {storedPin} />
-					<LockGridCard {code} {storedPin} />
+					<LockGridCard {storedPin} />
 				{/if}
 
 				<!-- Active Phase Controls -->

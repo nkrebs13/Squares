@@ -290,11 +290,11 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
-	await page.context().route('**/rest/v1/rpc/verify_host_pin', (route) => {
+	await page.context().route('**/rest/v1/rpc/host_verify_pin', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
-			body: JSON.stringify(true),
+			body: JSON.stringify({ ok: true }),
 		});
 	});
 

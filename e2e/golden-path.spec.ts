@@ -129,15 +129,6 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 		scoresData = mockActiveScores;
 		winnersData = mockWinnersQ1;
 
-		// Mock lock RPC
-		await page.route('**/rest/v1/rpc/lock_party', (route) => {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(true),
-			});
-		});
-
 		// Mock update_score RPC
 		await page.route('**/rest/v1/rpc/update_score', (route) => {
 			route.fulfill({

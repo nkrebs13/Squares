@@ -500,7 +500,7 @@ describe('SimpleGrid Component', () => {
 			selectedPlayerFilter.set('alice');
 			render(SimpleGrid);
 
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
 			await removePlayer('1234', 'alice');
 
 			expect(get(selectedPlayerFilter)).toBeNull();

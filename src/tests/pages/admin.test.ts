@@ -365,260 +365,77 @@ describe('Admin Page - Score Entry', () => {
 		});
 	});
 
-	describe('Lock Grid → Score Entry Transition (Regression)', () => {
-		it('shows score entry without redirecting after successful lock', async () => {
-			const { goto } = await import('$app/navigation');
-
-			// Set up: filling party with full grid
+	describe('Lock Grid → Score Entry Transition', () => {
+		function renderFullFillingGrid() {
 			party.set(createMockParty({ status: 'filling' }));
 			squares.set(createFullGrid());
 			scores.set(createMockScores());
 			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
-
 			render(AdminPage);
+		}
 
-			// Mock lockParty RPC to succeed
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain: parties query
-			const mockPartiesChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				update: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				order: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: createMockParty({ status: 'active' }),
-					error: null,
-				}),
-			};
-			// Mock squares query
-			const mockSquaresChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				update: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				order: vi.fn().mockReturnValue({
-					order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-				}),
-				single: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-			// Mock numbers query
-			const mockNumbersChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				update: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				order: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: {
+		function lockResponds(status: 'active' | 'locked') {
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: {
+					ok: true,
+					party: createMockParty({ status }),
+					numbers: {
+						id: 'numbers-id',
 						party_id: 'test-party-id',
 						row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 						col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+						assigned_at: '2027-02-14T23:30:00.000Z',
 					},
-					error: null,
-				}),
-			};
-			// Mock scores query
-			const mockScoresChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				update: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				order: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: createMockScores(),
-					error: null,
-				}),
-			};
-			// Mock winners query
-			const mockWinnersChain = {
-				select: vi.fn().mockReturnThis(),
-				insert: vi.fn().mockReturnThis(),
-				update: vi.fn().mockReturnThis(),
-				delete: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				single: vi.fn().mockResolvedValue({ data: null, error: null }),
-			};
-
-			mockSupabaseClient.from
-				.mockReturnValueOnce(mockPartiesChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockNumbersChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce(mockWinnersChain as ReturnType<typeof mockSupabaseClient.from>);
-
-			// Click the lock button
-			const user = userEvent.setup();
-			const lockButton = screen.getByRole('button', { name: /Lock Grid & Start Game/i });
-			await user.click(lockButton);
-
-			// Wait for async operations to complete
-			await waitFor(() => {
-				// goto should NOT have been called — this is the critical regression check
-				expect(goto).not.toHaveBeenCalled();
+				},
+				error: null,
 			});
+		}
 
-			// Score entry section should now be visible
+		async function clickLock() {
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: /Lock Grid & Start Game/i }));
+		}
+
+		it('shows score entry and a success toast without navigating away', async () => {
+			const { goto } = await import('$app/navigation');
+			renderFullFillingGrid();
+			lockResponds('active');
+
+			await clickLock();
+
+			await waitFor(() => {
+				expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
+			});
+			expectToast(
+				'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+			);
+			expect(goto).not.toHaveBeenCalled();
+		});
+
+		it('shows score entry for a party reported as locked', async () => {
+			renderFullFillingGrid();
+			lockResponds('locked');
+
+			await clickLock();
+
 			await waitFor(() => {
 				expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
 			});
 		});
 
-		it('shows success message after locking the grid', async () => {
-			party.set(createMockParty({ status: 'filling' }));
-			squares.set(createFullGrid());
-			scores.set(createMockScores());
-			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+		it('stays on the lock card and says why when the server refuses', async () => {
+			renderFullFillingGrid();
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: false, error: 'grid_incomplete' },
+				error: null,
+			});
 
-			render(AdminPage);
-
-			// Mock lockParty RPC success
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain (same setup as above — loadParty fetches 5 tables + auto-detect)
-			mockSupabaseClient.from
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockParty({ status: 'active' }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockReturnValue({
-						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: {
-							party_id: 'test-party-id',
-							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-						},
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockScores(),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				} as ReturnType<typeof mockSupabaseClient.from>);
-
-			const user = userEvent.setup();
-			const lockButton = screen.getByRole('button', { name: /Lock Grid & Start Game/i });
-			await user.click(lockButton);
+			await clickLock();
 
 			await waitFor(() => {
-				expectToast(
-					'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
-				);
+				expectToast('All squares must be claimed before the grid can be locked.');
 			});
-		});
-	});
-
-	describe('Lock-to-Score-Entry with Locked Status (Regression)', () => {
-		it('REGRESSION: shows score entry when loadParty returns locked status', async () => {
-			// This mimics the exact production scenario: lock_party RPC sets status to 'locked'
-			// (old migration 002 behavior), then loadParty returns 'locked'
-			party.set(createMockParty({ status: 'filling' }));
-			squares.set(createFullGrid());
-			scores.set(createMockScores());
-			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
-
-			render(AdminPage);
-
-			// Mock lockParty RPC to succeed
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-
-			// Mock loadParty chain — returns 'locked' instead of 'active' (production bug)
-			mockSupabaseClient.from
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockParty({ status: 'locked' }),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					neq: vi.fn().mockReturnThis(),
-					limit: vi.fn().mockReturnThis(),
-					maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-				} as unknown as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockReturnValue({
-						order: vi.fn().mockResolvedValue({ data: createFullGrid(), error: null }),
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: {
-							party_id: 'test-party-id',
-							row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-							col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-						},
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					single: vi.fn().mockResolvedValue({
-						data: createMockScores(),
-						error: null,
-					}),
-				} as ReturnType<typeof mockSupabaseClient.from>)
-				.mockReturnValueOnce({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockReturnThis(),
-					order: vi.fn().mockResolvedValue({ data: [], error: null }),
-				} as ReturnType<typeof mockSupabaseClient.from>);
-
-			const user = userEvent.setup();
-			const lockButton = screen.getByRole('button', { name: /Lock Grid & Start Game/i });
-			await user.click(lockButton);
-
-			// Score entry should be visible even when status is 'locked'
-			await waitFor(() => {
-				expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
-			});
+			expect(screen.queryByText('Manual Score Entry')).not.toBeInTheDocument();
 		});
 	});
 
@@ -1289,7 +1106,7 @@ describe('Admin Page - Score Entry', () => {
 			const user = userEvent.setup();
 			party.set(createMockParty({ status: 'active' }));
 			scores.set(createMockScores());
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 
 			render(AdminPage);
 
@@ -1325,7 +1142,7 @@ describe('Admin Page - Score Entry', () => {
 
 		it('REGRESSION: clears cached host credentials after a successful delete', async () => {
 			renderAuthorizedAdmin({ status: 'active' });
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 
 			const { goto } = await import('$app/navigation');
 			const user = userEvent.setup();
@@ -1348,15 +1165,17 @@ describe('Admin Page - Score Entry', () => {
 
 		it('does NOT clear cached host credentials when delete fails', async () => {
 			renderAuthorizedAdmin({ status: 'active' });
-			// delete_party RPC succeeds but reports an invalid PIN (data: false)
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: false, error: 'invalid_pin' },
+				error: null,
+			});
 
 			const user = userEvent.setup();
 			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
 			await user.click(screen.getByRole('button', { name: /Yes, Delete/i }));
 
 			await waitFor(() => {
-				expectToast('Invalid PIN');
+				expectToast('Incorrect PIN. Please try again.');
 			});
 
 			expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith('squares_pin_TEST123');
@@ -1502,7 +1321,10 @@ describe('Admin Page - Score Entry', () => {
 			await waitFor(() => {
 				expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
 			});
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+				'host_delete_party',
+				expect.anything()
+			);
 		});
 
 		it('Cancel closes the dialog without deleting the party', async () => {
@@ -1513,12 +1335,15 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
 			expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('delete_party', expect.anything());
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+				'host_delete_party',
+				expect.anything()
+			);
 		});
 
 		it('Confirm deletes the party exactly once', async () => {
 			renderAuthorizedAdmin({ status: 'active' });
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 			const { goto } = await import('$app/navigation');
 
 			const user = userEvent.setup();
@@ -1528,7 +1353,7 @@ describe('Admin Page - Score Entry', () => {
 			await waitFor(() => {
 				expect(goto).toHaveBeenCalledWith('/');
 			});
-			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('delete_party', {
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_delete_party', {
 				p_party_id: 'test-party-id',
 				p_pin: '1234',
 			});
@@ -1587,7 +1412,10 @@ describe('Admin Page - Score Entry', () => {
 			await waitFor(() => {
 				expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
 			});
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+				'host_remove_player',
+				expect.anything()
+			);
 		});
 
 		it('Cancel closes the dialog without removing the player', async () => {
@@ -1598,22 +1426,25 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
 			expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
-			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('remove_player', expect.anything());
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+				'host_remove_player',
+				expect.anything()
+			);
 		});
 
 		it('Confirm removes the player exactly once', async () => {
 			renderWithRemovablePlayer();
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 2 }, error: null });
 
 			const user = userEvent.setup();
 			await user.click(screen.getByRole('button', { name: 'Remove' }));
 			await user.click(screen.getByRole('button', { name: 'Remove Player' }));
 
 			await waitFor(() => {
-				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_remove_player', {
 					p_party_id: 'test-party-id',
 					p_pin: '1234',
-					p_player_name_lower: 'alice',
+					p_player_name: 'alice',
 				});
 			});
 			expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
@@ -1667,7 +1498,10 @@ describe('Admin Page - Score Entry', () => {
 
 			it('moves focus to the Party Status heading (not document.body) when other players remain', async () => {
 				renderWithTwoRemovablePlayers();
-				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+				mockSupabaseClient.rpc.mockResolvedValueOnce({
+					data: { ok: true, removed: 1 },
+					error: null,
+				});
 
 				const user = userEvent.setup();
 				const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
@@ -1687,7 +1521,10 @@ describe('Admin Page - Score Entry', () => {
 
 			it('last-player case: removing the final player still leaves focus on a connected, non-body element', async () => {
 				renderWithRemovablePlayer();
-				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+				mockSupabaseClient.rpc.mockResolvedValueOnce({
+					data: { ok: true, removed: 2 },
+					error: null,
+				});
 
 				const user = userEvent.setup();
 				await user.click(screen.getByRole('button', { name: 'Remove' }));
