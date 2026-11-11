@@ -14,9 +14,16 @@ import {
 import { userName } from '$lib/stores/user';
 import { toast } from '$lib/stores/toast';
 import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
-import { createEmptyGrid, createMockParty, createMockSquare, mockThenable } from '../factories';
+import {
+	createEmptyGrid,
+	createMockParty,
+	createMockSquare,
+	mockDeferredThenable,
+	mockThenable,
+} from '../factories';
+import { applySquareUpdate } from '$lib/stores/game-pending';
 
-function mockRpcResult(result: { data?: boolean; error?: { message: string } }) {
+function mockRpcResult(result: { data?: unknown; error?: { message: string } }) {
 	mockSupabaseClient.rpc.mockReturnValue(mockThenable(result));
 }
 
@@ -103,22 +110,18 @@ describe('claimSquareOptimistic', () => {
 		expect(get(pendingOperations).has('0-0')).toBe(false);
 	});
 
-	it('broadcasts claim_rejected on RPC failure', () => {
+	it('claims a single square as a set of one', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
 
-		// Need to subscribe first to set up broadcastChannel
-		// Since we can't easily set up the broadcastChannel mock, we'll verify the RPC was called
 		mockSupabaseClient.rpc.mockReturnValue(mockThenable({ error: { message: 'Already claimed' } }));
 
 		claimSquareOptimistic(0, 0);
 
-		// Verify RPC was called with correct params
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares', {
 			p_party_id: 'test-party-id',
-			p_row: 0,
-			p_col: 0,
 			p_player_name: 'Alice',
+			p_cells: [{ row: 0, col: 0 }],
 		});
 	});
 
@@ -148,14 +151,49 @@ describe('claimSquareOptimistic', () => {
 		expect(get(squares)[0].player_name).toBeNull();
 	});
 
-	it('toasts "already claimed" when the RPC returns false', () => {
+	it('shows the owner and toasts "already claimed" when someone else got the square', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockRpcResult({ data: false });
+		mockRpcResult({
+			data: { ok: true, claimed: [], taken: [{ row: 0, col: 0, player_name: 'Bob' }] },
+		});
 
 		claimSquareOptimistic(0, 0);
 
 		expect(latestErrorToast()).toBe('Square already claimed');
+		expect(get(squares)[0].player_name).toBe('Bob');
+		expect(get(pendingOperations).size).toBe(0);
+	});
+
+	it('still says "already claimed" when the winner\'s update arrived before our answer', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		const deferred = mockDeferredThenable();
+		mockSupabaseClient.rpc.mockReturnValue(deferred.value);
+
+		claimSquareOptimistic(0, 0);
+		applySquareUpdate({
+			...createMockSquare(0, 0),
+			player_name: 'Bob',
+			player_name_lower: 'bob',
+		});
+		deferred.resolve({
+			data: { ok: true, claimed: [], taken: [{ row: 0, col: 0, player_name: 'Bob' }] },
+			error: null,
+		});
+
+		expect(latestErrorToast()).toBe('Square already claimed');
+		expect(get(squares)[0].player_name).toBe('Bob');
+	});
+
+	it('rolls back and says so when the grid was locked meanwhile', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		mockRpcResult({ data: { ok: false, error: 'wrong_status' } });
+
+		claimSquareOptimistic(0, 0);
+
+		expect(latestErrorToast()).toBe('The grid is locked — squares can no longer be claimed.');
 		expect(get(squares)[0].player_name).toBeNull();
 	});
 });
@@ -354,7 +392,7 @@ describe('claimSquaresBatchOptimistic', () => {
 		}
 	});
 
-	it('calls claim_squares_batch RPC', () => {
+	it('sends every claimable cell in one claim_squares call', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
 
@@ -367,7 +405,7 @@ describe('claimSquaresBatchOptimistic', () => {
 			{ row: 0, col: 1 },
 		]);
 
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares_batch', {
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares', {
 			p_party_id: 'test-party-id',
 			p_player_name: 'Alice',
 			p_cells: [

@@ -5,7 +5,6 @@ import {
 	buildSquareMap,
 	buildWinnerMap,
 	calculateFitCellSize,
-	cellKey,
 	getEffectiveCellSize,
 	getFitCellSize,
 	getHeaderHeight,
@@ -46,10 +45,6 @@ describe('gridLayout sizing', () => {
 });
 
 describe('gridLayout maps', () => {
-	it('keys cells as row-col', () => {
-		expect(cellKey(3, 7)).toBe('3-7');
-	});
-
 	it('indexes squares by row-col', () => {
 		const a = createMockSquare(0, 1);
 		const b = createMockSquare(2, 3);

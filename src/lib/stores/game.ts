@@ -24,6 +24,7 @@ export {
 	playerSummary,
 	availableCount,
 	selectedPlayerFilter,
+	activePlayerFilter,
 	// Utilities
 	squareKey,
 } from './game-state';

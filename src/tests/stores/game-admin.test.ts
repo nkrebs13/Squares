@@ -12,6 +12,7 @@ import {
 	scores,
 	winners,
 	selectedPlayerFilter,
+	activePlayerFilter,
 	cleanup,
 	numbers,
 	verifyHostPin,
@@ -355,7 +356,7 @@ describe('removePlayer', () => {
 
 		await removePlayer('1234', 'alice');
 
-		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(activePlayerFilter)).toBeNull();
 	});
 
 	it('leaves local squares alone when refused', async () => {
@@ -384,6 +385,14 @@ describe('removePlayer', () => {
 			removedCount: 0,
 			error: copy,
 		});
+	});
+});
+
+describe('cleanup', () => {
+	it('forgets the picked player filter when leaving a party', () => {
+		selectedPlayerFilter.set('alice');
+		cleanup();
+		expect(get(selectedPlayerFilter)).toBeNull();
 	});
 });
 

@@ -1,4 +1,4 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 import type {
 	Party,
 	Square,
@@ -132,40 +132,21 @@ export const availableCount = derived(
 	($squares) => $squares.filter((s) => s.player_name === null).length
 );
 
-// Player filter for highlighting squares by player (shared between sidebar and grid)
+// The player the user picked to highlight (toggled from the legend).
 export const selectedPlayerFilter = writable<string | null>(null);
 
-// Self-clearing: if the currently selected filter no longer matches any player
-// in playerSummary (their last square was unclaimed, or the host removed them),
-// clear it. Without this, a stale filter dims the entire grid with no pill left
-// to click to undo it. This is a plain subscription — not a derived — because
-// selectedPlayerFilter must never be written to from inside a derived store that
-// reads it (that would create a reactive loop). playerSummary is derived only
-// from `squares`, so writing selectedPlayerFilter here is safe.
-playerSummary.subscribe(($playerSummary) => {
-	const current = get(selectedPlayerFilter);
-	if (current && !$playerSummary.some((p) => p.normalizedName === current)) {
-		selectedPlayerFilter.set(null);
-	}
-});
-
 /**
- * Restore a snapshotted player filter after an optimistic unclaim was rejected.
- * Only restores when the snapshot was non-null AND the filter is currently null,
- * so a filter the user deliberately set (or changed) during the in-flight window
- * is never stomped. Pairs with OptimisticOperation.filterSnapshot — see the
- * self-clearing subscription above for why the filter goes null in the first place.
+ * The filter in effect: the picked player while they hold at least one square.
+ * When their last square goes (unclaimed, removed) the grid stops dimming; if
+ * the square comes back (a rejected unclaim), the highlight comes back with it.
  */
-export function restoreSelectedPlayerFilter(snapshot: string | null | undefined): void {
-	if (snapshot != null && get(selectedPlayerFilter) == null) {
-		selectedPlayerFilter.set(snapshot);
-	}
-}
+export const activePlayerFilter = derived(
+	[selectedPlayerFilter, playerSummary],
+	([$selected, $players]) =>
+		$selected && $players.some((p) => p.normalizedName === $selected) ? $selected : null
+);
 
-// Helper to create square key
-export function squareKey(row: number, col: number): string {
-	return `${row}-${col}`;
-}
+export { squareKey } from '$lib/utils/squareKey';
 
 // ─── State-application functions (called from the realtime transport layer) ──
 //

@@ -409,7 +409,8 @@ describe('Game Store', () => {
 			pendingOperations.update((ops) => {
 				const newOps = new Map(ops);
 				newOps.set('0-0', {
-					id: 'test-op',
+					clientId: 'test-client',
+					origin: 'local',
 					type: 'claim',
 					row: 0,
 					col: 0,
@@ -533,7 +534,8 @@ describe('Game Store', () => {
 			pendingOperations.update((ops) => {
 				const newOps = new Map(ops);
 				newOps.set('0-0', {
-					id: 'test-op',
+					clientId: 'test-client',
+					origin: 'local',
 					type: 'claim',
 					row: 0,
 					col: 0,

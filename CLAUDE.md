@@ -22,21 +22,24 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 
 - **Create flow**: `src/routes/create/+page.svelte` collects form state and calls `src/lib/services/createParty.ts`, which invokes the single transactional `host_create_party` RPC (migration 036). Inserts the party, 100 squares, and the scores row atomically — no client-side rollback needed. The client always sends the event name and teams (`APP_CONFIG` defaults via `eventNameOrDefault` / `DEFAULT_TEAMS`); the server stores no brand defaults of its own.
 - **Game flow**: `src/lib/stores/game.ts` → RPCs + Realtime subscriptions
-- **Pending-op state**: `src/lib/stores/game-pending.ts` owns `pendingOperations`, the per-op 10s timeout, the snapshot/rollback helpers (`rollbackPendingOpIf`), and `applySquareUpdate`. Store import direction is `game-state` ← `game-pending` ← `game-realtime` ← `game-optimistic`; `game-pending` must never import from the latter two. Claim and unclaim share `runSingleOptimistic` in `game-optimistic.ts` (per-action differences live in `CLAIM_SPEC` / `UNCLAIM_SPEC`).
+- **Pending-op state**: `src/lib/stores/game-pending.ts` owns `pendingOperations` and each op's whole life: `newPendingOp`, `addPendingOps` (with the 10s timeout), `rollbackPendingOpIf`, `applySquareUpdate`, `clearPendingOps`. Store import direction is `game-state` ← `game-pending` ← `game-realtime` ← `game-optimistic`; `game-pending` must never import from the latter two. `game-optimistic.ts` runs the chain below through `begin` / `reject`.
 - **Store module map** (all re-exported through the `game.ts` facade): `game-matching.ts` is a pure leaf (team-name matching: `resolveHomeIsRow`, `gameScoresMatchParty`) imported by `game-state` and `game-load`. `game-load.ts` owns `loadParty` and imports `game-state` / `game-matching` only (never the reverse). `game-admin.ts` and `services/createParty.ts` call `host_*` RPCs through `callHost` in `src/lib/services/hostAction.ts`, which maps refusal codes (and the `field` of `invalid_input`) to copy; a transport failure gets the call site's `failed` copy. `game-realtime.ts` tears channels down only via `teardownChannels()` (bump `currentGeneration` first). Console diagnostics go through `logWarn` / `logError` in `src/lib/utils/log.ts` (the one `no-console` disable; sole exception: the guarded `warn()` in `validators/realtime.ts`). Full direction: `game-matching` ← `game-state` ← `game-load`; `game-state` ← `game-pending` ← `game-realtime` ← `game-optimistic`; `game-admin` sits on top.
 - **Constants and join preview**: `src/lib/constants.ts` is the single home for domain limits (`GRID_SIZE`, `TOTAL_SQUARES`, `PIN_LENGTH`, `MAX_PIN_ATTEMPTS`, `MAX_NAME_LENGTH` (20, see UI/DB asymmetry below), `MAX_NICKNAME_LENGTH`, `MAX_EVENT_NAME_LENGTH`) — import from there instead of hardcoding 10/100/4/20. `src/lib/services/partyPreview.ts` owns the join page's Supabase reads (`fetchPartyPreview`, `fetchJoinTarget`).
 - **Dual Realtime channels**: `subscribeToParty()` creates a broadcast channel (fast optimistic updates) AND a postgres_changes channel (5 tables: squares, parties, numbers, scores, winners). postgres_changes is source of truth.
 
 ### Optimistic Update Chain (do not alter)
 
-1. User action → `claimSquareOptimistic()`
-2. Pending op added to `pendingOperations` Map (keyed `row-col`)
+Implemented once in `game-optimistic.ts` (`claimCells` for a tap or a drag, `unclaimSquareOptimistic`), with op lifecycle in `game-pending.ts`.
+
+1. User action → `claimSquareOptimistic()` / `claimSquaresBatchOptimistic()` (both `claimCells`) or `unclaimSquareOptimistic()`
+2. Pending ops added to `pendingOperations` (keyed `row-col`, see `utils/squareKey.ts`), each with a 10,000ms timeout
 3. Local `squares` store updated immediately
-4. Broadcast sent via Supabase Realtime broadcast channel
-5. Timeout scheduled at 10,000ms
-6. **RPC fires via `.then()` pattern (non-blocking, NOT `await`)** — intentional, do not "improve" to await
-7. On success: `postgres_changes` calls `applySquareUpdate` (in `game-pending.ts`), which clears the pending op and its timeout
-8. On failure: rollback to `originalState`, broadcast `claim_rejected`, toast error
+4. Intent broadcast via Supabase Realtime broadcast channel
+5. **RPC fires via `.then()` pattern (non-blocking, NOT `await`)** — intentional, do not "improve" to await. Claims call `claim_squares` with the set of cells.
+6. On success: `postgres_changes` calls `applySquareUpdate` (in `game-pending.ts`), which clears the pending op and its timeout
+7. On refusal or error: the op rolls back (to the owner `claim_squares` reports in `taken`, else to `originalState`), the rejection is broadcast, and the user sees a toast. Every exit clears the op's timer.
+
+Ops carry `origin: 'local' | 'remote'` and the sending tab's `clientId`; a remote op (another tab's previewed intent) is rolled back only by that tab's rejection or silently by its timeout. The player filter in effect is `activePlayerFilter` (the picked player while they hold a square), so rollbacks never touch it.
 
 ### State Machine
 
@@ -73,7 +76,7 @@ Every host action is a `host_*` function; the PIN-gated ones start with `host_ga
 | `host_update_details` | `p_party_id, p_pin, p_event_name, p_kickoff_at, p_team_row_name, p_team_col_name, p_team_row_color, p_team_col_color`                                             | `party`                      |
 | `host_record_score`   | `p_party_id, p_pin, p_quarter ('q1'\|'q2'\|'q3'\|'final'), p_row_score, p_col_score`                                                                              | `party`, `scores`, `winners` |
 
-The older `create_party`, `update_party_details`, `update_score`, `verify_host_pin`, `lock_party`, `delete_party`, `remove_player` and `update_payout_structure` remain only for clients still running an older bundle; the app no longer calls them, and a later migration drops them.
+The older `claim_square`, `claim_squares_batch`, `create_party`, `update_party_details`, `update_score`, `verify_host_pin`, `lock_party`, `delete_party`, `remove_player` and `update_payout_structure` remain only for clients still running an older bundle; the app no longer calls them, and a later migration drops them.
 
 ## RPC Signatures
 
@@ -83,6 +86,7 @@ The older `create_party`, `update_party_details`, `update_score`, `verify_host_p
 | `claim_square`            | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                                                                                                                                          | `BOOLEAN`                                                                               |
 | `unclaim_square`          | same pattern                                                                                                                                                                                                | `BOOLEAN`                                                                               |
 | `claim_squares_batch`     | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                                                                                                                                 | `INTEGER`                                                                               |
+| `claim_squares`           | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` (`[{row, col}]`, 1–100 cells)                                                                                                                   | `{ok, claimed: [{row,col}], taken: [{row,col,player_name}]}` or `{ok: false, error}`    |
 | `lock_party`              | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                               |
 | `update_score`            | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                                                                                | `BOOLEAN`                                                                               |
 | `verify_host_pin`         | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                                                                                 | `BOOLEAN`                                                                               |

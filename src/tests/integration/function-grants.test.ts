@@ -14,6 +14,7 @@ import {
 // (migration 034). Adding an RPC means adding it here AND granting it.
 const CLIENT_API = [
 	'claim_square',
+	'claim_squares',
 	'claim_squares_batch',
 	'create_party',
 	'delete_party',

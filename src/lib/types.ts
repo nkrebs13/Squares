@@ -154,23 +154,19 @@ export interface RecentParty {
 
 // Optimistic UI types
 export interface OptimisticOperation {
-	id: string;
 	type: 'claim' | 'unclaim';
 	row: number;
 	col: number;
 	timestamp: number;
+	/** The square's ownership before the op, restored on rollback. */
 	originalState: {
 		player_name: string | null;
 		player_name_lower: string | null;
 		claimed_at: string | null;
 	};
-	// Snapshot of selectedPlayerFilter taken when an unclaim is optimistically
-	// applied. Optimistically clearing a player's last square recomputes
-	// playerSummary, which fires game-state.ts's self-clearing subscription and
-	// nulls the filter. If the unclaim is then rejected, the square is restored
-	// but the filter would stay lost — so it is restored from this snapshot.
-	// Undefined for claim ops (claiming never clears a filter).
-	filterSnapshot?: string | null;
+	/** The tab that made the change: this tab ('local') or another one we are previewing. */
+	clientId: string;
+	origin: 'local' | 'remote';
 }
 
 export interface BroadcastMessage {

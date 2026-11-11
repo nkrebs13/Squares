@@ -9,6 +9,7 @@ import {
 	cleanup,
 	squares,
 	selectedPlayerFilter,
+	activePlayerFilter,
 	removePlayer,
 } from '$lib/stores/game';
 import { resolveHomeIsRow } from '$lib/stores/game-matching';
@@ -308,7 +309,7 @@ describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
 			)
 		);
 
-		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(activePlayerFilter)).toBeNull();
 	});
 
 	it('clears the filter when removePlayer bulk-clears the filtered players squares', async () => {
@@ -319,7 +320,7 @@ describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
 
 		await removePlayer('1234', 'alice');
 
-		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(activePlayerFilter)).toBeNull();
 	});
 
 	it('leaves an unrelated filter untouched when a different player is removed', async () => {
@@ -356,10 +357,10 @@ describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
 
 	it('does not touch the filter when it is already null', () => {
 		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
-		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(activePlayerFilter)).toBeNull();
 
 		squares.set([]);
 
-		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(activePlayerFilter)).toBeNull();
 	});
 });

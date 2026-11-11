@@ -236,6 +236,86 @@ $$;
 ALTER FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+    v_name TEXT := TRIM(p_player_name);
+    v_status TEXT;
+    v_claimed JSONB;
+    v_taken JSONB;
+BEGIN
+    IF COALESCE(v_name, '') = '' OR length(v_name) > 50 THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'invalid_input', 'field', 'player_name');
+    END IF;
+
+    IF jsonb_typeof(p_cells) IS DISTINCT FROM 'array' OR jsonb_array_length(p_cells) = 0
+       OR jsonb_array_length(p_cells) > 100
+       OR EXISTS (
+           SELECT 1 FROM jsonb_array_elements(p_cells) AS c
+           -- CASE so the casts only run on numbers (OR does not short-circuit).
+           WHERE CASE
+               WHEN jsonb_typeof(c -> 'row') = 'number' AND jsonb_typeof(c -> 'col') = 'number'
+                   THEN (c ->> 'row')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+                     OR (c ->> 'col')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+               ELSE TRUE
+           END
+       ) THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'invalid_input', 'field', 'cells');
+    END IF;
+
+    -- A plain read is enough: claims only fill empty squares, and host_lock_party
+    -- refuses while any square is empty, so a claim racing the lock cannot leave
+    -- a locked grid with a hole.
+    SELECT status INTO v_status FROM parties WHERE id = p_party_id;
+    IF v_status IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'not_found');
+    END IF;
+    IF v_status <> 'filling' THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'wrong_status');
+    END IF;
+
+    WITH requested AS (
+        SELECT DISTINCT (c ->> 'row')::INT AS row_num, (c ->> 'col')::INT AS col_num
+        FROM jsonb_array_elements(p_cells) AS c
+    ),
+    claimed AS (
+        UPDATE squares s
+        SET player_name = v_name, claimed_at = NOW()
+        FROM requested r
+        WHERE s.party_id = p_party_id
+          AND s.row_num = r.row_num AND s.col_num = r.col_num
+          AND s.player_name IS NULL
+        RETURNING s.row_num, s.col_num
+    )
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('row', row_num, 'col', col_num)), '[]')
+    INTO v_claimed
+    FROM claimed;
+
+    -- A separate statement takes a fresh snapshot, so a cell another claimer
+    -- won while we waited on its row lock shows that claimer as the owner.
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('row', s.row_num, 'col', s.col_num,
+                                                 'player_name', s.player_name)), '[]')
+    INTO v_taken
+    FROM squares s
+    WHERE s.party_id = p_party_id
+      AND (s.row_num, s.col_num) IN (
+          SELECT (c ->> 'row')::INT, (c ->> 'col')::INT FROM jsonb_array_elements(p_cells) AS c
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements(v_claimed) AS k
+          WHERE (k ->> 'row')::INT = s.row_num AND (k ->> 'col')::INT = s.col_num
+      );
+
+    RETURN jsonb_build_object('ok', true, 'claimed', v_claimed, 'taken', v_taken);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -2146,6 +2226,13 @@ REVOKE ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" inte
 GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "anon";
 GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "authenticated";
 
 
 

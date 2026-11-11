@@ -1,30 +1,26 @@
-// Pending optimistic-operation state + the helpers every optimistic / rollback
-// path shares (local claim/unclaim/batch in game-optimistic.ts, remote previews
-// and rejections in game-realtime.ts, the per-op timeout below).
+// Pending optimistic operations: one per square while a claim or unclaim is in
+// flight, either ours (origin 'local') or a preview of another tab's intent
+// (origin 'remote'). This module owns an op's whole life: creation, its 10s
+// timeout, and every way it ends (confirmed by postgres_changes, rolled back).
 //
 // Dependency direction (no cycles): game-state ← game-pending ← game-realtime ←
-// game-optimistic. This module may import from game-state but never from
-// game-realtime or game-optimistic, and game-state never imports from here.
-// That is why applySquareUpdate — the one postgres_changes handler that clears
-// pending state — lives here rather than in game-state.
+// game-optimistic. That is why applySquareUpdate, the postgres_changes handler
+// that confirms ops, lives here rather than in game-state.
 
 import { writable } from 'svelte/store';
 import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
-import { squares, squareKey, restoreSelectedPlayerFilter } from './game-state';
+import { clientId, squares, squareKey } from './game-state';
 
-type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
+export type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
 
-// Track pending optimistic operations
 export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
 
-// Track timeout IDs for cleanup
-export const pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
-// Timeout for pending operations (10 seconds)
-export const PENDING_TIMEOUT_MS = 10000;
+const PENDING_TIMEOUT_MS = 10000;
 
-/** Capture the ownership fields of a square so an optimistic change can be rolled back. */
+/** The ownership fields of a square, so an optimistic change can be undone. */
 export function snapshotSquare(sq: SquareSnapshot): SquareSnapshot {
 	return {
 		player_name: sq.player_name,
@@ -35,12 +31,7 @@ export function snapshotSquare(sq: SquareSnapshot): SquareSnapshot {
 
 /** Pure: a copy of `s` with the ownership fields replaced by `snapshot`. */
 export function withSnapshot(s: Square, snapshot: SquareSnapshot): Square {
-	return {
-		...s,
-		player_name: snapshot.player_name,
-		player_name_lower: snapshot.player_name_lower,
-		claimed_at: snapshot.claimed_at,
-	};
+	return { ...s, ...snapshotSquare(snapshot) };
 }
 
 /** Pure: a copy of `s` with no owner. */
@@ -48,101 +39,118 @@ export function clearSquareFields(s: Square): Square {
 	return { ...s, player_name: null, player_name_lower: null, claimed_at: null };
 }
 
-/** Restore one square's ownership fields to a previously captured snapshot. */
-function restoreSquare(row: number, col: number, originalState: SquareSnapshot): void {
-	squares.update((current) =>
-		current.map((s) =>
-			s.row_num === row && s.col_num === col ? withSnapshot(s, originalState) : s
-		)
+/** A new op for a square about to change. Remote ops are keyed by the tab that sent them. */
+export function newPendingOp(
+	type: OptimisticOperation['type'],
+	square: Square,
+	timestamp: number,
+	origin: { remoteClientId: string } | 'local' = 'local'
+): OptimisticOperation {
+	return {
+		type,
+		row: square.row_num,
+		col: square.col_num,
+		timestamp,
+		originalState: snapshotSquare(square),
+		clientId: origin === 'local' ? clientId : origin.remoteClientId,
+		origin: origin === 'local' ? 'local' : 'remote',
+	};
+}
+
+/** Whether `op` is the same in-flight operation as `other` (not a later one on that square). */
+export function isSameOp(op: OptimisticOperation, other: OptimisticOperation): boolean {
+	return (
+		op.clientId === other.clientId && op.timestamp === other.timestamp && op.type === other.type
 	);
 }
 
-export function setPendingOp(key: string, op: OptimisticOperation): void {
-	pendingOperations.update((ops) => {
-		const newOps = new Map(ops);
-		newOps.set(key, op);
-		return newOps;
+/** Record ops and start their timeouts. */
+export function addPendingOps(ops: OptimisticOperation[]): void {
+	pendingOperations.update((current) => {
+		const next = new Map(current);
+		for (const op of ops) next.set(squareKey(op.row, op.col), op);
+		return next;
 	});
+	for (const op of ops) scheduleTimeout(op);
 }
 
-function deletePendingOp(key: string): void {
-	pendingOperations.update((ops) => {
-		const newOps = new Map(ops);
-		newOps.delete(key);
-		return newOps;
-	});
+function clearTimer(key: string): void {
+	const timer = pendingTimeouts.get(key);
+	if (timer) {
+		clearTimeout(timer);
+		pendingTimeouts.delete(key);
+	}
 }
 
 /**
- * Atomically roll back the pending op at `key` if `shouldRollback(op)` holds.
+ * Roll back the pending op at `key` if `shouldRollback(op)` holds: the square
+ * goes back to `restoreTo` (default: how it was before the op) and the op and
+ * its timer are dropped.
  *
- * The check, the delete, the square restore and `onRollback` all run inside ONE
- * pendingOperations.update callback, so a concurrent writer can't slip in between
- * the check and the delete (a get()+delete split would reintroduce that race), and
- * `squares` subscribers see the restored square before `pendingOperations`
- * subscribers see the op removed — the same order as the hand-written blocks this
- * replaced. The squares write (and any broadcast in `onRollback`) is a nested
- * side effect inside the updater on purpose; do not hoist or reorder it.
+ * The check, the delete and the square restore run inside ONE
+ * pendingOperations.update, so a concurrent writer cannot slip between check
+ * and delete, and squares subscribers see the restored square before
+ * pendingOperations subscribers see the op gone. Returns the rolled-back op.
  */
 export function rollbackPendingOpIf(
 	key: string,
 	shouldRollback: (op: OptimisticOperation) => boolean,
-	onRollback?: (op: OptimisticOperation) => void
-): void {
+	restoreTo?: SquareSnapshot
+): OptimisticOperation | null {
+	let rolledBack: OptimisticOperation | null = null;
 	pendingOperations.update((ops) => {
 		const op = ops.get(key);
 		if (!op || !shouldRollback(op)) return ops;
-		const newOps = new Map(ops);
-		newOps.delete(key);
-		restoreSquare(op.row, op.col, op.originalState);
-		onRollback?.(op);
-		return newOps;
-	});
-}
-
-// Schedule timeout cleanup for pending operations
-export function schedulePendingTimeout(key: string) {
-	// Clear any existing timeout for this key
-	const existingTimeout = pendingTimeouts.get(key);
-	if (existingTimeout) {
-		clearTimeout(existingTimeout);
-	}
-
-	const timeoutId = setTimeout(() => {
-		pendingTimeouts.delete(key);
-		// Operation timed out - rollback
-		rollbackPendingOpIf(
-			key,
-			() => true,
-			(op) => {
-				// A rolled-back unclaim restores the square, so restore any filter the
-				// optimistic clear nulled too (no-op for claim ops / unchanged filters).
-				if (op.type === 'unclaim') {
-					restoreSelectedPlayerFilter(op.filterSnapshot);
-				}
-
-				// Only alert the user about THEIR OWN failed operation. Remote ops
-				// (id "remote-<clientId>-<key>") are mirrors of another client's action;
-				// their timeout is a silent self-heal, not something this user did.
-				if (!op.id.startsWith('remote-')) {
-					toast.error("We couldn't reach the server. Your claim wasn't saved — try again.");
-				}
-			}
+		const next = new Map(ops);
+		next.delete(key);
+		const snapshot = restoreTo ?? op.originalState;
+		squares.update((current) =>
+			current.map((s) =>
+				s.row_num === op.row && s.col_num === op.col ? withSnapshot(s, snapshot) : s
+			)
 		);
-	}, PENDING_TIMEOUT_MS);
-
-	pendingTimeouts.set(key, timeoutId);
+		rolledBack = op;
+		return next;
+	});
+	if (rolledBack) clearTimer(key);
+	return rolledBack;
 }
 
-/** Apply an UPDATE on the squares table (single row by id). */
+const TIMEOUT_COPY: Record<OptimisticOperation['type'], string> = {
+	claim: "We couldn't reach the server. Your claim wasn't saved — try again.",
+	unclaim: "We couldn't reach the server. That square is still yours — try again.",
+};
+
+function scheduleTimeout(op: OptimisticOperation): void {
+	const key = squareKey(op.row, op.col);
+	clearTimer(key);
+	pendingTimeouts.set(
+		key,
+		setTimeout(() => {
+			pendingTimeouts.delete(key);
+			const rolledBack = rollbackPendingOpIf(key, (current) => isSameOp(current, op));
+			// A remote op is a preview of someone else's action; its timeout heals silently.
+			if (rolledBack?.origin === 'local') toast.error(TIMEOUT_COPY[rolledBack.type]);
+		}, PENDING_TIMEOUT_MS)
+	);
+}
+
+/** Apply an UPDATE on the squares table. The DB is the source of truth, so any pending op ends. */
 export function applySquareUpdate(newSquare: Square): void {
 	const key = squareKey(newSquare.row_num, newSquare.col_num);
-	// DB is source of truth — clear any pending optimistic op + timeout for this square
-	const existingTimeout = pendingTimeouts.get(key);
-	if (existingTimeout) {
-		clearTimeout(existingTimeout);
-		pendingTimeouts.delete(key);
-	}
-	deletePendingOp(key);
+	clearTimer(key);
+	pendingOperations.update((ops) => {
+		if (!ops.has(key)) return ops;
+		const next = new Map(ops);
+		next.delete(key);
+		return next;
+	});
 	squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+}
+
+/** Drop every pending op and timer (leaving a party). */
+export function clearPendingOps(): void {
+	for (const timer of pendingTimeouts.values()) clearTimeout(timer);
+	pendingTimeouts.clear();
+	pendingOperations.set(new Map());
 }

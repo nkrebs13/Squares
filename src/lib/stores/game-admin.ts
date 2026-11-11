@@ -6,10 +6,11 @@ import {
 	scores,
 	winners,
 	gameScores,
+	selectedPlayerFilter,
 	isLoading,
 	error,
 } from './game-state';
-import { pendingOperations, pendingTimeouts, clearSquareFields } from './game-pending';
+import { clearPendingOps, clearSquareFields } from './game-pending';
 import { broadcastScoreUpdate, cleanupChannels } from './game-realtime';
 import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
 import type { Quarter } from '$lib/types';
@@ -193,12 +194,7 @@ export async function deleteParty(pin: string): Promise<AdminResult> {
 }
 
 export function cleanup() {
-	// Clear all pending timeouts
-	for (const timeoutId of pendingTimeouts.values()) {
-		clearTimeout(timeoutId);
-	}
-	pendingTimeouts.clear();
-
+	clearPendingOps();
 	cleanupChannels();
 	party.set(null);
 	squares.set([]);
@@ -206,7 +202,7 @@ export function cleanup() {
 	scores.set(null);
 	winners.set([]);
 	gameScores.set(null);
-	pendingOperations.set(new Map());
+	selectedPlayerFilter.set(null);
 	isLoading.set(true);
 	error.set(null);
 }
