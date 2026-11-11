@@ -13,7 +13,8 @@ import {
 	rollbackPendingOpIf,
 	type SquareSnapshot,
 } from './game-pending';
-import { broadcast, isOffline } from './game-realtime';
+import { broadcast } from './game-realtime';
+import { isOffline } from './connectivity';
 
 /**
  * Optimistic claim and unclaim. Every action runs the same chain (also in

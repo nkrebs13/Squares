@@ -11,6 +11,7 @@ import type {
 	LiveScores,
 } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
+import { DEFAULT_TEAMS } from '$lib/config';
 import { userName, normalizePlayerName } from './user';
 
 // Unique client ID per browser tab (for broadcast deduplication)
@@ -19,17 +20,30 @@ export const clientId =
 		? crypto.randomUUID()
 		: Math.random().toString(36).slice(2);
 
-// Core state stores
-export const party = writable<Party | null>(null);
-export const squares = writable<Square[]>([]);
-export const numbers = writable<Numbers | null>(null);
-export const scores = writable<Scores | null>(null);
-export const winners = writable<Winner[]>([]);
-export const gameScores = writable<GameScoresRow | null>(null);
+// Per-party state. Every store made with `resettable` goes back to its
+// starting value in resetPartyState(), so a new store is reset when leaving a
+// party without anyone remembering to add it to cleanup().
+const resets: Array<() => void> = [];
+function resettable<T>(initial: T) {
+	const store = writable<T>(initial);
+	resets.push(() => store.set(initial));
+	return store;
+}
+
+export function resetPartyState(): void {
+	for (const reset of resets) reset();
+}
+
+export const party = resettable<Party | null>(null);
+export const squares = resettable<Square[]>([]);
+export const numbers = resettable<Numbers | null>(null);
+export const scores = resettable<Scores | null>(null);
+export const winners = resettable<Winner[]>([]);
+export const gameScores = resettable<GameScoresRow | null>(null);
 /** For a detected, unlinked game: whether its home team is the party's row team (game_side, at load). */
-export const gameHomeIsRow = writable(true);
-export const isLoading = writable(true);
-export const error = writable<string | null>(null);
+export const gameHomeIsRow = resettable(true);
+export const isLoading = resettable(true);
+export const error = resettable<string | null>(null);
 
 // Derived stores
 export const gridState = derived(
@@ -137,7 +151,7 @@ export const availableCount = derived(
 );
 
 // The player the user picked to highlight (toggled from the legend).
-export const selectedPlayerFilter = writable<string | null>(null);
+export const selectedPlayerFilter = resettable<string | null>(null);
 
 /**
  * The filter in effect: the picked player while they hold at least one square.
@@ -162,21 +176,6 @@ export { squareKey } from '$lib/utils/squareKey';
 // applySquareUpdate also clears pending optimistic state, so it lives in
 // game-pending.ts (which depends on this module, never the reverse).
 
-/** Apply an UPDATE on the parties table. */
-export function applyPartyUpdate(newParty: Party): void {
-	party.set(newParty);
-}
-
-/** Apply an INSERT or UPDATE on the numbers table. */
-export function applyNumbersUpdate(newNumbers: Numbers): void {
-	numbers.set(newNumbers);
-}
-
-/** Apply an INSERT or UPDATE on the scores table. */
-export function applyScoresUpdate(newScores: Scores): void {
-	scores.set(newScores);
-}
-
 /** Apply an INSERT on the winners table. */
 export function applyWinnerInsert(newWinner: Winner): void {
 	winners.update((current) => [...current, newWinner]);
@@ -198,7 +197,10 @@ export function applyWinnerDelete(deleted: Winner): void {
 	);
 }
 
-/** Apply an INSERT or UPDATE on the game_scores table; null clears it. */
-export function applyGameScoresUpdate(row: GameScoresRow | null): void {
-	gameScores.set(row);
-}
+/** The party's teams and colours, with the configured defaults before a party loads. */
+export const teamTheme = derived(party, ($party) => ({
+	rowName: $party?.team_row_name ?? DEFAULT_TEAMS.row.name,
+	colName: $party?.team_col_name ?? DEFAULT_TEAMS.col.name,
+	rowColor: $party?.team_row_color ?? DEFAULT_TEAMS.row.color,
+	colColor: $party?.team_col_color ?? DEFAULT_TEAMS.col.color,
+}));

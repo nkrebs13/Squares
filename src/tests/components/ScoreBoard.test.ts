@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import ScoreBoard from '$lib/components/ScoreBoard.svelte';
 import { party, scores, gameScores } from '$lib/stores/game';
-import { theme } from '$lib/stores/theme';
 import type { Party } from '$lib/types';
 import { createMockGameScores, createMockScores, createMockParty as baseParty } from '../factories';
 
@@ -17,16 +16,10 @@ describe('ScoreBoard Component', () => {
 		party.set(null);
 		scores.set(null);
 		gameScores.set(null);
-		theme.setTeams({
-			rowColor: '#004C54',
-			colColor: '#E31837',
-			rowName: 'Eagles',
-			colName: 'Chiefs',
-		});
 	});
 
 	describe('Basic Rendering', () => {
-		it('renders team names from theme', () => {
+		it('renders team names from the party', () => {
 			party.set(createMockParty());
 			scores.set(createMockScores());
 

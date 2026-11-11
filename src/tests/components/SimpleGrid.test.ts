@@ -14,7 +14,6 @@ import {
 	removePlayer,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
-import { theme } from '$lib/stores/theme';
 import type { Party, Square as SquareType, Numbers, Winner } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 import {
@@ -723,12 +722,17 @@ describe('SimpleGrid Component', () => {
 	describe('Team Logos', () => {
 		it('renders Patriots logo when col team is Patriots', () => {
 			setupStores({ withNumbers: true });
-			theme.setTeams({
-				colName: 'Patriots',
-				colColor: '#C60C30',
-				rowName: 'Seahawks',
-				rowColor: '#69BE28',
-			});
+			party.update((p) =>
+				p
+					? {
+							...p,
+							team_row_name: 'Seahawks',
+							team_row_color: '#69BE28',
+							team_col_name: 'Patriots',
+							team_col_color: '#C60C30',
+						}
+					: p
+			);
 			render(SimpleGrid);
 
 			const logos = document.querySelectorAll('img[src="/logos/patriots.png"]');
@@ -737,12 +741,17 @@ describe('SimpleGrid Component', () => {
 
 		it('renders Seahawks logo when row team is Seahawks', () => {
 			setupStores({ withNumbers: true });
-			theme.setTeams({
-				colName: 'Patriots',
-				colColor: '#C60C30',
-				rowName: 'Seahawks',
-				rowColor: '#69BE28',
-			});
+			party.update((p) =>
+				p
+					? {
+							...p,
+							team_row_name: 'Seahawks',
+							team_row_color: '#69BE28',
+							team_col_name: 'Patriots',
+							team_col_color: '#C60C30',
+						}
+					: p
+			);
 			render(SimpleGrid);
 
 			const logos = document.querySelectorAll('img[src="/logos/seahawks.png"]');
@@ -751,12 +760,17 @@ describe('SimpleGrid Component', () => {
 
 		it('does not render logos for non-matching team names', () => {
 			setupStores({ withNumbers: true });
-			theme.setTeams({
-				colName: 'Lakers',
-				colColor: '#FDB927',
-				rowName: 'Celtics',
-				rowColor: '#007A33',
-			});
+			party.update((p) =>
+				p
+					? {
+							...p,
+							team_row_name: 'Celtics',
+							team_row_color: '#007A33',
+							team_col_name: 'Lakers',
+							team_col_color: '#FDB927',
+						}
+					: p
+			);
 			render(SimpleGrid);
 
 			const patriotsLogos = document.querySelectorAll('img[src="/logos/patriots.png"]');
@@ -767,12 +781,17 @@ describe('SimpleGrid Component', () => {
 
 		it('matches team names case-insensitively', () => {
 			setupStores({ withNumbers: true });
-			theme.setTeams({
-				colName: 'PATRIOTS',
-				colColor: '#C60C30',
-				rowName: 'seahawks',
-				rowColor: '#69BE28',
-			});
+			party.update((p) =>
+				p
+					? {
+							...p,
+							team_row_name: 'seahawks',
+							team_row_color: '#69BE28',
+							team_col_name: 'PATRIOTS',
+							team_col_color: '#C60C30',
+						}
+					: p
+			);
 			render(SimpleGrid);
 
 			const patriotsLogos = document.querySelectorAll('img[src="/logos/patriots.png"]');

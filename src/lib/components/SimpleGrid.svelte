@@ -18,8 +18,8 @@
 		amountOwed,
 		activePlayerFilter,
 		leadingSquare,
+		teamTheme,
 	} from '$lib/stores/game';
-	import { theme } from '$lib/stores/theme';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
@@ -151,10 +151,12 @@
 
 	// Logo visibility — show logo when party team name matches the configured default team name
 	const showColLogo = $derived(
-		$theme.colName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
+		$teamTheme.colName?.toLowerCase().trim() ===
+			APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
 	);
 	const showRowLogo = $derived(
-		$theme.rowName?.toLowerCase().trim() === APP_CONFIG.defaultTeams.row.name.toLowerCase().trim()
+		$teamTheme.rowName?.toLowerCase().trim() ===
+			APP_CONFIG.defaultTeams.row.name.toLowerCase().trim()
 	);
 </script>
 
@@ -197,9 +199,9 @@
 			{/if}
 			<span
 				class="team-name font-bold text-xl sm:text-2xl md:text-3xl"
-				style="color: {$theme.colColor}"
+				style="color: {$teamTheme.colColor}"
 			>
-				{$theme.colName}
+				{$teamTheme.colName}
 			</span>
 		</div>
 
@@ -208,9 +210,9 @@
 			<div class="team-label-row">
 				<span
 					class="team-name font-bold text-base sm:text-lg md:text-xl writing-vertical flex items-center"
-					style="color: {$theme.rowColor}"
+					style="color: {$teamTheme.rowColor}"
 				>
-					{$theme.rowName}
+					{$teamTheme.rowName}
 				</span>
 				{#if showRowLogo}
 					<img
