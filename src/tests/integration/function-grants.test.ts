@@ -3,6 +3,7 @@ import pg from 'pg';
 import {
 	cleanupParty,
 	createTestParty,
+	fillAllSquares,
 	ensureSupabaseReady,
 	getServiceRoleClient,
 	getTestClient,
@@ -68,6 +69,13 @@ describe('function grants', () => {
 		}
 	});
 
+	it('service_role keeps EXECUTE on the internal helpers', async () => {
+		const executable = await functionsExecutableBy('service_role');
+		for (const fn of ['auto_update_score', 'check_pin_lockout', 'log_audit_event']) {
+			expect(executable).toContain(fn);
+		}
+	});
+
 	it('anon cannot write scores through auto_update_score', async () => {
 		const { error } = await getTestClient().rpc('auto_update_score', {
 			p_party_id: '00000000-0000-0000-0000-000000000000',
@@ -127,6 +135,11 @@ describe('push subscriptions', () => {
 		]);
 	});
 
+	it('refuses an endpoint that is not an https URL', async () => {
+		expect((await save('Alice', 'http://169.254.169.254/latest')).data).toBe(false);
+		expect((await save('Alice', `https://push.example/${'x'.repeat(2100)}`)).data).toBe(false);
+	});
+
 	it('refuses a name that holds no square in the party', async () => {
 		expect((await save('Mallory', 'https://push.example/m')).data).toBe(false);
 		expect((await subscriptionRows()).map((r) => r.endpoint)).not.toContain(
@@ -148,5 +161,52 @@ describe('push subscriptions', () => {
 		expect(del.error?.code).toBe('42501');
 
 		expect(await subscriptionRows()).toHaveLength(1);
+	});
+});
+
+describe('live score trigger chain', () => {
+	const client = getTestClient();
+	const service = getServiceRoleClient();
+	const gameId = `gt-${Date.now()}`;
+	let party: TestParty;
+
+	beforeAll(async () => {
+		party = await createTestParty(client);
+		await fillAllSquares(client, party.id);
+		const { data } = await client.rpc('lock_party', {
+			p_party_id: party.id,
+			p_pin: party.host_pin,
+		});
+		expect(data).toBe(true);
+		const game = await service.from('game_scores').insert({
+			game_id: gameId,
+			home_team_abbrev: 'PHI',
+			away_team_abbrev: 'KC',
+			home_team_name: 'Eagles',
+			away_team_name: 'Chiefs',
+			game_status: 'in_progress',
+		});
+		if (game.error) throw game.error;
+		const link = await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+		if (link.error) throw link.error;
+	});
+
+	afterAll(async () => {
+		await cleanupParty(client, party.id);
+		await service.from('game_scores').delete().eq('game_id', gameId);
+	});
+
+	it('a game_scores quarter result still records the winner through the internal helpers', async () => {
+		const { error } = await service
+			.from('game_scores')
+			.update({ q1_home: 7, q1_away: 3 })
+			.eq('game_id', gameId);
+		if (error) throw error;
+
+		const { data: winners } = await client
+			.from('winners')
+			.select('quarter')
+			.eq('party_id', party.id);
+		expect(winners).toEqual([{ quarter: 'q1' }]);
 	});
 });

@@ -48,6 +48,12 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 BEGIN
+    -- send-push POSTs to the stored endpoint, so only accept a real push URL.
+    IF p_endpoint !~ '^https://' OR length(p_endpoint) > 2048
+       OR length(p_p256dh) > 256 OR length(p_auth) > 64 THEN
+        RETURN FALSE;
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM squares
         WHERE party_id = p_party_id
@@ -56,12 +62,17 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    -- Refresh an existing device first: the 200-per-party limit trigger fires
+    -- before ON CONFLICT is resolved, so an upsert would block refreshes at the cap.
+    UPDATE push_subscriptions
+    SET player_name = TRIM(p_player_name), p256dh = p_p256dh, auth = p_auth
+    WHERE party_id = p_party_id AND endpoint = p_endpoint;
+    IF FOUND THEN
+        RETURN TRUE;
+    END IF;
+
     INSERT INTO push_subscriptions (party_id, player_name, endpoint, p256dh, auth)
-    VALUES (p_party_id, TRIM(p_player_name), p_endpoint, p_p256dh, p_auth)
-    ON CONFLICT (party_id, endpoint) DO UPDATE
-        SET player_name = EXCLUDED.player_name,
-            p256dh = EXCLUDED.p256dh,
-            auth = EXCLUDED.auth;
+    VALUES (p_party_id, TRIM(p_player_name), p_endpoint, p_p256dh, p_auth);
 
     RETURN TRUE;
 END;
