@@ -19,7 +19,7 @@
 	} from '$lib/services/partyPreview';
 	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
-	import { formatPrice } from '$lib/utils/format';
+	import { formatMatchup, formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
@@ -248,7 +248,7 @@
 					<div class="mt-2">
 						<div class="font-semibold">{preview.party.event_name}</div>
 						<div class="mt-1 text-sm" style="color: var(--text-secondary)">
-							{preview.party.team_row_name} vs {preview.party.team_col_name}
+							{formatMatchup(preview.party.team_row_name, preview.party.team_col_name)}
 						</div>
 						<div class="mt-3 grid grid-cols-2 gap-3">
 							<div>

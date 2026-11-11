@@ -1,4 +1,5 @@
 import { TOTAL_SQUARES } from '$lib/constants';
+import { QUARTERS } from '$lib/quarters';
 import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
 
 export type PayoutSplits = Record<Quarter, number>;
@@ -9,13 +10,6 @@ export interface PayoutRow {
 	percent: number;
 	amount: number;
 }
-
-const PAYOUT_QUARTERS: Array<{ key: Quarter; label: string }> = [
-	{ key: 'q1', label: 'Q1' },
-	{ key: 'q2', label: 'Q2' },
-	{ key: 'q3', label: 'Q3' },
-	{ key: 'final', label: 'Final' },
-];
 
 function roundCurrency(amount: number): number {
 	return Math.round((amount + Number.EPSILON) * 100) / 100;
@@ -30,7 +24,7 @@ export function calculatePayoutAmount(totalPot: number, percent: number): number
 }
 
 export function buildPayoutRows(splits: PayoutSplits, totalPot: number): PayoutRow[] {
-	return PAYOUT_QUARTERS.map(({ key, label }) => ({
+	return QUARTERS.map(({ key, short: label }) => ({
 		key,
 		label,
 		percent: splits[key],

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatMatchup } from '$lib/utils/format';
 	import TeamPicker from './TeamPicker.svelte';
 	import { isValidMatchup, type TeamSelection } from '$lib/utils/partyForm';
 
@@ -101,7 +102,7 @@
 {#if bothNamed && isDistinct}
 	<div class="rounded-lg border border-white/10 p-3 {previewClass}">
 		<div class="text-xs uppercase tracking-wide text-muted">Matchup preview</div>
-		<div class="mt-1 font-semibold">{rowName} vs {colName}</div>
+		<div class="mt-1 font-semibold">{formatMatchup(rowName, colName)}</div>
 		<div class="mt-1 text-xs text-muted">
 			{rowName} uses left-side score digits; {colName} uses top score digits.
 		</div>

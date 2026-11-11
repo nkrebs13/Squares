@@ -1,3 +1,5 @@
+import { formatMatchup } from '$lib/utils/format';
+import { isGameInProgress } from '$lib/partyStatus';
 import { APP_CONFIG } from '$lib/config';
 import type { Party } from '$lib/types';
 
@@ -23,17 +25,17 @@ export function partyToShareMetadata(party: Party): PartyShareMetadata {
 
 export function buildPartyPageTitle(meta: PartyShareMetadata | null | undefined): string {
 	if (!meta) return APP_CONFIG.appName;
-	return `${APP_CONFIG.appName} — ${meta.eventName}: ${meta.teamRowName} vs ${meta.teamColName}`;
+	return `${APP_CONFIG.appName} — ${meta.eventName}: ${formatMatchup(meta.teamRowName, meta.teamColName)}`;
 }
 
 export function buildPartyShareDescription(meta: PartyShareMetadata | null | undefined): string {
 	if (!meta) return APP_CONFIG.appDescription;
 
-	const matchup = `${meta.teamRowName} vs ${meta.teamColName}`;
+	const matchup = formatMatchup(meta.teamRowName, meta.teamColName);
 	const statusCopy =
 		meta.status === 'complete'
 			? 'See final scores, winners, and payouts.'
-			: meta.status === 'active' || meta.status === 'locked'
+			: isGameInProgress(meta.status)
 				? 'Follow scores and quarter winners in real time.'
 				: 'Claim squares before kickoff and track winners quarter by quarter in real time.';
 

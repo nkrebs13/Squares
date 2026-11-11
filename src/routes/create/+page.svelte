@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { QUARTERS } from '$lib/quarters';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
+	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { setHostPin, partyPinKey, partyNicknameKey, setSessionItem } from '$lib/storage';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
@@ -28,13 +29,6 @@
 	import PayoutPresetButtons from '$lib/components/forms/PayoutPresetButtons.svelte';
 	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
 	import TeamMatchupPicker from '$lib/components/forms/TeamMatchupPicker.svelte';
-
-	const QUARTERS: { key: Quarter; label: string }[] = [
-		{ key: 'q1', label: 'Q1' },
-		{ key: 'q2', label: 'Q2' },
-		{ key: 'q3', label: 'Q3' },
-		{ key: 'final', label: 'Final' },
-	];
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
 	let kickoffInput = $state('');
@@ -202,7 +196,7 @@
 			/>
 
 			<div class="mt-4 grid grid-cols-4 gap-3">
-				{#each QUARTERS as { key, label } (key)}
+				{#each QUARTERS as { key, short: label } (key)}
 					<div class="text-center">
 						<label for="split-{key}" class="text-xs uppercase block text-muted">{label}</label>
 						{#if isCustom}

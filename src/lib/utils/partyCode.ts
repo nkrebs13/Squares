@@ -10,3 +10,8 @@ export function normalizePartyCode(value: string): string {
 export function isCompletePartyCode(value: string): boolean {
 	return normalizePartyCode(value).length === PARTY_CODE_LENGTH;
 }
+
+/** The join page for a party code. */
+export function joinPath(code: string): string {
+	return `/join?code=${encodeURIComponent(code)}`;
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -23,7 +24,7 @@
 		cleanup,
 	} from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
-	import { isGameInProgress } from '$lib/types';
+
 	import { goto } from '$app/navigation';
 	import PinGate from '$lib/components/admin/PinGate.svelte';
 	import EventDetailsCard from '$lib/components/admin/EventDetailsCard.svelte';
@@ -152,9 +153,9 @@
 						Party Status
 					</h2>
 					<div class="text-2xl font-bold capitalize">
-						{$party.status === 'locked' ? 'Active' : $party.status}
+						{statusLabel($party.status)}
 					</div>
-					{#if $party.status === 'filling'}
+					{#if isFilling($party.status)}
 						<p class="text-sm mt-2 text-secondary">
 							{$filledCount}/100 squares filled
 						</p>
@@ -162,7 +163,7 @@
 				</div>
 
 				<!-- Filling Phase Controls -->
-				{#if $party.status === 'filling'}
+				{#if isFilling($party.status)}
 					<EventDetailsCard party={$party} {storedPin} />
 					<ManagePlayersCard
 						hostNameLower={$party.host_name_lower}

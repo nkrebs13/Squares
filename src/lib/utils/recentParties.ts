@@ -1,3 +1,4 @@
+import { formatMatchup } from '$lib/utils/format';
 import { APP_CONFIG } from '$lib/config';
 import { formatKickoff } from '$lib/utils/datetime';
 import type { RecentParty, PartyStatus } from '$lib/types';
@@ -22,7 +23,7 @@ function isSameLabel(first: string, second: string): boolean {
 }
 
 function getMatchup(party: RecentParty): string {
-	return `${party.teamRowName} vs ${party.teamColName}`;
+	return formatMatchup(party.teamRowName, party.teamColName);
 }
 
 function getSpecificEventName(party: RecentParty, matchup: string): string | null {

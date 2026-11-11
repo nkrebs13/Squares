@@ -2,10 +2,10 @@
 	import { goto } from '$app/navigation';
 	import RecentParties from '$lib/components/RecentParties.svelte';
 	import { APP_CONFIG } from '$lib/config';
-	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
+	import { isCompletePartyCode, joinPath, normalizePartyCode } from '$lib/utils/partyCode';
 
 	let partyCode = $state('');
-	const demoHref = $derived(`/join?code=${APP_CONFIG.demoPartyCode.toUpperCase()}`);
+	const demoHref = $derived(joinPath(normalizePartyCode(APP_CONFIG.demoPartyCode)));
 	const canonicalUrl = $derived(APP_CONFIG.appUrl.replace(/\/$/, ''));
 	const normalizedPartyCode = $derived(normalizePartyCode(partyCode));
 
@@ -30,7 +30,7 @@
 
 	function handleJoin() {
 		if (isCompletePartyCode(partyCode)) {
-			goto(`/join?code=${normalizedPartyCode}`);
+			goto(joinPath(normalizedPartyCode));
 		}
 	}
 </script>

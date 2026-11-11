@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { liveScores } from '$lib/stores/game';
 	import type { Party } from '$lib/types';
-	import { formatQuarterLabel } from '$lib/utils/quarter';
+	import { formatGamePeriod } from '$lib/quarters';
 
 	interface Props {
 		party: Party;
@@ -33,7 +33,7 @@
 					<span class="ml-2" role="status">HALFTIME</span>
 				{:else if $liveScores.clock}
 					<span class="ml-2" role="status">
-						{$liveScores.clock} - {formatQuarterLabel($liveScores.quarter)}
+						{$liveScores.clock} - {formatGamePeriod($liveScores.quarter)}
 					</span>
 				{/if}
 			</p>

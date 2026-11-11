@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { QUARTERS } from '$lib/quarters';
 	import { updatePayoutStructure } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
-	import type { Party, Quarter, SplitPreset } from '$lib/types';
+	import type { Party, SplitPreset } from '$lib/types';
 	import {
 		CUSTOM_PRESET_NAME,
 		findMatchingPresetName,
@@ -19,13 +20,6 @@
 	}
 
 	const { party, storedPin }: Props = $props();
-
-	const QUARTERS: { key: Quarter; label: string }[] = [
-		{ key: 'q1', label: 'Q1' },
-		{ key: 'q2', label: 'Q2' },
-		{ key: 'q3', label: 'Q3' },
-		{ key: 'final', label: 'Final' },
-	];
 
 	// Initialized from the party once. A realtime party update must NOT clobber
 	// the host's unsaved edits, so these never re-derive from `party`.
@@ -74,7 +68,7 @@
 	<PayoutPresetButtons selected={selectedPreset} onselect={selectPreset} class="mb-4" />
 
 	<div class="grid grid-cols-1 gap-3 mb-4">
-		{#each QUARTERS as { key, label } (key)}
+		{#each QUARTERS as { key, short: label } (key)}
 			<div>
 				<label for="split-{key}" class="text-sm text-secondary">{label}</label>
 				<div class="flex items-center gap-1">

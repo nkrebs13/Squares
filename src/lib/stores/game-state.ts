@@ -1,3 +1,4 @@
+import { isGameInProgress } from '$lib/partyStatus';
 import { writable, derived } from 'svelte/store';
 import type {
 	Party,
@@ -68,7 +69,7 @@ export const leadingSquare = derived(
 	([$liveScores, $numbers, $party]) => {
 		if (!$liveScores || !$numbers || !$party) return null;
 		// Only show during active game
-		if ($party.status !== 'active' && $party.status !== 'locked') return null;
+		if (!isGameInProgress($party.status)) return null;
 		// Only when game is in progress (not final/pregame)
 		if ($liveScores.status === 'final' || $liveScores.status === 'pregame') return null;
 

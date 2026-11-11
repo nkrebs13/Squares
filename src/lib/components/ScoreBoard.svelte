@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { hasDrawnNumbers } from '$lib/partyStatus';
 	import { scores, liveScores, party } from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
-	import { isGameInProgress } from '$lib/types';
+
 	import type { Quarter } from '$lib/types';
-	import { formatQuarterLabel } from '$lib/utils/quarter';
+	import { QUARTERS, formatGamePeriod, latestScoredQuarter, quarterScore } from '$lib/quarters';
 
 	interface QuarterScore {
 		quarter: Quarter;
@@ -12,40 +13,16 @@
 		colScore: number | null;
 	}
 
-	const quarterScores = $derived<QuarterScore[]>([
-		{
-			quarter: 'q1',
-			label: 'Q1',
-			rowScore: $scores?.q1_row_score ?? null,
-			colScore: $scores?.q1_col_score ?? null,
-		},
-		{
-			quarter: 'q2',
-			label: 'Q2',
-			rowScore: $scores?.q2_row_score ?? null,
-			colScore: $scores?.q2_col_score ?? null,
-		},
-		{
-			quarter: 'q3',
-			label: 'Q3',
-			rowScore: $scores?.q3_row_score ?? null,
-			colScore: $scores?.q3_col_score ?? null,
-		},
-		{
-			quarter: 'final',
-			label: 'Final',
-			rowScore: $scores?.final_row_score ?? null,
-			colScore: $scores?.final_col_score ?? null,
-		},
-	]);
+	const quarterScores = $derived<QuarterScore[]>(
+		QUARTERS.map(({ key, short }) => {
+			const { row, col } = quarterScore($scores, key);
+			return { quarter: key, label: short, rowScore: row, colScore: col };
+		})
+	);
 
 	const currentQuarter = $derived.by<QuarterScore | null>(() => {
-		if (!$scores) return null;
-		if ($scores.final_row_score !== null) return quarterScores[3];
-		if ($scores.q3_row_score !== null) return quarterScores[2];
-		if ($scores.q2_row_score !== null) return quarterScores[1];
-		if ($scores.q1_row_score !== null) return quarterScores[0];
-		return null;
+		const latest = latestScoredQuarter($scores);
+		return latest ? (quarterScores.find((q) => q.quarter === latest) ?? null) : null;
 	});
 
 	// Live game detection
@@ -70,7 +47,7 @@
 		const q = $liveScores?.quarter ?? 0;
 		if ($liveScores?.status === 'halftime') return 'HALF';
 		if (q === 0) return '';
-		return formatQuarterLabel(q);
+		return formatGamePeriod(q);
 	});
 </script>
 
@@ -107,7 +84,7 @@
 		</div>
 	</div>
 
-	{#if isGameInProgress($party?.status) || $party?.status === 'complete'}
+	{#if hasDrawnNumbers($party?.status)}
 		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
 			{#each quarterScores as qs (qs.quarter)}
 				<div class="quarter-score-box">

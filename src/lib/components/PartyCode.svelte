@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatMatchup } from '$lib/utils/format';
+	import { joinPath } from '$lib/utils/partyCode';
 	import { party } from '$lib/stores/game';
 	import { browser } from '$app/environment';
 	import { APP_CONFIG } from '$lib/config';
@@ -14,9 +16,11 @@
 	let showManualLink = $state(false);
 
 	const joinUrl = $derived(
-		$party && browser ? `${window.location.origin}/join?code=${$party.code}` : ''
+		$party && browser ? `${window.location.origin}${joinPath($party.code)}` : ''
 	);
-	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const matchupLabel = $derived(
+		$party ? formatMatchup($party.team_row_name, $party.team_col_name) : ''
+	);
 	const shareTitle = $derived($party?.event_name || APP_CONFIG.appName);
 	const shareText = $derived(
 		$party ? `Join ${$party.event_name}: ${matchupLabel}. Code ${$party.code}.` : ''
