@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+	GAP_SIZE,
 	MIN_CELL_SIZE_MOBILE,
 	ZOOMED_CELL_SIZE,
 	buildSquareMap,
 	buildWinnerMap,
-	calculateFitCellSize,
 	getEffectiveCellSize,
 	getFitCellSize,
 	getHeaderHeight,
@@ -14,16 +14,19 @@ import { createMockSquare, createMockWinner } from '../factories';
 
 describe('gridLayout sizing', () => {
 	it('falls back to the mobile minimum when width is unknown', () => {
-		expect(calculateFitCellSize(0)).toBe(MIN_CELL_SIZE_MOBILE);
+		expect(getFitCellSize(0)).toBe(MIN_CELL_SIZE_MOBILE);
 	});
 
-	it('computes fit size from width minus label, gaps and padding', () => {
-		// (400 - 48 label - 10 gaps*2 - 8 padding) / 11 columns = 324 / 11 -> 29
-		expect(calculateFitCellSize(400)).toBe(29);
+	it('fits the header column and ten cells, with their gaps, into the grid width', () => {
+		for (const width of [340, 512, 700, 1100]) {
+			const cell = getFitCellSize(width);
+			const used = 11 * cell + 10 * GAP_SIZE;
+			expect(used).toBeLessThanOrEqual(width);
+			expect(used + 11).toBeGreaterThan(width);
+		}
 	});
 
 	it('clamps fit size to the mobile minimum', () => {
-		expect(calculateFitCellSize(200)).toBeLessThan(MIN_CELL_SIZE_MOBILE);
 		expect(getFitCellSize(200)).toBe(MIN_CELL_SIZE_MOBILE);
 	});
 

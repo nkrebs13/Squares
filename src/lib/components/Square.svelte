@@ -92,9 +92,9 @@
 	class={classes}
 	style="width: {size}px; height: {size}px; min-width: {size}px; min-height: {size}px; {playerColor &&
 	!isWinner
-		? `background: ${playerColor.bg}; border-color: ${playerColor.text.replace(/0\.9[58]/g, '0.35')};`
+		? `background: ${playerColor.bg}; border-color: ${playerColor.textAt(0.35)};`
 		: ''}{isMine && playerColor
-		? ` --mine-outline: ${playerColor.text.replace(/0\.9[58]/g, '0.7')}; --mine-glow: ${playerColor.text.replace(/0\.9[58]/g, '0.25')}; --mine-glow-strong: ${playerColor.text.replace(/0\.9[58]/g, '0.4')};`
+		? ` --mine-outline: ${playerColor.textAt(0.7)}; --mine-glow: ${playerColor.textAt(0.25)}; --mine-glow-strong: ${playerColor.textAt(0.4)};`
 		: ''}"
 	{onpointerdown}
 	{onpointerenter}
