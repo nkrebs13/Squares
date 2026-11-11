@@ -114,10 +114,10 @@ describe('Create Page', () => {
 		it('Rising preset sets 10/20/30/40', () => {
 			render(CreatePage);
 			// Rising is the default preset
-			expect(document.getElementById('split-q1')).toHaveTextContent('10%');
-			expect(document.getElementById('split-q2')).toHaveTextContent('20%');
-			expect(document.getElementById('split-q3')).toHaveTextContent('30%');
-			expect(document.getElementById('split-final')).toHaveTextContent('40%');
+			expect(document.getElementById('split-q1')).toHaveValue(10);
+			expect(document.getElementById('split-q2')).toHaveValue(20);
+			expect(document.getElementById('split-q3')).toHaveValue(30);
+			expect(document.getElementById('split-final')).toHaveValue(40);
 		});
 
 		it('Equal preset sets 25/25/25/25', async () => {
@@ -126,10 +126,10 @@ describe('Create Page', () => {
 
 			await user.click(screen.getByRole('button', { name: 'Equal' }));
 
-			expect(document.getElementById('split-q1')).toHaveTextContent('25%');
-			expect(document.getElementById('split-q2')).toHaveTextContent('25%');
-			expect(document.getElementById('split-q3')).toHaveTextContent('25%');
-			expect(document.getElementById('split-final')).toHaveTextContent('25%');
+			expect(document.getElementById('split-q1')).toHaveValue(25);
+			expect(document.getElementById('split-q2')).toHaveValue(25);
+			expect(document.getElementById('split-q3')).toHaveValue(25);
+			expect(document.getElementById('split-final')).toHaveValue(25);
 		});
 	});
 

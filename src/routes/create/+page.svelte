@@ -1,34 +1,26 @@
 <script lang="ts">
-	import { QUARTERS } from '$lib/quarters';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { SPLIT_PRESETS, type SplitPreset } from '$lib/types';
+	import { SPLIT_PRESETS } from '$lib/types';
 	import { userName } from '$lib/stores/user';
 	import { rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
 	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
-	import { datetimeLocalToIso, getLocalTimeZoneLabel } from '$lib/utils/datetime';
+	import { datetimeLocalToIso } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
-	import { MAX_EVENT_NAME_LENGTH, MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH } from '$lib/constants';
+	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH } from '$lib/constants';
 	import {
-		formatKickoffPreview,
 		isValidEventName,
 		isValidHostName,
 		isValidMatchup,
 		isValidPin,
 		toTeamSelection,
 	} from '$lib/utils/partyForm';
-	import {
-		CUSTOM_PRESET_NAME,
-		calculateTotalPot,
-		isValidSplit,
-		presetToSplits,
-		splitTotal,
-	} from '$lib/payouts';
+	import { calculateTotalPot, isValidSplit, presetToSplits } from '$lib/payouts';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
-	import PayoutPresetButtons from '$lib/components/forms/PayoutPresetButtons.svelte';
-	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
+	import EventDetailsFields from '$lib/components/forms/EventDetailsFields.svelte';
+	import PayoutSplitEditor from '$lib/components/forms/PayoutSplitEditor.svelte';
 	import TeamMatchupPicker from '$lib/components/forms/TeamMatchupPicker.svelte';
 
 	let eventName = $state(APP_CONFIG.defaultEventName);
@@ -36,21 +28,13 @@
 	let squarePriceInput = $state('1');
 	const squarePrice = $derived(parseAmount(squarePriceInput) ?? 0);
 	const isValidPrice = $derived(isValidAmount(squarePriceInput));
-	const DEFAULT_PRESET = SPLIT_PRESETS[0];
-	const EQUAL_PRESET = SPLIT_PRESETS.find((p) => p.name === 'Equal') ?? DEFAULT_PRESET;
-	let selectedPreset = $state<SplitPreset>(DEFAULT_PRESET);
-	// Hand-entered percentages. Kept apart from the presets so they survive
-	// switching to a preset and back.
-	const customSplit = $state(presetToSplits(EQUAL_PRESET));
-	const isCustom = $derived(selectedPreset.name === CUSTOM_PRESET_NAME);
-	const currentSplit = $derived(isCustom ? customSplit : presetToSplits(selectedPreset));
+	let currentSplit = $state(presetToSplits(SPLIT_PRESETS[0]));
 	let hostPin = $state('');
 	let hostName = $state('');
 	let nickname = $state('');
 	let isCreating = $state(false);
 	let isReady = $state(false);
 	let error = $state<string | null>(null);
-	let kickoffTimeZone = $state('local time');
 
 	// Team customization — pre-populated from env-configured defaults
 	let rowTeam = $state(toTeamSelection(DEFAULT_TEAMS.row.name, DEFAULT_TEAMS.row.color));
@@ -67,10 +51,8 @@
 	);
 
 	const kickoffAt = $derived(datetimeLocalToIso(kickoffInput));
-	const kickoffPreview = $derived(formatKickoffPreview(kickoffInput));
 
 	onMount(() => {
-		kickoffTimeZone = getLocalTimeZoneLabel();
 		isReady = true;
 	});
 
@@ -128,31 +110,7 @@
 	>
 		<!-- Event Details -->
 		<div class="card">
-			<label class="block">
-				<span class="text-sm text-secondary">Event name</span>
-				<input
-					type="text"
-					bind:value={eventName}
-					placeholder="e.g. 2027 Super Bowl"
-					class="input mt-2"
-					maxlength={MAX_EVENT_NAME_LENGTH}
-					autocomplete="off"
-					onblur={() => (eventName = eventName.trim() || APP_CONFIG.defaultEventName)}
-				/>
-			</label>
-			<label class="block mt-4">
-				<span class="text-sm text-secondary">Kickoff time</span>
-				<span class="text-xs ml-1 text-muted">(optional)</span>
-				<input type="datetime-local" bind:value={kickoffInput} class="input mt-2" />
-			</label>
-			<p class="mt-2 text-xs text-muted">
-				Timezone: {kickoffTimeZone}
-			</p>
-			{#if kickoffPreview}
-				<p class="mt-1 text-sm text-secondary">
-					Kickoff: {kickoffPreview}
-				</p>
-			{/if}
+			<EventDetailsFields bind:eventName bind:kickoffInput />
 			<p class="mt-2 text-sm text-muted">
 				Use a specific event name so this pool still makes sense when shared or revisited later.
 			</p>
@@ -185,40 +143,9 @@
 		<div class="card">
 			<span class="text-sm text-secondary">Prize split</span>
 
-			<PayoutPresetButtons
-				selected={selectedPreset.name}
-				onselect={(preset) => (selectedPreset = preset)}
-				class="mt-3"
-			/>
-
-			<div class="mt-4 grid grid-cols-4 gap-3">
-				{#each QUARTERS as { key, short: label } (key)}
-					<div class="text-center">
-						<label for="split-{key}" class="text-xs uppercase block text-muted">{label}</label>
-						{#if isCustom}
-							<input
-								id="split-{key}"
-								type="number"
-								bind:value={customSplit[key]}
-								min="0"
-								max="100"
-								class="input mt-1 text-center p-2"
-								aria-label="{label} prize split percentage"
-							/>
-						{:else}
-							<div id="split-{key}" class="mt-1 text-lg font-bold">{currentSplit[key]}%</div>
-						{/if}
-					</div>
-				{/each}
+			<div class="mt-3">
+				<PayoutSplitEditor bind:splits={currentSplit} {squarePrice} testIdPrefix="create" />
 			</div>
-
-			{#if !isValidSplit(currentSplit)}
-				<p class="mt-3 text-sm text-error">
-					Split must total 100% (currently {splitTotal(currentSplit)}%)
-				</p>
-			{/if}
-
-			<PayoutPreview splits={currentSplit} {squarePrice} testIdPrefix="create" class="mt-4" />
 		</div>
 
 		<!-- Teams -->
@@ -232,7 +159,6 @@
 				placeholders={['e.g. Chiefs', 'e.g. Eagles']}
 				presetLabel="NFL preset"
 				labelClass="text-xs uppercase tracking-wide text-muted"
-				nameMaxLength={30}
 				pickersClass="mt-4 space-y-4"
 				warningClass="mt-3"
 				previewClass="mt-4"

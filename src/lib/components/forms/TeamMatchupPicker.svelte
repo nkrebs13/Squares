@@ -17,7 +17,6 @@
 		presetLabel?: string;
 		labelClass?: string;
 		nameLabelClass?: string;
-		nameMaxLength?: number;
 		/** Classes for the container holding the heading and the pickers. */
 		class?: string;
 		/** Classes for the wrapper around the two pickers. */
@@ -38,7 +37,6 @@
 		presetLabel,
 		labelClass,
 		nameLabelClass,
-		nameMaxLength,
 		class: className = '',
 		pickersClass = '',
 		warningClass = '',
@@ -79,7 +77,6 @@
 			{presetLabel}
 			{labelClass}
 			{nameLabelClass}
-			{nameMaxLength}
 			placeholder={placeholders?.[0]}
 		/>
 		<TeamPicker
@@ -91,7 +88,6 @@
 			{presetLabel}
 			{labelClass}
 			{nameLabelClass}
-			{nameMaxLength}
 			placeholder={placeholders?.[1]}
 		/>
 	</div>

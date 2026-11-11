@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MAX_TEAM_NAME_LENGTH } from '$lib/constants';
 	import { NFL_TEAM_PRESETS, findNflTeamPreset } from '$lib/nflTeams';
 
 	interface Props {
@@ -16,7 +17,6 @@
 		labelClass?: string;
 		/** Extra classes for the name field's label (e.g. top margin). */
 		nameLabelClass?: string;
-		nameMaxLength?: number;
 		placeholder?: string;
 	}
 
@@ -29,7 +29,6 @@
 		presetLabel,
 		labelClass = 'text-sm text-secondary',
 		nameLabelClass = '',
-		nameMaxLength = 50,
 		placeholder,
 	}: Props = $props();
 
@@ -83,7 +82,7 @@
 				bind:value={name}
 				{placeholder}
 				class="input mt-1"
-				maxlength={nameMaxLength}
+				maxlength={MAX_TEAM_NAME_LENGTH}
 				oninput={() => (presetId = '')}
 				onblur={() => (name = name.trim())}
 			/>

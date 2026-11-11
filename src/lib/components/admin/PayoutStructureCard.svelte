@@ -1,18 +1,9 @@
 <script lang="ts">
-	import { QUARTERS } from '$lib/quarters';
 	import { updatePayoutStructure } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
-	import type { Party, SplitPreset } from '$lib/types';
-	import {
-		CUSTOM_PRESET_NAME,
-		findMatchingPresetName,
-		isValidSplit,
-		presetToSplits,
-		splitTotal,
-		type PayoutSplits,
-	} from '$lib/payouts';
-	import PayoutPresetButtons from '$lib/components/forms/PayoutPresetButtons.svelte';
-	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
+	import type { Party } from '$lib/types';
+	import { isValidSplit, type PayoutSplits } from '$lib/payouts';
+	import PayoutSplitEditor from '$lib/components/forms/PayoutSplitEditor.svelte';
 
 	interface Props {
 		party: Party;
@@ -33,16 +24,9 @@
 	}
 
 	let payoutSplits = $state<PayoutSplits>(initialSplits());
-	let selectedPreset = $state(findMatchingPresetName(initialSplits()));
 	let isUpdatingPayout = $state(false);
 
 	const isValid = $derived(isValidSplit(payoutSplits));
-	const total = $derived(splitTotal(payoutSplits));
-
-	function selectPreset(preset: SplitPreset) {
-		if (preset.name !== CUSTOM_PRESET_NAME) payoutSplits = presetToSplits(preset);
-		selectedPreset = preset.name;
-	}
 
 	async function handleSave() {
 		isUpdatingPayout = true;
@@ -65,38 +49,13 @@
 		Adjust how the pot is split between quarters. Must total 100%.
 	</p>
 
-	<PayoutPresetButtons selected={selectedPreset} onselect={selectPreset} class="mb-4" />
-
-	<div class="grid grid-cols-1 gap-3 mb-4">
-		{#each QUARTERS as { key, short: label } (key)}
-			<div>
-				<label for="split-{key}" class="text-sm text-secondary">{label}</label>
-				<div class="flex items-center gap-1">
-					<input
-						id="split-{key}"
-						type="number"
-						bind:value={payoutSplits[key]}
-						min="0"
-						max="100"
-						class="input input-no-spinner mt-1"
-						onchange={() => (selectedPreset = CUSTOM_PRESET_NAME)}
-					/>
-					<span class="text-sm text-secondary">%</span>
-				</div>
-			</div>
-		{/each}
+	<div class="mb-4">
+		<PayoutSplitEditor
+			bind:splits={payoutSplits}
+			squarePrice={party.square_price}
+			testIdPrefix="admin"
+		/>
 	</div>
-
-	<div class="text-sm mb-4 {isValid ? '' : 'text-red-400'}">
-		Total: {total}% {isValid ? '✓' : '(must be 100%)'}
-	</div>
-
-	<PayoutPreview
-		splits={payoutSplits}
-		squarePrice={party.square_price}
-		testIdPrefix="admin"
-		class="mb-4"
-	/>
 
 	<button
 		onclick={handleSave}
