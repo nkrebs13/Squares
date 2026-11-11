@@ -11,7 +11,6 @@ import type {
 } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
 import { userName, normalizePlayerName } from './user';
-import { resolveHomeIsRow } from './game-matching';
 
 // Unique client ID per browser tab (for broadcast deduplication)
 export const clientId =
@@ -26,6 +25,8 @@ export const numbers = writable<Numbers | null>(null);
 export const scores = writable<Scores | null>(null);
 export const winners = writable<Winner[]>([]);
 export const gameScores = writable<GameScoresRow | null>(null);
+/** For a detected, unlinked game: whether its home team is the party's row team (game_side, at load). */
+export const gameHomeIsRow = writable(true);
 export const isLoading = writable(true);
 export const error = writable<string | null>(null);
 
@@ -44,20 +45,22 @@ export const gridState = derived(
 	}
 );
 
-export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
-	[gameScores, party],
-	([$gameScores, $party]) => {
-		if (!$gameScores || !$party) return null;
-		const homeIsRow = resolveHomeIsRow($gameScores, $party);
-		return {
-			rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
-			colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
-			clock: $gameScores.game_clock,
-			quarter: $gameScores.game_quarter,
-			status: $gameScores.game_status,
-		};
-	}
-);
+export const liveScores = derived<
+	[typeof gameScores, typeof gameHomeIsRow, typeof party],
+	LiveScores | null
+>([gameScores, gameHomeIsRow, party], ([$gameScores, $detectedHomeIsRow, $party]) => {
+	if (!$gameScores) return null;
+	// A linked game's side lives on the party row (kept current by realtime);
+	// a detected, unlinked game uses the side computed when it was loaded.
+	const homeIsRow = $party?.game_id ? $party.home_team_is_row !== false : $detectedHomeIsRow;
+	return {
+		rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
+		colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
+		clock: $gameScores.game_clock,
+		quarter: $gameScores.game_quarter,
+		status: $gameScores.game_status,
+	};
+});
 
 // The square currently "in the lead" based on live scores (last digit of each score → numbers lookup)
 export const leadingSquare = derived(

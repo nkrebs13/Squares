@@ -170,6 +170,23 @@ export const mockWinnersAll = [
 
 // ── Override-based mock setup ──
 
+/** The get_party_state response for a party's fixture rows. */
+export function partyStateBody(
+	partyData: Record<string, unknown>,
+	squaresData: unknown[],
+	scoresData: unknown,
+	winnersData: unknown[] = []
+) {
+	return {
+		party: partyData,
+		squares: squaresData,
+		numbers: partyData.status === 'filling' ? null : mockNumbers,
+		scores: scoresData,
+		winners: winnersData,
+		game: null,
+	};
+}
+
 interface MockOverrides {
 	partyOverrides?: Record<string, unknown>;
 	squaresData?: ReturnType<typeof generateEmptySquares>;
@@ -270,6 +287,15 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 			status: 200,
 			contentType: 'application/json',
 			body: JSON.stringify(winnersData),
+		});
+	});
+
+	// The party page loads everything through one RPC (migration 039).
+	await page.context().route('**/rest/v1/rpc/get_party_state', (route) => {
+		route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify(partyStateBody(partyData, squaresData, scoresData, winnersData)),
 		});
 	});
 

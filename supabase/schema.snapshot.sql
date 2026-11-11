@@ -581,6 +581,110 @@ $$;
 ALTER FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."game_scores" (
+    "game_id" character varying(20) NOT NULL,
+    "sport" character varying(10) DEFAULT 'nfl'::character varying NOT NULL,
+    "home_team_abbrev" character varying(10) NOT NULL,
+    "away_team_abbrev" character varying(10) NOT NULL,
+    "home_team_name" character varying(50) NOT NULL,
+    "away_team_name" character varying(50) NOT NULL,
+    "home_score" integer DEFAULT 0 NOT NULL,
+    "away_score" integer DEFAULT 0 NOT NULL,
+    "game_clock" character varying(10) DEFAULT ''::character varying NOT NULL,
+    "game_quarter" integer DEFAULT 0 NOT NULL,
+    "game_status" character varying(20) DEFAULT 'pregame'::character varying NOT NULL,
+    "q1_home" integer,
+    "q1_away" integer,
+    "q2_home" integer,
+    "q2_away" integer,
+    "q3_home" integer,
+    "q3_away" integer,
+    "q4_home" integer,
+    "q4_away" integer,
+    "final_home" integer,
+    "final_away" integer,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."game_scores" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") RETURNS boolean
+    LANGUAGE "sql" IMMUTABLE
+    AS $$
+    WITH n AS (
+        SELECT lower(p_row_name) AS r, lower(p_col_name) AS c,
+               lower(p_game.home_team_name) AS hn, lower(p_game.home_team_abbrev) AS ha,
+               lower(p_game.away_team_name) AS an, lower(p_game.away_team_abbrev) AS aa
+    ),
+    m AS (
+        SELECT (strpos(hn, r) > 0 OR strpos(r, hn) > 0 OR ha = r) AS row_home,
+               (strpos(an, r) > 0 OR strpos(r, an) > 0 OR aa = r) AS row_away,
+               (strpos(hn, c) > 0 OR strpos(c, hn) > 0 OR ha = c) AS col_home,
+               (strpos(an, c) > 0 OR strpos(c, an) > 0 OR aa = c) AS col_away
+        FROM n
+    )
+    SELECT CASE
+        WHEN row_home AND col_away THEN TRUE
+        WHEN row_away AND col_home THEN FALSE
+    END
+    FROM m;
+$$;
+
+
+ALTER FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_party_state"("p_code" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+    v_party parties;
+    v_game game_scores;
+    v_home_is_row BOOLEAN;
+BEGIN
+    SELECT * INTO v_party FROM parties WHERE code = upper(p_code);
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    IF v_party.game_id IS NOT NULL THEN
+        SELECT * INTO v_game FROM game_scores WHERE game_id = v_party.game_id;
+        v_home_is_row := v_party.home_team_is_row;
+    ELSE
+        SELECT * INTO v_game FROM game_scores g
+        WHERE g.game_status <> 'final'
+          AND game_side(v_party.team_row_name, v_party.team_col_name, g) IS NOT NULL
+        ORDER BY g.updated_at DESC
+        LIMIT 1;
+        v_home_is_row := game_side(v_party.team_row_name, v_party.team_col_name, v_game);
+    END IF;
+
+    RETURN jsonb_build_object(
+        'party', public_party_json(v_party),
+        'squares', COALESCE((
+            SELECT jsonb_agg(to_jsonb(s) ORDER BY s.row_num, s.col_num)
+            FROM squares s WHERE s.party_id = v_party.id), '[]'),
+        'numbers', (SELECT to_jsonb(n) FROM numbers n WHERE n.party_id = v_party.id),
+        'scores', (SELECT to_jsonb(sc) FROM scores sc WHERE sc.party_id = v_party.id),
+        'winners', COALESCE((
+            SELECT jsonb_agg(to_jsonb(w) ORDER BY w.quarter)
+            FROM winners w WHERE w.party_id = v_party.id), '[]'),
+        'game', CASE WHEN v_game.game_id IS NULL THEN NULL ELSE jsonb_build_object(
+            'row', to_jsonb(v_game),
+            'home_is_row', COALESCE(v_home_is_row, TRUE),
+            'linked', v_party.game_id IS NOT NULL
+        ) END
+    );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_party_state"("p_code" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1313,6 +1417,26 @@ $$;
 ALTER FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."set_home_team_side"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+    v_side BOOLEAN;
+BEGIN
+    IF NEW.game_id IS NOT NULL THEN
+        SELECT game_side(NEW.team_row_name, NEW.team_col_name, g) INTO v_side
+        FROM game_scores g WHERE g.game_id = NEW.game_id;
+        NEW.home_team_is_row := COALESCE(v_side, NEW.home_team_is_row);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."set_home_team_side"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) RETURNS boolean
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -1324,6 +1448,24 @@ $$;
 
 
 ALTER FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."sync_linked_home_team_side"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+BEGIN
+    UPDATE parties p
+    SET home_team_is_row = game_side(p.team_row_name, p.team_col_name, NEW)
+    WHERE p.game_id = NEW.game_id
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS NOT NULL
+      AND game_side(p.team_row_name, p.team_col_name, NEW) IS DISTINCT FROM p.home_team_is_row;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."sync_linked_home_team_side"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") RETURNS "jsonb"
@@ -1661,35 +1803,6 @@ CREATE TABLE IF NOT EXISTS "public"."audit_log" (
 ALTER TABLE "public"."audit_log" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."game_scores" (
-    "game_id" character varying(20) NOT NULL,
-    "sport" character varying(10) DEFAULT 'nfl'::character varying NOT NULL,
-    "home_team_abbrev" character varying(10) NOT NULL,
-    "away_team_abbrev" character varying(10) NOT NULL,
-    "home_team_name" character varying(50) NOT NULL,
-    "away_team_name" character varying(50) NOT NULL,
-    "home_score" integer DEFAULT 0 NOT NULL,
-    "away_score" integer DEFAULT 0 NOT NULL,
-    "game_clock" character varying(10) DEFAULT ''::character varying NOT NULL,
-    "game_quarter" integer DEFAULT 0 NOT NULL,
-    "game_status" character varying(20) DEFAULT 'pregame'::character varying NOT NULL,
-    "q1_home" integer,
-    "q1_away" integer,
-    "q2_home" integer,
-    "q2_away" integer,
-    "q3_home" integer,
-    "q3_away" integer,
-    "q4_home" integer,
-    "q4_away" integer,
-    "final_home" integer,
-    "final_away" integer,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."game_scores" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."heartbeat" (
     "id" integer DEFAULT 1 NOT NULL,
     "source" character varying(20) NOT NULL,
@@ -1897,7 +2010,15 @@ CREATE OR REPLACE TRIGGER "enforce_push_subscription_limit" BEFORE INSERT ON "pu
 
 
 
+CREATE OR REPLACE TRIGGER "game_scores_a_home_team_side" AFTER INSERT OR UPDATE OF "home_team_name", "away_team_name", "home_team_abbrev", "away_team_abbrev" ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."sync_linked_home_team_side"();
+
+
+
 CREATE OR REPLACE TRIGGER "game_scores_propagate" AFTER INSERT OR UPDATE ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."propagate_game_scores"();
+
+
+
+CREATE OR REPLACE TRIGGER "parties_home_team_side" BEFORE INSERT OR UPDATE OF "game_id", "team_row_name", "team_col_name" ON "public"."parties" FOR EACH ROW EXECUTE FUNCTION "public"."set_home_team_side"();
 
 
 
@@ -2362,6 +2483,24 @@ GRANT ALL ON FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" chara
 
 
 
+GRANT ALL ON TABLE "public"."game_scores" TO "anon";
+GRANT ALL ON TABLE "public"."game_scores" TO "authenticated";
+GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_party_state"("p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "authenticated";
+
+
+
 REVOKE ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "service_role";
 GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "anon";
@@ -2483,8 +2622,18 @@ GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_
 
 
 
+REVOKE ALL ON FUNCTION "public"."set_home_team_side"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."set_home_team_side"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p_q3" integer, "p_final" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."sync_linked_home_team_side"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."sync_linked_home_team_side"() TO "service_role";
 
 
 
@@ -2551,12 +2700,6 @@ GRANT ALL ON FUNCTION "public"."verify_host_pin"("p_party_code" character varyin
 GRANT ALL ON TABLE "public"."audit_log" TO "anon";
 GRANT ALL ON TABLE "public"."audit_log" TO "authenticated";
 GRANT ALL ON TABLE "public"."audit_log" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."game_scores" TO "anon";
-GRANT ALL ON TABLE "public"."game_scores" TO "authenticated";
-GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
 
 
 

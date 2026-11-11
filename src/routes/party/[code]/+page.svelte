@@ -9,7 +9,15 @@
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
-	import { loadParty, subscribeToParty, cleanup, party, isLoading, error } from '$lib/stores/game';
+	import {
+		loadParty,
+		subscribeToParty,
+		cleanup,
+		party,
+		gameScores,
+		isLoading,
+		error,
+	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import {
 		buildPartyCanonicalUrl,
@@ -92,7 +100,7 @@
 
 		const success = await loadParty(code);
 		if (success && $party) {
-			unsubscribe = subscribeToParty($party.id, $party.game_id);
+			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
 			// Save to recent parties
 			await saveToRecentParties();
 		}

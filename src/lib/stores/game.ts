@@ -1,5 +1,5 @@
 // Barrel re-export — all existing imports from '$lib/stores/game' continue working.
-// See game-state.ts, game-matching.ts, game-load.ts, game-pending.ts, game-realtime.ts,
+// See game-state.ts, game-load.ts, game-pending.ts, game-realtime.ts,
 // game-optimistic.ts, game-admin.ts for implementations.
 
 export {
@@ -10,6 +10,7 @@ export {
 	scores,
 	winners,
 	gameScores,
+	gameHomeIsRow,
 	isLoading,
 	error,
 	// Derived stores
