@@ -5,16 +5,6 @@
 export type RpcErrorRule = readonly [pattern: RegExp, copy: string];
 
 /**
- * Party-field validation copy shared by create_party and update_party_details
- * (both RAISE the same messages for these fields, and both show the same copy).
- */
-export const PARTY_FIELD_RULES: readonly RpcErrorRule[] = [
-	[/event_name/i, 'Event name must be 80 characters or fewer.'],
-	[/different teams/i, 'Choose two different teams for the matchup.'],
-	[/colors/i, 'Team colors must be valid hex colors.'],
-];
-
-/**
  * Transport failures. supabase-js turns a rejected fetch into
  * `error.message = "${name}: ${message}"` (e.g. "TypeError: Failed to fetch",
  * "TypeError: Load failed" on Safari, "AbortError: ..."). PostgREST/Postgres

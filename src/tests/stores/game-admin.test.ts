@@ -16,6 +16,7 @@ import {
 } from '$lib/stores/game';
 import { mockSupabaseClient } from '../setup';
 import { createMockParty, createMockSquare } from '../factories';
+import { APP_CONFIG } from '$lib/config';
 
 const refuse = (error: string, field?: string) =>
 	mockSupabaseClient.rpc.mockResolvedValueOnce({
@@ -74,6 +75,14 @@ describe('host action refusals', () => {
 	});
 
 	const splits = { q1: 25, q2: 25, q3: 25, final: 25 };
+	const details = {
+		eventName: 'Big Game',
+		kickoffAt: null,
+		teamRowName: 'Eagles',
+		teamColName: 'Chiefs',
+		teamRowColor: '#004C54',
+		teamColColor: '#E31837',
+	};
 
 	it.each([
 		['invalid_pin', 'Incorrect PIN. Please try again.'],
@@ -83,6 +92,7 @@ describe('host action refusals', () => {
 		for (const call of [
 			() => lockParty('1234'),
 			() => updatePayoutStructure('1234', splits),
+			() => updatePartyDetails('1234', details),
 			() => removePlayer('1234', 'alice'),
 			() => deleteParty('1234'),
 			() => verifyHostPin('ABC123', '1234'),
@@ -232,66 +242,38 @@ describe('updatePayoutStructure', () => {
 });
 
 describe('updatePartyDetails', () => {
+	const details = {
+		eventName: '2027 Championship',
+		kickoffAt: '2027-02-14T23:30:00.000Z',
+		teamRowName: 'Ravens',
+		teamColName: 'Lions',
+		teamRowColor: '#241773',
+		teamColColor: '#0076B6',
+	};
+
 	beforeEach(() => {
 		cleanup();
 	});
 
 	it('returns error when no party loaded', async () => {
-		const result = await updatePartyDetails('1234', {
-			eventName: '2027 Championship',
-			kickoffAt: null,
-			teamRowName: 'Eagles',
-			teamColName: 'Chiefs',
-			teamRowColor: '#004C54',
-			teamColColor: '#E31837',
-		});
-
-		expect(result).toEqual({ success: false, error: 'No party loaded' });
-	});
-
-	it('returns error when party is not filling', async () => {
-		party.set(createMockParty({ status: 'active' }));
-
-		const result = await updatePartyDetails('1234', {
-			eventName: '2027 Championship',
-			kickoffAt: null,
-			teamRowName: 'Eagles',
-			teamColName: 'Chiefs',
-			teamRowColor: '#004C54',
-			teamColColor: '#E31837',
-		});
-
-		expect(result).toEqual({
+		expect(await updatePartyDetails('1234', details)).toEqual({
 			success: false,
-			error: 'Party details can only be changed before the grid is locked',
+			error: 'No party loaded',
 		});
 	});
 
-	it('updates local party state from the RPC response', async () => {
-		const updatedParty = createMockParty({
-			event_name: '2027 Championship',
-			kickoff_at: '2027-02-14T23:30:00.000Z',
-			team_row_name: 'Ravens',
-			team_col_name: 'Lions',
-			team_row_color: '#241773',
-			team_col_color: '#0076B6',
-			expires_at: '2027-02-28T23:30:00.000Z',
-		});
-
+	it('updates local party state from the response', async () => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
-
-		const result = await updatePartyDetails('1234', {
-			eventName: '2027 Championship',
-			kickoffAt: '2027-02-14T23:30:00.000Z',
-			teamRowName: 'Ravens',
-			teamColName: 'Lions',
-			teamRowColor: '#241773',
-			teamColColor: '#0076B6',
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: {
+				ok: true,
+				party: createMockParty({ event_name: '2027 Championship', team_row_name: 'Ravens' }),
+			},
+			error: null,
 		});
 
-		expect(result).toEqual({ success: true });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_party_details', {
+		expect(await updatePartyDetails('1234', details)).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_update_details', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
 			p_event_name: '2027 Championship',
@@ -301,72 +283,29 @@ describe('updatePartyDetails', () => {
 			p_team_row_color: '#241773',
 			p_team_col_color: '#0076B6',
 		});
-		expect(get(party)?.event_name).toBe('2027 Championship');
-		expect(get(party)?.team_row_name).toBe('Ravens');
+		expect(get(party)).toMatchObject({ event_name: '2027 Championship', team_row_name: 'Ravens' });
 	});
 
-	it('returns Invalid PIN when server returns the null sentinel with no error (033)', async () => {
-		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
-		// increment commits. PostgREST surfaces a NULL `RETURNS parties` value as a
-		// row object with all-null columns (id included), not bare null — cover
-		// both shapes so both predicate operands are exercised.
-		for (const data of [null, { id: null }]) {
-			cleanup();
-			party.set(createMockParty());
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data, error: null });
-
-			const result = await updatePartyDetails('9999', {
-				eventName: '2027 Championship',
-				kickoffAt: null,
-				teamRowName: 'Ravens',
-				teamColName: 'Lions',
-				teamRowColor: '#241773',
-				teamColColor: '#0076B6',
-			});
-
-			expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		}
-	});
-
-	it('humanizes RPC validation errors', async () => {
+	it('sends the configured default event name for a blank one', async () => {
 		party.set(createMockParty());
 		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'team_row_name must be non-empty after trim' },
+			data: { ok: true, party: createMockParty() },
+			error: null,
 		});
 
-		const result = await updatePartyDetails('1234', {
-			eventName: '2027 Championship',
-			kickoffAt: null,
-			teamRowName: '',
-			teamColName: 'Chiefs',
-			teamRowColor: '#004C54',
-			teamColColor: '#E31837',
-		});
+		await updatePartyDetails('1234', { ...details, eventName: '  ' });
 
-		expect(result).toEqual({ success: false, error: 'Team names cannot be blank.' });
+		expect(mockSupabaseClient.rpc.mock.calls[0][1].p_event_name).toBe(APP_CONFIG.defaultEventName);
 	});
 
-	it('humanizes duplicate matchup team errors', async () => {
+	it.each([
+		['wrong_status', undefined, 'Party details can only be changed before the grid is locked.'],
+		['invalid_input', 'teams', 'Choose two different teams for the matchup.'],
+		['invalid_input', 'team_color', 'Team colors must be valid hex colors.'],
+	])('maps %s %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'matchup must use two different teams' },
-		});
-
-		const result = await updatePartyDetails('1234', {
-			eventName: '2027 Championship',
-			kickoffAt: null,
-			teamRowName: 'Ravens',
-			teamColName: 'Ravens',
-			teamRowColor: '#241773',
-			teamColColor: '#0076B6',
-		});
-
-		expect(result).toEqual({
-			success: false,
-			error: 'Choose two different teams for the matchup.',
-		});
+		refuse(code, field);
+		expect(await updatePartyDetails('1234', details)).toEqual({ success: false, error: copy });
 	});
 });
 
@@ -431,7 +370,7 @@ describe('removePlayer', () => {
 
 	it.each([
 		['wrong_status', undefined, 'Cannot remove players after grid is locked'],
-		['invalid_input', 'player_name', 'Player name is required'],
+		['invalid_input', 'player_name', 'Player name is required.'],
 	])('maps %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty());
 		refuse(code, field);

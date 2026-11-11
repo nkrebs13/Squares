@@ -82,7 +82,7 @@ export async function createTestParty(
 ): Promise<TestParty> {
 	const host_pin = '1234';
 
-	const { data: party, error: partyError } = await client.rpc('create_party', {
+	const { data, error: partyError } = await client.rpc('host_create_party', {
 		p_host_name: `Host ${randomCode()}`,
 		p_pin: host_pin,
 		p_square_price: overrides.square_price ?? 1.0,
@@ -99,6 +99,8 @@ export async function createTestParty(
 	});
 
 	if (partyError) throw new Error(`Failed to create party: ${partyError.message}`);
+	if (!data?.ok) throw new Error(`Failed to create party: ${JSON.stringify(data)}`);
+	const party = data.party;
 
 	if (overrides.status && overrides.status !== 'filling') {
 		const { error: statusError } = await getServiceRoleClient()
