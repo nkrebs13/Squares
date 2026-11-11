@@ -5,28 +5,24 @@ import type { Square, Winner } from '$lib/types';
 // Grid constants
 export const MIN_CELL_SIZE_MOBILE = 28;
 export const ZOOMED_CELL_SIZE = 64;
+/** Gap between cells; SimpleGrid passes it to its CSS as --grid-gap. */
 export const GAP_SIZE = 2;
-export const TEAM_LABEL_WIDTH = 48;
-export const SCROLL_CONTAINER_PADDING = 8;
 
 export const MIN_HEADER_HEIGHT = 24;
 export const HEADER_HEIGHT_FACTOR = 0.7;
 
 export type ZoomState = 'fit' | 'zoomed';
 
-/** Fit-to-width cell size (unclamped) for the given container width. */
-export function calculateFitCellSize(containerWidth: number): number {
-	if (!containerWidth) return MIN_CELL_SIZE_MOBILE;
-	const totalColumns = GRID_SIZE + 1; // 10 data + 1 row header
-	const totalGaps = totalColumns - 1;
-	const gapTotal = totalGaps * GAP_SIZE;
-	const availableWidth = containerWidth - TEAM_LABEL_WIDTH - gapTotal - SCROLL_CONTAINER_PADDING;
-	return Math.floor(availableWidth / totalColumns);
-}
-
-/** Fit-to-width cell size, never below the mobile minimum. */
-export function getFitCellSize(containerWidth: number): number {
-	return Math.max(MIN_CELL_SIZE_MOBILE, calculateFitCellSize(containerWidth));
+/**
+ * The largest cell size that fits the header column and the GRID_SIZE columns
+ * (with their gaps) into `gridWidth`, the grid's own content width (measured,
+ * so labels and padding set in CSS are already excluded). Never below the
+ * mobile minimum.
+ */
+export function getFitCellSize(gridWidth: number): number {
+	const columns = GRID_SIZE + 1;
+	const fit = Math.floor((gridWidth - (columns - 1) * GAP_SIZE) / columns);
+	return gridWidth > 0 ? Math.max(MIN_CELL_SIZE_MOBILE, fit) : MIN_CELL_SIZE_MOBILE;
 }
 
 export function getEffectiveCellSize(zoomState: ZoomState, fitCellSize: number): number {

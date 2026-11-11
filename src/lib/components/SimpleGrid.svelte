@@ -30,6 +30,7 @@
 	import {
 		buildSquareMap,
 		buildWinnerMap,
+		GAP_SIZE,
 		getEffectiveCellSize,
 		getFitCellSize,
 		getHeaderHeight,
@@ -40,9 +41,9 @@
 
 	// DOM refs
 	let scrollContainer: HTMLDivElement;
-	let gridWrapper: HTMLDivElement;
 
 	// Sizing state
+	// The scroll container's content width: what the 11 columns have to fit in.
 	let containerWidth = $state(0);
 	let zoomState = $state<ZoomState>('fit');
 
@@ -56,10 +57,14 @@
 	});
 
 	// Lifecycle guards
-	let isMounted = false;
 	let resizeObserver: ResizeObserver | null = null;
 
 	const fitCellSize = $derived(getFitCellSize(containerWidth));
+	// The minimum cell size can make the grid wider than a narrow phone; then it
+	// scrolls instead of clipping the right-hand column.
+	const fitsWithoutScroll = $derived(
+		(GRID_SIZE + 1) * fitCellSize + GRID_SIZE * GAP_SIZE <= containerWidth
+	);
 	const effectiveCellSize = $derived(getEffectiveCellSize(zoomState, fitCellSize));
 	const showZoomControl = $derived(shouldShowZoomControl(fitCellSize));
 	const headerHeight = $derived(getHeaderHeight(effectiveCellSize));
@@ -120,28 +125,14 @@
 	}
 
 	onMount(() => {
-		isMounted = true;
-
-		if (browser && gridWrapper) {
-			containerWidth = gridWrapper.clientWidth;
-
-			resizeObserver = new ResizeObserver((entries) => {
-				if (!isMounted) return;
-				for (const entry of entries) {
-					containerWidth = entry.contentRect.width;
-				}
-			});
-			resizeObserver.observe(gridWrapper);
-		}
+		if (!browser || !scrollContainer) return;
+		resizeObserver = new ResizeObserver(([entry]) => {
+			containerWidth = entry.contentRect.width;
+		});
+		resizeObserver.observe(scrollContainer);
 	});
 
-	onDestroy(() => {
-		isMounted = false;
-
-		if (resizeObserver) {
-			resizeObserver.disconnect();
-		}
-	});
+	onDestroy(() => resizeObserver?.disconnect());
 
 	// Current user's player color for the legend swatch
 	const myColor = $derived($userName ? getPlayerColor(normalizePlayerName($userName)) : null);
@@ -185,7 +176,7 @@
 	{/if}
 
 	<!-- Grid Wrapper -->
-	<div class="grid-wrapper" bind:this={gridWrapper}>
+	<div class="grid-wrapper">
 		<!-- Column Team Label -->
 		<div class="team-label-col">
 			{#if showColLogo}
@@ -228,9 +219,9 @@
 			<!-- Scrollable Grid Container -->
 			<div
 				class="scroll-container"
-				class:fit-mode={zoomState === 'fit'}
+				class:fit-mode={zoomState === 'fit' && fitsWithoutScroll}
 				bind:this={scrollContainer}
-				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px;"
+				style="--cell-size: {effectiveCellSize}px; --header-height: {headerHeight}px; --grid-gap: {GAP_SIZE}px;"
 			>
 				<div
 					class="grid-11x11"
@@ -312,10 +303,9 @@
 					<div class="legend-item">
 						<div
 							class="legend-swatch legend-mine"
-							style="background: {myColor.bg}; border-color: {myColor.text.replace(
-								/0\.9[58]/g,
-								'0.5'
-							)}; outline-color: {myColor.text.replace(/0\.9[58]/g, '0.7')};"
+							style="background: {myColor.bg}; border-color: {myColor.textAt(
+								0.5
+							)}; outline-color: {myColor.textAt(0.7)};"
 						></div>
 						<span>Yours</span>
 					</div>
@@ -419,7 +409,7 @@
 		display: grid;
 		grid-template-columns: repeat(11, var(--cell-size));
 		grid-template-rows: var(--header-height) repeat(10, var(--cell-size));
-		gap: 2px;
+		gap: var(--grid-gap);
 		width: fit-content;
 	}
 
