@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 import { userName } from '$lib/stores/user';
+import { createMockParty } from '../factories';
 
 // Mock $app/stores with a URL that has ?code=demo-01
 vi.mock('$app/stores', async () => {
@@ -18,56 +19,12 @@ vi.mock('$app/stores', async () => {
 
 import JoinPage from '../../routes/join/+page.svelte';
 
-function partyQuery(
-	data: Record<string, unknown> | null,
-	error: { message: string } | null = null
-) {
-	return {
-		select: vi.fn().mockReturnThis(),
-		eq: vi.fn().mockReturnThis(),
-		single: vi.fn().mockResolvedValue({ data, error }),
-	};
-}
-
-function squaresQuery(data: Array<Record<string, unknown>> = []) {
-	return {
-		select: vi.fn().mockReturnThis(),
-		eq: vi.fn().mockResolvedValue({ data, error: null }),
-	};
-}
-
-function claimedSquares(count: number) {
-	return Array.from({ length: count }, (_, index) => ({
-		player_name: `Player ${index + 1}`,
-		claimed_at: '2027-02-14T20:00:00.000Z',
-	}));
-}
-
-function deferredPartyQuery() {
-	let resolveSingle!: (value: {
-		data: Record<string, unknown> | null;
-		error: { message: string } | null;
-	}) => void;
-	const singlePromise = new Promise<{
-		data: Record<string, unknown> | null;
-		error: { message: string } | null;
-	}>((resolve) => {
-		resolveSingle = resolve;
-	});
-
-	return {
-		query: {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockReturnValue(singlePromise),
-		},
-		resolveSingle,
-	};
-}
+type PreviewParty = ReturnType<typeof createMockParty> | null;
 
 function previewParty(overrides: Record<string, unknown> = {}) {
-	return {
+	return createMockParty({
 		id: 'party-id',
+		code: 'DEMO01',
 		event_name: '2027 Championship',
 		kickoff_at: '2027-02-14T23:30:00.000Z',
 		status: 'filling',
@@ -78,27 +35,38 @@ function previewParty(overrides: Record<string, unknown> = {}) {
 		split_q2: 20,
 		split_q3: 30,
 		split_final: 40,
-		...overrides,
-	};
-}
-
-function joinLookupParty(overrides: Record<string, unknown> = {}) {
-	return {
-		id: 'party-id',
-		status: 'filling',
 		host_name_lower: null,
 		...overrides,
-	};
+	});
+}
+
+/**
+ * Answer RPCs by name. Each get_party_preview call takes the next party from
+ * `previews` (the last one repeats); host_verify_pin answers `verify`.
+ */
+function serve({
+	previews = [previewParty()],
+	filled = 12,
+	verify = { ok: true },
+}: { previews?: PreviewParty[]; filled?: number; verify?: unknown } = {}) {
+	let call = 0;
+	mockSupabaseClient.rpc.mockImplementation(((name: string) => {
+		if (name === 'get_party_preview') {
+			const party = previews[Math.min(call++, previews.length - 1)];
+			return Promise.resolve({
+				data: party ? { party, filled_count: filled } : null,
+				error: null,
+			});
+		}
+		if (name === 'host_verify_pin') return Promise.resolve({ data: verify, error: null });
+		return Promise.resolve({ data: null, error: null });
+	}) as never);
 }
 
 describe('Join Page', () => {
 	beforeEach(async () => {
 		await userName.setName('');
-		mockSupabaseClient.from.mockImplementation((...args: unknown[]) =>
-			args[0] === 'squares'
-				? (squaresQuery(claimedSquares(12)) as ReturnType<typeof mockSupabaseClient.from>)
-				: (partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>)
-		);
+		serve();
 	});
 
 	describe('Pre-fill Behavior', () => {
@@ -137,9 +105,9 @@ describe('Join Page', () => {
 		});
 
 		it('ignores stale preview results after code becomes incomplete', async () => {
-			const pendingPreview = deferredPartyQuery();
-			mockSupabaseClient.from.mockReturnValueOnce(
-				pendingPreview.query as ReturnType<typeof mockSupabaseClient.from>
+			let resolvePreview!: (value: unknown) => void;
+			mockSupabaseClient.rpc.mockImplementationOnce(
+				() => new Promise((resolve) => (resolvePreview = resolve)) as never
 			);
 
 			render(JoinPage);
@@ -147,7 +115,7 @@ describe('Join Page', () => {
 			const codeInput = await screen.findByPlaceholderText('ABCD12');
 
 			await user.clear(codeInput);
-			pendingPreview.resolveSingle({ data: previewParty(), error: null });
+			resolvePreview({ data: { party: previewParty(), filled_count: 12 }, error: null });
 
 			await waitFor(() => {
 				expect(screen.queryByText('2027 Championship')).not.toBeInTheDocument();
@@ -179,15 +147,7 @@ describe('Join Page', () => {
 
 	describe('Party Lookup', () => {
 		it('shows "not found" on miss', async () => {
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(null, { message: 'Not found' }) as ReturnType<typeof mockSupabaseClient.from>
-			);
+			serve({ previews: [previewParty(), null] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -206,15 +166,7 @@ describe('Join Page', () => {
 		it('navigates to /party/<CODE> on success', async () => {
 			const { goto } = await import('$app/navigation');
 
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
+			serve({ previews: [previewParty()] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -235,17 +187,7 @@ describe('Join Page', () => {
 			const { get: idbGet } = await import('idb-keyval');
 			vi.mocked(idbGet).mockResolvedValue(null);
 
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
-			);
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -265,20 +207,7 @@ describe('Join Page', () => {
 			vi.mocked(idbGet).mockResolvedValue(null);
 
 			// First call: party lookup (name matches host)
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
-			);
-
-			// Second call: host_verify_pin RPC
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -309,22 +238,9 @@ describe('Join Page', () => {
 			const { get: idbGet } = await import('idb-keyval');
 			vi.mocked(idbGet).mockResolvedValue(null);
 
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
-			);
-
-			// Wrong PIN
-			mockSupabaseClient.rpc.mockResolvedValueOnce({
-				data: { ok: false, error: 'invalid_pin' },
-				error: null,
+			serve({
+				previews: [previewParty({ host_name_lower: 'alice' })],
+				verify: { ok: false, error: 'invalid_pin' },
 			});
 
 			render(JoinPage);
@@ -349,17 +265,7 @@ describe('Join Page', () => {
 			const { get: idbGet } = await import('idb-keyval');
 			vi.mocked(idbGet).mockResolvedValue(null);
 
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
-			);
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
@@ -385,20 +291,7 @@ describe('Join Page', () => {
 			// Return a stored PIN
 			vi.mocked(idbGet).mockResolvedValue({ DEMO01: '1234' });
 
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(previewParty()) as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				squaresQuery() as ReturnType<typeof mockSupabaseClient.from>
-			);
-			mockSupabaseClient.from.mockReturnValueOnce(
-				partyQuery(joinLookupParty({ host_name_lower: 'alice' })) as ReturnType<
-					typeof mockSupabaseClient.from
-				>
-			);
-
-			// host_verify_pin RPC accepts the PIN
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
 
 			render(JoinPage);
 			const user = userEvent.setup();

@@ -8,13 +8,9 @@ const mockEnv = vi.hoisted(() => ({
 }));
 
 const supabaseMocks = vi.hoisted(() => {
-	const maybeSingle = vi.fn();
-	const eq = vi.fn(() => ({ maybeSingle }));
-	const select = vi.fn(() => ({ eq }));
-	const from = vi.fn(() => ({ select }));
-	const createClient = vi.fn(() => ({ from }));
-
-	return { createClient, from, select, eq, maybeSingle };
+	const rpc = vi.fn();
+	const createClient = vi.fn(() => ({ rpc }));
+	return { createClient, rpc };
 });
 
 vi.mock('$env/dynamic/private', () => mockEnv);
@@ -23,6 +19,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import { load } from '../../routes/party/[code]/+page.server';
+import { createMockParty } from '../factories';
 
 describe('/party/[code] server load', () => {
 	beforeEach(() => {
@@ -34,14 +31,17 @@ describe('/party/[code] server load', () => {
 	});
 
 	it('loads public party metadata for server-rendered share tags', async () => {
-		supabaseMocks.maybeSingle.mockResolvedValueOnce({
+		supabaseMocks.rpc.mockResolvedValueOnce({
 			data: {
-				code: 'BOWL27',
-				event_name: '2027 Super Bowl',
-				kickoff_at: '2027-02-14T23:30:00.000Z',
-				status: 'filling',
-				team_row_name: 'Chiefs',
-				team_col_name: 'Eagles',
+				party: createMockParty({
+					code: 'BOWL27',
+					event_name: '2027 Super Bowl',
+					kickoff_at: '2027-02-14T23:30:00.000Z',
+					status: 'filling',
+					team_row_name: 'Chiefs',
+					team_col_name: 'Eagles',
+				}),
+				filled_count: 0,
 			},
 			error: null,
 		});
@@ -58,11 +58,7 @@ describe('/party/[code] server load', () => {
 				}),
 			})
 		);
-		expect(supabaseMocks.from).toHaveBeenCalledWith('parties');
-		expect(supabaseMocks.select).toHaveBeenCalledWith(
-			'code,event_name,kickoff_at,status,team_row_name,team_col_name'
-		);
-		expect(supabaseMocks.eq).toHaveBeenCalledWith('code', 'BOWL27');
+		expect(supabaseMocks.rpc).toHaveBeenCalledWith('get_party_preview', { p_code: 'BOWL27' });
 		expect(result).toEqual({
 			partyMeta: {
 				code: 'BOWL27',
@@ -76,7 +72,7 @@ describe('/party/[code] server load', () => {
 	});
 
 	it('keeps the party route available when server metadata cannot load', async () => {
-		supabaseMocks.maybeSingle.mockResolvedValueOnce({
+		supabaseMocks.rpc.mockResolvedValueOnce({
 			data: null,
 			error: { message: 'network timeout' },
 		});
@@ -91,7 +87,7 @@ describe('/party/[code] server load', () => {
 		mockEnv.env.SUPABASE_ANON_KEY = undefined;
 		mockEnv.env.VITE_SUPABASE_URL = 'https://vite.example.supabase.co';
 		mockEnv.env.VITE_SUPABASE_ANON_KEY = 'vite-anon-key';
-		supabaseMocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+		supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null });
 
 		await load({ params: { code: 'BOWL27' } } as never);
 

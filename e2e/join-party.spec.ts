@@ -2,19 +2,19 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import {
 	generatePartiallyFilledSquares,
+	mockParty,
 	setupSupabaseMocks,
 	setupSupabaseMocksWithOverrides,
 } from './fixtures/supabase-mocks';
 
 async function mockHostPartyLookup(page: Page) {
-	await page.context().route('**/rest/v1/parties*', (route) => {
+	await page.context().route('**/rest/v1/rpc/get_party_preview', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
 			body: JSON.stringify({
-				id: 'test-party-id',
-				status: 'filling',
-				host_name_lower: 'host',
+				party: { ...mockParty, code: 'TEST12', host_name_lower: 'host' },
+				filled_count: 0,
 			}),
 		});
 	});
@@ -22,7 +22,8 @@ async function mockHostPartyLookup(page: Page) {
 
 async function clickJoinAndWaitForPartyLookup(page: Page) {
 	const partyLookup = page.waitForResponse(
-		(response) => response.url().includes('/rest/v1/parties') && response.status() === 200
+		(response) =>
+			response.url().includes('/rest/v1/rpc/get_party_preview') && response.status() === 200
 	);
 	await page.getByRole('button', { name: /join party/i }).click();
 	await partyLookup;
@@ -231,8 +232,7 @@ test.describe('Join Party - Nickname Flow', () => {
 
 test.describe('Join Party Page - With Mocked Supabase', () => {
 	test('shows error when party is not found', async ({ page }) => {
-		// Mock Supabase response for party not found
-		await page.context().route('**/rest/v1/parties*', (route) => {
+		await page.context().route('**/rest/v1/rpc/get_party_preview', (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
@@ -250,7 +250,8 @@ test.describe('Join Party Page - With Mocked Supabase', () => {
 
 		const joinButton = page.getByRole('button', { name: /join party/i });
 		const partyLookup = page.waitForResponse(
-			(response) => response.url().includes('/rest/v1/parties') && response.status() === 200
+			(response) =>
+				response.url().includes('/rest/v1/rpc/get_party_preview') && response.status() === 200
 		);
 		await joinButton.click();
 		await partyLookup;
