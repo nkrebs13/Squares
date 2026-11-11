@@ -7,12 +7,13 @@
 	import { stageNickname } from '$lib/recentParties';
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
+	import Modal from '$lib/components/forms/Modal.svelte';
+	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
 	import {
 		fetchPartyPreview,
 		PREVIEW_NOT_FOUND_ERROR,
 		type PartyPreview,
 	} from '$lib/services/partyPreview';
-	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatMatchup, formatPrice } from '$lib/utils/format';
 	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
@@ -20,6 +21,12 @@
 
 	let code = $state('');
 	let name = $state('');
+	// Prefill from the stored name until the user edits the field or backs out
+	// of the host check (which clears it on purpose).
+	let nameTouched = false;
+	$effect(() => {
+		if (!nameTouched && $userName && !name) name = $userName;
+	});
 	let nickname = $state('');
 	let isChecking = $state(false);
 	let error = $state<string | null>(null);
@@ -27,41 +34,12 @@
 	let isLoadingPreview = $state(false);
 	let previewError = $state<string | null>(null);
 	let previewRequestId = 0;
-	const previewTotalPot = $derived(preview ? calculateTotalPot(preview.party.square_price) : 0);
-	const previewPayoutRows = $derived(
-		preview
-			? buildPayoutRows(
-					{
-						q1: preview.party.split_q1,
-						q2: preview.party.split_q2,
-						q3: preview.party.split_q3,
-						final: preview.party.split_final,
-					},
-					previewTotalPot
-				)
-			: []
-	);
-
 	// PIN challenge state
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
-	let pinDialogEl: HTMLDialogElement | null = null;
 	let pinError = $state<string | null>(null);
 	let isVerifyingPin = $state(false);
 	let pendingPartyCode = $state('');
-
-	$effect(() => {
-		if (showPinChallenge) {
-			if (pinDialogEl && !pinDialogEl.open) pinDialogEl.showModal();
-		} else {
-			if (pinDialogEl?.open) pinDialogEl.close();
-		}
-	});
-
-	// Sync stored name into the field on first load; $effect handles teardown automatically.
-	$effect(() => {
-		if ($userName && !name) name = $userName;
-	});
 
 	$effect(() => {
 		const normalizedCode = normalizePartyCode(code);
@@ -191,6 +169,7 @@
 		showPinChallenge = false;
 		pinInput = '';
 		pinError = null;
+		nameTouched = true;
 		name = '';
 	}
 </script>
@@ -251,22 +230,17 @@
 								</div>
 							</div>
 						</div>
-						<p class="mt-2 text-sm" style="color: var(--text-muted)">
-							Full pot: {formatPrice(previewTotalPot)}
-						</p>
-						<div
-							class="mt-3 grid grid-cols-2 gap-2 rounded-lg border p-3 sm:grid-cols-4"
-							style="border-color: rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03);"
-							data-testid="join-payout-preview"
-						>
-							{#each previewPayoutRows as row (row.key)}
-								<div data-testid={`join-payout-${row.key}`}>
-									<div class="text-xs uppercase" style="color: var(--text-muted)">{row.label}</div>
-									<div class="font-semibold">{formatPrice(row.amount)}</div>
-									<div class="text-xs" style="color: var(--text-secondary)">{row.percent}%</div>
-								</div>
-							{/each}
-						</div>
+						<PayoutPreview
+							splits={{
+								q1: preview.party.split_q1,
+								q2: preview.party.split_q2,
+								q3: preview.party.split_q3,
+								final: preview.party.split_final,
+							}}
+							squarePrice={preview.party.square_price}
+							testIdPrefix="join"
+							class="mt-3"
+						/>
 						{#if formatKickoff(preview.party.kickoff_at)}
 							<div class="mt-1 text-sm" style="color: var(--text-muted)">
 								{formatKickoff(preview.party.kickoff_at, {
@@ -291,6 +265,7 @@
 				<input
 					type="text"
 					bind:value={name}
+					oninput={() => (nameTouched = true)}
 					placeholder="Enter your name"
 					class="input mt-2"
 					maxlength={MAX_NAME_LENGTH}
@@ -336,74 +311,50 @@
 	</form>
 </div>
 
-<!-- PIN Challenge Modal — native <dialog> for real focus trapping, backdrop, and Escape handling -->
-<dialog
-	bind:this={pinDialogEl}
-	aria-labelledby="pin-modal-title"
-	aria-describedby="pin-modal-description"
-	onclose={cancelPinChallenge}
-	onclick={(e) => {
-		if (e.target === pinDialogEl) cancelPinChallenge();
-	}}
-	class="pin-dialog"
+<Modal
+	open={showPinChallenge}
+	labelledBy="pin-modal-title"
+	describedBy="pin-modal-description"
+	ondismiss={cancelPinChallenge}
 >
-	{#if showPinChallenge}
-		<div class="card max-w-sm w-full">
-			<h2 id="pin-modal-title" class="text-xl font-bold mb-2">Host Name Protected</h2>
-			<p id="pin-modal-description" class="text-sm mb-4" style="color: var(--text-secondary)">
-				This name belongs to the party host. Enter the host PIN to continue.
-			</p>
+	<div class="card max-w-sm w-full">
+		<h2 id="pin-modal-title" class="text-xl font-bold mb-2">Host Name Protected</h2>
+		<p id="pin-modal-description" class="text-sm mb-4" style="color: var(--text-secondary)">
+			This name belongs to the party host. Enter the host PIN to continue.
+		</p>
 
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					verifyPin();
-				}}
-				class="space-y-4"
-			>
-				<div>
-					<label class="block">
-						<span class="text-sm" style="color: var(--text-secondary)">Enter Host PIN</span>
-						<PinInput bind:value={pinInput} class="mt-2" autocomplete="off" />
-					</label>
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				verifyPin();
+			}}
+			class="space-y-4"
+		>
+			<div>
+				<label class="block">
+					<span class="text-sm" style="color: var(--text-secondary)">Enter Host PIN</span>
+					<PinInput bind:value={pinInput} class="mt-2" autocomplete="off" />
+				</label>
+			</div>
+
+			{#if pinError}
+				<div class="message-error" role="alert">
+					{pinError}
 				</div>
+			{/if}
 
-				{#if pinError}
-					<div class="message-error" role="alert">
-						{pinError}
-					</div>
-				{/if}
-
-				<div class="flex gap-3">
-					<button type="button" class="btn btn-secondary flex-1" onclick={cancelPinChallenge}>
-						Use Different Name
-					</button>
-					<button
-						type="submit"
-						class="btn btn-primary flex-1"
-						disabled={pinInput.length !== PIN_LENGTH || isVerifyingPin}
-					>
-						{isVerifyingPin ? 'Verifying...' : 'Verify'}
-					</button>
-				</div>
-			</form>
-		</div>
-	{/if}
-</dialog>
-
-<style>
-	.pin-dialog {
-		background: transparent;
-		border: none;
-		padding: 1rem;
-		max-width: min(calc(100vw - 2rem), 24rem);
-		width: 100%;
-		margin: auto;
-	}
-
-	.pin-dialog::backdrop {
-		background: rgba(0, 0, 0, 0.5);
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
-	}
-</style>
+			<div class="flex gap-3">
+				<button type="button" class="btn btn-secondary flex-1" onclick={cancelPinChallenge}>
+					Use Different Name
+				</button>
+				<button
+					type="submit"
+					class="btn btn-primary flex-1"
+					disabled={pinInput.length !== PIN_LENGTH || isVerifyingPin}
+				>
+					{isVerifyingPin ? 'Verifying...' : 'Verify'}
+				</button>
+			</div>
+		</form>
+	</div>
+</Modal>

@@ -1,3 +1,4 @@
+import { get } from 'svelte/store';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
@@ -96,7 +97,7 @@ describe('Join Page', () => {
 			expect(screen.getByText('Ravens vs Lions')).toBeInTheDocument();
 			expect(screen.getByText('$5')).toBeInTheDocument();
 			expect(screen.getByText('88')).toBeInTheDocument();
-			expect(screen.getByText('Full pot: $500')).toBeInTheDocument();
+			expect(screen.getByTestId('join-payout-preview')).toHaveTextContent('Pot $500');
 			expect(screen.getByTestId('join-payout-q1')).toHaveTextContent('$50');
 			expect(screen.getByTestId('join-payout-q2')).toHaveTextContent('$100');
 			expect(screen.getByTestId('join-payout-q3')).toHaveTextContent('$150');
@@ -282,6 +283,45 @@ describe('Join Page', () => {
 			await waitFor(() => {
 				expect(screen.queryByText('Host Name Protected')).not.toBeInTheDocument();
 			});
+		});
+
+		it('keeps the host name after a successful PIN check', async () => {
+			const { get: idbGet } = await import('idb-keyval');
+			vi.mocked(idbGet).mockResolvedValue(null);
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
+
+			render(JoinPage);
+			const user = userEvent.setup();
+			await user.type(screen.getByPlaceholderText('Enter your name'), 'Alice');
+			await user.click(screen.getByRole('button', { name: /Join Party/i }));
+			await screen.findByText('Host Name Protected');
+			await user.type(screen.getByPlaceholderText('0000'), '1234');
+			await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+			await waitFor(() => {
+				expect(get(userName)).toBe('Alice');
+			});
+			expect((screen.getByPlaceholderText('Enter your name') as HTMLInputElement).value).toBe(
+				'Alice'
+			);
+		});
+
+		it('"Use Different Name" leaves the name empty even when one is stored', async () => {
+			const { get: idbGet } = await import('idb-keyval');
+			vi.mocked(idbGet).mockResolvedValue(null);
+			await userName.setName('Alice');
+			serve({ previews: [previewParty({ host_name_lower: 'alice' })] });
+
+			render(JoinPage);
+			const user = userEvent.setup();
+			await user.click(screen.getByRole('button', { name: /Join Party/i }));
+			await screen.findByText('Host Name Protected');
+			await user.click(screen.getByRole('button', { name: /Use Different Name/i }));
+
+			await waitFor(() => {
+				expect(screen.queryByText('Host Name Protected')).not.toBeInTheDocument();
+			});
+			expect((screen.getByPlaceholderText('Enter your name') as HTMLInputElement).value).toBe('');
 		});
 
 		it('auto-passes PIN if stored PIN is valid', async () => {
