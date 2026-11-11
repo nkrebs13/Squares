@@ -93,7 +93,9 @@ jobs:
 
   e2e-tests:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    # Playwright 1.59 has no browser builds for ubuntu-latest (26.04), and the
+    # visual baselines in e2e/visual.spec.ts-snapshots were rendered on 24.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./.github/actions/setup-node-deps

@@ -757,34 +757,47 @@ $$;
 ALTER FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."start_game"("p_party_id" "uuid", "p_pin" character varying) RETURNS boolean
-    LANGUAGE "plpgsql"
+CREATE OR REPLACE FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
     AS $$
-DECLARE
-    v_party_status VARCHAR(20);
-    v_host_pin VARCHAR(4);
 BEGIN
-    SELECT status, host_pin INTO v_party_status, v_host_pin
-    FROM parties WHERE id = p_party_id;
-
-    IF v_host_pin != p_pin THEN
+    -- send-push POSTs to the stored endpoint, so only accept a real push URL.
+    IF p_endpoint !~ '^https://' OR length(p_endpoint) > 2048
+       OR length(p_p256dh) > 256 OR length(p_auth) > 64 THEN
         RETURN FALSE;
     END IF;
 
-    IF v_party_status != 'locked' THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM squares
+        WHERE party_id = p_party_id
+          AND player_name_lower = LOWER(TRIM(p_player_name))
+    ) THEN
         RETURN FALSE;
     END IF;
 
-    UPDATE parties
-    SET status = 'active'
-    WHERE id = p_party_id;
+    -- One save per party at a time: keeps the 200-row cap exact and the
+    -- update-then-insert below free of duplicate-key races.
+    PERFORM 1 FROM parties WHERE id = p_party_id FOR UPDATE;
+
+    -- Refresh an existing device first: the 200-per-party limit trigger fires
+    -- before ON CONFLICT is resolved, so an upsert would block refreshes at the cap.
+    UPDATE push_subscriptions
+    SET player_name = TRIM(p_player_name), p256dh = p_p256dh, auth = p_auth
+    WHERE party_id = p_party_id AND endpoint = p_endpoint;
+    IF FOUND THEN
+        RETURN TRUE;
+    END IF;
+
+    INSERT INTO push_subscriptions (party_id, player_name, endpoint, p256dh, auth)
+    VALUES (p_party_id, TRIM(p_player_name), p_endpoint, p_p256dh, p_auth);
 
     RETURN TRUE;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."start_game"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
+ALTER FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") RETURNS "jsonb"
@@ -1529,27 +1542,11 @@ CREATE POLICY "Anyone can read winners" ON "public"."winners" FOR SELECT USING (
 
 
 
-CREATE POLICY "Anyone can unsubscribe by endpoint" ON "public"."push_subscriptions" FOR DELETE USING (true);
-
-
-
-CREATE POLICY "Players can subscribe" ON "public"."push_subscriptions" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."squares"
-  WHERE (("squares"."party_id" = "push_subscriptions"."party_id") AND ("lower"(("squares"."player_name")::"text") = "lower"(("push_subscriptions"."player_name")::"text"))))));
-
-
-
 CREATE POLICY "Service role can read subscriptions" ON "public"."push_subscriptions" FOR SELECT TO "service_role" USING (true);
 
 
 
 CREATE POLICY "Service role only" ON "public"."audit_log" TO "service_role" USING (true) WITH CHECK (true);
-
-
-
-CREATE POLICY "Update subscription with valid player" ON "public"."push_subscriptions" FOR UPDATE USING (true) WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."squares"
-  WHERE (("squares"."party_id" = "push_subscriptions"."party_id") AND ("lower"(("squares"."player_name")::"text") = "lower"(("push_subscriptions"."player_name")::"text"))))));
 
 
 
@@ -1583,10 +1580,6 @@ ALTER TABLE "public"."winners" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
-
-
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."game_scores";
@@ -1780,27 +1773,21 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 REVOKE ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
 
 
 
 REVOKE ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."check_push_subscription_limit"() TO "anon";
-GRANT ALL ON FUNCTION "public"."check_push_subscription_limit"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."check_push_subscription_limit"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."check_push_subscription_limit"() TO "service_role";
 
 
@@ -1944,20 +1931,17 @@ GRANT ALL ON FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" charact
 
 
 
-GRANT ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "anon";
-GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."propagate_game_scores"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") TO "anon";
-GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") TO "service_role";
 
 
@@ -1969,9 +1953,10 @@ GRANT ALL ON FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" char
 
 
 
-GRANT ALL ON FUNCTION "public"."start_game"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."start_game"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."start_game"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "authenticated";
 
 
 
@@ -2009,8 +1994,7 @@ GRANT ALL ON FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" chara
 
 
 
-GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "anon";
-GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."update_updated_at"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "service_role";
 
 
@@ -2060,8 +2044,6 @@ GRANT ALL ON TABLE "public"."numbers" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."push_subscriptions" TO "anon";
-GRANT ALL ON TABLE "public"."push_subscriptions" TO "authenticated";
 GRANT ALL ON TABLE "public"."push_subscriptions" TO "service_role";
 
 
@@ -2101,8 +2083,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQ
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
 
 
@@ -2117,6 +2097,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" REVOKE ALL ON FUNCTIONS FROM PUBLIC;
 
 
 

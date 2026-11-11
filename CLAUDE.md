@@ -51,6 +51,8 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 - `player_name_lower` is `GENERATED ALWAYS AS (LOWER(player_name)) STORED` — never set directly in INSERT/UPDATE, only set `player_name`
 - Splits CHECK: `split_q1 + split_q2 + split_q3 + split_final = 100`
 - Winners UNIQUE on `(party_id, quarter)`
+- Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`check_pin_lockout`, `auto_update_score`, trigger functions, ...) get no grant.
+- `push_subscriptions` has no anon table access; browsers subscribe only through `save_push_subscription`.
 
 ## UI / DB Constraint Asymmetry
 
@@ -67,6 +69,7 @@ UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid
 | `lock_party`              | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                               |
 | `update_score`            | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                                                                                | `BOOLEAN`                                                                               |
 | `verify_host_pin`         | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                                                                                 | `BOOLEAN`                                                                               |
+| `save_push_subscription`  | `p_party_id UUID, p_player_name VARCHAR(50), p_endpoint TEXT, p_p256dh TEXT, p_auth TEXT`                                                                                                                   | `BOOLEAN` — FALSE when the name holds no square in the party                            |
 | `delete_party`            | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                               |
 | `update_party_details`    | `p_party_id UUID, p_pin VARCHAR(4), p_event_name VARCHAR(80), p_kickoff_at TIMESTAMPTZ, p_team_row_name VARCHAR(50), p_team_col_name VARCHAR(50), p_team_row_color VARCHAR(7), p_team_col_color VARCHAR(7)` | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE             |
 | `update_payout_structure` | `p_party_id UUID, p_pin VARCHAR(4), p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT`                                                                                                      | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE             |
