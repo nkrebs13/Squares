@@ -62,6 +62,10 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    -- One save per party at a time: keeps the 200-row cap exact and the
+    -- update-then-insert below free of duplicate-key races.
+    PERFORM 1 FROM parties WHERE id = p_party_id FOR UPDATE;
+
     -- Refresh an existing device first: the 200-per-party limit trigger fires
     -- before ON CONFLICT is resolved, so an upsert would block refreshes at the cap.
     UPDATE push_subscriptions
