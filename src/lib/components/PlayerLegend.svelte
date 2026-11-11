@@ -33,6 +33,8 @@
 
 	function togglePlayerFilter(normalizedName: string) {
 		hasInteracted = true;
+		// Using the list pins it open, so a roster change can't collapse it mid-use.
+		userExpanded ??= expanded;
 		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
 	}
 </script>

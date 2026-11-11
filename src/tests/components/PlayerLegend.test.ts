@@ -163,6 +163,16 @@ describe('PlayerLegend collapsible (mobile, under the grid)', () => {
 		expect(toggle()).toHaveAttribute('aria-expanded', 'false');
 	});
 
+	it('stays open once a pill is used, when the roster grows past four', async () => {
+		squares.set(owners(4));
+		render(PlayerLegend, { props: { collapsible: true } });
+		await userEvent.setup().click(screen.getByText('Player0'));
+
+		squares.set(owners(5));
+		await tick();
+		expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+	});
+
 	it('marks the toggle while a player filter is active', () => {
 		squares.set(owners(5));
 		selectedPlayerFilter.set('player1');
