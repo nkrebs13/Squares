@@ -1123,16 +1123,13 @@ describe('Admin Page - Score Entry', () => {
 			await user.click(screen.getByRole('button', { name: 'Delete Party' }));
 			expect(screen.getByText('Delete Party?')).toBeInTheDocument();
 
-			// jsdom's <dialog> polyfill (src/tests/setup.ts) doesn't implement
-			// native Escape-to-cancel semantics (no keydown handling, no
-			// automatic 'close' event dispatch), so simulate what a real
-			// browser does on Escape: fire the 'close' event the component's
-			// onclose handler listens to.
+			// jsdom's <dialog> polyfill doesn't handle Escape, so fire what a real
+			// browser fires on Escape: a cancelable 'cancel' event.
 			const dialogEl = document.querySelector<HTMLDialogElement>(
 				'dialog[aria-labelledby="delete-party-title"]'
 			);
 			if (!dialogEl) throw new Error('delete-party dialog not found');
-			dialogEl.dispatchEvent(new Event('close'));
+			dialogEl.dispatchEvent(new Event('cancel', { cancelable: true }));
 
 			await waitFor(() => {
 				expect(screen.queryByText('Delete Party?')).not.toBeInTheDocument();
@@ -1223,7 +1220,7 @@ describe('Admin Page - Score Entry', () => {
 				'dialog[aria-labelledby="remove-player-title"]'
 			);
 			if (!dialogEl) throw new Error('remove-player dialog not found');
-			dialogEl.dispatchEvent(new Event('close'));
+			dialogEl.dispatchEvent(new Event('cancel', { cancelable: true }));
 
 			await waitFor(() => {
 				expect(screen.queryByText('Remove Player?')).not.toBeInTheDocument();
@@ -1296,7 +1293,7 @@ describe('Admin Page - Score Entry', () => {
 				'dialog[aria-labelledby="remove-player-title"]'
 			);
 			if (!dialogEl) throw new Error('remove-player dialog not found');
-			dialogEl.dispatchEvent(new Event('close'));
+			dialogEl.dispatchEvent(new Event('cancel', { cancelable: true }));
 
 			await waitFor(() => {
 				expect(document.activeElement).toBe(triggerButton);

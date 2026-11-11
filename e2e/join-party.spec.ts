@@ -131,7 +131,7 @@ test.describe('Join Party Page', () => {
 		await expect(page.getByText('Ravens vs Lions')).toBeVisible();
 		await expect(page.getByText('$5', { exact: true })).toBeVisible();
 		await expect(page.getByText('98')).toBeVisible();
-		await expect(page.getByText('Full pot: $500')).toBeVisible();
+		await expect(page.getByTestId('join-payout-preview')).toContainText('Pot $500');
 		await expect(page.getByTestId('join-payout-q1')).toContainText('$50');
 		await expect(page.getByTestId('join-payout-q2')).toContainText('$100');
 		await expect(page.getByTestId('join-payout-q3')).toContainText('$150');
@@ -350,6 +350,20 @@ test.describe('Join Party - Host PIN Challenge', () => {
 		await expect(page.getByText(/host name protected/i)).not.toBeVisible();
 
 		// Name field should be cleared
+		await expect(page.getByPlaceholder(/enter your name/i)).toHaveValue('');
+	});
+
+	test('Escape dismisses the challenge like "Use Different Name"', async ({ page }) => {
+		await mockHostPartyLookup(page);
+		await page.goto('/join?code=TEST12');
+
+		await page.getByPlaceholder(/enter your name/i).fill('Host');
+		await clickJoinAndWaitForPartyLookup(page);
+		await expect(page.getByText(/host name protected/i)).toBeVisible({ timeout: 10000 });
+
+		await page.keyboard.press('Escape');
+
+		await expect(page.getByText(/host name protected/i)).not.toBeVisible();
 		await expect(page.getByPlaceholder(/enter your name/i)).toHaveValue('');
 	});
 });
