@@ -636,6 +636,23 @@ $$;
 ALTER FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_party_preview"("p_code" "text") RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+    SELECT jsonb_build_object(
+        'party', public_party_json(p),
+        'filled_count', (SELECT count(*) FROM squares s
+                         WHERE s.party_id = p.id AND s.player_name IS NOT NULL)
+    )
+    FROM parties p
+    WHERE p.code = upper(p_code);
+$$;
+
+
+ALTER FUNCTION "public"."get_party_preview"("p_code" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_party_state"("p_code" "text") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -2491,6 +2508,13 @@ GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "authenticated";
 
 
 

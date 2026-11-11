@@ -13,8 +13,8 @@
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 	import {
-		fetchJoinTarget,
 		fetchPartyPreview,
+		PREVIEW_NOT_FOUND_ERROR,
 		type PartyPreview,
 	} from '$lib/services/partyPreview';
 	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
@@ -32,15 +32,15 @@
 	let isLoadingPreview = $state(false);
 	let previewError = $state<string | null>(null);
 	let previewRequestId = 0;
-	const previewTotalPot = $derived(preview ? calculateTotalPot(preview.squarePrice) : 0);
+	const previewTotalPot = $derived(preview ? calculateTotalPot(preview.party.square_price) : 0);
 	const previewPayoutRows = $derived(
 		preview
 			? buildPayoutRows(
 					{
-						q1: preview.splitQ1,
-						q2: preview.splitQ2,
-						q3: preview.splitQ3,
-						final: preview.splitFinal,
+						q1: preview.party.split_q1,
+						q2: preview.party.split_q2,
+						q3: preview.party.split_q3,
+						final: preview.party.split_final,
 					},
 					previewTotalPot
 				)
@@ -98,7 +98,7 @@
 			const upperCode = normalizePartyCode(code);
 
 			// Check if party exists and get host_name_lower
-			const partyData = await fetchJoinTarget(upperCode);
+			const partyData = (await fetchPartyPreview(upperCode))?.party ?? null;
 
 			if (!partyData) {
 				error = 'Party not found. Check the code and try again.';
@@ -107,7 +107,7 @@
 
 			// Check if entered name matches host name (case-insensitive)
 			const enteredNameLower = name.trim().toLowerCase();
-			if (partyData.hostNameLower && enteredNameLower === partyData.hostNameLower) {
+			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
 				// Check if we have a valid stored PIN for this party
 				const storedPin = await getHostPin(upperCode);
 				if (storedPin) {
@@ -147,17 +147,11 @@
 		previewError = null;
 
 		try {
-			const result = await fetchPartyPreview(partyCode, () => requestId !== previewRequestId);
-
+			const result = await fetchPartyPreview(partyCode);
 			if (requestId !== previewRequestId) return;
 
-			if (!result.ok) {
-				preview = null;
-				previewError = result.error;
-				return;
-			}
-
-			preview = result.preview;
+			preview = result;
+			previewError = result ? null : PREVIEW_NOT_FOUND_ERROR;
 		} catch {
 			if (requestId === previewRequestId) {
 				preview = null;
@@ -252,23 +246,21 @@
 					<p class="mt-2 text-sm" style="color: var(--text-muted)">Looking up this party...</p>
 				{:else if preview}
 					<div class="mt-2">
-						<div class="font-semibold">{preview.eventName}</div>
+						<div class="font-semibold">{preview.party.event_name}</div>
 						<div class="mt-1 text-sm" style="color: var(--text-secondary)">
-							{preview.teamRowName} vs {preview.teamColName}
+							{preview.party.team_row_name} vs {preview.party.team_col_name}
 						</div>
 						<div class="mt-3 grid grid-cols-2 gap-3">
 							<div>
 								<div class="text-xs uppercase" style="color: var(--text-muted)">
 									Price per square
 								</div>
-								<div class="font-semibold">{formatPrice(preview.squarePrice)}</div>
+								<div class="font-semibold">{formatPrice(preview.party.square_price)}</div>
 							</div>
 							<div>
 								<div class="text-xs uppercase" style="color: var(--text-muted)">Open squares</div>
 								<div class="font-semibold">
-									{preview.filledCount === null
-										? 'Checking...'
-										: TOTAL_SQUARES - preview.filledCount}
+									{TOTAL_SQUARES - preview.filledCount}
 								</div>
 							</div>
 						</div>
@@ -288,16 +280,16 @@
 								</div>
 							{/each}
 						</div>
-						{#if formatKickoff(preview.kickoffAt)}
+						{#if formatKickoff(preview.party.kickoff_at)}
 							<div class="mt-1 text-sm" style="color: var(--text-muted)">
-								{formatKickoff(preview.kickoffAt, {
+								{formatKickoff(preview.party.kickoff_at, {
 									includeWeekday: true,
 									includeTimeZone: true,
 								})}
 							</div>
 						{/if}
 						<div class="mt-2 text-xs uppercase" style="color: var(--text-muted)">
-							{preview.status}
+							{preview.party.status}
 						</div>
 					</div>
 				{:else if previewError}

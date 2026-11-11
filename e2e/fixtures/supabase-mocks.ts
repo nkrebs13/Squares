@@ -290,6 +290,24 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
+	// The join page's preview and host-name check (migration 040).
+	await page.context().route('**/rest/v1/rpc/get_party_preview', (route) => {
+		const { p_code } = route.request().postDataJSON() as { p_code: string };
+		const known = p_code.toUpperCase() === String(partyData.code).toUpperCase();
+		route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify(
+				known
+					? {
+							party: partyData,
+							filled_count: squaresData.filter((s) => s.player_name).length,
+						}
+					: null
+			),
+		});
+	});
+
 	// The party page loads everything through one RPC (migration 039).
 	await page.context().route('**/rest/v1/rpc/get_party_state', (route) => {
 		route.fulfill({
