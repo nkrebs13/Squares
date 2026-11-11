@@ -26,7 +26,7 @@ const REFUSAL_COPY: Record<HostRefusal, string> = {
 const INPUT_FIELD_COPY: Record<string, string> = {
 	host_name: 'Please enter a host name.',
 	pin: 'PIN must be exactly 4 digits.',
-	square_price: 'Square price must be greater than 0.',
+	square_price: 'Square price must be at least 0.01 and under 100,000,000.',
 	splits: 'Each split must be 0–100% and they must add up to 100%.',
 	event_name: 'Event name must be 1–80 characters.',
 	team_name: 'Team names must be 1–50 characters.',
