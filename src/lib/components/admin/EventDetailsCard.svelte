@@ -1,20 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { updatePartyDetails } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 	import type { Party } from '$lib/types';
-	import {
-		datetimeLocalToIso,
-		getLocalTimeZoneLabel,
-		toDatetimeLocalValue,
-	} from '$lib/utils/datetime';
-	import { MAX_EVENT_NAME_LENGTH } from '$lib/constants';
-	import {
-		formatKickoffPreview,
-		isValidEventName,
-		isValidMatchup,
-		toTeamSelection,
-	} from '$lib/utils/partyForm';
+	import { datetimeLocalToIso, toDatetimeLocalValue } from '$lib/utils/datetime';
+	import { isValidEventName, isValidMatchup, toTeamSelection } from '$lib/utils/partyForm';
+	import EventDetailsFields from '$lib/components/forms/EventDetailsFields.svelte';
 	import TeamMatchupPicker from '$lib/components/forms/TeamMatchupPicker.svelte';
 
 	interface Props {
@@ -40,16 +30,10 @@
 	let rowTeam = $state(start.rowTeam);
 	let colTeam = $state(start.colTeam);
 	let isUpdatingDetails = $state(false);
-	let kickoffTimeZone = $state('local time');
-
-	onMount(() => {
-		kickoffTimeZone = getLocalTimeZoneLabel();
-	});
 
 	const isValid = $derived(
 		isValidEventName(eventName) && isValidMatchup(rowTeam.name, colTeam.name)
 	);
-	const kickoffPreview = $derived(formatKickoffPreview(kickoffInput));
 	const hasChanges = $derived(
 		eventName.trim() !== party.event_name ||
 			datetimeLocalToIso(kickoffInput) !== party.kickoff_at ||
@@ -91,27 +75,7 @@
 	</p>
 
 	<div class="space-y-4">
-		<label class="block">
-			<span class="text-sm text-secondary">Event name</span>
-			<input
-				type="text"
-				bind:value={eventName}
-				class="input mt-1"
-				maxlength={MAX_EVENT_NAME_LENGTH}
-				autocomplete="off"
-				onblur={() => (eventName = eventName.trim())}
-			/>
-		</label>
-
-		<label class="block">
-			<span class="text-sm text-secondary">Kickoff time</span>
-			<span class="text-xs ml-1 text-muted">(optional)</span>
-			<input type="datetime-local" bind:value={kickoffInput} class="input mt-1" />
-		</label>
-		<p class="text-xs text-muted">Timezone: {kickoffTimeZone}</p>
-		{#if kickoffPreview}
-			<p class="text-sm text-secondary">Kickoff: {kickoffPreview}</p>
-		{/if}
+		<EventDetailsFields bind:eventName bind:kickoffInput />
 
 		<TeamMatchupPicker
 			bind:row={rowTeam}

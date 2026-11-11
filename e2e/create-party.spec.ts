@@ -122,11 +122,11 @@ test.describe('Create Party Page', () => {
 	});
 
 	test('shows quarter percentages', async ({ page }) => {
-		// Default preset should show percentages
-		await expect(page.locator('label[for="split-q1"]')).toHaveText('Q1');
-		await expect(page.locator('label[for="split-q2"]')).toHaveText('Q2');
-		await expect(page.locator('label[for="split-q3"]')).toHaveText('Q3');
-		await expect(page.locator('label[for="split-final"]')).toHaveText('Final');
+		// The default preset (Rising) fills each quarter's percentage.
+		await expect(page.getByLabel('Q1 prize split percentage')).toHaveValue('10');
+		await expect(page.getByLabel('Q2 prize split percentage')).toHaveValue('20');
+		await expect(page.getByLabel('Q3 prize split percentage')).toHaveValue('30');
+		await expect(page.getByLabel('Final prize split percentage')).toHaveValue('40');
 	});
 
 	test('allows selecting different presets', async ({ page }) => {
@@ -161,7 +161,7 @@ test.describe('Create Party Page', () => {
 		// Change one of the values to make total != 100
 		await firstInput.fill('50');
 
-		await expect(page.getByText(/must total 100%/i)).toBeVisible();
+		await expect(page.getByText(/must be 100%/i)).toBeVisible();
 	});
 
 	test('has host name input', async ({ page }) => {

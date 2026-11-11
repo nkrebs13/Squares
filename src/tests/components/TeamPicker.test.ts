@@ -1,3 +1,4 @@
+import { MAX_TEAM_NAME_LENGTH } from '$lib/constants';
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import { NFL_TEAM_PRESETS } from '$lib/nflTeams';
@@ -69,21 +70,19 @@ describe('TeamPicker', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it('applies the configured name limit, placeholder and preset label', () => {
+	it('applies the configured placeholder and preset label', () => {
 		renderPicker({
-			nameMaxLength: 30,
 			placeholder: 'e.g. Chiefs',
 			presetLabel: 'NFL preset',
 		});
 		const input = screen.getByRole('textbox') as HTMLInputElement;
-		expect(input.maxLength).toBe(30);
 		expect(input.placeholder).toBe('e.g. Chiefs');
 		expect(screen.getByText('NFL preset')).toBeInTheDocument();
 	});
 
-	it('defaults to a 50-char limit and a side-specific preset label', () => {
+	it('limits team names to MAX_TEAM_NAME_LENGTH and labels the preset by side', () => {
 		renderPicker();
-		expect((screen.getByRole('textbox') as HTMLInputElement).maxLength).toBe(50);
+		expect((screen.getByRole('textbox') as HTMLInputElement).maxLength).toBe(MAX_TEAM_NAME_LENGTH);
 		expect(screen.getByText('Left team NFL preset', { selector: 'span' })).toBeInTheDocument();
 	});
 });

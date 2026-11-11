@@ -14,3 +14,5 @@ export const PIN_LENGTH = 4;
 export const MAX_NAME_LENGTH = 20;
 export const MAX_NICKNAME_LENGTH = 30;
 export const MAX_EVENT_NAME_LENGTH = 80;
+/** Team names in the UI (grid headers); the DB column allows 50. */
+export const MAX_TEAM_NAME_LENGTH = 30;
