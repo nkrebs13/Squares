@@ -12,7 +12,7 @@ import {
 } from './game-state';
 import { pendingOperations, pendingTimeouts, clearSquareFields } from './game-pending';
 import { cleanupChannels } from './game-realtime';
-import { parseParty } from '$lib/validators/realtime';
+import { parseNumbers, parseParty } from '$lib/validators/realtime';
 import { humanizeRpcError, PARTY_FIELD_RULES, type RpcErrorRule } from '$lib/utils/rpcError';
 
 export interface PartyDetailsInput {
@@ -42,6 +42,51 @@ type RemovePlayerResult = AdminResult & { removedCount: number };
 
 const NO_PARTY: AdminResult = { success: false, error: 'No party loaded' };
 
+/** Refusal codes every `host_*` RPC returns (migration 035). */
+type HostRefusal =
+	| 'not_found'
+	| 'invalid_pin'
+	| 'locked_out'
+	| 'wrong_status'
+	| 'grid_incomplete'
+	| 'invalid_input';
+
+type HostResponse =
+	| ({ ok: true } & Record<string, unknown>)
+	| { ok: false; error: HostRefusal; field?: string };
+
+const HOST_REFUSAL_COPY: Record<HostRefusal, string> = {
+	not_found: 'This party no longer exists.',
+	invalid_pin: 'Incorrect PIN. Please try again.',
+	locked_out: 'Too many incorrect PINs. Try again in a few minutes.',
+	wrong_status: 'This can only be changed before the grid is locked.',
+	grid_incomplete: 'All squares must be claimed before the grid can be locked.',
+	invalid_input: 'Some of those values are not valid.',
+};
+
+/** Per-action copy: `failed` for transport/unexpected errors, plus any refusal overrides. */
+type HostCopy = { failed: string } & Partial<Record<HostRefusal, string>>;
+
+type HostCallResult = { ok: true; data: Record<string, unknown> } | { ok: false; error: string };
+
+function isHostResponse(data: unknown): data is HostResponse {
+	return (
+		typeof data === 'object' && data !== null && typeof (data as { ok?: unknown }).ok === 'boolean'
+	);
+}
+
+/** Call a `host_*` RPC and turn its result into data or user-facing copy. */
+async function callHost(
+	rpc: string,
+	args: Record<string, unknown>,
+	copy: HostCopy
+): Promise<HostCallResult> {
+	const { data, error: rpcError } = await getSupabaseClient().rpc(rpc, args);
+	if (rpcError || !isHostResponse(data)) return { ok: false, error: copy.failed };
+	if (data.ok) return { ok: true, data };
+	return { ok: false, error: copy[data.error] ?? HOST_REFUSAL_COPY[data.error] ?? copy.failed };
+}
+
 const PIN_RULE: RpcErrorRule = [/invalid party or PIN/i, 'Invalid PIN'];
 const GRID_LOCKED = /before the grid is locked/i;
 
@@ -49,27 +94,20 @@ export async function lockParty(pin: string): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };
 
-	const supabase = getSupabaseClient();
+	const result = await callHost(
+		'host_lock_party',
+		{ p_party_id: currentParty.id, p_pin: pin },
+		{ failed: 'Failed to lock party. Please try again.', wrong_status: 'Grid is already locked' }
+	);
+	if (!result.ok) return { success: false, error: result.error };
 
-	const { data, error: lockError } = await supabase.rpc('lock_party', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-	});
-
-	if (lockError) {
-		return {
-			success: false,
-			error: humanizeRpcError(lockError.message, 'Failed to lock party. Please try again.'),
-		};
+	const lockedParty = parseParty(result.data.party);
+	const assigned = parseNumbers(result.data.numbers);
+	if (!lockedParty || !assigned) {
+		return { success: false, error: 'Game started, but the page is out of date. Please refresh.' };
 	}
-
-	if (!data) {
-		return {
-			success: false,
-			error: 'Failed to lock - check PIN and ensure all squares are filled',
-		};
-	}
-
+	party.set(lockedParty);
+	numbers.set(assigned);
 	return { success: true };
 }
 
@@ -115,58 +153,35 @@ export async function updateScore(
 	return { success: true };
 }
 
-const PAYOUT_ERROR_RULES: readonly RpcErrorRule[] = [
-	PIN_RULE,
-	[GRID_LOCKED, 'Grid is already locked'],
-	[/sum to exactly 100/i, 'Splits must add up to 100%'],
-	[/between 0 and 100/i, 'Each split must be between 0% and 100%.'],
-];
-
 export async function updatePayoutStructure(
 	pin: string,
 	splits: { q1: number; q2: number; q3: number; final: number }
 ): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };
-	if (currentParty.status !== 'filling') return { success: false, error: 'Grid is already locked' };
 
-	// Verify splits add up to 100
-	const total = splits.q1 + splits.q2 + splits.q3 + splits.final;
-	if (total !== 100) {
-		return { success: false, error: 'Splits must add up to 100%' };
-	}
+	const result = await callHost(
+		'host_update_payouts',
+		{
+			p_party_id: currentParty.id,
+			p_pin: pin,
+			p_split_q1: splits.q1,
+			p_split_q2: splits.q2,
+			p_split_q3: splits.q3,
+			p_split_final: splits.final,
+		},
+		{
+			failed: 'Failed to update payout structure. Please try again.',
+			wrong_status: 'Grid is already locked',
+			invalid_input: 'Each split must be 0–100% and they must add up to 100%.',
+		}
+	);
+	if (!result.ok) return { success: false, error: result.error };
 
-	const supabase = getSupabaseClient();
-
-	const { data, error: updateError } = await supabase.rpc('update_payout_structure', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-		p_split_q1: splits.q1,
-		p_split_q2: splits.q2,
-		p_split_q3: splits.q3,
-		p_split_final: splits.final,
-	});
-
-	if (updateError) {
-		return {
-			success: false,
-			error: humanizeRpcError(
-				updateError.message,
-				'Failed to update payout structure. Please try again.',
-				PAYOUT_ERROR_RULES
-			),
-		};
-	}
-
-	if (isPinSentinelRow(data)) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
-	const updatedParty = parseParty(data);
+	const updatedParty = parseParty(result.data.party);
 	if (!updatedParty) {
 		return { success: false, error: 'Server returned unexpected payout details. Please refresh.' };
 	}
-
 	party.set(updatedParty);
 	return { success: true };
 }
@@ -224,12 +239,6 @@ export async function updatePartyDetails(
 	return { success: true };
 }
 
-const REMOVE_PLAYER_ERROR_RULES: readonly RpcErrorRule[] = [
-	PIN_RULE,
-	[GRID_LOCKED, 'Cannot remove players after grid is locked'],
-	[/player name/i, 'Player name is required'],
-];
-
 export async function removePlayer(
 	pin: string,
 	playerNameLower: string
@@ -237,76 +246,35 @@ export async function removePlayer(
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY, removedCount: 0 };
 
-	// Only allow during filling phase
-	if (currentParty.status !== 'filling') {
-		return { success: false, removedCount: 0, error: 'Cannot remove players after grid is locked' };
-	}
+	const result = await callHost(
+		'host_remove_player',
+		{ p_party_id: currentParty.id, p_pin: pin, p_player_name: playerNameLower },
+		{
+			failed: 'Failed to remove player. Please try again.',
+			wrong_status: 'Cannot remove players after grid is locked',
+			invalid_input: 'Player name is required',
+		}
+	);
+	if (!result.ok) return { success: false, removedCount: 0, error: result.error };
 
-	const supabase = getSupabaseClient();
-	const { data, error: removeError } = await supabase.rpc('remove_player', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-		p_player_name_lower: playerNameLower,
-	});
-
-	if (removeError) {
-		return {
-			success: false,
-			removedCount: 0,
-			error: humanizeRpcError(
-				removeError.message,
-				'Failed to remove player. Please try again.',
-				REMOVE_PLAYER_ERROR_RULES
-			),
-		};
-	}
-
-	// Sentinel refusal (see isPinSentinelRow above): a null return with no error
-	// means the PIN was rejected — distinct from a legitimate count of 0 (which
-	// means "matched no squares"). remove_player RETURNS INTEGER, not a parties
-	// row, so it can't reuse that predicate directly.
-	if (data == null) {
-		return { success: false, removedCount: 0, error: 'Invalid PIN' };
-	}
-
-	const removedCount = data;
-
-	// Update local state. This synchronous squares.update recomputes playerSummary
-	// (a derived over `squares`) and, in the same tick, fires the self-clearing
-	// subscription in game-state.ts — which nulls selectedPlayerFilter when the
-	// removed player was the active filter (they now own zero squares). No explicit
-	// filter clear is needed here; a previous "belt and braces" block that duplicated
-	// it was provably unreachable and was removed.
+	// Clearing the squares recomputes playerSummary, which also clears the
+	// player filter if it pointed at the removed player.
 	squares.update((current) =>
 		current.map((s) => (s.player_name_lower === playerNameLower ? clearSquareFields(s) : s))
 	);
-
-	return { success: true, removedCount };
+	return { success: true, removedCount: Number(result.data.removed) || 0 };
 }
 
 export async function deleteParty(pin: string): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };
 
-	const supabase = getSupabaseClient();
-
-	const { data, error: deleteError } = await supabase.rpc('delete_party', {
-		p_party_id: currentParty.id,
-		p_pin: pin,
-	});
-
-	if (deleteError) {
-		return {
-			success: false,
-			error: humanizeRpcError(deleteError.message, 'Failed to delete party. Please try again.'),
-		};
-	}
-
-	if (!data) {
-		return { success: false, error: 'Invalid PIN' };
-	}
-
-	return { success: true };
+	const result = await callHost(
+		'host_delete_party',
+		{ p_party_id: currentParty.id, p_pin: pin },
+		{ failed: 'Failed to delete party. Please try again.' }
+	);
+	return result.ok ? { success: true } : { success: false, error: result.error };
 }
 
 export function cleanup() {
@@ -328,17 +296,11 @@ export function cleanup() {
 	error.set(null);
 }
 
-export async function verifyHostPin(code: string, pin: string): Promise<boolean> {
-	const supabase = getSupabaseClient();
-
-	const { data, error } = await supabase.rpc('verify_host_pin', {
-		p_party_code: code,
-		p_pin: pin,
-	});
-
-	if (error) {
-		return false;
-	}
-
-	return data === true;
+export async function verifyHostPin(code: string, pin: string): Promise<AdminResult> {
+	const result = await callHost(
+		'host_verify_pin',
+		{ p_party_code: code, p_pin: pin },
+		{ failed: 'Unable to verify PIN. Please try again.' }
+	);
+	return result.ok ? { success: true } : { success: false, error: result.error };
 }

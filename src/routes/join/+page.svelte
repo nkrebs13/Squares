@@ -112,8 +112,8 @@
 				const storedPin = await getHostPin(upperCode);
 				if (storedPin) {
 					// Verify stored PIN is still valid
-					const isValid = await verifyHostPin(upperCode, storedPin);
-					if (isValid) {
+					const verified = await verifyHostPin(upperCode, storedPin);
+					if (verified.success) {
 						// Stored PIN is valid, proceed directly
 						userName.setName(name.trim());
 						storeNickname(upperCode);
@@ -177,9 +177,9 @@
 		pinError = null;
 
 		try {
-			const isValid = await verifyHostPin(pendingPartyCode, pinInput);
+			const result = await verifyHostPin(pendingPartyCode, pinInput);
 
-			if (isValid) {
+			if (result.success) {
 				// Store PIN in IndexedDB and session storage
 				await setHostPin(pendingPartyCode, pinInput);
 				setSessionItem(partyPinKey(pendingPartyCode), pinInput);
@@ -190,7 +190,7 @@
 				showPinChallenge = false;
 				goto(`/party/${pendingPartyCode}`);
 			} else {
-				pinError = 'Incorrect PIN. Please try again.';
+				pinError = result.error ?? 'Incorrect PIN. Please try again.';
 				pinInput = '';
 			}
 		} catch {

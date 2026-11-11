@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { partyPinKey, setHostPin, setSessionItem } from '$lib/storage';
 	import { verifyHostPin } from '$lib/stores/game';
-	import { MAX_PIN_ATTEMPTS, PIN_LENGTH } from '$lib/constants';
+	import { PIN_LENGTH } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 
 	interface Props {
@@ -15,32 +15,23 @@
 	let enteredPin = $state('');
 	let isVerifyingPin = $state(false);
 	let pinError = $state<string | null>(null);
-	let pinAttempts = $state(0);
 
 	async function verifyPin() {
-		if (enteredPin.length !== PIN_LENGTH || pinAttempts >= MAX_PIN_ATTEMPTS) return;
+		if (enteredPin.length !== PIN_LENGTH) return;
 
 		isVerifyingPin = true;
 		pinError = null;
 
 		try {
-			const isValid = await verifyHostPin(code, enteredPin);
-			if (isValid) {
+			const result = await verifyHostPin(code, enteredPin);
+			if (result.success) {
 				await setHostPin(code, enteredPin);
 				setSessionItem(partyPinKey(code), enteredPin);
-				pinAttempts = 0;
 				onauthorized(enteredPin);
 			} else {
-				pinAttempts++;
-				if (pinAttempts >= MAX_PIN_ATTEMPTS) {
-					pinError = 'Too many attempts. Try again later.';
-				} else {
-					pinError = 'Incorrect PIN. Please try again.';
-				}
+				pinError = result.error ?? 'Incorrect PIN. Please try again.';
 				enteredPin = '';
 			}
-		} catch {
-			pinError = 'Unable to verify PIN. Please try again.';
 		} finally {
 			isVerifyingPin = false;
 		}
@@ -64,9 +55,7 @@
 		<button
 			type="submit"
 			class="btn btn-primary w-full"
-			disabled={enteredPin.length !== PIN_LENGTH ||
-				isVerifyingPin ||
-				pinAttempts >= MAX_PIN_ATTEMPTS}
+			disabled={enteredPin.length !== PIN_LENGTH || isVerifyingPin}
 		>
 			{isVerifyingPin ? 'Verifying...' : 'Verify'}
 		</button>

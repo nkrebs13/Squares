@@ -315,7 +315,7 @@ describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
 		selectedPlayerFilter.set('alice');
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
 
 		await removePlayer('1234', 'alice');
 
@@ -329,7 +329,7 @@ describe('selectedPlayerFilter self-clearing (Bug 3 regression)', () => {
 			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
 		]);
 		selectedPlayerFilter.set('bob');
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
 
 		await removePlayer('1234', 'alice');
 

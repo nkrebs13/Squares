@@ -7,7 +7,6 @@ import {
 	numbers,
 	isLoading,
 	error,
-	verifyHostPin,
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
 	cleanup,
@@ -212,36 +211,5 @@ describe('unclaimSquareOptimistic', () => {
 
 		const updated = get(squares);
 		expect(updated[0].player_name).toBeNull();
-	});
-});
-
-describe('verifyHostPin', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it('returns true on success', async () => {
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
-		const result = await verifyHostPin('TEST123', '1234');
-		expect(result).toBe(true);
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('verify_host_pin', {
-			p_party_code: 'TEST123',
-			p_pin: '1234',
-		});
-	});
-
-	it('returns false on RPC error', async () => {
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'Invalid' },
-		});
-		const result = await verifyHostPin('TEST123', 'wrong');
-		expect(result).toBe(false);
-	});
-
-	it('returns false when data is not true', async () => {
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
-		const result = await verifyHostPin('TEST123', 'wrong');
-		expect(result).toBe(false);
 	});
 });

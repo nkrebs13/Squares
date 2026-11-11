@@ -277,12 +277,11 @@ test.describe('Join Party - Host PIN Challenge', () => {
 	test('correct PIN allows joining', async ({ page }) => {
 		await mockHostPartyLookup(page);
 
-		// Mock verify_host_pin RPC — returns true
-		await page.context().route('**/rest/v1/rpc/verify_host_pin', (route) => {
+		await page.context().route('**/rest/v1/rpc/host_verify_pin', (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
-				body: JSON.stringify(true),
+				body: JSON.stringify({ ok: true }),
 			});
 		});
 
@@ -308,12 +307,11 @@ test.describe('Join Party - Host PIN Challenge', () => {
 	test('incorrect PIN shows error', async ({ page }) => {
 		await mockHostPartyLookup(page);
 
-		// Mock verify_host_pin RPC — returns false
-		await page.context().route('**/rest/v1/rpc/verify_host_pin', (route) => {
+		await page.context().route('**/rest/v1/rpc/host_verify_pin', (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
-				body: JSON.stringify(false),
+				body: JSON.stringify({ ok: false, error: 'invalid_pin' }),
 			});
 		});
 

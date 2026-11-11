@@ -58,6 +58,20 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid legibility — names must fit inside 28-44 px square cells. The DB column is sized `VARCHAR(50)` to absorb larger inputs that may arrive via the SQL editor or admin CLI without requiring a column-widen migration. The asymmetry is intentional, not a bug.
 
+## Host Actions (`host_*` RPCs, migration 035)
+
+Every PIN-gated action is a `host_*` function that starts with `host_gate(party_id, pin, action, required_status)` and returns `{ok: true, ...}` or `{ok: false, error, field?}`. Refusal codes: `not_found`, `invalid_pin`, `locked_out`, `wrong_status`, `grid_incomplete`, `invalid_input` (with `field`). The client maps codes to copy in one table (`HOST_REFUSAL_COPY` + per-action overrides in `callHost`, `src/lib/stores/game-admin.ts`); it never matches on error text for these RPCs.
+
+| RPC                   | Parameters                                                         | `ok: true` payload |
+| --------------------- | ------------------------------------------------------------------ | ------------------ |
+| `host_verify_pin`     | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                        | —                  |
+| `host_lock_party`     | `p_party_id UUID, p_pin VARCHAR(4)`                                | `party`, `numbers` |
+| `host_delete_party`   | `p_party_id UUID, p_pin VARCHAR(4)`                                | —                  |
+| `host_remove_player`  | `p_party_id UUID, p_pin VARCHAR(4), p_player_name VARCHAR(50)`     | `removed` (count)  |
+| `host_update_payouts` | `p_party_id UUID, p_pin VARCHAR(4), p_split_q1..p_split_final INT` | `party`            |
+
+The older `verify_host_pin`, `lock_party`, `delete_party`, `remove_player` and `update_payout_structure` remain only for clients still running an older bundle; the app no longer calls them, and a later migration drops them.
+
 ## RPC Signatures
 
 | RPC                       | Parameters                                                                                                                                                                                                  | Returns                                                                                 |
@@ -90,7 +104,7 @@ UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid
 - Never change CSS variable names in app.css
 - Never set `player_name_lower` directly — it's auto-generated
 - Never change BroadcastMessage.type string values without updating all clients
-- Never `RAISE` on PIN/lockout failure in `update_party_details`, `update_payout_structure`, or `remove_player` — return the sentinel (`NULL`) instead. PostgREST runs each RPC as ONE transaction, so a `RAISE` rolls back `check_pin_lockout`'s own `pin_attempts` increment, silently stopping the brute-force throttle and reopening a 10,000-PIN oracle (migration 033). Every OTHER failure in these RPCs keeps its existing `RAISE`.
+- Never `RAISE` on a PIN/lockout failure in any host action — return the refusal (`host_refusal(...)` in `host_*` functions, the `NULL` sentinel in the legacy `update_party_details`, `update_payout_structure`, `remove_player`). PostgREST runs each RPC as ONE transaction, so a `RAISE` rolls back `check_pin_lockout`'s own `pin_attempts` increment, silently stopping the brute-force throttle and reopening a 10,000-PIN oracle (migration 033). Refusals the host can act on (status, input) also return a code; `RAISE` is only for integrity faults that should roll the call back.
 
 ## Testing
 

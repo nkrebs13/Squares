@@ -1,5 +1,7 @@
 /**
- * Characterization table for every RPC-error → user-facing-copy mapping.
+ * Characterization table for the RPCs that still RAISE readable errors
+ * (create_party, update_party_details, update_score). The host_* actions
+ * answer with refusal codes instead; game-admin.test.ts covers their copy.
  *
  * Written BEFORE the per-call-site humanize*Error copies were folded into one
  * shared `humanizeRpcError` util, to pin each call site's exact output strings
@@ -45,19 +47,6 @@ describe('RPC error copy (characterization)', () => {
 		party.set(createMockParty());
 	});
 
-	const payoutRows: Row[] = [
-		['ERROR:  invalid party or PIN', 'Invalid PIN'],
-		['payout structure can only be changed before the grid is locked', 'Grid is already locked'],
-		['splits must sum to exactly 100 (got 90)', 'Splits must add up to 100%'],
-		['each split must be between 0 and 100', 'Each split must be between 0% and 100%.'],
-		['ERROR: all split values must be provided', 'all split values must be provided'],
-	];
-	it.each(payoutRows)('updatePayoutStructure: %j → %j', async (raw, expected) => {
-		rejectNextRpc(raw);
-		const result = await updatePayoutStructure('1234', SPLITS);
-		expect(result).toEqual({ success: false, error: expected });
-	});
-
 	const detailsRows: Row[] = [
 		['ERROR:  invalid party or PIN', 'Invalid PIN'],
 		[
@@ -75,21 +64,6 @@ describe('RPC error copy (characterization)', () => {
 		rejectNextRpc(raw);
 		const result = await updatePartyDetails('1234', DETAILS);
 		expect(result).toEqual({ success: false, error: expected });
-	});
-
-	const removeRows: Row[] = [
-		['ERROR:  invalid party or PIN', 'Invalid PIN'],
-		[
-			'players can only be removed before the grid is locked',
-			'Cannot remove players after grid is locked',
-		],
-		['player name is required', 'Player name is required'],
-		['ERROR: party not found', 'party not found'],
-	];
-	it.each(removeRows)('removePlayer: %j → %j', async (raw, expected) => {
-		rejectNextRpc(raw);
-		const result = await removePlayer('1234', 'alice');
-		expect(result).toEqual({ success: false, removedCount: 0, error: expected });
 	});
 
 	const createRows: Row[] = [

@@ -11,9 +11,17 @@ import {
 	squares,
 	selectedPlayerFilter,
 	cleanup,
+	numbers,
+	verifyHostPin,
 } from '$lib/stores/game';
 import { mockSupabaseClient } from '../setup';
 import { createMockParty, createMockSquare } from '../factories';
+
+const refuse = (error: string, field?: string) =>
+	mockSupabaseClient.rpc.mockResolvedValueOnce({
+		data: { ok: false, error, ...(field ? { field } : {}) },
+		error: null,
+	});
 
 describe('lockParty', () => {
 	beforeEach(() => {
@@ -25,26 +33,102 @@ describe('lockParty', () => {
 		expect(result).toEqual({ success: false, error: 'No party loaded' });
 	});
 
-	it('returns success on RPC success with data true', async () => {
+	it('applies the locked party and assigned numbers from the response', async () => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		const assigned = {
+			id: 'numbers-id',
+			party_id: 'test-party-id',
+			row_numbers: [3, 1, 4, 0, 5, 9, 2, 6, 8, 7],
+			col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+			assigned_at: '2027-02-14T23:30:00.000Z',
+		};
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: { ok: true, party: createMockParty({ status: 'active' }), numbers: assigned },
+			error: null,
+		});
 
-		const result = await lockParty('1234');
-		expect(result).toEqual({ success: true });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('lock_party', {
+		expect(await lockParty('1234')).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_lock_party', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
 		});
+		expect(get(party)?.status).toBe('active');
+		expect(get(numbers)?.row_numbers).toEqual(assigned.row_numbers);
 	});
 
-	it('returns error when data is false', async () => {
+	it('says why the grid could not be locked', async () => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
-
-		const result = await lockParty('1234');
-		expect(result).toEqual({
+		refuse('grid_incomplete');
+		expect(await lockParty('1234')).toEqual({
 			success: false,
-			error: 'Failed to lock - check PIN and ensure all squares are filled',
+			error: 'All squares must be claimed before the grid can be locked.',
+		});
+		expect(get(party)?.status).toBe('filling');
+	});
+});
+
+describe('host action refusals', () => {
+	beforeEach(() => {
+		cleanup();
+		party.set(createMockParty());
+	});
+
+	const splits = { q1: 25, q2: 25, q3: 25, final: 25 };
+
+	it.each([
+		['invalid_pin', 'Incorrect PIN. Please try again.'],
+		['locked_out', 'Too many incorrect PINs. Try again in a few minutes.'],
+		['not_found', 'This party no longer exists.'],
+	])('%s gets the same copy from every host action', async (code, copy) => {
+		for (const call of [
+			() => lockParty('1234'),
+			() => updatePayoutStructure('1234', splits),
+			() => removePlayer('1234', 'alice'),
+			() => deleteParty('1234'),
+			() => verifyHostPin('ABC123', '1234'),
+		]) {
+			refuse(code);
+			expect(await call()).toMatchObject({ success: false, error: copy });
+		}
+	});
+
+	it.each([
+		['lockParty', () => lockParty('1234'), 'Failed to lock party. Please try again.'],
+		[
+			'updatePayoutStructure',
+			() => updatePayoutStructure('1234', splits),
+			'Failed to update payout structure. Please try again.',
+		],
+		[
+			'removePlayer',
+			() => removePlayer('1234', 'alice'),
+			'Failed to remove player. Please try again.',
+		],
+		['deleteParty', () => deleteParty('1234'), 'Failed to delete party. Please try again.'],
+		[
+			'verifyHostPin',
+			() => verifyHostPin('ABC123', '1234'),
+			'Unable to verify PIN. Please try again.',
+		],
+	])('%s shows its own copy when the request fails', async (_name, call, copy) => {
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: null,
+			error: { message: 'TypeError: Failed to fetch' },
+		});
+		expect(await call()).toMatchObject({ success: false, error: copy });
+
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 'unexpected', error: null });
+		expect(await call()).toMatchObject({ success: false, error: copy });
+	});
+});
+
+describe('verifyHostPin', () => {
+	it('succeeds for the right PIN', async () => {
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+		expect(await verifyHostPin('ABC123', '1234')).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_verify_pin', {
+			p_party_code: 'ABC123',
+			p_pin: '1234',
 		});
 	});
 });
@@ -108,100 +192,25 @@ describe('updatePayoutStructure', () => {
 	});
 
 	it('returns error when no party loaded', async () => {
-		const result = await updatePayoutStructure('1234', {
-			q1: 25,
-			q2: 25,
-			q3: 25,
-			final: 25,
-		});
+		const result = await updatePayoutStructure('1234', { q1: 25, q2: 25, q3: 25, final: 25 });
 		expect(result).toEqual({ success: false, error: 'No party loaded' });
 	});
 
-	it('returns error when party is not filling', async () => {
-		for (const status of ['active', 'complete', 'locked'] as const) {
-			cleanup();
-			party.set(createMockParty({ status }));
-			const result = await updatePayoutStructure('1234', {
-				q1: 25,
-				q2: 25,
-				q3: 25,
-				final: 25,
-			});
-			expect(result).toEqual({ success: false, error: 'Grid is already locked' });
-		}
-	});
-
-	it('returns error when PIN is wrong (server rejects)', async () => {
+	it('updates local state on success', async () => {
 		party.set(createMockParty());
 		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'invalid party or PIN' },
+			data: {
+				ok: true,
+				party: createMockParty({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 }),
+			},
+			error: null,
 		});
 
-		const result = await updatePayoutStructure('9999', {
-			q1: 25,
-			q2: 25,
-			q3: 25,
-			final: 25,
-		});
-		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-	});
-
-	it('returns Invalid PIN when server returns the null sentinel with no error (033)', async () => {
-		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
-		// increment commits. PostgREST surfaces a NULL `RETURNS parties` value as a
-		// row object with all-null columns (id included), not bare null — cover
-		// both shapes so both predicate operands are exercised.
-		for (const data of [null, { id: null }]) {
-			cleanup();
-			party.set(createMockParty());
-			mockSupabaseClient.rpc.mockResolvedValueOnce({ data, error: null });
-
-			const result = await updatePayoutStructure('9999', {
-				q1: 25,
-				q2: 25,
-				q3: 25,
-				final: 25,
-			});
-			expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		}
-	});
-
-	it('returns error when splits do not sum to 100', async () => {
-		party.set(createMockParty({ host_pin: '1234' }));
-		const result = await updatePayoutStructure('1234', {
-			q1: 25,
-			q2: 25,
-			q3: 25,
-			final: 20,
-		});
-		expect(result).toEqual({ success: false, error: 'Splits must add up to 100%' });
-	});
-
-	it('updates local state on success', async () => {
-		const updatedParty = createMockParty({
-			split_q1: 10,
-			split_q2: 20,
-			split_q3: 30,
-			split_final: 40,
-		});
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: updatedParty, error: null });
-
-		const result = await updatePayoutStructure('1234', {
-			q1: 10,
-			q2: 20,
-			q3: 30,
-			final: 40,
-		});
+		const result = await updatePayoutStructure('1234', { q1: 10, q2: 20, q3: 30, final: 40 });
 
 		expect(result).toEqual({ success: true });
-		const p = get(party);
-		expect(p?.split_q1).toBe(10);
-		expect(p?.split_q2).toBe(20);
-		expect(p?.split_q3).toBe(30);
-		expect(p?.split_final).toBe(40);
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
+		expect(get(party)).toMatchObject({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_update_payouts', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
 			p_split_q1: 10,
@@ -211,49 +220,14 @@ describe('updatePayoutStructure', () => {
 		});
 	});
 
-	it('returns error on Supabase error', async () => {
+	it.each([
+		['wrong_status', undefined, 'Grid is already locked'],
+		['invalid_input', 'splits', 'Each split must be 0–100% and they must add up to 100%.'],
+	])('maps %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'DB error' },
-		});
-
-		const result = await updatePayoutStructure('1234', {
-			q1: 10,
-			q2: 20,
-			q3: 30,
-			final: 40,
-		});
-
-		expect(result).toEqual({
-			success: false,
-			error: 'DB error',
-		});
-	});
-
-	it('returns error when PIN is wrong', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'invalid party or PIN' },
-		});
-
-		const result = await updatePayoutStructure('9999', {
-			q1: 10,
-			q2: 20,
-			q3: 30,
-			final: 40,
-		});
-
-		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('update_payout_structure', {
-			p_party_id: 'test-party-id',
-			p_pin: '9999',
-			p_split_q1: 10,
-			p_split_q2: 20,
-			p_split_q3: 30,
-			p_split_final: 40,
-		});
+		refuse(code, field);
+		const result = await updatePayoutStructure('1234', { q1: 25, q2: 25, q3: 25, final: 20 });
+		expect(result).toEqual({ success: false, error: copy });
 	});
 });
 
@@ -406,141 +380,65 @@ describe('removePlayer', () => {
 		expect(result).toEqual({ success: false, removedCount: 0, error: 'No party loaded' });
 	});
 
-	it('returns error when party is not filling', async () => {
-		party.set(createMockParty({ status: 'active' }));
-		const result = await removePlayer('1234', 'alice');
-		expect(result).toEqual({
-			success: false,
-			removedCount: 0,
-			error: 'Cannot remove players after grid is locked',
-		});
-	});
-
-	it('returns error when PIN is wrong (server rejects)', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'invalid party or PIN' },
-		});
-
-		const result = await removePlayer('9999', 'alice');
-		expect(result).toEqual({ success: false, removedCount: 0, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
-			p_party_id: 'test-party-id',
-			p_pin: '9999',
-			p_player_name_lower: 'alice',
-		});
-	});
-
-	it('returns Invalid PIN when server returns a null sentinel with no error (033)', async () => {
-		// Migration 033: PIN failure RETURNs NULL instead of RAISE so the throttle
-		// increment commits. NULL is distinct from a legitimate removed-count of 0;
-		// the client maps the null sentinel to 'Invalid PIN' and does NOT report a
-		// silent success.
-		party.set(createMockParty());
-		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: null });
-
-		const result = await removePlayer('9999', 'alice');
-		expect(result).toEqual({ success: false, removedCount: 0, error: 'Invalid PIN' });
-		// Local state must NOT be mutated on a rejected PIN.
-		expect(get(squares)[0].player_name).toBe('Alice');
-	});
-
 	it('removes player squares and updates local state', async () => {
 		party.set(createMockParty());
 		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-			}),
-			createMockSquare(0, 1, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-			}),
-			createMockSquare(0, 2, {
-				player_name: 'Bob',
-				player_name_lower: 'bob',
-			}),
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 2, { player_name: 'Bob', player_name_lower: 'bob' }),
 		]);
-
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 2, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 2 }, error: null });
 
 		const result = await removePlayer('1234', 'alice');
 
 		expect(result).toEqual({ success: true, removedCount: 2 });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('remove_player', {
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_remove_player', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
-			p_player_name_lower: 'alice',
+			p_player_name: 'alice',
 		});
-		const currentSquares = get(squares);
-		expect(currentSquares[0].player_name).toBeNull();
-		expect(currentSquares[1].player_name).toBeNull();
-		expect(currentSquares[2].player_name).toBe('Bob');
+		expect(get(squares).map((s) => s.player_name)).toEqual([null, null, 'Bob']);
 	});
 
-	it('clears an active player filter via the game-state subscription alone (FIX 5)', async () => {
-		// Guards the deletion of removePlayer's former "belt and braces" explicit
-		// filter clear: removing a player must still null a filter pointed at them,
-		// handled solely by playerSummary's self-clearing subscription in game-state.ts.
+	it('clears an active player filter pointed at the removed player', async () => {
 		party.set(createMockParty());
 		squares.set([
 			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
 			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
 		]);
 		selectedPlayerFilter.set('alice');
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
 
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: 1, error: null });
+		await removePlayer('1234', 'alice');
 
-		const result = await removePlayer('1234', 'alice');
-
-		expect(result).toEqual({ success: true, removedCount: 1 });
-		// Alice owns zero squares now → the subscription cleared the filter.
 		expect(get(selectedPlayerFilter)).toBeNull();
 	});
 
-	it('returns error on Supabase error', async () => {
+	it('leaves local squares alone when refused', async () => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message: 'DB error' } });
+		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+		refuse('invalid_pin');
 
-		const result = await removePlayer('1234', 'alice');
+		const result = await removePlayer('9999', 'alice');
+
 		expect(result).toEqual({
 			success: false,
 			removedCount: 0,
-			error: 'DB error',
+			error: 'Incorrect PIN. Please try again.',
 		});
+		expect(get(squares)[0].player_name).toBe('Alice');
 	});
 
-	it('humanizes server locked-state errors', async () => {
+	it.each([
+		['wrong_status', undefined, 'Cannot remove players after grid is locked'],
+		['invalid_input', 'player_name', 'Player name is required'],
+	])('maps %s to its copy', async (code, field, copy) => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'players can only be removed before the grid is locked' },
-		});
-
-		const result = await removePlayer('1234', 'alice');
-
-		expect(result).toEqual({
+		refuse(code, field);
+		expect(await removePlayer('1234', 'alice')).toEqual({
 			success: false,
 			removedCount: 0,
-			error: 'Cannot remove players after grid is locked',
-		});
-	});
-
-	it('humanizes missing player-name errors', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({
-			data: null,
-			error: { message: 'player name must be provided' },
-		});
-
-		const result = await removePlayer('1234', '');
-
-		expect(result).toEqual({
-			success: false,
-			removedCount: 0,
-			error: 'Player name is required',
+			error: copy,
 		});
 	});
 });
@@ -555,59 +453,35 @@ describe('deleteParty', () => {
 		expect(result).toEqual({ success: false, error: 'No party loaded' });
 	});
 
-	it('returns error when PIN is wrong (RPC returns false)', async () => {
-		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: false, error: null });
-
-		const result = await deleteParty('9999');
-		expect(result).toEqual({ success: false, error: 'Invalid PIN' });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('delete_party', {
-			p_party_id: 'test-party-id',
-			p_pin: '9999',
-		});
-	});
-
 	it('returns success on successful delete', async () => {
 		party.set(createMockParty());
-		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: true, error: null });
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
 
-		const result = await deleteParty('1234');
-		expect(result).toEqual({ success: true });
-		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('delete_party', {
+		expect(await deleteParty('1234')).toEqual({ success: true });
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_delete_party', {
 			p_party_id: 'test-party-id',
 			p_pin: '1234',
 		});
 	});
 });
 
-describe('lock / score / delete: RPC error copy', () => {
+describe('updateScore: RPC error copy', () => {
 	beforeEach(() => {
 		cleanup();
 	});
 
-	it.each([
-		['lockParty', () => lockParty('1234'), 'Failed to lock party. Please try again.'],
-		[
-			'updateScore',
-			() => updateScore('1234', 'q1', 14, 7),
-			'Failed to update score. Please try again.',
-		],
-		['deleteParty', () => deleteParty('1234'), 'Failed to delete party. Please try again.'],
-	])(
-		'%s passes the humanized RPC error through, generic copy only as fallback',
-		async (_name, call, generic) => {
-			party.set(createMockParty({ status: 'active' }));
-			const rejectWith = (message: string) =>
-				mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
+	it('passes the humanized RPC error through, generic copy only as fallback', async () => {
+		party.set(createMockParty({ status: 'active' }));
+		const rejectWith = (message: string) =>
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: { message } });
 
-			rejectWith('DB error');
-			expect(await call()).toEqual({ success: false, error: 'DB error' });
+		rejectWith('DB error');
+		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({ success: false, error: 'DB error' });
 
-			rejectWith('ERROR:  permission denied for function');
-			expect(await call()).toEqual({ success: false, error: 'permission denied for function' });
-
-			rejectWith('');
-			expect(await call()).toEqual({ success: false, error: generic });
-		}
-	);
+		rejectWith('');
+		expect(await updateScore('1234', 'q1', 14, 7)).toEqual({
+			success: false,
+			error: 'Failed to update score. Please try again.',
+		});
+	});
 });

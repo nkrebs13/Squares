@@ -6,8 +6,6 @@ export const TOTAL_SQUARES = GRID_SIZE * GRID_SIZE;
 
 /** A host PIN is exactly this many digits. */
 export const PIN_LENGTH = 4;
-/** Wrong host-PIN guesses allowed in the admin PIN gate before it locks. */
-export const MAX_PIN_ATTEMPTS = 5;
 
 /**
  * Max length of a player or host name in the UI. Kept at 20 so names fit inside the
