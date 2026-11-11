@@ -1,55 +1,18 @@
 <script lang="ts">
 	import { winners, party, scores } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
+	import { quarterIndex, quarterInfo, quarterScore } from '$lib/quarters';
 	import { formatPrice } from '$lib/utils/format';
 
-	const quarterLabels: Record<Quarter, string> = {
-		q1: '1st Quarter',
-		q2: '2nd Quarter',
-		q3: '3rd Quarter',
-		final: 'Final',
-	};
-
-	const quarterOrder: Record<Quarter, number> = {
-		q1: 1,
-		q2: 2,
-		q3: 3,
-		final: 4,
-	};
-
 	const sortedWinners = $derived(
-		[...$winners].sort((a, b) => quarterOrder[a.quarter] - quarterOrder[b.quarter])
+		[...$winners].sort((a, b) => quarterIndex(a.quarter) - quarterIndex(b.quarter))
 	);
 
 	function getScoreForQuarter(quarter: Quarter): string {
-		if (!$scores || !$party) return '';
-		const teamRow = $party.team_row_name;
-		const teamCol = $party.team_col_name;
-
-		let rowScore: number | null = null;
-		let colScore: number | null = null;
-
-		switch (quarter) {
-			case 'q1':
-				rowScore = $scores.q1_row_score;
-				colScore = $scores.q1_col_score;
-				break;
-			case 'q2':
-				rowScore = $scores.q2_row_score;
-				colScore = $scores.q2_col_score;
-				break;
-			case 'q3':
-				rowScore = $scores.q3_row_score;
-				colScore = $scores.q3_col_score;
-				break;
-			case 'final':
-				rowScore = $scores.final_row_score;
-				colScore = $scores.final_col_score;
-				break;
-		}
-
-		if (rowScore === null || colScore === null) return '';
-		return `${teamRow} ${rowScore} - ${teamCol} ${colScore}`;
+		if (!$party) return '';
+		const { row, col } = quarterScore($scores, quarter);
+		if (row === null || col === null) return '';
+		return `${$party.team_row_name} ${row} - ${$party.team_col_name} ${col}`;
 	}
 </script>
 
@@ -61,7 +24,7 @@
 				<div class="flex justify-between items-center">
 					<div>
 						<div class="text-sm" style="color: var(--text-secondary)">
-							{quarterLabels[winner.quarter]}
+							{quarterInfo(winner.quarter).long}
 						</div>
 						<div class="text-lg font-bold">{winner.player_name}</div>
 					</div>

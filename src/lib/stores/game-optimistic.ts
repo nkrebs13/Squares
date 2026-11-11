@@ -1,3 +1,4 @@
+import { isFilling } from '$lib/partyStatus';
 import { get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
 import type { OptimisticOperation, Square } from '$lib/types';
@@ -33,7 +34,7 @@ type Cell = { row: number; col: number };
 function actionContext(action: 'claim' | 'unclaim') {
 	const currentParty = get(party);
 	const currentUser = get(userName);
-	if (!currentParty || !currentUser || currentParty.status !== 'filling') return null;
+	if (!currentParty || !currentUser || !isFilling(currentParty.status)) return null;
 	// No network to reach the server over: say so now rather than after the 10s timeout.
 	if (get(isOffline)) {
 		toast.error(`You're offline — reconnect to ${action} squares`);

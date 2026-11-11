@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { quarterInfo } from '$lib/quarters';
 	import { userName, normalizePlayerName } from '$lib/stores/user';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import type { Square as SquareType, Winner } from '$lib/types';
@@ -35,14 +36,6 @@
 		onclick,
 	}: Props = $props();
 
-	// Quarter display labels
-	const quarterLabels: Record<string, string> = {
-		q1: '1',
-		q2: '2',
-		q3: '3',
-		final: 'F',
-	};
-
 	// Get initials from a name (e.g., "John Doe" -> "JD", "john" -> "J")
 	function getInitials(name: string): string {
 		const parts = name.trim().split(/\s+/);
@@ -76,9 +69,7 @@
 				: '';
 
 		if (isWinner) {
-			const quarters = winners
-				.map((w) => (w.quarter === 'final' ? 'Final' : `Q${w.quarter.slice(1)}`))
-				.join(', ');
+			const quarters = winners.map((w) => quarterInfo(w.quarter).short).join(', ');
 			return `${position}Winner for ${quarters}, claimed by ${square.player_name || 'unknown player'}.`;
 		}
 		if (isLeading && square.player_name) {
@@ -127,7 +118,7 @@
 	{#if winners.length > 0}
 		<div class="quarter-badges">
 			{#each winners as w (w.quarter)}
-				<span class="quarter-badge">{quarterLabels[w.quarter]}</span>
+				<span class="quarter-badge">{quarterInfo(w.quarter).mark}</span>
 			{/each}
 		</div>
 	{/if}

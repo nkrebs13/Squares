@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isFilling } from '$lib/partyStatus';
 	import {
 		playerSummary,
 		availableCount,
@@ -40,7 +41,7 @@
 			<span class="player-count">{player.count}</span>
 		</button>
 	{/each}
-	{#if $party?.status === 'filling' && $availableCount > 0}
+	{#if isFilling($party?.status) && $availableCount > 0}
 		<div class="available-count">
 			{$availableCount} squares available
 		</div>

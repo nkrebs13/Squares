@@ -43,3 +43,8 @@ export function parseAmount(value: string): number | null {
 	const parsed = parseFloat(value);
 	return Math.round(parsed * 100) / 100;
 }
+
+/** "Row Team vs Col Team". */
+export function formatMatchup(rowTeam: string, colTeam: string): string {
+	return `${rowTeam} vs ${colTeam}`;
+}

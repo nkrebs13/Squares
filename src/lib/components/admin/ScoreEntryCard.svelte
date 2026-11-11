@@ -2,8 +2,9 @@
 	import { get } from 'svelte/store';
 	import { scores, updateScore } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
-	import { isGameInProgress, type Party, type Quarter, type Scores } from '$lib/types';
-	import { deriveNextQuarter, scoresForQuarter } from '$lib/utils/quarter';
+	import type { Party, Quarter, Scores } from '$lib/types';
+	import { isGameInProgress } from '$lib/partyStatus';
+	import { QUARTERS, nextQuarterToScore, quarterInfo, quarterScore } from '$lib/quarters';
 
 	interface Props {
 		party: Party;
@@ -18,13 +19,6 @@
 
 	const { party, storedPin, description, visible = true }: Props = $props();
 
-	const quarters: { value: Quarter; label: string }[] = [
-		{ value: 'q1', label: '1st Quarter' },
-		{ value: 'q2', label: '2nd Quarter' },
-		{ value: 'q3', label: '3rd Quarter' },
-		{ value: 'final', label: 'Final' },
-	];
-
 	const manualScores = $state({
 		quarter: 'q1' as Quarter,
 		rowScore: 0,
@@ -32,12 +26,12 @@
 	});
 	let isUpdatingScore = $state(false);
 
-	const nextQuarter = $derived.by(() => deriveNextQuarter($scores));
+	const nextQuarter = $derived.by(() => nextQuarterToScore($scores));
 
 	function syncManualScoreFields(s: Scores | null, quarter: Quarter) {
-		const currentScores = scoresForQuarter(s, quarter);
-		manualScores.rowScore = currentScores.row;
-		manualScores.colScore = currentScores.col;
+		const { row, col } = quarterScore(s, quarter);
+		manualScores.rowScore = row ?? 0;
+		manualScores.colScore = col ?? 0;
 	}
 
 	// The quarter select's own change handler — a direct user action, so it's
@@ -75,9 +69,7 @@
 		);
 
 		if (result.success) {
-			toast.success(
-				`Score updated for ${manualScores.quarter === 'final' ? 'Final' : `Q${manualScores.quarter.slice(1)}`}!`
-			);
+			toast.success(`Score updated for ${quarterInfo(manualScores.quarter).short}!`);
 			// Auto-advance to the next unscored quarter after a discrete, successful
 			// save. WITHOUT this, the selector stays on the just-saved quarter and the
 			// host's next submit silently overwrites it (recomputing that quarter's
@@ -88,7 +80,7 @@
 			// updateScore has just set the store; read it with get() because the
 			// runes-batched $scores binding may not have flushed yet.
 			const reloadedScores = get(scores);
-			const next = deriveNextQuarter(reloadedScores);
+			const next = nextQuarterToScore(reloadedScores);
 			manualScores.quarter = next;
 			syncManualScoreFields(reloadedScores, next);
 		} else {
@@ -115,8 +107,8 @@
 					class="input mt-1"
 					onchange={handleQuarterSelected}
 				>
-					{#each quarters as q (q.value)}
-						<option value={q.value}>{q.label}</option>
+					{#each QUARTERS as q (q.key)}
+						<option value={q.key}>{q.long}</option>
 					{/each}
 				</select>
 			</div>

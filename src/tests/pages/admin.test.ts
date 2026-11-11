@@ -148,10 +148,12 @@ describe('Admin Page - Score Entry', () => {
 			).toBeInTheDocument();
 		});
 
-		it('REGRESSION: displays "Active" instead of "Locked" in status display', () => {
+		it('shows a legacy locked party as active', () => {
 			renderAuthorizedAdmin({ status: 'locked' });
 
-			expect(screen.getByText('Active')).toBeInTheDocument();
+			// Capitalized by CSS.
+			expect(screen.getByText('active')).toBeInTheDocument();
+			expect(screen.queryByText(/locked/i)).not.toBeInTheDocument();
 		});
 	});
 

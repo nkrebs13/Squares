@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { isFilling, hasDrawnNumbers } from '$lib/partyStatus';
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
-	import { isGameInProgress } from '$lib/types';
+
 	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
 	import { formatKickoff } from '$lib/utils/datetime';
-	import { formatPrice } from '$lib/utils/format';
+	import { formatMatchup, formatPrice } from '$lib/utils/format';
 	import ScoreBoard from './ScoreBoard.svelte';
 	import Winners from './Winners.svelte';
 	import PlayerStats from './PlayerStats.svelte';
@@ -40,7 +41,9 @@
 			<h3 class="font-medium mb-2 text-secondary">Game</h3>
 		{/if}
 		<div class="font-semibold">{$party.event_name}</div>
-		<div class="mt-1 text-secondary">{$party.team_row_name} vs {$party.team_col_name}</div>
+		<div class="mt-1 text-secondary">
+			{formatMatchup($party.team_row_name, $party.team_col_name)}
+		</div>
 		{#if kickoff}
 			<div class="mt-1 text-muted">{kickoff}</div>
 		{/if}
@@ -48,21 +51,21 @@
 {/if}
 
 <!-- Status banner -->
-{#if $party?.status === 'filling'}
+{#if isFilling($party?.status)}
 	<div class="mb-4 status-banner status-banner-filling">
 		<span class="font-medium">{$filledCount}/100</span> squares filled
 		{#if $isGridFull}
 			<span class="ml-2 text-success">• Ready to lock!</span>
 		{/if}
 	</div>
-{:else if isGameInProgress($party?.status) || $party?.status === 'complete'}
+{:else if hasDrawnNumbers($party?.status)}
 	<div class="mb-4">
 		<ScoreBoard />
 	</div>
 {/if}
 
 <!-- Winners -->
-{#if isGameInProgress($party?.status) || $party?.status === 'complete'}
+{#if hasDrawnNumbers($party?.status)}
 	<div class="mb-4">
 		<Winners />
 	</div>

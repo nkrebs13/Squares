@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isFilling } from '$lib/partyStatus';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Square from './Square.svelte';
@@ -47,7 +48,7 @@
 
 	// Pointer drag-select (see $lib/utils/dragSelect.svelte.ts)
 	const drag = new DragSelect({
-		canInteract: () => !!$userName && $party?.status === 'filling',
+		canInteract: () => !!$userName && isFilling($party?.status),
 		canSelectCell,
 		onCellClick: handleSquareClick,
 		// Non-blocking optimistic batch claim
@@ -76,7 +77,7 @@
 	}
 
 	function canSelectCell(row: number, col: number): boolean {
-		if (!$userName || $party?.status !== 'filling') return false;
+		if (!$userName || !isFilling($party?.status)) return false;
 		const square = getSquare(row, col);
 		return square !== undefined && square.player_name === null;
 	}
@@ -94,7 +95,7 @@
 	}
 
 	function handleSquareClick(row: number, col: number) {
-		if (!$userName || $party?.status !== 'filling') return;
+		if (!$userName || !isFilling($party?.status)) return;
 
 		const square = getSquare(row, col);
 		if (!square) return;
@@ -277,7 +278,7 @@
 										size={effectiveCellSize}
 										rowNumber={$numbers?.row_numbers[row]}
 										colNumber={$numbers?.col_numbers[col]}
-										isLocked={$party?.status !== 'filling'}
+										isLocked={!isFilling($party?.status)}
 										isSelected={drag.selectedCells.has(squareKey(row, col))}
 										isPending={isSquarePending(row, col)}
 										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}

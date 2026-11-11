@@ -11,11 +11,6 @@ export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
 // observability signal rather than a silent passthrough.
 export type GameStatus = 'pregame' | 'in_progress' | 'halftime' | 'final';
 
-/** Status values where the game is in progress (grid locked, scores can be entered) */
-export function isGameInProgress(status: PartyStatus | undefined): boolean {
-	return status === 'active' || status === 'locked';
-}
-
 export interface Party {
 	id: string;
 	code: string;

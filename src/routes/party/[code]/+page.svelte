@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatMatchup } from '$lib/utils/format';
+	import { joinPath } from '$lib/utils/partyCode';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
@@ -42,7 +44,9 @@
 	}>();
 	const code = $derived($page.params.code ?? '');
 	let unsubscribe: (() => void) | null = null;
-	const matchupLabel = $derived($party ? `${$party.team_row_name} vs ${$party.team_col_name}` : '');
+	const matchupLabel = $derived(
+		$party ? formatMatchup($party.team_row_name, $party.team_col_name) : ''
+	);
 	const shareMeta = $derived($party ? partyToShareMetadata($party) : data.partyMeta);
 	const pageTitle = $derived(buildPartyPageTitle(shareMeta));
 	const pageDescription = $derived(buildPartyShareDescription(shareMeta));
@@ -92,7 +96,7 @@
 	onMount(async () => {
 		// Redirect to join if no name
 		if (!$userName) {
-			goto(`/join?code=${code}`);
+			goto(joinPath(code));
 			return;
 		}
 
