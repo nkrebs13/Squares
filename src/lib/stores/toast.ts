@@ -4,16 +4,17 @@ export interface Toast {
 	id: string;
 	message: string;
 	type: 'success' | 'error' | 'info';
-	duration?: number;
+	duration: number;
 }
 
 /** Errors stay up longer than confirmations so they can be read and acted on. */
 export const DEFAULT_TOAST_DURATION_MS = 3000;
 export const ERROR_TOAST_DURATION_MS = 6000;
 
+/** The store owns each toast's whole life; the container only animates entries in and out. */
 function createToastStore() {
 	const { subscribe, update } = writable<Toast[]>([]);
-
+	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 	let idCounter = 0;
 
 	function show(
@@ -22,19 +23,17 @@ function createToastStore() {
 		duration = DEFAULT_TOAST_DURATION_MS
 	) {
 		const id = `toast-${++idCounter}`;
-		const toast: Toast = { id, message, type, duration };
-
-		update((toasts) => [...toasts, toast]);
-
-		// Auto-remove after duration
-		setTimeout(() => {
-			remove(id);
-		}, duration + 300); // Extra time for exit animation
-
+		update((toasts) => [...toasts, { id, message, type, duration }]);
+		timers.set(
+			id,
+			setTimeout(() => remove(id), duration)
+		);
 		return id;
 	}
 
 	function remove(id: string) {
+		clearTimeout(timers.get(id));
+		timers.delete(id);
 		update((toasts) => toasts.filter((t) => t.id !== id));
 	}
 

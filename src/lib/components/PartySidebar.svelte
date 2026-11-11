@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { isFilling, hasDrawnNumbers } from '$lib/partyStatus';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
 
 	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
@@ -12,12 +14,8 @@
 	import PushOptIn from './PushOptIn.svelte';
 	import PlayerLegend from './PlayerLegend.svelte';
 
-	interface Props {
-		variant: 'mobile' | 'desktop';
-	}
-
-	const { variant }: Props = $props();
-	const isDesktop = $derived(variant === 'desktop');
+	// Above the grid on mobile; a titled column with the player legend on desktop.
+	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 	const totalPot = $derived($party ? calculateTotalPot($party.square_price) : 0);
 	const payoutRows = $derived(
 		$party
@@ -37,7 +35,7 @@
 {#if $party}
 	{@const kickoff = formatKickoff($party.kickoff_at)}
 	<div class="mb-4 card text-sm">
-		{#if isDesktop}
+		{#if desktop.current}
 			<h3 class="font-medium mb-2 text-secondary">Game</h3>
 		{/if}
 		<div class="font-semibold">{$party.event_name}</div>
@@ -89,7 +87,7 @@
 <!-- Prize info -->
 {#if $party}
 	<div class="card text-sm">
-		{#if isDesktop}
+		{#if desktop.current}
 			<h3 class="font-medium mb-3 text-secondary">Prize Split</h3>
 		{/if}
 		<div class="grid grid-cols-4 gap-2 text-center">
@@ -111,8 +109,7 @@
 	</div>
 {/if}
 
-<!-- Player Legend (desktop only) -->
-{#if isDesktop}
+{#if desktop.current}
 	<div class="mt-4">
 		<PlayerLegend />
 	</div>

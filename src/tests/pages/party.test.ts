@@ -14,6 +14,7 @@ import {
 import { userName } from '$lib/stores/user';
 import type { Square } from '$lib/types';
 import { sessionStorageMock } from '../setup';
+import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
 // Mock $app/stores
 vi.mock('$app/stores', async () => {
@@ -300,7 +301,7 @@ describe('Party Page', () => {
 		});
 	});
 
-	describe('Gesture Help', () => {
+	describe('Layout and gesture help', () => {
 		beforeEach(() => {
 			isLoading.set(false);
 			error.set(null);
@@ -317,16 +318,46 @@ describe('Party Page', () => {
 			expect(screen.getByRole('button', { name: /show gesture help/i })).toBeInTheDocument();
 		});
 
-		it('mounts the gesture hint outside the lg:hidden wrapper so the help button works on desktop', async () => {
-			// Regression: the hint used to live inside `<div class="lg:hidden">` alongside the
-			// mobile sidebar, so at desktop widths the always-visible "?" button called reopen()
-			// on a display:none element. jsdom applies no CSS, so only the DOM relationship can
-			// catch this — assert the hint has no lg:hidden ancestor.
-			hintAlreadySeen(false);
-			render(PartyPage);
+		it('mounts the sidebar once, above the grid, in the mobile layout', () => {
+			const { container } = render(PartyPage);
+			expect(screen.getAllByTestId('party-payout-q1')).toHaveLength(1);
+			expect(container.querySelector('aside')).toBeNull();
+		});
 
-			const hint = await screen.findByLabelText('Dismiss hint');
-			expect(hint.closest('.lg\\:hidden')).toBeNull();
+		it('mounts the sidebar once, in a side column, in the desktop layout', () => {
+			window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+				matches: query === DESKTOP_LAYOUT_QUERY,
+				media: query,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+			}));
+			try {
+				render(PartyPage);
+				const payouts = screen.getAllByTestId('party-payout-q1');
+				expect(payouts).toHaveLength(1);
+				expect(payouts[0].closest('aside')).not.toBeNull();
+			} finally {
+				// @ts-expect-error - drop the override; setup.ts reinstalls its default
+				delete window.matchMedia;
+			}
+		});
+
+		it('opens the gesture hint from the help button in the desktop layout', async () => {
+			hintAlreadySeen(true);
+			window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+				matches: query === DESKTOP_LAYOUT_QUERY,
+				media: query,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+			}));
+			try {
+				render(PartyPage);
+				await userEvent.setup().click(screen.getByRole('button', { name: /show gesture help/i }));
+				expect(await screen.findByLabelText('Dismiss hint')).toBeInTheDocument();
+			} finally {
+				// @ts-expect-error - drop the override; setup.ts reinstalls its default
+				delete window.matchMedia;
+			}
 		});
 
 		it('re-shows the gesture hint when clicked, after it was dismissed', async () => {

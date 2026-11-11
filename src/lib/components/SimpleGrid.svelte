@@ -2,8 +2,10 @@
 	import { isFilling } from '$lib/partyStatus';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import Square from './Square.svelte';
-	import MobilePlayerFilter from './MobilePlayerFilter.svelte';
+	import PlayerLegend from './PlayerLegend.svelte';
 	import ZoomToggle from './ZoomToggle.svelte';
 	import {
 		squares,
@@ -46,6 +48,7 @@
 	// The scroll container's content width: what the 11 columns have to fit in.
 	let containerWidth = $state(0);
 	let zoomState = $state<ZoomState>('fit');
+	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 
 	// Pointer drag-select (see $lib/utils/dragSelect.svelte.ts)
 	const drag = new DragSelect({
@@ -331,10 +334,9 @@
 			{/if}
 		</div>
 
-		<!-- Players Section (mobile only - desktop uses sidebar's PlayerLegend) -->
-		<div class="lg:hidden">
-			<MobilePlayerFilter />
-		</div>
+		{#if !desktop.current}
+			<PlayerLegend collapsible />
+		{/if}
 	</div>
 
 	<!-- Selection indicator during drag -->
