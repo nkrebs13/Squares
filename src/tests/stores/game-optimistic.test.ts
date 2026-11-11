@@ -14,7 +14,14 @@ import {
 import { userName } from '$lib/stores/user';
 import { toast } from '$lib/stores/toast';
 import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
-import { createEmptyGrid, createMockParty, createMockSquare, mockThenable } from '../factories';
+import {
+	createEmptyGrid,
+	createMockParty,
+	createMockSquare,
+	mockDeferredThenable,
+	mockThenable,
+} from '../factories';
+import { applySquareUpdate } from '$lib/stores/game-pending';
 
 function mockRpcResult(result: { data?: unknown; error?: { message: string } }) {
 	mockSupabaseClient.rpc.mockReturnValue(mockThenable(result));
@@ -156,6 +163,27 @@ describe('claimSquareOptimistic', () => {
 		expect(latestErrorToast()).toBe('Square already claimed');
 		expect(get(squares)[0].player_name).toBe('Bob');
 		expect(get(pendingOperations).size).toBe(0);
+	});
+
+	it('still says "already claimed" when the winner\'s update arrived before our answer', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		const deferred = mockDeferredThenable();
+		mockSupabaseClient.rpc.mockReturnValue(deferred.value);
+
+		claimSquareOptimistic(0, 0);
+		applySquareUpdate({
+			...createMockSquare(0, 0),
+			player_name: 'Bob',
+			player_name_lower: 'bob',
+		});
+		deferred.resolve({
+			data: { ok: true, claimed: [], taken: [{ row: 0, col: 0, player_name: 'Bob' }] },
+			error: null,
+		});
+
+		expect(latestErrorToast()).toBe('Square already claimed');
+		expect(get(squares)[0].player_name).toBe('Bob');
 	});
 
 	it('rolls back and says so when the grid was locked meanwhile', () => {

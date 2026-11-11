@@ -6,6 +6,7 @@ import {
 	scores,
 	winners,
 	gameScores,
+	selectedPlayerFilter,
 	isLoading,
 	error,
 } from './game-state';
@@ -201,6 +202,7 @@ export function cleanup() {
 	scores.set(null);
 	winners.set([]);
 	gameScores.set(null);
+	selectedPlayerFilter.set(null);
 	isLoading.set(true);
 	error.set(null);
 }

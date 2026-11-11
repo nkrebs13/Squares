@@ -254,10 +254,13 @@ BEGIN
        OR jsonb_array_length(p_cells) > 100
        OR EXISTS (
            SELECT 1 FROM jsonb_array_elements(p_cells) AS c
-           WHERE jsonb_typeof(c -> 'row') IS DISTINCT FROM 'number'
-              OR jsonb_typeof(c -> 'col') IS DISTINCT FROM 'number'
-              OR (c ->> 'row')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-              OR (c ->> 'col')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+           -- CASE so the casts only run on numbers (OR does not short-circuit).
+           WHERE CASE
+               WHEN jsonb_typeof(c -> 'row') = 'number' AND jsonb_typeof(c -> 'col') = 'number'
+                   THEN (c ->> 'row')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+                     OR (c ->> 'col')::NUMERIC NOT IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+               ELSE TRUE
+           END
        ) THEN
         RETURN jsonb_build_object('ok', false, 'error', 'invalid_input', 'field', 'cells');
     END IF;
@@ -286,19 +289,24 @@ BEGIN
           AND s.player_name IS NULL
         RETURNING s.row_num, s.col_num
     )
-    SELECT
-        COALESCE((SELECT jsonb_agg(jsonb_build_object('row', row_num, 'col', col_num)) FROM claimed), '[]'),
-        COALESCE((
-            SELECT jsonb_agg(jsonb_build_object('row', r.row_num, 'col', r.col_num,
-                                                'player_name', s.player_name))
-            FROM requested r
-            JOIN squares s ON s.party_id = p_party_id
-                          AND s.row_num = r.row_num AND s.col_num = r.col_num
-            WHERE NOT EXISTS (
-                SELECT 1 FROM claimed c WHERE c.row_num = r.row_num AND c.col_num = r.col_num
-            )
-        ), '[]')
-    INTO v_claimed, v_taken;
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('row', row_num, 'col', col_num)), '[]')
+    INTO v_claimed
+    FROM claimed;
+
+    -- A separate statement takes a fresh snapshot, so a cell another claimer
+    -- won while we waited on its row lock shows that claimer as the owner.
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('row', s.row_num, 'col', s.col_num,
+                                                 'player_name', s.player_name)), '[]')
+    INTO v_taken
+    FROM squares s
+    WHERE s.party_id = p_party_id
+      AND (s.row_num, s.col_num) IN (
+          SELECT (c ->> 'row')::INT, (c ->> 'col')::INT FROM jsonb_array_elements(p_cells) AS c
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements(v_claimed) AS k
+          WHERE (k ->> 'row')::INT = s.row_num AND (k ->> 'col')::INT = s.col_num
+      );
 
     RETURN jsonb_build_object('ok', true, 'claimed', v_claimed, 'taken', v_taken);
 END;
@@ -2002,10 +2010,6 @@ ALTER TABLE "public"."winners" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
-
-
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."game_scores";

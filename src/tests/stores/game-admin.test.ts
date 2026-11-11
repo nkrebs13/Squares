@@ -388,6 +388,14 @@ describe('removePlayer', () => {
 	});
 });
 
+describe('cleanup', () => {
+	it('forgets the picked player filter when leaving a party', () => {
+		selectedPlayerFilter.set('alice');
+		cleanup();
+		expect(get(selectedPlayerFilter)).toBeNull();
+	});
+});
+
 describe('deleteParty', () => {
 	beforeEach(() => {
 		cleanup();

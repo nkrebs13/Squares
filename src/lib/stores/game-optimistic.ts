@@ -140,15 +140,16 @@ function claimCells(cells: Cell[]): void {
 
 			// Cells someone else got first: show their owner now rather than waiting
 			// for their postgres_changes event.
-			let lost = 0;
 			for (const cell of data.taken) {
 				const op = ops.find((o) => o.row === cell.row && o.col === cell.col);
 				const owner = cell.player_name;
 				const restoreTo = owner
 					? { player_name: owner, player_name_lower: normalizePlayerName(owner), claimed_at: null }
 					: undefined;
-				if (op && reject(op, 'claim_rejected', ctx.user, restoreTo)) lost++;
+				// No-op when the winner's postgres_changes event already replaced our op.
+				if (op) reject(op, 'claim_rejected', ctx.user, restoreTo);
 			}
+			const lost = data.taken.length;
 
 			if (single) {
 				if (lost) toast.error('Square already claimed');

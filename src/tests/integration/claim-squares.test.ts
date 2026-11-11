@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
 import {
 	createTestParty,
 	ensureSupabaseReady,
@@ -93,6 +94,7 @@ describe('claim_squares', () => {
 		['a cell off the grid', 'Alice', [{ row: 10, col: 0 }], 'cells'],
 		['a fractional cell', 'Alice', [{ row: 1.5, col: 0 }], 'cells'],
 		['a malformed cell', 'Alice', [{ row: '1', col: 0 }], 'cells'],
+		['a non-numeric cell', 'Alice', [{ row: 'x', col: 0 }], 'cells'],
 	])('refuses %s', async (_label, name, cells, field) => {
 		const party = await newParty();
 		expect(await claim(party, name as string, cells)).toEqual({
@@ -100,5 +102,45 @@ describe('claim_squares', () => {
 			error: 'invalid_input',
 			field,
 		});
+	});
+
+	it('names the winner of a cell another claimer took while we waited for it', async () => {
+		const party = await newParty();
+		const url =
+			process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+		const rival = new pg.Client({ connectionString: url });
+		const us = new pg.Client({ connectionString: url });
+		await rival.connect();
+		await us.connect();
+		try {
+			await rival.query('BEGIN');
+			await rival.query(
+				`UPDATE squares SET player_name = 'Bob', claimed_at = NOW()
+				 WHERE party_id = $1 AND row_num = 0 AND col_num = 0`,
+				[party.id]
+			);
+
+			const ours = us.query('SELECT claim_squares($1, $2, $3::jsonb) AS result', [
+				party.id,
+				'Alice',
+				JSON.stringify([
+					{ row: 0, col: 0 },
+					{ row: 0, col: 1 },
+				]),
+			]);
+			// Our UPDATE is now blocked on Bob's row lock.
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			await rival.query('COMMIT');
+
+			const { rows } = await ours;
+			expect(rows[0].result).toEqual({
+				ok: true,
+				claimed: [{ row: 0, col: 1 }],
+				taken: [{ row: 0, col: 0, player_name: 'Bob' }],
+			});
+		} finally {
+			await rival.end();
+			await us.end();
+		}
 	});
 });
