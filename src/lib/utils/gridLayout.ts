@@ -1,3 +1,4 @@
+import { squareKey } from './squareKey';
 import { GRID_SIZE } from '$lib/constants';
 import type { Square, Winner } from '$lib/types';
 
@@ -42,14 +43,10 @@ export function getHeaderHeight(effectiveCellSize: number): number {
 	return Math.max(Math.floor(effectiveCellSize * HEADER_HEIGHT_FACTOR), MIN_HEADER_HEIGHT);
 }
 
-export function cellKey(row: number, col: number): string {
-	return `${row}-${col}`;
-}
-
 export function buildSquareMap(squares: Square[]): Map<string, Square> {
 	const map = new Map<string, Square>();
 	for (const s of squares) {
-		map.set(cellKey(s.row_num, s.col_num), s);
+		map.set(squareKey(s.row_num, s.col_num), s);
 	}
 	return map;
 }
@@ -59,7 +56,7 @@ export function buildWinnerMap(winners: Winner[], hasNumbers: boolean): Map<stri
 	const map = new Map<string, Winner[]>();
 	if (!hasNumbers) return map;
 	for (const w of winners) {
-		const key = cellKey(w.winning_row, w.winning_col);
+		const key = squareKey(w.winning_row, w.winning_col);
 		const existing = map.get(key) || [];
 		existing.push(w);
 		map.set(key, existing);

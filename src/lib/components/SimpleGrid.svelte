@@ -15,7 +15,7 @@
 		pendingOperations,
 		mySquareCount,
 		amountOwed,
-		selectedPlayerFilter,
+		activePlayerFilter,
 		leadingSquare,
 	} from '$lib/stores/game';
 	import { theme } from '$lib/stores/theme';
@@ -25,10 +25,10 @@
 	import { APP_CONFIG } from '$lib/config';
 	import { GRID_SIZE } from '$lib/constants';
 	import { DragSelect } from '$lib/utils/dragSelect.svelte';
+	import { squareKey } from '$lib/utils/squareKey';
 	import {
 		buildSquareMap,
 		buildWinnerMap,
-		cellKey,
 		getEffectiveCellSize,
 		getFitCellSize,
 		getHeaderHeight,
@@ -68,11 +68,11 @@
 	const winnerMap = $derived(buildWinnerMap($winners, !!$numbers));
 
 	function getSquare(row: number, col: number): SquareType | undefined {
-		return squareMap.get(cellKey(row, col));
+		return squareMap.get(squareKey(row, col));
 	}
 
 	function getWinners(row: number, col: number): Winner[] {
-		return winnerMap.get(cellKey(row, col)) || [];
+		return winnerMap.get(squareKey(row, col)) || [];
 	}
 
 	function canSelectCell(row: number, col: number): boolean {
@@ -83,14 +83,14 @@
 
 	// Check if a square should be highlighted based on player filter
 	function isSquareHighlighted(square: SquareType): boolean {
-		if (!$selectedPlayerFilter) return false;
-		return square.player_name_lower === $selectedPlayerFilter;
+		if (!$activePlayerFilter) return false;
+		return square.player_name_lower === $activePlayerFilter;
 	}
 
 	// Check if a square should be dimmed
 	function isSquareDimmed(square: SquareType): boolean {
-		if (!$selectedPlayerFilter) return false;
-		return square.player_name_lower !== $selectedPlayerFilter;
+		if (!$activePlayerFilter) return false;
+		return square.player_name_lower !== $activePlayerFilter;
 	}
 
 	function handleSquareClick(row: number, col: number) {
@@ -115,7 +115,7 @@
 
 	// Check if a square has a pending operation
 	function isSquarePending(row: number, col: number): boolean {
-		return $pendingOperations.has(cellKey(row, col));
+		return $pendingOperations.has(squareKey(row, col));
 	}
 
 	onMount(() => {
@@ -278,7 +278,7 @@
 										rowNumber={$numbers?.row_numbers[row]}
 										colNumber={$numbers?.col_numbers[col]}
 										isLocked={$party?.status !== 'filling'}
-										isSelected={drag.selectedCells.has(cellKey(row, col))}
+										isSelected={drag.selectedCells.has(squareKey(row, col))}
 										isPending={isSquarePending(row, col)}
 										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}
 										winners={getWinners(row, col)}

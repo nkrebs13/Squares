@@ -162,7 +162,7 @@ describe('broadcast handler: claim_intent', () => {
 		const ops = get(pendingOperations);
 		const op = ops.get('0-0');
 		expect(op).toBeDefined();
-		expect(op?.id).toMatch(/^remote-/);
+		expect(op).toMatchObject({ origin: 'remote', clientId: 'remote-client-123', type: 'claim' });
 	});
 });
 

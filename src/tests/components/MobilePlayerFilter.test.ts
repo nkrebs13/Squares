@@ -13,7 +13,7 @@ const { mockPlayerSummary, mockSelectedFilter } = vi.hoisted(() => {
 
 vi.mock('$lib/stores/game', () => ({
 	playerSummary: { subscribe: mockPlayerSummary.subscribe },
-	selectedPlayerFilter: { subscribe: mockSelectedFilter.subscribe },
+	activePlayerFilter: { subscribe: mockSelectedFilter.subscribe },
 }));
 
 vi.mock('$lib/components/PlayerLegend.svelte', () => ({

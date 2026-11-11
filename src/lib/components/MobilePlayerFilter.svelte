@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { playerSummary, selectedPlayerFilter } from '$lib/stores/game';
+	import { playerSummary, activePlayerFilter } from '$lib/stores/game';
 	import PlayerLegend from './PlayerLegend.svelte';
 
 	// Accordion state local to mobile presentation. The first interaction with
@@ -36,7 +36,7 @@
 		>
 			<span class="players-label">
 				Players ({$playerSummary.length})
-				{#if $selectedPlayerFilter}
+				{#if $activePlayerFilter}
 					<span class="filter-badge">filtering</span>
 				{:else if !hasInteractedWithPlayers && isPlayersExpanded}
 					<span class="hint-badge">tap to highlight</span>

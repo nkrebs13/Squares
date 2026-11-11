@@ -23,8 +23,6 @@ import {
 	party,
 	scores,
 	winners,
-	selectedPlayerFilter,
-	restoreSelectedPlayerFilter,
 	applyPartyUpdate,
 	applyNumbersUpdate,
 	applyScoresUpdate,
@@ -34,13 +32,14 @@ import {
 	applyGameScoresUpdate,
 } from './game-state';
 import {
+	addPendingOps,
 	applySquareUpdate,
 	clearSquareFields,
+	newPendingOp,
 	rollbackPendingOpIf,
-	schedulePendingTimeout,
-	setPendingOp,
-	snapshotSquare,
 } from './game-pending';
+import { normalizePlayerName } from './user';
+import { parseSquareKey } from '$lib/utils/squareKey';
 
 /**
  * Per-channel reconnection state for handling connection failures.
@@ -258,100 +257,47 @@ function teardownChannels() {
 	}
 }
 
-// Helper to check if an operation is from this client
-function isOwnBroadcast(message: BroadcastMessage): boolean {
-	return message.clientId === clientId;
-}
-
-// Handle broadcast messages from other clients
+// Another tab's claim or unclaim. Its intent is previewed as a remote pending
+// op until postgres_changes confirms it, the sender reports a rejection, or the
+// op's timeout heals it silently.
 function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 	const message = payload.payload;
+	if (message.clientId === clientId) return;
 
-	// Ignore our own broadcasts
-	if (isOwnBroadcast(message)) return;
-
-	const currentSquares = get(squares);
+	const cell = parseSquareKey(message.squareKey);
+	if (!cell) return;
 	const key = message.squareKey;
-	const [row, col] = key.split('-').map(Number);
+	const fromSender = (op: { origin: string; clientId: string }) =>
+		op.origin === 'remote' && op.clientId === message.clientId;
 
-	if (message.type === 'claim_intent') {
-		// Another user is claiming - show optimistically with pending state
-		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
-		if (!existingSquare || existingSquare.player_name) return; // Already claimed
+	if (message.type === 'claim_rejected' || message.type === 'unclaim_rejected') {
+		rollbackPendingOpIf(key, fromSender);
+		return;
+	}
 
-		// Add to pending operations (as "other user's pending")
-		setPendingOp(key, {
-			id: `remote-${message.clientId}-${key}`,
-			type: 'claim',
-			row,
-			col,
-			timestamp: message.timestamp,
-			originalState: snapshotSquare(existingSquare),
-		});
+	const square = get(squares).find((s) => s.row_num === cell.row && s.col_num === cell.col);
+	const claiming = message.type === 'claim_intent';
+	if (!square || Boolean(square.player_name) === claiming) return;
 
-		// Optimistically show the claim
-		squares.update((current) =>
-			current.map((s) =>
-				s.row_num === row && s.col_num === col
+	addPendingOps([
+		newPendingOp(claiming ? 'claim' : 'unclaim', square, message.timestamp, {
+			remoteClientId: message.clientId,
+		}),
+	]);
+	squares.update((current) =>
+		current.map((s) =>
+			s.row_num !== cell.row || s.col_num !== cell.col
+				? s
+				: claiming
 					? {
 							...s,
 							player_name: message.playerName,
-							player_name_lower: message.playerName.toLowerCase(),
-							claimed_at: new Date().toISOString(),
+							player_name_lower: normalizePlayerName(message.playerName),
+							claimed_at: new Date(message.timestamp).toISOString(),
 						}
-					: s
-			)
-		);
-
-		// Schedule timeout cleanup for remote pending operations
-		schedulePendingTimeout(key);
-	} else if (message.type === 'claim_rejected') {
-		// Another user's claim was rejected - remove ONLY that user's pending claim.
-		// Match on the full remote op id (remote-<clientId>-<key>) so a rejection from
-		// one client can never roll back a different client's still-valid pending preview.
-		rollbackPendingOpIf(key, (op) => op.id === `remote-${message.clientId}-${key}`);
-	} else if (message.type === 'unclaim_intent') {
-		// Another user is unclaiming - show optimistically.
-		const existingSquare = currentSquares.find((s) => s.row_num === row && s.col_num === col);
-		if (!existingSquare || !existingSquare.player_name) return;
-
-		// Track as a pending op (symmetric with remote claim_intent) so we can self-heal
-		// if the unclaim is rejected server-side. A rejected unclaim_square changes ZERO
-		// rows, so no postgres_changes event arrives to restore the square — the pending
-		// op's timeout (or an unclaim_rejected broadcast) is the only thing that heals us.
-		// Snapshot the filter before the optimistic clear below, mirroring the local
-		// unclaim path: if the unclaiming player is this observer's active filter and
-		// this is their last square, the self-clearing subscription nulls it. A later
-		// unclaim_rejected (or the pending-op timeout) restores it from here.
-		const filterSnapshot = get(selectedPlayerFilter);
-
-		setPendingOp(key, {
-			id: `remote-${message.clientId}-${key}`,
-			type: 'unclaim',
-			row,
-			col,
-			timestamp: message.timestamp,
-			originalState: snapshotSquare(existingSquare),
-			filterSnapshot,
-		});
-
-		squares.update((current) =>
-			current.map((s) => (s.row_num === row && s.col_num === col ? clearSquareFields(s) : s))
-		);
-
-		// Schedule timeout cleanup for the remote pending unclaim
-		schedulePendingTimeout(key);
-	} else if (message.type === 'unclaim_rejected') {
-		// The unclaiming client's server call was rejected - restore the square we cleared.
-		// Match on the full remote op id so only the pending op we created for THIS client's
-		// unclaim is restored.
-		rollbackPendingOpIf(
-			key,
-			(op) => op.id === `remote-${message.clientId}-${key}`,
-			// Square restored → restore the filter the optimistic clear may have nulled.
-			(op) => restoreSelectedPlayerFilter(op.filterSnapshot)
-		);
-	}
+					: clearSquareFields(s)
+		)
+	);
 }
 
 function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) {

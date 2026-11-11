@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import { cellKey } from './gridLayout';
+import { parseSquareKey, squareKey } from './squareKey';
 
 export interface CellRef {
 	row: number;
@@ -52,7 +52,7 @@ export class DragSelect {
 			this.isDragging = true;
 			this.#dragStartCell = { row, col };
 			this.selectedCells.clear();
-			this.selectedCells.add(cellKey(row, col));
+			this.selectedCells.add(squareKey(row, col));
 		}
 	}
 
@@ -104,7 +104,7 @@ export class DragSelect {
 		for (let r = minRow; r <= maxRow; r++) {
 			for (let c = minCol; c <= maxCol; c++) {
 				if (this.#opts.canSelectCell(r, c)) {
-					this.selectedCells.add(cellKey(r, c));
+					this.selectedCells.add(squareKey(r, c));
 				}
 			}
 		}
@@ -117,9 +117,9 @@ export class DragSelect {
 		this.#dragStartCell = null;
 
 		if (this.selectedCells.size > 0) {
-			const cells = Array.from(this.selectedCells).map((key) => {
-				const [row, col] = key.split('-').map(Number);
-				return { row, col };
+			const cells = Array.from(this.selectedCells).flatMap((key) => {
+				const cell = parseSquareKey(key);
+				return cell ? [cell] : [];
 			});
 			this.selectedCells.clear();
 			this.#opts.onBatch(cells);

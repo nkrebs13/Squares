@@ -274,11 +274,15 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 	});
 
 	// Mock RPC endpoints
-	await page.context().route('**/rest/v1/rpc/claim_square', (route) => {
+	// Every requested cell is claimed.
+	await page.context().route('**/rest/v1/rpc/claim_squares', (route) => {
+		const { p_cells } = route.request().postDataJSON() as {
+			p_cells: { row: number; col: number }[];
+		};
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
-			body: JSON.stringify(null),
+			body: JSON.stringify({ ok: true, claimed: p_cells, taken: [] }),
 		});
 	});
 

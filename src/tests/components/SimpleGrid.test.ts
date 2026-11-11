@@ -10,6 +10,7 @@ import {
 	winners,
 	pendingOperations,
 	selectedPlayerFilter,
+	activePlayerFilter,
 	removePlayer,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
@@ -20,6 +21,7 @@ import {
 	createMockParty as baseParty,
 	createMockNumbers as baseNumbers,
 	createMockSquare,
+	mockDeferredThenable,
 } from '../factories';
 
 // Helper to create mock squares for a full 10x10 grid
@@ -358,11 +360,10 @@ describe('SimpleGrid Component', () => {
 			await fireEvent.pointerDown(emptySquares[0], { button: 0, pointerType: 'touch' });
 			await fireEvent.pointerUp(emptySquares[0]);
 
-			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares', {
 				p_party_id: 'test-party',
-				p_row: 0,
-				p_col: 0,
 				p_player_name: 'TestUser',
+				p_cells: [{ row: 0, col: 0 }],
 			});
 		});
 
@@ -453,7 +454,7 @@ describe('SimpleGrid Component', () => {
 			await fireEvent.pointerDown(emptySquares[0], { button: 0, pointerType: 'mouse' });
 			await fireEvent.pointerUp(emptySquares[0]);
 
-			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares_batch', {
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares', {
 				p_party_id: 'test-party',
 				p_player_name: 'TestUser',
 				p_cells: [{ row: 0, col: 0 }],
@@ -485,7 +486,7 @@ describe('SimpleGrid Component', () => {
 			);
 			await tick();
 
-			expect(get(selectedPlayerFilter)).toBeNull();
+			expect(get(activePlayerFilter)).toBeNull();
 			expect(document.querySelectorAll('.square-wrapper.dimmed').length).toBe(0);
 		});
 
@@ -503,7 +504,7 @@ describe('SimpleGrid Component', () => {
 			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
 			await removePlayer('1234', 'alice');
 
-			expect(get(selectedPlayerFilter)).toBeNull();
+			expect(get(activePlayerFilter)).toBeNull();
 			expect(document.querySelectorAll('.square-wrapper.dimmed').length).toBe(0);
 		});
 	});
@@ -511,6 +512,8 @@ describe('SimpleGrid Component', () => {
 	describe('Keyboard Actions', () => {
 		it('claims an empty square when activated from the keyboard', async () => {
 			setupStores({ withUser: 'TestUser', withNumbers: true });
+			// Held in flight: the op stays pending until postgres_changes confirms it.
+			mockSupabaseClient.rpc.mockReturnValue(mockDeferredThenable().value);
 			render(SimpleGrid);
 
 			const emptySquares = screen
@@ -519,11 +522,10 @@ describe('SimpleGrid Component', () => {
 
 			await fireEvent(emptySquares[0], new MouseEvent('click', { bubbles: true, detail: 0 }));
 
-			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_square', {
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('claim_squares', {
 				p_party_id: 'test-party',
-				p_row: 0,
-				p_col: 0,
 				p_player_name: 'TestUser',
+				p_cells: [{ row: 0, col: 0 }],
 			});
 			expect(get(pendingOperations).has('0-0')).toBe(true);
 		});

@@ -9,6 +9,7 @@ import {
 	squares,
 	pendingOperations,
 	selectedPlayerFilter,
+	activePlayerFilter,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
@@ -375,17 +376,20 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		userName.setName('Alice');
 	});
 
-	it('claimSquareOptimistic rolls back + broadcasts claim_rejected on data===false', () => {
+	it('claimSquareOptimistic rolls back + broadcasts claim_rejected when the square was taken', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
 		subscribeToParty('test-party-id');
 		mockSupabaseChannel.send.mockClear();
 
-		rpcResolvesWith({ data: false, error: null });
+		rpcResolvesWith({
+			data: { ok: true, claimed: [], taken: [{ row: 0, col: 0, player_name: 'Mallory' }] },
+			error: null,
+		});
 
 		claimSquareOptimistic(0, 0);
 
-		expect(get(squares)[0].player_name).toBeNull();
+		expect(get(squares)[0].player_name).toBe('Mallory');
 		expect(get(pendingOperations).has('0-0')).toBe(false);
 
 		const sent = mockSupabaseChannel.send.mock.calls.map(
@@ -396,148 +400,72 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		).toBe(true);
 	});
 
-	it('claimSquaresBatchOptimistic refetches on a short count and rolls back lost cells', async () => {
+	it('a short batch shows each lost cell with its owner, without refetching', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
 		subscribeToParty('test-party-id');
+		mockSupabaseClient.from.mockClear();
+		mockSupabaseChannel.send.mockClear();
 
-		// DB truth after the RPC: (0,0) was won by someone else, (0,1) is ours.
-		const dbRows = createEmptyGrid();
-		const setOwner = (r: number, c: number, name: string) => {
-			const i = dbRows.findIndex((s) => s.row_num === r && s.col_num === c);
-			dbRows[i] = {
-				...dbRows[i],
-				player_name: name,
-				player_name_lower: name.toLowerCase(),
-				claimed_at: '2024-01-01T00:00:00Z',
-			};
-		};
-		setOwner(0, 0, 'Mallory');
-		setOwner(0, 1, 'Alice');
-
-		// Reconcile refetch: from('squares').select('*').eq('party_id', ...)
-		mockSupabaseClient.from.mockImplementation(
-			() =>
-				({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockResolvedValue({ data: dbRows, error: null }),
-				}) as unknown as ReturnType<typeof mockSupabaseClient.from>
-		);
-
-		// Requested 2, only 1 claimed → short count triggers reconcile.
-		rpcResolvesWith({ data: 1, error: null });
+		rpcResolvesWith({
+			data: {
+				ok: true,
+				claimed: [{ row: 0, col: 1 }],
+				taken: [{ row: 0, col: 0, player_name: 'Mallory' }],
+			},
+			error: null,
+		});
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 },
 			{ row: 0, col: 1 },
 		]);
 
-		// Reconcile awaits the refetch — flush microtasks.
-		await Promise.resolve();
-		await Promise.resolve();
-
-		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
-		const sq01 = get(squares).find((s) => s.row_num === 0 && s.col_num === 1);
-
-		// Lost cell shows its real fetched owner immediately (FIX 3) — so it stays
-		// correct even if the winner's postgres_changes event is never delivered;
-		// won cell stays ours.
-		expect(sq00?.player_name).toBe('Mallory');
-		expect(sq00?.player_name_lower).toBe('mallory');
-		expect(sq01?.player_name).toBe('Alice');
+		const at = (r: number, c: number) =>
+			get(squares).find((s) => s.row_num === r && s.col_num === c);
+		expect(at(0, 0)).toMatchObject({ player_name: 'Mallory', player_name_lower: 'mallory' });
+		expect(at(0, 1)?.player_name).toBe('Alice');
 		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(get(pendingOperations).has('0-1')).toBe(true);
+		expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('squares');
+
+		const rejected = mockSupabaseChannel.send.mock.calls
+			.map((c) => c[0] as { payload: { type?: string; squareKey?: string } })
+			.filter((m) => m.payload.type === 'claim_rejected')
+			.map((m) => m.payload.squareKey);
+		expect(rejected).toEqual(['0-0']);
 	});
 
-	it('reconcile falls back to empty for a lost cell the refetch has no row for', async () => {
+	it('a failed batch rolls every cell back and tells other tabs', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
 		subscribeToParty('test-party-id');
+		mockSupabaseChannel.send.mockClear();
 
-		// DB truth: (0,1) is ours; (0,0) is simply ABSENT from the refetch payload.
-		const dbRows = createEmptyGrid().filter((s) => !(s.row_num === 0 && s.col_num === 0));
-		const i = dbRows.findIndex((s) => s.row_num === 0 && s.col_num === 1);
-		dbRows[i] = {
-			...dbRows[i],
-			player_name: 'Alice',
-			player_name_lower: 'alice',
-			claimed_at: '2024-01-01T00:00:00Z',
-		};
-
-		mockSupabaseClient.from.mockImplementation(
-			() =>
-				({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockResolvedValue({ data: dbRows, error: null }),
-				}) as unknown as ReturnType<typeof mockSupabaseClient.from>
-		);
-
-		rpcResolvesWith({ data: 1, error: null });
+		rpcResolvesWith({ data: null, error: { message: 'TypeError: Failed to fetch' } });
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 },
 			{ row: 0, col: 1 },
 		]);
 
-		await Promise.resolve();
-		await Promise.resolve();
-
-		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
-		// No DB row for (0,0) → fall back to originalState (empty).
-		expect(sq00?.player_name).toBeNull();
-		expect(get(pendingOperations).has('0-0')).toBe(false);
-	});
-
-	it('reconcile treats a malformed refetch row like a missing row', async () => {
-		party.set(createMockParty());
-		squares.set(createEmptyGrid());
-		subscribeToParty('test-party-id');
-
-		// DB payload: (0,0) is malformed (player_name is a number) but would otherwise
-		// look owned by someone else. It must be dropped, not copied into the square.
-		const dbRows: unknown[] = createEmptyGrid().map((s) =>
-			s.row_num === 0 && s.col_num === 0
-				? { ...s, player_name: 123, player_name_lower: 'mallory' }
-				: s
-		);
-
-		mockSupabaseClient.from.mockImplementation(
-			() =>
-				({
-					select: vi.fn().mockReturnThis(),
-					eq: vi.fn().mockResolvedValue({ data: dbRows, error: null }),
-				}) as unknown as ReturnType<typeof mockSupabaseClient.from>
-		);
-
-		rpcResolvesWith({ data: 1, error: null });
-
-		claimSquaresBatchOptimistic([
-			{ row: 0, col: 0 },
-			{ row: 0, col: 1 },
-		]);
-
-		await Promise.resolve();
-		await Promise.resolve();
-
-		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
-		expect(sq00?.player_name).toBeNull();
-		expect(sq00?.player_name_lower).toBeNull();
-		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(get(squares).filter((s) => s.player_name)).toEqual([]);
+		expect(get(pendingOperations).size).toBe(0);
+		const rejected = mockSupabaseChannel.send.mock.calls
+			.map((c) => c[0] as { payload: { type?: string; squareKey?: string } })
+			.filter((m) => m.payload.type === 'claim_rejected')
+			.map((m) => m.payload.squareKey);
+		expect(rejected.sort()).toEqual(['0-0', '0-1']);
 	});
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 4: optimistically unclaiming a player's LAST square nulls
-// selectedPlayerFilter via the self-clearing subscription in game-state.ts. If
-// the unclaim is then rejected the square is restored — so the filter must be
-// restored too, but a filter the user changed mid-flight must NOT be stomped.
-// ─────────────────────────────────────────────────────────────────────────────
-describe('FIX 4: a rejected unclaim restores the cleared player filter', () => {
+describe('the player filter follows the squares', () => {
 	beforeEach(() => {
 		cleanup();
 		userName.setName('Alice');
 	});
 
-	it('restores the filter when the unclaim is rejected (data===false)', () => {
+	function aliceOwnsOneSquare() {
 		party.set(createMockParty());
 		squares.set([
 			createMockSquare(0, 0, {
@@ -548,46 +476,24 @@ describe('FIX 4: a rejected unclaim restores the cleared player filter', () => {
 		]);
 		subscribeToParty('test-party-id');
 		selectedPlayerFilter.set('alice');
+	}
 
-		rpcResolvesWith({ data: false, error: null });
+	it('stops highlighting while the last square is optimistically cleared', () => {
+		aliceOwnsOneSquare();
+		rpcDeferred();
+
 		unclaimSquareOptimistic(0, 0);
 
-		// Square restored AND the filter that the optimistic clear nulled is back.
-		expect(get(squares)[0].player_name).toBe('Alice');
-		expect(get(selectedPlayerFilter)).toBe('alice');
+		expect(get(activePlayerFilter)).toBeNull();
 	});
 
-	it('does not stomp a different filter the user set during the in-flight window', () => {
-		party.set(createMockParty());
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-				claimed_at: '2024-01-01T00:00:00Z',
-			}),
-			createMockSquare(0, 1, {
-				player_name: 'Bob',
-				player_name_lower: 'bob',
-				claimed_at: '2024-01-01T00:00:00Z',
-			}),
-		]);
-		subscribeToParty('test-party-id');
-		selectedPlayerFilter.set('alice');
+	it('highlights again when a rejected unclaim brings the square back', () => {
+		aliceOwnsOneSquare();
+		rpcResolvesWith({ data: false, error: null });
 
-		const deferred = rpcDeferred();
 		unclaimSquareOptimistic(0, 0);
 
-		// Alice's last square cleared → filter self-cleared to null.
-		expect(get(selectedPlayerFilter)).toBeNull();
-
-		// User picks a still-valid filter (Bob owns 0,1) during the in-flight window.
-		selectedPlayerFilter.set('bob');
-
-		// The unclaim is then rejected.
-		deferred.resolve({ data: false, error: null });
-
-		// Square restored, but the user's deliberate 'bob' filter is preserved.
 		expect(get(squares)[0].player_name).toBe('Alice');
-		expect(get(selectedPlayerFilter)).toBe('bob');
+		expect(get(activePlayerFilter)).toBe('alice');
 	});
 });
