@@ -83,7 +83,8 @@ BEGIN
     IF p_pin IS NULL OR p_pin !~ '^\d{4}$' THEN
         RETURN jsonb_build_object('ok', false, 'error', 'invalid_input', 'field', 'pin');
     END IF;
-    IF p_square_price IS NULL OR p_square_price <= 0 THEN
+    -- square_price is NUMERIC(10,2).
+    IF p_square_price IS NULL OR p_square_price <= 0 OR p_square_price >= 100000000 THEN
         RETURN jsonb_build_object('ok', false, 'error', 'invalid_input', 'field', 'square_price');
     END IF;
     IF NOT splits_valid(p_split_q1, p_split_q2, p_split_q3, p_split_final) THEN

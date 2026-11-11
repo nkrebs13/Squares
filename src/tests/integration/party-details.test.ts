@@ -82,6 +82,7 @@ describe('host_create_party', () => {
 		['host_name', { p_host_name: 'x'.repeat(51) }],
 		['pin', { p_pin: '12a4' }],
 		['square_price', { p_square_price: 0 }],
+		['square_price', { p_square_price: 99999999999 }],
 		['splits', { p_split_final: 26 }],
 		['event_name', { p_event_name: '  ' }],
 		['event_name', { p_event_name: 'x'.repeat(81) }],

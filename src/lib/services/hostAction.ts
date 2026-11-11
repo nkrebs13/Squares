@@ -29,7 +29,7 @@ const INPUT_FIELD_COPY: Record<string, string> = {
 	square_price: 'Square price must be greater than 0.',
 	splits: 'Each split must be 0–100% and they must add up to 100%.',
 	event_name: 'Event name must be 1–80 characters.',
-	team_name: 'Team names cannot be blank.',
+	team_name: 'Team names must be 1–50 characters.',
 	teams: 'Choose two different teams for the matchup.',
 	team_color: 'Team colors must be valid hex colors.',
 	player_name: 'Player name is required.',
