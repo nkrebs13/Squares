@@ -12,6 +12,7 @@
 	} from '$lib/storage';
 	import {
 		party,
+		gameScores,
 		filledCount,
 		isLoading,
 		error as partyLoadError,
@@ -78,7 +79,7 @@
 
 		// Subscribe to realtime updates (including live scores)
 		if ($party) {
-			unsubscribe = subscribeToParty($party.id, $party.game_id);
+			unsubscribe = subscribeToParty($party.id, $gameScores?.game_id ?? null);
 		}
 	});
 

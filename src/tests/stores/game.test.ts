@@ -7,6 +7,7 @@ import {
 	scores,
 	winners,
 	gameScores,
+	gameHomeIsRow,
 	liveScores,
 	isLoading,
 	error,
@@ -449,9 +450,8 @@ describe('Game Store', () => {
 			expect(get(liveScores)).toBeNull();
 		});
 
-		it('returns null when party is null', () => {
-			party.set(null);
-			gameScores.set(createMockGameScores({ home_score: 14, away_score: 7 }));
+		it('returns null when there is no live game', () => {
+			gameScores.set(null);
 			expect(get(liveScores)).toBeNull();
 		});
 
@@ -478,16 +478,9 @@ describe('Game Store', () => {
 			}
 		});
 
-		it('maps away to row when home_team_is_row is false', () => {
-			// Row team is Chiefs (the away team in the API), col team is Eagles (home)
-			party.set(
-				createMockParty({
-					game_id: 'test-game-id',
-					home_team_is_row: false,
-					team_row_name: 'Chiefs',
-					team_col_name: 'Eagles',
-				})
-			);
+		it('maps away to row when the home team is the column team', () => {
+			// The server worked out that the game's home team is the party's column team.
+			gameHomeIsRow.set(false);
 			gameScores.set(
 				createMockGameScores({
 					home_score: 14,
@@ -500,23 +493,6 @@ describe('Game Store', () => {
 			if (live) {
 				expect(live.rowScore).toBe(7);
 				expect(live.colScore).toBe(14);
-			}
-		});
-
-		it('defaults home_team_is_row to true when null', () => {
-			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: null }));
-			gameScores.set(
-				createMockGameScores({
-					home_score: 14,
-					away_score: 7,
-				})
-			);
-
-			const live = get(liveScores);
-			expect(live).not.toBeNull();
-			if (live) {
-				expect(live.rowScore).toBe(14);
-				expect(live.colScore).toBe(7);
 			}
 		});
 	});

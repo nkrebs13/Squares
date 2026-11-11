@@ -12,7 +12,6 @@ import {
 	activePlayerFilter,
 	removePlayer,
 } from '$lib/stores/game';
-import { resolveHomeIsRow } from '$lib/stores/game-matching';
 import type { GameScoresRow } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
 import {
@@ -29,116 +28,6 @@ function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScore
 		...overrides,
 	});
 }
-
-describe('resolveHomeIsRow', () => {
-	it('returns true when home team matches row team (home includes row)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Philadelphia Eagles',
-			away_team_name: 'Kansas City Chiefs',
-		});
-		const p = createMockParty({ team_row_name: 'Eagles', team_col_name: 'Chiefs' });
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-
-	it('returns true when home team matches row team (row includes home)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Eagles',
-			away_team_name: 'Chiefs',
-		});
-		const p = createMockParty({
-			team_row_name: 'Philadelphia Eagles',
-			team_col_name: 'Kansas City Chiefs',
-		});
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-
-	it('returns false when away team matches row team (away includes row)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Kansas City Chiefs',
-			away_team_name: 'Philadelphia Eagles',
-		});
-		const p = createMockParty({ team_row_name: 'Eagles', team_col_name: 'Chiefs' });
-		expect(resolveHomeIsRow(gs, p)).toBe(false);
-	});
-
-	it('returns false when away team matches row team (row includes away)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Chiefs',
-			away_team_name: 'Eagles',
-		});
-		const p = createMockParty({
-			team_row_name: 'Philadelphia Eagles',
-			team_col_name: 'Kansas City Chiefs',
-		});
-		expect(resolveHomeIsRow(gs, p)).toBe(false);
-	});
-
-	it('returns false when home team matches col team (home includes col)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Kansas City Chiefs',
-			away_team_name: 'Seattle Seahawks',
-		});
-		const p = createMockParty({ team_row_name: 'Packers', team_col_name: 'Chiefs' });
-		expect(resolveHomeIsRow(gs, p)).toBe(false);
-	});
-
-	it('returns true when away team matches col team (away includes col)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Seattle Seahawks',
-			away_team_name: 'Kansas City Chiefs',
-		});
-		const p = createMockParty({ team_row_name: 'Packers', team_col_name: 'Chiefs' });
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-
-	it('falls back to home_team_is_row when no name match (true)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Team Alpha',
-			away_team_name: 'Team Bravo',
-		});
-		const p = createMockParty({
-			team_row_name: 'Xylophone',
-			team_col_name: 'Zephyr',
-			home_team_is_row: true,
-		});
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-
-	it('falls back to home_team_is_row when no name match (false)', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Team Alpha',
-			away_team_name: 'Team Bravo',
-		});
-		const p = createMockParty({
-			team_row_name: 'Xylophone',
-			team_col_name: 'Zephyr',
-			home_team_is_row: false,
-		});
-		expect(resolveHomeIsRow(gs, p)).toBe(false);
-	});
-
-	it('falls back to true when home_team_is_row is null and no name match', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'Team Alpha',
-			away_team_name: 'Team Bravo',
-		});
-		const p = createMockParty({
-			team_row_name: 'Xylophone',
-			team_col_name: 'Zephyr',
-			home_team_is_row: null,
-		});
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-
-	it('is case-insensitive', () => {
-		const gs = createMockGameScores({
-			home_team_name: 'PHILADELPHIA EAGLES',
-			away_team_name: 'KANSAS CITY CHIEFS',
-		});
-		const p = createMockParty({ team_row_name: 'eagles', team_col_name: 'chiefs' });
-		expect(resolveHomeIsRow(gs, p)).toBe(true);
-	});
-});
 
 describe('leadingSquare derived store', () => {
 	beforeEach(() => {

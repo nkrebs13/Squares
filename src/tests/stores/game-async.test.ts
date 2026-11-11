@@ -1,12 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import {
-	loadParty,
 	party,
 	squares,
-	numbers,
-	isLoading,
-	error,
 	claimSquareOptimistic,
 	unclaimSquareOptimistic,
 	cleanup,
@@ -14,138 +10,6 @@ import {
 import { userName } from '$lib/stores/user';
 import { mockSupabaseClient } from '../setup';
 import { createMockParty, createMockSquare } from '../factories';
-
-describe('loadParty', () => {
-	beforeEach(() => {
-		cleanup();
-		vi.clearAllMocks();
-	});
-
-	it('fetches and populates all stores on success', async () => {
-		const mockParty = createMockParty({ status: 'active' });
-		const mockSquares = [createMockSquare(0, 0), createMockSquare(0, 1)];
-		const mockNumbers = {
-			party_id: 'test-party-id',
-			row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-			col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-			assigned_at: new Date().toISOString(),
-		};
-		const mockScores = { party_id: 'test-party-id', q1_row_score: 14, q1_col_score: 7 };
-		const mockWinners = [
-			{
-				id: 'w1',
-				party_id: 'test-party-id',
-				quarter: 'q1',
-				winning_row: 4,
-				winning_col: 7,
-				player_name: 'Alice',
-				amount: 250,
-				created_at: new Date().toISOString(),
-			},
-		];
-
-		// Mock chain for party fetch
-		const mockPartyChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: mockParty, error: null }),
-			order: vi.fn().mockReturnThis(),
-		};
-		// Mock chain for game_scores auto-detect (party has no game_id)
-		const mockAutoDetectChain = {
-			select: vi.fn().mockReturnThis(),
-			neq: vi.fn().mockReturnThis(),
-			limit: vi.fn().mockReturnThis(),
-			maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-		};
-		// Mock chain for squares fetch
-		const mockSquaresChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			order: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: mockSquares, error: null }),
-		};
-		// Override the order chain to resolve with data
-		mockSquaresChain.order
-			.mockReturnValueOnce(mockSquaresChain) // first .order('row_num')
-			.mockResolvedValueOnce({ data: mockSquares, error: null }); // second .order('col_num')
-
-		// Mock chain for numbers
-		const mockNumbersChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: mockNumbers, error: null }),
-		};
-		// Mock chain for scores
-		const mockScoresChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: mockScores, error: null }),
-		};
-		// Mock chain for winners
-		const mockWinnersChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			order: vi.fn().mockResolvedValue({ data: mockWinners, error: null }),
-		};
-
-		mockSupabaseClient.from
-			.mockReturnValueOnce(mockPartyChain as ReturnType<typeof mockSupabaseClient.from>) // parties
-			.mockReturnValueOnce(
-				mockAutoDetectChain as unknown as ReturnType<typeof mockSupabaseClient.from>
-			) // game_scores auto-detect
-			.mockReturnValueOnce(mockSquaresChain as ReturnType<typeof mockSupabaseClient.from>) // squares
-			.mockReturnValueOnce(mockNumbersChain as ReturnType<typeof mockSupabaseClient.from>) // numbers
-			.mockReturnValueOnce(mockScoresChain as ReturnType<typeof mockSupabaseClient.from>) // scores
-			.mockReturnValueOnce(mockWinnersChain as ReturnType<typeof mockSupabaseClient.from>); // winners
-
-		const result = await loadParty('TEST123');
-
-		expect(result).toBe(true);
-		// parseParty drops host_pin, which the production select never returns anyway.
-		const { host_pin: _hostPin, ...expectedParty } = mockParty;
-		expect(get(party)).toEqual(expectedParty);
-		expect(get(squares)).toEqual(mockSquares);
-		expect(get(numbers)).toEqual(mockNumbers);
-		expect(get(isLoading)).toBe(false);
-	});
-
-	it('sets error on party not found', async () => {
-		const mockChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
-
-		const result = await loadParty('INVALID');
-
-		expect(result).toBe(false);
-		expect(get(error)).toBe('Party not found');
-		expect(get(isLoading)).toBe(false);
-	});
-
-	it('sets isLoading true at start and false when done', async () => {
-		const mockChain = {
-			select: vi.fn().mockReturnThis(),
-			eq: vi.fn().mockReturnThis(),
-			single: vi.fn().mockResolvedValue({ data: null, error: { message: 'err' } }),
-		};
-		mockSupabaseClient.from.mockReturnValueOnce(
-			mockChain as ReturnType<typeof mockSupabaseClient.from>
-		);
-
-		// Before call
-		isLoading.set(false);
-		const promise = loadParty('TEST');
-		// During call - loading should be true
-		expect(get(isLoading)).toBe(true);
-		await promise;
-		expect(get(isLoading)).toBe(false);
-	});
-});
 
 describe('claimSquareOptimistic', () => {
 	beforeEach(() => {

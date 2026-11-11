@@ -18,6 +18,7 @@ const CLIENT_API = [
 	'claim_squares_batch',
 	'create_party',
 	'delete_party',
+	'get_party_state',
 	'host_create_party',
 	'host_delete_party',
 	'host_lock_party',

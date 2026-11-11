@@ -10,6 +10,7 @@ import {
 	mockWinnersQ1,
 	mockWinnersAll,
 	setUserName,
+	partyStateBody,
 } from './fixtures/supabase-mocks';
 
 test.describe('Golden Path: Create → Join → Play → Win', () => {
@@ -18,6 +19,15 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 		let squaresData = generateEmptySquares('test-party-id');
 		let scoresData = mockScores;
 		let winnersData: typeof mockWinnersAll = [];
+
+		// Reads the current data on every load, so later steps can change it.
+		await page.route('**/rest/v1/rpc/get_party_state', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(partyStateBody(partyData, squaresData, scoresData, winnersData)),
+			});
+		});
 
 		await page.route('**/rest/v1/parties*', (route) => {
 			if (route.request().method() === 'POST') {

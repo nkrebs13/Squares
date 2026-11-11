@@ -11,7 +11,6 @@ import type {
 } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
 import { userName, normalizePlayerName } from './user';
-import { resolveHomeIsRow } from './game-matching';
 
 // Unique client ID per browser tab (for broadcast deduplication)
 export const clientId =
@@ -26,6 +25,8 @@ export const numbers = writable<Numbers | null>(null);
 export const scores = writable<Scores | null>(null);
 export const winners = writable<Winner[]>([]);
 export const gameScores = writable<GameScoresRow | null>(null);
+/** Whether `gameScores`' home team is the party's row team (computed server-side, game_side). */
+export const gameHomeIsRow = writable(true);
 export const isLoading = writable(true);
 export const error = writable<string | null>(null);
 
@@ -44,11 +45,10 @@ export const gridState = derived(
 	}
 );
 
-export const liveScores = derived<[typeof gameScores, typeof party], LiveScores | null>(
-	[gameScores, party],
-	([$gameScores, $party]) => {
-		if (!$gameScores || !$party) return null;
-		const homeIsRow = resolveHomeIsRow($gameScores, $party);
+export const liveScores = derived<[typeof gameScores, typeof gameHomeIsRow], LiveScores | null>(
+	[gameScores, gameHomeIsRow],
+	([$gameScores, homeIsRow]) => {
+		if (!$gameScores) return null;
 		return {
 			rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
 			colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,
