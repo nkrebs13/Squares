@@ -12,9 +12,8 @@
  *   and let the caller log + skip the update.
  *
  * Why hand-written instead of Zod / Valibot:
- *   Zero runtime dependency, ~150 lines total, and the schema surface is
- *   small (six tables). If the surface grows past ~10 tables, switch to
- *   a schema library.
+ *   Zero runtime dependency, and the schema surface is small (six tables).
+ *   If the surface grows past ~10 tables, switch to a schema library.
  */
 
 import type {
@@ -29,8 +28,6 @@ import type {
 	Quarter,
 } from '$lib/types';
 import { GRID_SIZE } from '$lib/constants';
-
-// ── Primitive guards ────────────────────────────────────────────────────────
 
 function isObject(v: unknown): v is Record<string, unknown> {
 	return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -85,8 +82,6 @@ function warn(table: string, payload: unknown, missingOrBad: string): null {
 	/* eslint-enable no-console */
 	return null;
 }
-
-// ── Validators ──────────────────────────────────────────────────────────────
 
 export function parseSquare(payload: unknown): Square | null {
 	if (!isObject(payload)) return warn('squares', payload, 'not an object');
@@ -234,7 +229,7 @@ export function parseWinnerArray(payload: unknown): Winner[] | null {
 	const result: Winner[] = [];
 	for (const row of payload) {
 		const parsed = parseWinner(row);
-		if (parsed === null) return null; // bail on first invalid row
+		if (parsed === null) return null;
 		result.push(parsed);
 	}
 	return result;

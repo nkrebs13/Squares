@@ -45,7 +45,6 @@ export const gameHomeIsRow = resettable(true);
 export const isLoading = resettable(true);
 export const error = resettable<string | null>(null);
 
-// Derived stores
 export const gridState = derived(
 	[party, squares, numbers, scores, winners],
 	([$party, $squares, $numbers, $scores, $winners]) => {
@@ -82,9 +81,7 @@ export const leadingSquare = derived(
 	[liveScores, numbers, party],
 	([$liveScores, $numbers, $party]) => {
 		if (!$liveScores || !$numbers || !$party) return null;
-		// Only show during active game
 		if (!isGameInProgress($party.status)) return null;
-		// Only when game is in progress (not final/pregame)
 		if ($liveScores.status === 'final' || $liveScores.status === 'pregame') return null;
 
 		const rowDigit = $liveScores.rowScore % 10;
@@ -117,7 +114,6 @@ export const amountOwed = derived([mySquareCount, party], ([$count, $party]) => 
 	return $count * $party.square_price;
 });
 
-// Player summary for legend display
 export interface PlayerSummary {
 	name: string;
 	normalizedName: string;
@@ -141,7 +137,6 @@ export const playerSummary = derived(squares, ($squares) => {
 		}
 	}
 
-	// Sort by count descending
 	return Array.from(playerMap.values()).sort((a, b) => b.count - a.count);
 });
 
@@ -168,11 +163,9 @@ export { squareKey } from '$lib/utils/squareKey';
 
 // ─── State-application functions (called from the realtime transport layer) ──
 //
-// These give the transport layer a small, typed surface to mutate state without
-// reaching into store internals. Each function accepts the parsed/validated
-// row from postgres_changes (or refetched data) and updates the relevant
-// store. The transport layer is responsible for validating the payload first
-// (Phase 1's validators) so these functions can assume well-formed input.
+// A small, typed surface for the transport layer to mutate state without
+// reaching into store internals. Callers validate the payload first
+// (validators/realtime.ts), so these assume well-formed rows.
 // applySquareUpdate also clears pending optimistic state, so it lives in
 // game-pending.ts (which depends on this module, never the reverse).
 

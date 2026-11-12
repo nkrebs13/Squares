@@ -40,18 +40,9 @@ import { normalizePlayerName } from './user';
 import { parseSquareKey } from '$lib/utils/squareKey';
 
 /**
- * Per-channel reconnection state for handling connection failures.
- *
- * Cleanup semantics (see teardownChannels):
- * - When a component unmounts or party changes, every live channel is torn down
- * - resetReconnectState() clears any pending reconnectTimeout so stale closures
- *   never fire, and resets reconnectAttempts to allow fresh reconnection attempts
- * - Channel references are set to null to prevent memory leaks
- *
- * The cleanup order is important:
- * 1. Unsubscribe from channel (stops receiving events)
- * 2. Set channelStates[key].channel to null (remove reference)
- * 3. Call resetReconnectState() (cancel pending timeout, reset counter)
+ * Per-channel reconnection state. resetReconnectState() clears the pending
+ * reconnectTimeout so a stale closure never fires; teardownChannels() runs it
+ * after each unsubscribe.
  */
 interface ChannelState {
 	channel: RealtimeChannel | null;
@@ -126,7 +117,6 @@ function scheduleReconnect(channelKey: string, setupFn: () => void) {
 		return;
 	}
 
-	// Cancel any existing reconnect timeout to prevent race conditions
 	if (state.reconnectTimeout) {
 		clearTimeout(state.reconnectTimeout);
 		state.reconnectTimeout = null;
@@ -164,18 +154,12 @@ function handleChannelStatus(
 	generation: number,
 	token: number
 ) {
-	// Ignore any status from a channel that belongs to a superseded generation —
-	// e.g. the async CLOSED delivered after an intentional unsubscribe(). Without
-	// this guard, CLOSED would schedule a reconnect that resurrects a channel for a
-	// party we've already left (or unsubscribes the new party's channel to reopen the old).
+	// A superseded generation: the async CLOSED after an intentional unsubscribe()
+	// must not schedule a reconnect (see currentGeneration).
 	if (generation !== currentGeneration) return;
 
-	// Ignore any status from a channel this key has since replaced in-place. The
-	// internal reconnect timer swaps channelStates[key].channel WITHOUT bumping the
-	// generation, so an OLD channel's late CLOSED shares the current generation and
-	// would pass the guard above — then schedule a reconnect that unsubscribes the
-	// healthy NEW channel. The instance token, bumped on every (re)creation, is what
-	// distinguishes them.
+	// A channel the reconnect timer replaced in place keeps the same generation, so
+	// its late CLOSED needs the instance token to be told apart from the new one.
 	if (token !== channelStates[channelKey].instanceToken) return;
 
 	if (status === 'SUBSCRIBED') {
@@ -245,7 +229,6 @@ function handleBroadcastMessage(payload: { payload: BroadcastMessage }) {
 }
 
 function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) {
-	// Ignore our own broadcasts
 	if (payload.payload.clientId === clientId) return;
 
 	// Re-fetch scores and winners from the database (source of truth)
@@ -429,32 +412,26 @@ function setupGameChannel(gameId: string, generation: number) {
 export function subscribeToParty(partyId: string, gameId: string | null = null) {
 	watchConnectivity();
 
-	// Bump the generation FIRST so any async CLOSED fired by the unsubscribe() calls
-	// below is treated as stale and cannot schedule a reconnect against the old party.
+	// Bump first so the CLOSED from the teardown below is treated as stale.
 	const generation = ++currentGeneration;
 
-	// Unsubscribe from previous channels and clear reconnect state.
-	// IMPORTANT: this must run BEFORE setting up new channels, to cancel any
-	// pending reconnect timeouts that might capture stale partyId/gameId.
+	// Before setting up new channels, so no pending reconnect timeout captures a stale partyId/gameId.
 	teardownChannels();
 
-	// Set up channels with reconnection support
 	setupBroadcastChannel(partyId, generation);
 	setupPartyChannel(partyId, generation);
 
-	// Subscribe to live game scores if party is linked to a game
 	if (gameId) {
 		setupGameChannel(gameId, generation);
 	}
 
 	return () => {
-		// Bump the generation so the CLOSED events from these unsubscribes are ignored.
+		// Bump so the CLOSED events from this teardown are ignored.
 		++currentGeneration;
 		teardownChannels();
 	};
 }
 
-// Broadcast a message to other clients
 export function broadcast(message: Omit<BroadcastMessage, 'clientId'>) {
 	if (!channelStates.broadcast.channel) return;
 
@@ -480,8 +457,7 @@ export function broadcastScoreUpdate() {
 
 // Cleanup channels (called from game-admin cleanup)
 export function cleanupChannels() {
-	// Bump the generation so the CLOSED events from these unsubscribes are ignored
-	// and cannot resurrect a subscription after teardown.
+	// Bump so the CLOSED events from this teardown cannot resurrect a subscription.
 	++currentGeneration;
 	teardownChannels();
 	unwatchConnectivity();

@@ -91,7 +91,6 @@
 	}
 
 	function handleBlur() {
-		// Clear any existing timeout
 		if (blurTimeoutId) {
 			clearTimeout(blurTimeoutId);
 		}
@@ -99,7 +98,6 @@
 		// Small delay to allow button clicks to register
 		blurTimeoutId = setTimeout(() => {
 			blurTimeoutId = null;
-			// Only save if we're still editing
 			if (editing) {
 				saveEdit();
 			}
@@ -247,7 +245,6 @@
 		pointer-events: none;
 	}
 
-	/* Nickname display */
 	.nickname-text {
 		display: inline-flex;
 		align-items: center;
@@ -264,7 +261,6 @@
 		white-space: nowrap;
 	}
 
-	/* Edit button (pencil icon only) */
 	.edit-btn {
 		display: inline-flex;
 		align-items: center;
@@ -304,7 +300,6 @@
 		transition: opacity 150ms ease;
 	}
 
-	/* Desktop: hide icon until hover */
 	@media (min-width: 768px) {
 		.edit-icon {
 			opacity: 0;
@@ -321,7 +316,6 @@
 		}
 	}
 
-	/* Inline edit input */
 	.nickname-input {
 		font-weight: 600;
 		font-size: 0.9375rem;
@@ -346,7 +340,6 @@
 		font-weight: 400;
 	}
 
-	/* Secondary code line */
 	.party-code-line {
 		display: flex;
 		align-items: center;
@@ -439,7 +432,6 @@
 		color: var(--text-primary);
 	}
 
-	/* Confirmation inline UI */
 	.confirm-remove {
 		display: flex;
 		align-items: center;

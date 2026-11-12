@@ -76,7 +76,6 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
 	width: 8px;
 	height: 8px;
@@ -95,7 +94,6 @@ body {
 	background: rgba(255, 255, 255, 0.2);
 }
 
-/* Grid colors */
 .team-row-bg {
 	background-color: var(--team-row-color);
 }
@@ -121,7 +119,6 @@ body {
 	border: 1px solid var(--border-color);
 }
 
-/* Accessibility: visible focus state for keyboard navigation */
 .square:focus-visible {
 	outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 	outline-offset: 2px;
@@ -189,7 +186,6 @@ body {
 	}
 }
 
-/* Winner entrance animation */
 @keyframes winner-entrance {
 	0% {
 		transform: scale(0.8);
@@ -224,7 +220,6 @@ body {
 	border-color: rgb(var(--rgb-accent) / 0.4);
 }
 
-/* Pending claim animation - subtle pulse to indicate waiting for confirmation */
 .square-pending {
 	animation: pulse-pending 1.2s ease-in-out infinite;
 	position: relative;
@@ -266,7 +261,6 @@ body {
 	}
 }
 
-/* Reduced motion: disable pending and leading animations */
 @media (prefers-reduced-motion: reduce) {
 	.square-pending {
 		animation: none;
@@ -285,13 +279,11 @@ body {
 	}
 }
 
-/* Button styles */
 .btn {
 	@apply px-6 py-3 font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
 	border-radius: 12px;
 }
 
-/* Accessibility: visible focus state for keyboard navigation */
 .btn:focus-visible {
 	outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 	outline-offset: 2px;
@@ -354,7 +346,6 @@ body {
 	border-radius: 8px;
 }
 
-/* Input styles */
 .input {
 	@apply w-full px-4 py-3;
 	background: var(--bg-primary);
@@ -373,7 +364,6 @@ body {
 	box-shadow: 0 0 0 3px rgb(var(--rgb-teal) / 0.1);
 }
 
-/* Hide number input spinners */
 .input-no-spinner::-webkit-outer-spin-button,
 .input-no-spinner::-webkit-inner-spin-button {
 	-webkit-appearance: none;
@@ -385,7 +375,6 @@ body {
 	appearance: textfield;
 }
 
-/* Card styles */
 .card {
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-color);
@@ -394,13 +383,11 @@ body {
 	box-shadow: 0 4px 24px var(--shadow-color);
 }
 
-/* Party code display */
 .party-code {
 	@apply text-4xl font-mono font-bold tracking-[0.3em];
 	color: var(--color-accent);
 }
 
-/* Scoreboard */
 .scoreboard {
 	@apply flex items-center justify-center gap-4 p-4;
 	background: rgba(0, 0, 0, 0.2);
@@ -420,7 +407,6 @@ body {
 	@apply text-3xl font-bold tabular-nums;
 }
 
-/* Winner announcement */
 .winner-banner {
 	@apply p-4 border;
 	background: linear-gradient(
@@ -443,7 +429,6 @@ body {
 	}
 }
 
-/* Safe area padding for PWA */
 @supports (padding-top: env(safe-area-inset-top)) {
 	.safe-top {
 		padding-top: env(safe-area-inset-top);
@@ -453,7 +438,6 @@ body {
 	}
 }
 
-/* Animations */
 @keyframes fadeIn {
 	from {
 		opacity: 0;
@@ -484,7 +468,6 @@ body {
 	animation: scaleIn 0.2s ease-out;
 }
 
-/* Aurora background animations */
 @keyframes aurora-shift {
 	0%,
 	100% {
@@ -511,7 +494,6 @@ body {
 	}
 }
 
-/* Aurora background styles */
 .aurora-bg {
 	position: fixed;
 	inset: 0;
@@ -559,7 +541,6 @@ body {
 	}
 }
 
-/* Status banner styles */
 .status-banner {
 	@apply p-3 text-center;
 	border-radius: 12px;
@@ -576,7 +557,6 @@ body {
 	border-color: rgba(255, 183, 77, 0.3);
 }
 
-/* Stats bar */
 .stats-bar {
 	@apply flex items-center justify-between px-4 py-3;
 	background: var(--bg-secondary);
@@ -584,13 +564,11 @@ body {
 	border-radius: 12px;
 }
 
-/* Quarter scores grid */
 .quarter-score-box {
 	@apply p-2 rounded text-center;
 	background: rgba(255, 255, 255, 0.03);
 }
 
-/* Selection indicator */
 .selection-indicator {
 	@apply fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full z-50 font-medium;
 	background: var(--bg-secondary);
@@ -619,7 +597,6 @@ body {
 	color: var(--color-success);
 }
 
-/* Error/Success message boxes */
 .message-error {
 	@apply p-4;
 	background: rgb(var(--rgb-error) / 0.1);
@@ -628,7 +605,6 @@ body {
 	color: #fca5a5;
 }
 
-/* Progress bar */
 .progress-bar {
 	@apply h-2 rounded-full overflow-hidden;
 	background: rgba(255, 255, 255, 0.05);
@@ -639,7 +615,6 @@ body {
 	background: linear-gradient(90deg, rgb(var(--rgb-teal) / 0.6), rgb(var(--rgb-accent) / 0.6));
 }
 
-/* Logo styles */
 .logo-title {
 	letter-spacing: -0.02em;
 	position: relative;
@@ -656,7 +631,6 @@ body {
 		drop-shadow(0 0 24px rgb(var(--rgb-sky) / 0.2));
 }
 
-/* Add a subtle background glow behind the logo */
 .logo-title::before {
 	content: '';
 	position: absolute;
@@ -676,7 +650,6 @@ body {
 	pointer-events: none;
 }
 
-/* Subtle glow animation on logo */
 @keyframes logo-glow {
 	0%,
 	100% {
@@ -693,7 +666,6 @@ body {
 	animation: logo-glow 4s ease-in-out infinite;
 }
 
-/* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	.logo-gradient {
 		animation: none;

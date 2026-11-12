@@ -3,7 +3,6 @@
 // game-optimistic.ts, game-admin.ts for implementations.
 
 export {
-	// Core stores
 	party,
 	squares,
 	numbers,
@@ -14,7 +13,6 @@ export {
 	teamTheme,
 	isLoading,
 	error,
-	// Derived stores
 	gridState,
 	liveScores,
 	leadingSquare,
@@ -27,7 +25,6 @@ export {
 	availableCount,
 	selectedPlayerFilter,
 	activePlayerFilter,
-	// Utilities
 	squareKey,
 } from './game-state';
 
@@ -35,7 +32,6 @@ export { loadParty } from './game-load';
 
 export type { PlayerSummary } from './game-state';
 
-// Pending operations
 export { pendingOperations } from './game-pending';
 
 export { subscribeToParty, broadcastScoreUpdate, connectionStatus } from './game-realtime';

@@ -1,4 +1,3 @@
-// Supabase client configuration
 import { createClient } from '@supabase/supabase-js';
 import { browser } from '$app/environment';
 

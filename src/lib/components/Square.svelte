@@ -61,7 +61,6 @@
 		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPending ? 'square-pending' : ''}`
 	);
 
-	// Comprehensive aria-label including position and state
 	const ariaLabel = $derived.by(() => {
 		const position =
 			rowNumber !== undefined && colNumber !== undefined
@@ -114,7 +113,6 @@
 		</span>
 	{/if}
 
-	<!-- Quarter badges for winning squares -->
 	{#if winners.length > 0}
 		<div class="quarter-badges">
 			{#each winners as w (w.quarter)}

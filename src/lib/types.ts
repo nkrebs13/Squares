@@ -137,17 +137,16 @@ export { DEFAULT_TEAMS } from '$lib/config';
 
 export interface RecentParty {
 	code: string;
-	nickname?: string; // user-defined nickname for easy identification
+	nickname?: string;
 	eventName?: string;
 	kickoffAt?: string | null;
 	teamRowName: string;
 	teamColName: string;
-	lastVisited: number; // timestamp
+	lastVisited: number;
 	status: PartyStatus;
 	isHost: boolean;
 }
 
-// Optimistic UI types
 export interface OptimisticOperation {
 	type: 'claim' | 'unclaim';
 	row: number;

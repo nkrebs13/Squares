@@ -42,7 +42,6 @@
 </button>
 
 <style>
-	/* Zoom Toggle Button */
 	.zoom-toggle-btn {
 		display: flex;
 		align-items: center;

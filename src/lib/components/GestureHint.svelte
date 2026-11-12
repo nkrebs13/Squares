@@ -37,7 +37,6 @@
 		if (timeout) {
 			clearTimeout(timeout);
 		}
-		// Auto-dismiss after 5 seconds
 		timeout = setTimeout(() => {
 			dismiss();
 		}, 5000);

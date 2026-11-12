@@ -48,7 +48,6 @@
 	</div>
 {/if}
 
-<!-- Status banner -->
 {#if isFilling($party?.status)}
 	<div class="mb-4 status-banner status-banner-filling">
 		<span class="font-medium">{$filledCount}/100</span> squares filled
@@ -62,29 +61,24 @@
 	</div>
 {/if}
 
-<!-- Winners -->
 {#if hasDrawnNumbers($party?.status)}
 	<div class="mb-4">
 		<Winners />
 	</div>
 {/if}
 
-<!-- Player Stats -->
 <div class="mb-4">
 	<PlayerStats />
 </div>
 
-<!-- Party Code (for sharing) -->
 <div class="mb-4">
 	<PartyCode />
 </div>
 
-<!-- Push notification opt-in -->
 <div class="mb-4">
 	<PushOptIn />
 </div>
 
-<!-- Prize info -->
 {#if $party}
 	<div class="card text-sm">
 		{#if desktop.current}

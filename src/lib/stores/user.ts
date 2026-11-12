@@ -47,7 +47,6 @@ function createUserStore() {
 
 export const userName = createUserStore();
 
-// Get the lowercase version for matching
 export function normalizePlayerName(name: string): string {
 	return name.trim().toLowerCase();
 }

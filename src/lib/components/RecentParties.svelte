@@ -10,7 +10,7 @@
 
 	onMount(async () => {
 		recentParties = await getRecentParties();
-		// Show only top 5
+		// The stored list keeps more (MAX_RECENT_PARTIES); the home page shows five.
 		recentParties = recentParties.slice(0, 5);
 		isLoading = false;
 	});
@@ -22,12 +22,10 @@
 	}
 
 	async function saveNickname(code: string, trimmed: string) {
-		// Update local state immediately
 		recentParties = recentParties.map((p) =>
 			p.code === code ? { ...p, nickname: trimmed || undefined } : p
 		);
 
-		// Save to storage
 		await updatePartyNickname(code, trimmed);
 	}
 </script>

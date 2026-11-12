@@ -11,7 +11,6 @@
 	let { party, showManualOverride = $bindable() }: Props = $props();
 </script>
 
-<!-- API Integration Mode -->
 <div
 	class="card"
 	style="border: 1px solid rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.08);"
@@ -19,7 +18,6 @@
 	aria-label="Live game integration"
 >
 	{#if $liveScores?.status && $liveScores.status !== 'pregame'}
-		<!-- Live scores display -->
 		<div class="flex items-center justify-between">
 			<p class="text-sm" style="color: rgb(147, 197, 253);" aria-live="polite">
 				<span class="font-semibold">
@@ -39,7 +37,6 @@
 			</p>
 		</div>
 	{:else}
-		<!-- Waiting/Pregame -->
 		<p class="text-sm" style="color: rgb(147, 197, 253);">
 			<span class="font-semibold">Live API connected</span>
 			{#if $liveScores?.status === 'pregame'}
@@ -50,7 +47,6 @@
 		</p>
 	{/if}
 
-	<!-- Toggle always visible when API connected -->
 	<button
 		onclick={() => (showManualOverride = !showManualOverride)}
 		class="text-xs mt-2"
