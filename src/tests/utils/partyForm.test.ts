@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { MAX_EVENT_NAME_LENGTH } from '$lib/constants';
 import {
 	formatKickoffPreview,
 	isValidEventName,
@@ -29,11 +30,11 @@ describe('isValidHostName', () => {
 });
 
 describe('isValidEventName', () => {
-	it('requires 1-80 trimmed characters', () => {
+	it('requires 1 to MAX_EVENT_NAME_LENGTH trimmed characters', () => {
 		expect(isValidEventName('Super Bowl')).toBe(true);
 		expect(isValidEventName('  ')).toBe(false);
-		expect(isValidEventName('a'.repeat(80))).toBe(true);
-		expect(isValidEventName('a'.repeat(81))).toBe(false);
+		expect(isValidEventName('a'.repeat(MAX_EVENT_NAME_LENGTH))).toBe(true);
+		expect(isValidEventName('a'.repeat(MAX_EVENT_NAME_LENGTH + 1))).toBe(false);
 	});
 });
 

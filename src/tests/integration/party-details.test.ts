@@ -6,7 +6,12 @@ import {
 	getTestClient,
 	type TestParty,
 } from './helpers';
-import { MAX_EVENT_NAME_LENGTH } from '../../lib/constants';
+import {
+	DB_MAX_TEAM_NAME_LENGTH,
+	MAX_EVENT_NAME_LENGTH,
+	MIN_SQUARE_PRICE,
+	SQUARE_PRICE_CEILING,
+} from '../../lib/constants';
 
 // host_name / player_name are VARCHAR(50); no shared constant exists for them.
 const DB_MAX_NAME_LENGTH = 50;
@@ -121,17 +126,36 @@ describe('host_create_party', () => {
 		['pin', { p_pin: '' }],
 		['square_price', { p_square_price: 0 }],
 		['square_price', { p_square_price: -1 }],
+		['square_price', { p_square_price: SQUARE_PRICE_CEILING }],
+		['square_price', { p_square_price: SQUARE_PRICE_CEILING - 0.005 }],
 		['square_price', { p_square_price: 99999999999 }],
-		['square_price', { p_square_price: 99999999.995 }],
-		['square_price', { p_square_price: 0.004 }],
+		['square_price', { p_square_price: MIN_SQUARE_PRICE * 0.4 }],
 		['splits', { p_split_final: 26 }],
 		['event_name', { p_event_name: '  ' }],
 		['event_name', { p_event_name: 'x'.repeat(MAX_EVENT_NAME_LENGTH + 1) }],
 		['team_name', { p_team_col_name: ' ' }],
+		['team_name', { p_team_col_name: 'y'.repeat(DB_MAX_TEAM_NAME_LENGTH + 1) }],
 		['teams', { p_team_col_name: ' eagles ' }],
 		['team_color', { p_team_row_color: 'green' }],
 	])('refuses an invalid %s', async (field, overrides) => {
 		expect(await createParty(overrides)).toEqual({ ok: false, error: 'invalid_input', field });
+	});
+	// The limits the client states (src/lib/constants.ts) are the DB's own edges: the
+	// value at each limit is accepted, the refusals above cover one step past it.
+	it.each([
+		['the longest event name', { p_event_name: 'x'.repeat(MAX_EVENT_NAME_LENGTH) }],
+		[
+			'the longest team names',
+			{
+				p_team_row_name: 'x'.repeat(DB_MAX_TEAM_NAME_LENGTH),
+				p_team_col_name: 'y'.repeat(DB_MAX_TEAM_NAME_LENGTH),
+			},
+		],
+		['the longest host name', { p_host_name: 'x'.repeat(DB_MAX_NAME_LENGTH) }],
+		['the lowest price', { p_square_price: MIN_SQUARE_PRICE }],
+		['the highest price', { p_square_price: SQUARE_PRICE_CEILING - 0.01 }],
+	])('accepts %s', async (_what, overrides) => {
+		expect((await createParty(overrides)).ok).toBe(true);
 	});
 });
 

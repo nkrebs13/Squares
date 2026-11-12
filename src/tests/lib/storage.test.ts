@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { durable, jsonCodec, local, session } from '$lib/storage';
+import { durable, local, session, type Codec } from '$lib/storage';
 import { localStorageMock } from '../setup';
 import { useFakeIdb } from './idbFake';
 
@@ -9,7 +9,8 @@ describe('durable', () => {
 		idb = useFakeIdb();
 	});
 
-	const value = () => durable<{ n: number }>('k', jsonCodec());
+	const json: Codec<{ n: number }> = { encode: JSON.stringify, decode: JSON.parse };
+	const value = () => durable<{ n: number }>('k', json);
 
 	it('keeps a value in IndexedDB', async () => {
 		expect(await value().set({ n: 1 })).toBe(true);
@@ -32,12 +33,6 @@ describe('durable', () => {
 		idb.state.failing = true;
 		await value().set({ n: 4 });
 		await value().remove();
-		expect(await value().get()).toBeNull();
-	});
-
-	it('reads an unparseable fallback as missing', async () => {
-		idb.state.failing = true;
-		localStorageMock.setItem('k', '{not json');
 		expect(await value().get()).toBeNull();
 	});
 });

@@ -61,17 +61,6 @@ export interface Codec<T> {
 	decode(raw: string): T | null;
 }
 
-export const jsonCodec = <T>(): Codec<T> => ({
-	encode: (value) => JSON.stringify(value),
-	decode: (raw) => {
-		try {
-			return JSON.parse(raw) as T;
-		} catch {
-			return null;
-		}
-	},
-});
-
 /**
  * A value kept in IndexedDB, falling back to localStorage when IndexedDB
  * fails. A null codec means no fallback: the value is never written to

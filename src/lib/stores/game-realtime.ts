@@ -433,12 +433,6 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 	if (gameId) {
 		setupGameChannel(gameId, generation);
 	}
-
-	return () => {
-		// Bump so the CLOSED events from this teardown are ignored.
-		++currentGeneration;
-		teardownChannels();
-	};
 }
 
 /**
