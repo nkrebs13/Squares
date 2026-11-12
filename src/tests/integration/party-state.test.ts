@@ -114,14 +114,50 @@ describe('get_party_state', () => {
 });
 
 describe('game_side via the trigger', () => {
+	// Every row starts from the opposite of the side it expects, so the trigger
+	// has to change the flag for the row to pass. The abbreviation row uses team
+	// names that match no game team name, so only `abbrev = name` can match.
 	it.each([
-		['full names', ['Philadelphia Eagles', 'PHI'], ['Kansas City Chiefs', 'KC'], true],
-		['abbreviations', ['XX', 'KC'], ['YY', 'PHI'], null],
-		['row team away', ['Kansas City Chiefs', 'KC'], ['Philadelphia Eagles', 'PHI'], false],
-	])('%s', async (_label, home, away, expected) => {
-		const party = await newParty();
+		{
+			label: 'full names',
+			teams: ['Eagles', 'Chiefs'],
+			home: ['Philadelphia Eagles', 'PHI'],
+			away: ['Kansas City Chiefs', 'KC'],
+			start: false,
+			expected: true,
+		},
+		{
+			label: 'abbreviations',
+			teams: ['PHI', 'KC'],
+			home: ['Gotham Knights', 'PHI'],
+			away: ['Metropolis Heroes', 'KC'],
+			start: false,
+			expected: true,
+		},
+		{
+			label: 'abbreviations, row team away',
+			teams: ['PHI', 'KC'],
+			home: ['Metropolis Heroes', 'KC'],
+			away: ['Gotham Knights', 'PHI'],
+			start: true,
+			expected: false,
+		},
+		{
+			label: 'row team away',
+			teams: ['Eagles', 'Chiefs'],
+			home: ['Kansas City Chiefs', 'KC'],
+			away: ['Philadelphia Eagles', 'PHI'],
+			start: true,
+			expected: false,
+		},
+	])('$label', async ({ teams, home, away, start, expected }) => {
+		const party = await createTestParty(client, {
+			team_row_name: teams[0],
+			team_col_name: teams[1],
+		});
+		parties.push(party.id);
 		const gameId = await newGame(home as [string, string], away as [string, string]);
-		await service.from('parties').update({ home_team_is_row: true }).eq('id', party.id);
+		await service.from('parties').update({ home_team_is_row: start }).eq('id', party.id);
 		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
 
 		const { data } = await service
@@ -129,8 +165,21 @@ describe('game_side via the trigger', () => {
 			.select('home_team_is_row')
 			.eq('id', party.id)
 			.single();
-		// An unmatched game leaves the flag as it was.
-		expect(data?.home_team_is_row).toBe(expected ?? true);
+		expect(data?.home_team_is_row).toBe(expected);
+	});
+
+	it('leaves the flag as it was when no team matches', async () => {
+		const party = await newParty();
+		const gameId = await newGame(['Gotham Knights', 'GOT'], ['Metropolis Heroes', 'MET']);
+		await service.from('parties').update({ home_team_is_row: false }).eq('id', party.id);
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+
+		const { data } = await service
+			.from('parties')
+			.select('home_team_is_row')
+			.eq('id', party.id)
+			.single();
+		expect(data?.home_team_is_row).toBe(false);
 	});
 
 	it('treats wildcard characters in team names as literals', async () => {

@@ -109,6 +109,28 @@ describe('Winners Component', () => {
 			expect(screen.getByText('Charlie')).toBeInTheDocument();
 		});
 
+		it('lists winners chronologically even when the server sends them alphabetically', () => {
+			// get_party_state orders by quarter: final, q1, q2, q3.
+			winners.set([
+				createMockWinner({ id: 'f', quarter: 'final' }),
+				createMockWinner({ id: '1', quarter: 'q1' }),
+				createMockWinner({ id: '3', quarter: 'q3' }),
+				createMockWinner({ id: '2', quarter: 'q2' }),
+			]);
+
+			const { container } = render(Winners);
+
+			const labels = [...container.querySelectorAll('.winner-banner .text-sm')].map((el) =>
+				el.textContent?.trim()
+			);
+			expect(labels.filter((l) => l !== 'Won')).toEqual([
+				'1st Quarter',
+				'2nd Quarter',
+				'3rd Quarter',
+				'Final',
+			]);
+		});
+
 		it('displays all quarter labels', () => {
 			winners.set([
 				createMockWinner({ id: '1', quarter: 'q1' }),

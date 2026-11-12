@@ -133,7 +133,18 @@ export const mockWinnersQ1 = [
 	},
 ];
 
+/** In the server's order: ORDER BY quarter, so "final" comes first. The page must sort them. */
 export const mockWinnersAll = [
+	{
+		id: 'winner-final',
+		party_id: 'test-party-id',
+		quarter: 'final',
+		winning_row: 1,
+		winning_col: 4,
+		player_name: 'Dana',
+		amount: 200,
+		created_at: new Date().toISOString(),
+	},
 	...mockWinnersQ1,
 	{
 		id: 'winner-q2',
@@ -153,16 +164,6 @@ export const mockWinnersAll = [
 		winning_col: 1,
 		player_name: 'Charlie',
 		amount: 150,
-		created_at: new Date().toISOString(),
-	},
-	{
-		id: 'winner-final',
-		party_id: 'test-party-id',
-		quarter: 'final',
-		winning_row: 1,
-		winning_col: 4,
-		player_name: 'Dana',
-		amount: 200,
 		created_at: new Date().toISOString(),
 	},
 ];

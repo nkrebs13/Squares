@@ -6,6 +6,10 @@ import {
 	getTestClient,
 	type TestParty,
 } from './helpers';
+import { MAX_EVENT_NAME_LENGTH } from '../../lib/constants';
+
+// host_name / player_name are VARCHAR(50); no shared constant exists for them.
+const DB_MAX_NAME_LENGTH = 50;
 
 // host_create_party / host_update_details (migration 036): one validator,
 // refusals as {ok:false, error:'invalid_input', field}.
@@ -110,7 +114,7 @@ describe('host_create_party', () => {
 
 	it.each([
 		['host_name', { p_host_name: '   ' }],
-		['host_name', { p_host_name: 'x'.repeat(51) }],
+		['host_name', { p_host_name: 'x'.repeat(DB_MAX_NAME_LENGTH + 1) }],
 		['pin', { p_pin: '12a4' }],
 		['pin', { p_pin: '12' }],
 		['pin', { p_pin: '12345' }],
@@ -122,7 +126,7 @@ describe('host_create_party', () => {
 		['square_price', { p_square_price: 0.004 }],
 		['splits', { p_split_final: 26 }],
 		['event_name', { p_event_name: '  ' }],
-		['event_name', { p_event_name: 'x'.repeat(81) }],
+		['event_name', { p_event_name: 'x'.repeat(MAX_EVENT_NAME_LENGTH + 1) }],
 		['team_name', { p_team_col_name: ' ' }],
 		['teams', { p_team_col_name: ' eagles ' }],
 		['team_color', { p_team_row_color: 'green' }],
