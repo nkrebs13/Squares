@@ -28,17 +28,10 @@ test.describe('Accessibility', () => {
 	test('form inputs have associated labels', async ({ page }) => {
 		await page.goto('/create');
 
-		// Price input should have label
-		const priceLabel = page.getByText(/price per square/i);
-		await expect(priceLabel).toBeVisible();
-
-		// Host name should have label
-		const nameLabel = page.getByText(/your name/i);
-		await expect(nameLabel).toBeVisible();
-
-		// PIN should have label
-		const pinLabel = page.getByText(/choose your pin/i);
-		await expect(pinLabel).toBeVisible();
+		// getByLabel only matches a control whose label is actually associated with it
+		await expect(page.getByLabel(/price per square/i)).toBeVisible();
+		await expect(page.getByLabel(/your name/i)).toBeVisible();
+		await expect(page.getByLabel(/choose your pin/i)).toBeVisible();
 	});
 
 	test('buttons have accessible names', async ({ page }) => {

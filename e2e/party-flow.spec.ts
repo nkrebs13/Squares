@@ -86,8 +86,10 @@ test.describe('Party Page - Status States', () => {
 		await page.goto('/party/TEST12');
 
 		// Locked now shows ScoreBoard instead of "grid locked" banner
-		await expect(page.getByText('Seahawks').first()).toBeAttached();
-		await expect(page.getByText('Patriots').first()).toBeAttached();
+		const scoreboard = page.locator('.scoreboard');
+		await expect(scoreboard).toBeVisible();
+		await expect(scoreboard).toContainText('Seahawks');
+		await expect(scoreboard).toContainText('Patriots');
 	});
 
 	test('shows scoreboard when active', async ({ page }) => {
@@ -99,9 +101,11 @@ test.describe('Party Page - Status States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		// Team names should appear in scoreboard
-		await expect(page.getByText('Seahawks').first()).toBeAttached();
-		await expect(page.getByText('Patriots').first()).toBeAttached();
+		// The scoreboard shows both teams and the latest scored quarter (Q1 14-7)
+		const scoreboard = page.locator('.scoreboard');
+		await expect(scoreboard).toContainText('Seahawks');
+		await expect(scoreboard).toContainText('Patriots');
+		await expect(scoreboard.locator('.score-value')).toHaveText(['14', '7']);
 
 		// Winners section should render
 		await expect(page.getByText(/winners/i).first()).toBeAttached();
@@ -135,7 +139,7 @@ test.describe('Party Page - Status States', () => {
 		await page.goto('/party/TEST12');
 
 		// Wait for page to load (locked now shows ScoreBoard with team names)
-		await expect(page.getByText('Seahawks').first()).toBeAttached();
+		await expect(page.locator('.scoreboard')).toContainText('Seahawks');
 
 		// PartyCode component should render in all statuses (including locked)
 		await expect(page.getByText('TEST12').first()).toBeAttached();

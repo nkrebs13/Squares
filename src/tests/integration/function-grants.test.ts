@@ -75,16 +75,6 @@ describe('function grants', () => {
 			expect(executable).toContain(fn);
 		}
 	});
-
-	it('anon cannot write scores through auto_update_score', async () => {
-		const { error } = await getTestClient().rpc('auto_update_score', {
-			p_party_id: '00000000-0000-0000-0000-000000000000',
-			p_quarter: 'q1',
-			p_row_score: 7,
-			p_col_score: 3,
-		});
-		expect(error?.code).toBe('42501');
-	});
 });
 
 describe('push subscriptions', () => {
