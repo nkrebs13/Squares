@@ -103,6 +103,7 @@
 					id="quarter-select"
 					bind:value={manualScores.quarter}
 					class="input mt-1"
+					disabled={isUpdatingScore}
 					onchange={handleQuarterSelected}
 				>
 					{#each QUARTERS as q (q.key)}
@@ -119,6 +120,7 @@
 						type="number"
 						bind:value={manualScores.rowScore}
 						oninput={() => (edited = true)}
+						disabled={isUpdatingScore}
 						min="0"
 						class="input input-no-spinner mt-1"
 					/>
@@ -130,6 +132,7 @@
 						type="number"
 						bind:value={manualScores.colScore}
 						oninput={() => (edited = true)}
+						disabled={isUpdatingScore}
 						min="0"
 						class="input input-no-spinner mt-1"
 					/>

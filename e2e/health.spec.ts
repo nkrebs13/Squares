@@ -4,7 +4,8 @@ import { DEFAULT_APP_NAME } from '../src/lib/app-defaults';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { version: string };
-const expectedAppName = process.env.PUBLIC_APP_NAME || DEFAULT_APP_NAME;
+// The e2e build pins every PUBLIC_* setting to its default (playwright.config.ts).
+const expectedAppName = DEFAULT_APP_NAME;
 
 test('health endpoint reports non-secret app status', async ({ request }) => {
 	const response = await request.get('/health');
