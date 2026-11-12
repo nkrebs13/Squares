@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import type { Party } from '../src/lib/types';
 import {
 	generateEmptySquares,
+	mockParty,
 	mockPartyState,
 	mockScores,
 	partyStateBody,
@@ -248,27 +250,13 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		const createdParty = {
+		const createdParty: Party = {
+			...mockParty,
 			id: 'new-party-id',
 			code: 'XTEST1',
-			status: 'filling',
 			square_price: 1,
-			split_q1: 10,
-			split_q2: 20,
-			split_q3: 30,
-			split_final: 40,
 			event_name: 'Football Squares',
-			kickoff_at: null,
-			team_row_name: 'Seahawks',
-			team_col_name: 'Patriots',
-			team_row_color: '#69be28',
-			team_col_color: '#c60c30',
 			host_name_lower: 'test host',
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-			game_id: null,
-			home_team_is_row: true,
 		};
 
 		await page.route('**/rest/v1/rpc/host_create_party', async (route) => {

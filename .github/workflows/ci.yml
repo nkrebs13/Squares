@@ -87,6 +87,10 @@ jobs:
       - uses: ./.github/actions/setup-supabase
       - name: Run integration tests
         run: npm run test:integration
+      - name: Schema snapshot matches the migrations
+        # CLAUDE.md sends readers to supabase/schema.snapshot.sql for current RPC bodies,
+        # so a migration merged without `npm run db:snapshot` must fail here.
+        run: bash scripts/db-snapshot.sh && git diff --exit-code supabase/schema.snapshot.sql
       - name: Stop Supabase
         if: always()
         run: supabase stop --workdir . || true
