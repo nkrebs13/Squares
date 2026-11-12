@@ -10,14 +10,12 @@ vi.mock('$lib/recentParties', () => ({
 }));
 
 import RecentParties from '$lib/components/RecentParties.svelte';
-import { goto } from '$app/navigation';
 import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
 import { createMockRecentParty as createMockParty } from '../factories';
 
 const mockGetRecentParties = vi.mocked(getRecentParties);
 const mockRemoveRecentParty = vi.mocked(removeRecentParty);
 const mockUpdatePartyNickname = vi.mocked(updatePartyNickname);
-const mockGoto = vi.mocked(goto);
 
 describe('RecentParties Component', () => {
 	// Some tests switch to fake timers; restore even when an assertion fails first.
@@ -301,37 +299,24 @@ describe('RecentParties Component', () => {
 			expect(mockRemoveRecentParty).not.toHaveBeenCalled();
 		});
 
-		it('does not navigate when remove button is clicked', async () => {
+		it("clicking the row's controls never clicks its card link", async () => {
 			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'RMV001' })]);
 			mockRemoveRecentParty.mockResolvedValue(undefined);
 			render(RecentParties);
+			const link = await screen.findByRole('link', { name: /^Open / });
+			const linkClicks = vi.fn();
+			link.addEventListener('click', linkClicks);
 
-			await vi.waitFor(() => {
-				expect(screen.getByText('RMV001')).toBeInTheDocument();
-			});
+			await fireEvent.click(screen.getByLabelText('Add nickname'));
+			await fireEvent.click(screen.getByLabelText('Party nickname'));
+			await fireEvent.keyDown(screen.getByLabelText('Party nickname'), { key: 'Escape' });
+			await fireEvent.click(screen.getByLabelText('Remove from recent'));
+			await fireEvent.click(screen.getByLabelText('Cancel remove'));
+			await fireEvent.click(screen.getByLabelText('Remove from recent'));
+			await fireEvent.click(screen.getByLabelText('Confirm remove'));
 
-			const removeBtn = screen.getByLabelText('Remove from recent');
-			await fireEvent.click(removeBtn);
-
-			expect(mockGoto).not.toHaveBeenCalled();
-		});
-
-		it('does not navigate when confirm remove is clicked', async () => {
-			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'RMV001' })]);
-			mockRemoveRecentParty.mockResolvedValue(undefined);
-			render(RecentParties);
-
-			await vi.waitFor(() => {
-				expect(screen.getByText('RMV001')).toBeInTheDocument();
-			});
-
-			const removeBtn = screen.getByLabelText('Remove from recent');
-			await fireEvent.click(removeBtn);
-
-			const confirmBtn = screen.getByLabelText('Confirm remove');
-			await fireEvent.click(confirmBtn);
-
-			expect(mockGoto).not.toHaveBeenCalled();
+			expect(linkClicks).not.toHaveBeenCalled();
+			expect(mockRemoveRecentParty).toHaveBeenCalledWith('RMV001');
 		});
 	});
 
@@ -471,23 +456,17 @@ describe('RecentParties Component', () => {
 			vi.useRealTimers();
 		});
 
-		it('input click does not trigger navigation (stopPropagation)', async () => {
-			mockGetRecentParties.mockResolvedValue([createMockParty({ code: 'CLICK1' })]);
+		it('a click on the card while editing does not navigate; otherwise it does', async () => {
+			mockGetRecentParties.mockResolvedValue([createMockParty()]);
 			render(RecentParties);
+			const link = await screen.findByRole('link', { name: /^Open / });
 
-			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
-			});
-
-			// Enter edit mode
 			await fireEvent.click(screen.getByLabelText('Add nickname'));
-			const input = screen.getByLabelText('Party nickname');
+			// fireEvent returns false when the click's default action was prevented.
+			expect(await fireEvent.click(link)).toBe(false);
 
-			// Click directly on the input
-			await fireEvent.click(input);
-
-			// Should NOT navigate
-			expect(mockGoto).not.toHaveBeenCalled();
+			await fireEvent.keyDown(screen.getByLabelText('Party nickname'), { key: 'Escape' });
+			expect(await fireEvent.click(link)).toBe(true);
 		});
 	});
 
