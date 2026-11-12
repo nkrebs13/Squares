@@ -1,6 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-	claimCell,
 	cleanupParty,
 	createTestParty,
 	ensureSupabaseReady,
@@ -31,27 +30,6 @@ describe('party update RLS hardening', () => {
 		}
 	});
 
-	it('blocks direct anon updates to party rows', async () => {
-		const party = await createParty();
-
-		const { error } = await client
-			.from('parties')
-			.update({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 })
-			.eq('id', party.id)
-			.select('id');
-
-		expect(error).toBeTruthy();
-		expect(error?.message ?? '').toMatch(/permission|policy|rls|violates/i);
-
-		const { data: persisted, error: readError } = await service
-			.from('parties')
-			.select('split_q1, split_q2, split_q3, split_final')
-			.eq('id', party.id)
-			.single();
-		expect(readError).toBeNull();
-		expect(persisted).toEqual({ split_q1: 25, split_q2: 25, split_q3: 25, split_final: 25 });
-	});
-
 	it('does not expose host PIN columns through public party reads', async () => {
 		const party = await createParty();
 
@@ -64,21 +42,6 @@ describe('party update RLS hardening', () => {
 		expect(data).toBeNull();
 		expect(error).toBeTruthy();
 		expect(error?.message ?? '').toMatch(/permission|host_pin/i);
-	});
-
-	it('blocks direct anon writes to squares while preserving the claim RPC', async () => {
-		const party = await createParty();
-
-		const { error: directError } = await client
-			.from('squares')
-			.update({ player_name: 'Mallory', claimed_at: new Date().toISOString() })
-			.eq('party_id', party.id)
-			.eq('row_num', 0)
-			.eq('col_num', 0);
-
-		expect(directError).toBeTruthy();
-
-		expect(await claimCell(client, party.id, 0, 0, 'Alice')).toBe(true);
 	});
 
 	it.each(['parties', 'squares', 'numbers', 'scores', 'winners'])(

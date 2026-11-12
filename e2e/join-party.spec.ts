@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH } from '../src/lib/constants';
 import {
 	generatePartiallyFilledSquares,
 	mockParty,
@@ -69,11 +70,11 @@ test.describe('Join Party Page', () => {
 		await expect(page.getByText(/helps you tell games apart/i)).toBeVisible();
 	});
 
-	test('game nickname has max length of 30', async ({ page }) => {
+	test('game nickname has the nickname max length', async ({ page }) => {
 		const nicknameInput = page.getByPlaceholder(/work pool/i);
-		const longName = 'A'.repeat(35);
+		const longName = 'A'.repeat(MAX_NICKNAME_LENGTH + 5);
 		await nicknameInput.fill(longName);
-		await expect(nicknameInput).toHaveValue('A'.repeat(30));
+		await expect(nicknameInput).toHaveValue('A'.repeat(MAX_NICKNAME_LENGTH));
 	});
 
 	test('Join Party button is enabled without nickname', async ({ page }) => {
@@ -158,13 +159,13 @@ test.describe('Join Party Page', () => {
 		await expect(joinButton).toBeEnabled();
 	});
 
-	test('name has max length of 20', async ({ page }) => {
+	test('name has the name max length', async ({ page }) => {
 		const nameInput = page.getByPlaceholder(/enter your name/i);
 
-		const longName = 'A'.repeat(25);
+		const longName = 'A'.repeat(MAX_NAME_LENGTH + 5);
 		await nameInput.fill(longName);
 
-		await expect(nameInput).toHaveValue('A'.repeat(20));
+		await expect(nameInput).toHaveValue('A'.repeat(MAX_NAME_LENGTH));
 	});
 });
 
