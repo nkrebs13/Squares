@@ -37,7 +37,6 @@
 		if (!isLive) return currentQuarter?.label ?? '';
 		const q = $liveScores?.quarter ?? 0;
 		if (isHalftime($liveScores?.status)) return 'HALF';
-		if (q === 0) return '';
 		return formatGamePeriod(q);
 	});
 </script>

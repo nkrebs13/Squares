@@ -21,8 +21,14 @@ export type ZoomState = 'fit' | 'zoomed';
  */
 export function getFitCellSize(gridWidth: number): number {
 	const columns = GRID_SIZE + 1;
+	// The inverse of gridWidthAt: the largest cell whose grid fits gridWidth.
 	const fit = Math.floor((gridWidth - (columns - 1) * GAP_SIZE) / columns);
 	return gridWidth > 0 ? Math.max(MIN_CELL_SIZE_MOBILE, fit) : MIN_CELL_SIZE_MOBILE;
+}
+
+/** Width of the grid (header column + GRID_SIZE cells, with gaps) at a cell size. */
+export function gridWidthAt(cellSize: number): number {
+	return (GRID_SIZE + 1) * cellSize + GRID_SIZE * GAP_SIZE;
 }
 
 export function getEffectiveCellSize(zoomState: ZoomState, fitCellSize: number): number {

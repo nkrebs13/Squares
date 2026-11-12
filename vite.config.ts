@@ -30,9 +30,7 @@ export default defineConfig(({ mode }) => {
 				include: ['src/lib/**/*.{ts,svelte}'],
 				exclude: [
 					'src/lib/supabase.ts',
-					'src/lib/index.ts', // barrel re-export
 					'src/lib/stores/game.ts', // barrel re-export
-					'src/lib/push.ts', // browser Push API — requires real ServiceWorker
 				],
 				thresholds: {
 					lines: 93,

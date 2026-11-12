@@ -35,6 +35,7 @@
 		GAP_SIZE,
 		getEffectiveCellSize,
 		getFitCellSize,
+		gridWidthAt,
 		getHeaderHeight,
 		shouldShowZoomControl,
 		type ZoomState,
@@ -65,9 +66,7 @@
 	const fitCellSize = $derived(getFitCellSize(containerWidth));
 	// The minimum cell size can make the grid wider than a narrow phone; then it
 	// scrolls instead of clipping the right-hand column.
-	const fitsWithoutScroll = $derived(
-		(GRID_SIZE + 1) * fitCellSize + GRID_SIZE * GAP_SIZE <= containerWidth
-	);
+	const fitsWithoutScroll = $derived(gridWidthAt(fitCellSize) <= containerWidth);
 	const effectiveCellSize = $derived(getEffectiveCellSize(zoomState, fitCellSize));
 	const showZoomControl = $derived(shouldShowZoomControl(fitCellSize));
 	const headerHeight = $derived(getHeaderHeight(effectiveCellSize));
@@ -141,11 +140,11 @@
 	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
 
 	const showColLogo = $derived(
-		$teamTheme.colName?.toLowerCase().trim() ===
+		$teamTheme.colName.toLowerCase().trim() ===
 			APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
 	);
 	const showRowLogo = $derived(
-		$teamTheme.rowName?.toLowerCase().trim() ===
+		$teamTheme.rowName.toLowerCase().trim() ===
 			APP_CONFIG.defaultTeams.row.name.toLowerCase().trim()
 	);
 </script>

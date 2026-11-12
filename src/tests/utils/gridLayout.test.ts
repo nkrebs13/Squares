@@ -8,6 +8,7 @@ import {
 	getEffectiveCellSize,
 	getFitCellSize,
 	getHeaderHeight,
+	gridWidthAt,
 	shouldShowZoomControl,
 } from '$lib/utils/gridLayout';
 import { createMockSquare, createMockWinner } from '../factories';
@@ -20,14 +21,15 @@ describe('gridLayout sizing', () => {
 	it('fits the header column and ten cells, with their gaps, into the grid width', () => {
 		for (const width of [340, 512, 700, 1100]) {
 			const cell = getFitCellSize(width);
-			const used = 11 * cell + 10 * GAP_SIZE;
-			expect(used).toBeLessThanOrEqual(width);
-			expect(used + 11).toBeGreaterThan(width);
+			expect(gridWidthAt(cell)).toBe(11 * cell + 10 * GAP_SIZE);
+			expect(gridWidthAt(cell)).toBeLessThanOrEqual(width);
+			expect(gridWidthAt(cell + 1)).toBeGreaterThan(width);
 		}
 	});
 
-	it('clamps fit size to the mobile minimum', () => {
+	it('clamps fit size to the mobile minimum, which then overflows the width', () => {
 		expect(getFitCellSize(200)).toBe(MIN_CELL_SIZE_MOBILE);
+		expect(gridWidthAt(getFitCellSize(200))).toBeGreaterThan(200);
 	});
 
 	it('picks the zoomed or fit size by zoom state', () => {

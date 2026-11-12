@@ -26,6 +26,14 @@ describe('Winners Component', () => {
 
 			expect(container.innerHTML).toBe('<!---->');
 		});
+
+		it('says no winners were recorded for a finished game without any', () => {
+			party.set(createMockParty({ status: 'complete' }));
+
+			render(Winners);
+
+			expect(screen.getByText('No winners have been recorded for this game.')).toBeInTheDocument();
+		});
 	});
 
 	describe('Single Winner', () => {
