@@ -28,14 +28,10 @@ vi.mock('$app/stores', async () => {
 	};
 });
 
-// Mock loadParty and subscribeToParty so onMount doesn't fire real logic
+// Tests set the party stores directly; opening the party must not reload over them.
 vi.mock('$lib/stores/game', async (importOriginal) => {
 	const original = (await importOriginal()) as Record<string, unknown>;
-	return {
-		...original,
-		loadParty: vi.fn().mockResolvedValue(true),
-		subscribeToParty: vi.fn().mockReturnValue(() => {}),
-	};
+	return { ...original, openParty: vi.fn().mockResolvedValue(true) };
 });
 
 vi.mock('$lib/recentParties', () => ({

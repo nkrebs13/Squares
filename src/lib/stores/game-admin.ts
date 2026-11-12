@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
-import { party, squares, numbers, scores, winners, resetPartyState } from './game-state';
-import { clearPendingOps, clearSquareFields } from './game-pending';
-import { broadcastScoreUpdate, cleanupChannels } from './game-realtime';
+import { party, squares, numbers, scores, winners } from './game-state';
+import { clearSquareFields } from './game-pending';
+import { broadcastScoreUpdate } from './game-realtime';
 import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
 import type { Quarter } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
@@ -181,12 +181,6 @@ export async function deleteParty(pin: string): Promise<AdminResult> {
 		{ failed: 'Failed to delete party. Please try again.' }
 	);
 	return result.ok ? { success: true } : { success: false, error: result.error };
-}
-
-export function cleanup() {
-	clearPendingOps();
-	cleanupChannels();
-	resetPartyState();
 }
 
 export async function verifyHostPin(code: string, pin: string): Promise<AdminResult> {
