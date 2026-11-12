@@ -220,9 +220,17 @@ describe('following a game linked while the party is open', () => {
 
 	it("subscribes the game's channel when the party gains a game", () => {
 		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', null);
+		stateResponds();
 		party.update((p) => (p ? { ...p, game_id: 'g1' } : p));
 		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', 'g1');
 		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+	});
+
+	it('re-reads the party once after following a newly linked game', async () => {
+		stateResponds();
+		party.update((p) => (p ? { ...p, game_id: 'g1' } : p));
+		await flush();
+		expect(stateCalls()).toBe(2);
 	});
 
 	it('does not resubscribe for other changes to the same party', () => {

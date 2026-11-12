@@ -17,20 +17,25 @@ let stopResync: (() => void) | null = null;
  * UPDATE): the DB is the source of truth, and an op left alive would time out and roll
  * a square back to its pre-gap snapshot over the fresh row.
  */
-function resyncOnReconnect(code: string, mine: number): () => void {
-	let previous: string | null = null;
-	// Only the newest refresh may apply: two quick reconnects must not let an older
+function quietRefresher(code: string, mine: number): () => void {
+	// Only the newest refresh may apply: two quick refreshes must not let an older
 	// response land last and put the party back a step (e.g. complete -> filling).
-	let latestRefresh = 0;
-	return connectionStatus.subscribe(({ status }) => {
-		const reconnected = previous !== null && previous !== 'connected' && status === 'connected';
-		previous = status;
-		if (!reconnected) return;
-		const refresh = ++latestRefresh;
-		const isCurrent = () => mine === session && refresh === latestRefresh;
+	let latest = 0;
+	return () => {
+		const refresh = ++latest;
+		const isCurrent = () => mine === session && refresh === latest;
 		void refreshParty(code, isCurrent).then((applied) => {
 			if (applied && isCurrent()) clearPendingOps();
 		});
+	};
+}
+
+function resyncOnReconnect(refresh: () => void): () => void {
+	let previous: string | null = null;
+	return connectionStatus.subscribe(({ status }) => {
+		const reconnected = previous !== null && previous !== 'connected' && status === 'connected';
+		previous = status;
+		if (reconnected) refresh();
 	});
 }
 
@@ -47,14 +52,17 @@ export async function openParty(code: string): Promise<boolean> {
 	let followedGame = current.game_id ?? get(gameScores)?.game_id ?? null;
 	subscribeToParty(current.id, followedGame);
 	stopResync?.();
-	const stopReconnectWatch = resyncOnReconnect(code, mine);
+	const refresh = quietRefresher(code, mine);
+	const stopReconnectWatch = resyncOnReconnect(refresh);
 	// A party linked to a game while it is open (operators link out of band) needs the
-	// game's channel too, or live scores never arrive until a reload.
+	// game's channel too, or live scores never arrive until a reload. Resubscribing
+	// rejoins every channel, so re-read once: it also fetches the newly linked game.
 	const stopGameWatch = party.subscribe((p) => {
 		if (mine !== session || !p || p.id !== current.id || !p.game_id) return;
 		if (p.game_id === followedGame) return;
 		followedGame = p.game_id;
 		subscribeToParty(p.id, followedGame);
+		refresh();
 	});
 	stopResync = () => {
 		stopReconnectWatch();
