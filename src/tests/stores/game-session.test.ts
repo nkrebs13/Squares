@@ -53,7 +53,7 @@ describe('openParty', () => {
 	it('follows the party and its linked game', async () => {
 		loadsParty('g-linked', 'g-detected');
 		expect(await openParty('ABC123')).toBe(true);
-		expect(loadParty).toHaveBeenCalledWith('ABC123');
+		expect(loadParty).toHaveBeenCalledWith('ABC123', expect.any(Function));
 		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-linked');
 	});
 
@@ -73,6 +73,46 @@ describe('openParty', () => {
 		loadParty.mockResolvedValue(false);
 		expect(await openParty('NOPE00')).toBe(false);
 		expect(subscribeToParty).not.toHaveBeenCalled();
+	});
+});
+
+describe('openParty when the party is left mid-load', () => {
+	function deferredLoad() {
+		let release!: () => void;
+		const gate = new Promise<void>((r) => (release = r));
+		loadParty.mockImplementation(async (_code: string, isCurrent: () => boolean) => {
+			await gate;
+			if (!isCurrent()) return false;
+			party.set(createMockParty({ id: 'late' }));
+			return true;
+		});
+		return release;
+	}
+
+	beforeEach(() => {
+		party.set(null);
+		subscribeToParty.mockClear();
+	});
+
+	it('leaves no state and no subscription behind after cleanup', async () => {
+		const release = deferredLoad();
+		const opening = openParty('ABC123');
+		cleanup();
+		release();
+		expect(await opening).toBe(false);
+		expect(get(party)).toBeNull();
+		expect(subscribeToParty).not.toHaveBeenCalled();
+	});
+
+	it('lets a newer open win over an older one still loading', async () => {
+		const releaseFirst = deferredLoad();
+		const first = openParty('OLD111');
+		loadsParty('g-new');
+		expect(await openParty('NEW222')).toBe(true);
+		releaseFirst();
+		expect(await first).toBe(false);
+		expect(subscribeToParty).toHaveBeenCalledTimes(1);
+		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-new');
 	});
 });
 

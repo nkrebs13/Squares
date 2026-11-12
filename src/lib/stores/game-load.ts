@@ -39,16 +39,22 @@ function fail(message: string): false {
 	return false;
 }
 
-export async function loadParty(code: string): Promise<boolean> {
+export async function loadParty(
+	code: string,
+	isCurrent: () => boolean = () => true
+): Promise<boolean> {
 	isLoading.set(true);
 	error.set(null);
 
 	let data: unknown;
 	try {
 		const response = await getSupabaseClient().rpc('get_party_state', { p_code: code });
+		// The page may have been left (or another party opened) while this was in flight.
+		if (!isCurrent()) return false;
 		if (response.error) throw new Error(response.error.message);
 		data = response.data;
 	} catch (e) {
+		if (!isCurrent()) return false;
 		logError('[loadParty] get_party_state failed:', e instanceof Error ? e.message : String(e));
 		return fail("Couldn't load that party. Check your connection and try again.");
 	}

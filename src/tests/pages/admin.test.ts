@@ -119,6 +119,15 @@ describe('Admin Page - Score Entry', () => {
 		clearToasts();
 	});
 
+	describe('Party session', () => {
+		it('opens the party named in the URL and leaves it on unmount', async () => {
+			const { unmount } = renderAuthorizedAdmin();
+			await waitFor(() => expect(openParty).toHaveBeenCalledWith('TEST123'));
+			unmount();
+			expect(get(party)).toBeNull();
+		});
+	});
+
 	describe('Score Entry Visibility', () => {
 		it('shows score entry section when party status is active', () => {
 			renderAuthorizedAdmin({ status: 'active' });

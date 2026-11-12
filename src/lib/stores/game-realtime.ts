@@ -455,7 +455,7 @@ export function broadcastScoreUpdate() {
 	});
 }
 
-// Cleanup channels (called from game-admin cleanup)
+// Cleanup channels (called from game-session cleanup)
 export function cleanupChannels() {
 	// Bump so the CLOSED events from this teardown cannot resurrect a subscription.
 	++currentGeneration;
