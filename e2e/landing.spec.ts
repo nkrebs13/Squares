@@ -1,3 +1,4 @@
+import { DEFAULT_APP_NAME, DEFAULT_APP_TAGLINE } from '../src/lib/app-defaults';
 import { test, expect } from '@playwright/test';
 import { seedRecentParties } from './fixtures/supabase-mocks';
 
@@ -7,8 +8,8 @@ test.describe('Landing Page', () => {
 	});
 
 	test('displays the main heading and tagline', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
-		await expect(page.getByText(/football squares pools for any game/i)).toBeVisible();
+		await expect(page.getByRole('heading', { name: DEFAULT_APP_NAME })).toBeVisible();
+		await expect(page.getByText(DEFAULT_APP_TAGLINE)).toBeVisible();
 	});
 
 	test('emits each share tag exactly once with the app text', async ({ page }) => {
@@ -25,7 +26,7 @@ test.describe('Landing Page', () => {
 		}
 		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
 			'content',
-			'Football Squares'
+			DEFAULT_APP_NAME
 		);
 	});
 

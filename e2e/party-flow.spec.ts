@@ -1,3 +1,4 @@
+import { DEFAULT_APP_NAME } from '../src/lib/app-defaults';
 import { test, expect } from '@playwright/test';
 import {
 	mockPartyState,
@@ -293,7 +294,7 @@ test.describe('Complete User Journey', () => {
 	test('user can navigate from landing to the prefilled join flow', async ({ page }) => {
 		// Start at landing page
 		await page.goto('/');
-		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
+		await expect(page.getByRole('heading', { name: DEFAULT_APP_NAME })).toBeVisible();
 
 		// Enter party code and click join
 		await page.getByPlaceholder(/enter party code/i).fill('TEST12');
