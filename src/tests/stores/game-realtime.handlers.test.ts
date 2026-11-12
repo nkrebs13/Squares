@@ -184,6 +184,17 @@ describe('postgres_changes: winners', () => {
 		expect(get(winners)).toEqual([q1, q2]);
 	});
 
+	it('keeps one winner per quarter when the INSERT lands after a refetch already added it', () => {
+		// The score_update broadcast refetches the full winners list; the row's own
+		// INSERT can arrive afterwards. A duplicate would crash the keyed winners list.
+		winners.set([q1]);
+		open();
+
+		pgChange('winners', { eventType: 'INSERT', new: q1 });
+
+		expect(get(winners)).toEqual([q1]);
+	});
+
 	it('UPDATE replaces matching winner by party_id and quarter', () => {
 		winners.set([q1]);
 		open();

@@ -171,18 +171,19 @@ export { squareKey } from '$lib/utils/squareKey';
 // applySquareUpdate also clears pending optimistic state, so it lives in
 // game-pending.ts (which depends on this module, never the reverse).
 
-/** Apply an INSERT on the winners table. */
-export function applyWinnerInsert(newWinner: Winner): void {
-	winners.update((current) => [...current, newWinner]);
-}
-
-/** Apply an UPDATE on the winners table. Matches by (party_id, quarter). */
-export function applyWinnerUpdate(newWinner: Winner): void {
-	winners.update((current) =>
-		current.map((w) =>
-			w.party_id === newWinner.party_id && w.quarter === newWinner.quarter ? newWinner : w
-		)
-	);
+/**
+ * Apply an INSERT or UPDATE on the winners table. A party has one winner per quarter
+ * (UNIQUE (party_id, quarter)), and the same winner can arrive twice: once as the row
+ * change and once in the winners refetch that follows a score_update broadcast. So it
+ * replaces whatever that quarter held, never appends a second copy.
+ */
+export function applyWinner(newWinner: Winner): void {
+	winners.update((current) => [
+		...current.filter(
+			(w) => !(w.party_id === newWinner.party_id && w.quarter === newWinner.quarter)
+		),
+		newWinner,
+	]);
 }
 
 /** Apply a DELETE on the winners table. Matches by (party_id, quarter). */
