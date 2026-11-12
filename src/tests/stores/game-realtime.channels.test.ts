@@ -108,34 +108,25 @@ describe('channel teardown', () => {
 		expect(get(connectionStatus)).toEqual({ status: 'connected', attempt: 0 });
 	});
 
-	it.each([
-		['the subscribeToParty closure', (unsubscribe: () => void) => unsubscribe()],
-		['cleanup()', () => cleanup()],
-	])('%s unsubscribes every channel and leaves broadcast() a no-op', (_label, teardown) => {
-		const unsubscribe = subscribeToParty('p1', 'g1');
+	it('cleanup() unsubscribes every channel and leaves broadcast() a no-op', () => {
+		subscribeToParty('p1', 'g1');
 		mockSupabaseChannel.unsubscribe.mockClear();
 
-		teardown(unsubscribe);
+		cleanup();
 
 		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(3);
 		broadcast(claimIntent);
 		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
 	});
 
-	it.each([
-		['the subscribeToParty closure', (unsubscribe: () => void) => unsubscribe()],
-		['cleanup()', () => cleanup()],
-	])(
-		'%s unsubscribes just the party and broadcast channels when there is no game',
-		(_label, teardown) => {
-			const unsubscribe = subscribeToParty('p1');
-			mockSupabaseChannel.unsubscribe.mockClear();
+	it('cleanup() unsubscribes just the party and broadcast channels when there is no game', () => {
+		subscribeToParty('p1');
+		mockSupabaseChannel.unsubscribe.mockClear();
 
-			teardown(unsubscribe);
+		cleanup();
 
-			expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(2);
-		}
-	);
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(2);
+	});
 
 	it('teardown cancels a pending reconnect and resets the connection status', () => {
 		subscribeToParty('p1');
@@ -232,12 +223,12 @@ describe('reconnecting with backoff', () => {
 // have already moved on. Reacting to it would resurrect a channel nobody wants.
 describe('a late CLOSED from a channel we no longer use', () => {
 	it('does not re-open a channel when CLOSED lands after teardown', () => {
-		const teardown = subscribeToParty('party-a');
+		subscribeToParty('party-a');
 		const broadcastClosed = statusCallback('party-broadcast:party-a');
 		const partyClosed = statusCallback('party:party-a');
 
 		// User leaves the party: an INTENTIONAL close.
-		teardown();
+		cleanup();
 		const before = channelsCreated();
 
 		broadcastClosed('CLOSED');

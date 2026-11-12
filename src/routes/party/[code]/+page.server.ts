@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { env } from '$env/dynamic/private';
+import { serverSupabaseEnv } from '$lib/server/supabaseEnv';
 import type { PageServerLoad } from './$types';
 import { partyToShareMetadata, type PartyShareMetadata } from '$lib/partyMeta';
 import { parseParty } from '$lib/validators/realtime';
@@ -11,15 +11,14 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 async function loadPartyShareMetadata(codeParam: string): Promise<PartyShareMetadata | null> {
-	const supabaseUrl = env.SUPABASE_URL ?? env.VITE_SUPABASE_URL;
-	const supabaseAnonKey = env.SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_ANON_KEY;
+	const project = serverSupabaseEnv();
 	const code = normalizePartyCode(codeParam);
 
-	if (!supabaseUrl || !supabaseAnonKey || !code) {
+	if (!project || !code) {
 		return null;
 	}
 
-	const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+	const supabase = createClient(project.url, project.anonKey, {
 		auth: {
 			persistSession: false,
 			autoRefreshToken: false,
