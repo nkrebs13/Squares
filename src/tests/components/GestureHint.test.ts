@@ -174,9 +174,8 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(true); // already seen -> not shown on mount
 
 			const { component } = render(GestureHint);
-			await vi.waitFor(() => {
-				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-			});
+			await waitForMountDecision();
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 
 			component.reopen();
 
@@ -190,9 +189,8 @@ describe('GestureHint Component', () => {
 			window.matchMedia = createMatchMediaMock({ [DESKTOP_LAYOUT_QUERY]: true });
 
 			const { component } = render(GestureHint);
-			await vi.waitFor(() => {
-				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-			});
+			await waitForMountDecision();
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 
 			component.reopen();
 
@@ -205,9 +203,8 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(true);
 
 			const { component } = render(GestureHint);
-			await vi.waitFor(() => {
-				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-			});
+			await waitForMountDecision();
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 
 			component.reopen();
 			await vi.waitFor(() => {

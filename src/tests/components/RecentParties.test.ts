@@ -38,14 +38,13 @@ describe('RecentParties Component', () => {
 			expect(screen.queryByText('Recent Parties')).not.toBeInTheDocument();
 		});
 
-		it('renders nothing when no recent parties', async () => {
+		it('invites creating or joining a party when there are none yet', async () => {
 			mockGetRecentParties.mockResolvedValue([]);
 			render(RecentParties);
 
-			// Wait for mount to complete
-			await vi.waitFor(() => {
-				expect(screen.queryByText('Recent Parties')).not.toBeInTheDocument();
-			});
+			expect(await screen.findByText(/No recent parties yet/)).toBeInTheDocument();
+			expect(screen.getByText('Recent Parties')).toBeInTheDocument();
+			expect(screen.getByRole('link', { name: 'create one' })).toHaveAttribute('href', '/create');
 		});
 
 		it('renders party list when parties exist', async () => {
