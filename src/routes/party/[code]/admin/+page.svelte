@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import { TOTAL_SQUARES } from '$lib/constants';
 	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import { cachedHostPin, forgetHostPin, recallHostPin } from '$lib/hostPin';
 	import { removeRecentParty } from '$lib/recentParties';
@@ -61,9 +60,8 @@
 	let partyStatusHeadingEl = $state<HTMLHeadingElement | null>(null);
 
 	onMount(async () => {
-		if (browser) {
-			storedPin = cachedHostPin(code) ?? (await recallHostPin(code));
-		}
+		// Read synchronously first, so a cached PIN skips a frame of the PIN gate.
+		storedPin = cachedHostPin(code) ?? (await recallHostPin(code));
 
 		await openParty(code);
 	});

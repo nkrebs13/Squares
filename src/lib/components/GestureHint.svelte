@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import { durable, STORAGE_KEYS } from '$lib/storage';
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
@@ -14,8 +13,6 @@
 	let timeout: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
-		if (!browser) return;
-
 		isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 		// Auto-shows only in the mobile layout, where the pan/zoom gestures it describes apply.
 		const isMobileLayout = !window.matchMedia(DESKTOP_LAYOUT_QUERY).matches;

@@ -66,7 +66,7 @@ test.describe('Party Page - Mocked Flow', () => {
 		await page.goto('/party/TEST12');
 
 		// Status banner renders in both mobile and desktop sections
-		await expect(page.getByText(/squares filled/i).first()).toBeAttached();
+		await expect(page.getByText(/squares filled/i).first()).toBeVisible();
 	});
 
 	test('displays grid legend', async ({ page }) => {
@@ -109,8 +109,8 @@ test.describe('Party Page - Status States', () => {
 		await expect(scoreboard.locator('.score-value')).toHaveText(['14', '7']);
 
 		// Winners section should render
-		await expect(page.getByText(/winners/i).first()).toBeAttached();
-		await expect(page.getByText('Alice').first()).toBeAttached();
+		await expect(page.getByText(/winners/i).first()).toBeVisible();
+		await expect(page.getByText('Alice').first()).toBeVisible();
 	});
 
 	test('shows game complete state with scoreboard and winners', async ({ page }) => {
@@ -123,13 +123,13 @@ test.describe('Party Page - Status States', () => {
 		await page.goto('/party/TEST12');
 
 		// ScoreBoard is visible in complete state (shows team names)
-		await expect(page.locator('.scoreboard').first()).toBeAttached();
+		await expect(page.locator('.scoreboard').first()).toBeVisible();
 
 		// All winners should be listed
-		await expect(page.getByText('Alice').first()).toBeAttached();
-		await expect(page.getByText('Bob').first()).toBeAttached();
-		await expect(page.getByText('Charlie').first()).toBeAttached();
-		await expect(page.getByText('Dana').first()).toBeAttached();
+		await expect(page.getByText('Alice').first()).toBeVisible();
+		await expect(page.getByText('Bob').first()).toBeVisible();
+		await expect(page.getByText('Charlie').first()).toBeVisible();
+		await expect(page.getByText('Dana').first()).toBeVisible();
 	});
 
 	test('shows party code share in all statuses', async ({ page }) => {
@@ -143,7 +143,7 @@ test.describe('Party Page - Status States', () => {
 		await expect(page.locator('.scoreboard')).toContainText('Seahawks');
 
 		// PartyCode component should render in all statuses (including locked)
-		await expect(page.getByText('TEST12').first()).toBeAttached();
+		await expect(page.getByText('TEST12').first()).toBeVisible();
 	});
 
 	test('squares are disabled when party is locked', async ({ page }) => {
@@ -175,7 +175,7 @@ test.describe('Square Interactions', () => {
 		// Wait for grid and find our square
 		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
 		const mySquare = page.locator('button.square-mine').first();
-		await expect(mySquare).toBeAttached();
+		await expect(mySquare).toBeVisible();
 
 		// Own square should be enabled (not disabled) so user can unclaim via touch
 		await expect(mySquare).toBeEnabled();
@@ -203,7 +203,7 @@ test.describe('Party Code Sharing', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		await expect(page.getByText('TEST12').first()).toBeAttached();
+		await expect(page.getByText('TEST12').first()).toBeVisible();
 	});
 
 	test('shows Copy Code, Copy Link, and Share buttons', async ({ page }) => {
@@ -211,9 +211,9 @@ test.describe('Party Code Sharing', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		await expect(page.getByRole('button', { name: /copy code/i }).first()).toBeAttached();
-		await expect(page.getByRole('button', { name: /copy link/i }).first()).toBeAttached();
-		await expect(page.getByRole('button', { name: /share/i }).first()).toBeAttached();
+		await expect(page.getByRole('button', { name: /copy code/i }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /copy link/i }).first()).toBeVisible();
+		await expect(page.getByRole('button', { name: /share/i }).first()).toBeVisible();
 	});
 
 	test('Copy Code button shows confirmation', async ({ page }) => {
@@ -227,7 +227,7 @@ test.describe('Party Code Sharing', () => {
 		const copyButton = page.getByRole('button', { name: /copy code/i }).first();
 		await copyButton.click();
 
-		await expect(page.getByText('Copied!').first()).toBeAttached({ timeout: 5000 });
+		await expect(page.getByText('Copied!').first()).toBeVisible({ timeout: 5000 });
 	});
 
 	test('QR Code button shows QR code image', async ({ page }) => {
@@ -236,7 +236,7 @@ test.describe('Party Code Sharing', () => {
 		await page.goto('/party/TEST12');
 
 		const qrButton = page.getByRole('button', { name: /qr code/i }).first();
-		await expect(qrButton).toBeAttached();
+		await expect(qrButton).toBeVisible();
 		await qrButton.click();
 
 		// QR code should render as an image
@@ -276,7 +276,7 @@ test.describe('Party Page - Error States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		await expect(page.getByText('5/100').first()).toBeAttached({ timeout: 10000 });
+		await expect(page.getByText('5/100').first()).toBeVisible({ timeout: 10000 });
 	});
 
 	test('full grid shows ready to lock', async ({ page }) => {
@@ -286,7 +286,7 @@ test.describe('Party Page - Error States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		await expect(page.getByText(/ready to lock/i).first()).toBeAttached({ timeout: 10000 });
+		await expect(page.getByText(/ready to lock/i).first()).toBeVisible({ timeout: 10000 });
 	});
 });
 

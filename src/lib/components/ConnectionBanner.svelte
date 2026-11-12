@@ -2,7 +2,7 @@
 	import { connectionStatus, isOffline } from '$lib/stores/game';
 
 	function refresh() {
-		if (typeof location !== 'undefined') location.reload();
+		location.reload();
 	}
 </script>
 
