@@ -1,6 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	// Pure modules under src/lib (constants, copy) import each other through $lib.
+	resolve: { alias: { $lib: fileURLToPath(new URL('./src/lib', import.meta.url)) } },
 	test: {
 		environment: 'node',
 		include: ['src/tests/integration/**/*.{test,spec}.{js,ts}'],

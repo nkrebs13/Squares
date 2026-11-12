@@ -164,8 +164,6 @@ export const activePlayerFilter = derived(
 		$selected && $players.some((p) => p.normalizedName === $selected) ? $selected : null
 );
 
-export { squareKey } from '$lib/utils/squareKey';
-
 // ─── State-application functions (called from the realtime transport layer) ──
 //
 // A small, typed surface for the transport layer to mutate state without

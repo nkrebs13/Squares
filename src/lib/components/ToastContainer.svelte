@@ -85,11 +85,6 @@
 		color: white;
 	}
 
-	.toast-info {
-		background: rgb(var(--rgb-sky) / 0.9);
-		color: #0f0f14;
-	}
-
 	.toast-icon {
 		flex-shrink: 0;
 	}
