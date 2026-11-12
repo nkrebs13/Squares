@@ -9,7 +9,7 @@
 	import { datetimeLocalToIso } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
-	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH } from '$lib/constants';
+	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH } from '$lib/constants';
 	import {
 		isValidEventName,
 		isValidHostName,
@@ -177,7 +177,7 @@
 
 		<div class="card">
 			<label class="block">
-				<span class="text-sm text-secondary">Choose your PIN (4 digits)</span>
+				<span class="text-sm text-secondary">Choose your PIN ({PIN_LENGTH} digits)</span>
 				<PinInput bind:value={hostPin} class="mt-2" />
 			</label>
 			<p class="mt-2 text-sm text-muted">You'll need this to lock the grid and manage scores</p>

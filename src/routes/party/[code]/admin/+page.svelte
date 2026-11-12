@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
+	import { isComplete, isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
 	import { page } from '$app/stores';
 	import { TOTAL_SQUARES } from '$lib/constants';
 	import { onMount, onDestroy } from 'svelte';
@@ -20,6 +20,7 @@
 	import { toast } from '$lib/stores/toast';
 
 	import { goto } from '$app/navigation';
+	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PinGate from '$lib/components/admin/PinGate.svelte';
 	import EventDetailsCard from '$lib/components/admin/EventDetailsCard.svelte';
 	import ManagePlayersCard from '$lib/components/admin/ManagePlayersCard.svelte';
@@ -165,7 +166,7 @@
 					/>
 				{/if}
 
-				{#if $party.status === 'complete'}
+				{#if isComplete($party.status)}
 					<div class="card text-center">
 						<h2 class="text-lg font-semibold mb-2">Game Complete</h2>
 						<p class="text-sm text-secondary">
@@ -178,18 +179,7 @@
 				<DangerZoneCard ondelete={() => (showDeleteConfirm = true)} />
 			</div>
 			{#snippet failed(_error, reset)}
-				<div class="card max-w-md mx-auto border border-red-500/30">
-					<p class="text-sm text-red-400">The admin panel encountered an error.</p>
-					<div class="flex gap-2 mt-2">
-						<button class="btn btn-secondary btn-sm" type="button" onclick={reset}>Try again</button
-						>
-						<button
-							class="btn btn-secondary btn-sm"
-							type="button"
-							onclick={() => window.location.reload()}>Reload</button
-						>
-					</div>
-				</div>
+				<BoundaryFallback {reset} />
 			{/snippet}
 		</svelte:boundary>
 	{:else if $isLoading}

@@ -39,10 +39,7 @@ function fail(message: string): false {
 	return false;
 }
 
-export async function loadParty(
-	code: string,
-	isCurrent: () => boolean = () => true
-): Promise<boolean> {
+export async function loadParty(code: string, isCurrent: () => boolean): Promise<boolean> {
 	isLoading.set(true);
 	error.set(null);
 

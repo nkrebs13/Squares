@@ -10,7 +10,8 @@
 import { writable } from 'svelte/store';
 import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
-import { clientId, squares, squareKey } from './game-state';
+import { clientId, squares } from './game-state';
+import { squareKey } from '$lib/utils/squareKey';
 
 export type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
 

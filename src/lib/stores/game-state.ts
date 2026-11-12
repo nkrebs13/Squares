@@ -1,4 +1,5 @@
 import { isGameInProgress } from '$lib/partyStatus';
+import { isGameLive } from '$lib/liveGame';
 import { writable, derived } from 'svelte/store';
 import type {
 	Party,
@@ -83,7 +84,7 @@ export const leadingSquare = derived(
 	([$liveScores, $numbers, $party]) => {
 		if (!$liveScores || !$numbers || !$party) return null;
 		if (!isGameInProgress($party.status)) return null;
-		if ($liveScores.status === 'final' || $liveScores.status === 'pregame') return null;
+		if (!isGameLive($liveScores.status)) return null;
 
 		const rowDigit = $liveScores.rowScore % 10;
 		const colDigit = $liveScores.colScore % 10;

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	getStatusBadge,
 	hasDrawnNumbers,
+	isComplete,
 	isFilling,
 	isGameInProgress,
 	PARTY_STATUSES,
@@ -15,14 +16,18 @@ describe('party status', () => {
 	it('classifies every status', () => {
 		expect(ALL.filter(isFilling)).toEqual(['filling']);
 		expect(ALL.filter(isGameInProgress)).toEqual(['locked', 'active']);
+		expect(ALL.filter(isComplete)).toEqual(['complete']);
 		expect(ALL.filter(hasDrawnNumbers)).toEqual(['locked', 'active', 'complete']);
 		expect(ALL.map(statusLabel)).toEqual(['filling', 'active', 'active', 'complete']);
 	});
 
 	it('treats a missing party as none of them', () => {
-		expect(isFilling(undefined) || isGameInProgress(undefined) || hasDrawnNumbers(undefined)).toBe(
-			false
-		);
+		expect(
+			isFilling(undefined) ||
+				isGameInProgress(undefined) ||
+				hasDrawnNumbers(undefined) ||
+				isComplete(undefined)
+		).toBe(false);
 	});
 });
 

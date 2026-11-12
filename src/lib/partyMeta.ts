@@ -1,5 +1,5 @@
 import { formatMatchup } from '$lib/utils/format';
-import { isGameInProgress } from '$lib/partyStatus';
+import { isComplete, isGameInProgress } from '$lib/partyStatus';
 import { APP_CONFIG } from '$lib/config';
 import type { Party } from '$lib/types';
 
@@ -32,12 +32,11 @@ export function buildPartyShareDescription(meta: PartyShareMetadata | null | und
 	if (!meta) return APP_CONFIG.appDescription;
 
 	const matchup = formatMatchup(meta.teamRowName, meta.teamColName);
-	const statusCopy =
-		meta.status === 'complete'
-			? 'See final scores, winners, and payouts.'
-			: isGameInProgress(meta.status)
-				? 'Follow scores and quarter winners in real time.'
-				: 'Claim squares before kickoff and track winners quarter by quarter in real time.';
+	const statusCopy = isComplete(meta.status)
+		? 'See final scores, winners, and payouts.'
+		: isGameInProgress(meta.status)
+			? 'Follow scores and quarter winners in real time.'
+			: 'Claim squares before kickoff and track winners quarter by quarter in real time.';
 
 	return `Join ${meta.eventName}: ${matchup} football squares. ${statusCopy}`;
 }

@@ -7,7 +7,7 @@
 
 	interface Props {
 		square: SquareType;
-		size?: number;
+		size: number;
 		rowNumber?: number;
 		colNumber?: number;
 		isLocked: boolean;
@@ -23,7 +23,7 @@
 
 	const {
 		square,
-		size = 44,
+		size,
 		rowNumber,
 		colNumber,
 		isLocked,
