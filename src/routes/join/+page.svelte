@@ -34,7 +34,6 @@
 	let isLoadingPreview = $state(false);
 	let previewError = $state<string | null>(null);
 	let previewRequestId = 0;
-	// PIN challenge state
 	let showPinChallenge = $state(false);
 	let pinInput = $state('');
 	let pinError = $state<string | null>(null);
@@ -70,7 +69,6 @@
 		try {
 			const upperCode = normalizePartyCode(code);
 
-			// Check if party exists and get host_name_lower
 			const partyData = (await fetchPartyPreview(upperCode))?.party ?? null;
 
 			if (!partyData) {
@@ -78,16 +76,12 @@
 				return;
 			}
 
-			// Check if entered name matches host name (case-insensitive)
 			const enteredNameLower = name.trim().toLowerCase();
 			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
-				// Check if we have a valid stored PIN for this party
 				const storedPin = await recallHostPin(upperCode);
 				if (storedPin) {
-					// Verify stored PIN is still valid
 					const verified = await verifyHostPin(upperCode, storedPin);
 					if (verified.success) {
-						// Stored PIN is valid, proceed directly
 						userName.setName(name.trim());
 						stageNickname(upperCode, nickname);
 						goto(`/party/${upperCode}`);
@@ -95,7 +89,6 @@
 					}
 				}
 
-				// No valid stored PIN, show challenge
 				pendingPartyCode = upperCode;
 				showPinChallenge = true;
 				pinInput = '';
@@ -103,7 +96,6 @@
 				return;
 			}
 
-			// Not the host name, proceed normally
 			userName.setName(name.trim());
 			stageNickname(upperCode, nickname);
 			goto(`/party/${upperCode}`);
@@ -149,7 +141,6 @@
 			if (result.success) {
 				await rememberHostPin(pendingPartyCode, pinInput);
 
-				// Proceed to party
 				userName.setName(name.trim());
 				stageNickname(pendingPartyCode, nickname);
 				showPinChallenge = false;

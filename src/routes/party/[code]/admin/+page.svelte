@@ -35,11 +35,9 @@
 	let storedPin = $state<string | null>(null);
 	let showManualOverride = $state(false);
 
-	// Delete confirmation
 	let showDeleteConfirm = $state(false);
 	let isDeleting = $state(false);
 
-	// Player removal
 	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
 	let isRemovingPlayer = $state(false);
 	// Set right before `playerToRemove = null` on a successful removal (see
@@ -70,7 +68,6 @@
 			await loadParty(code);
 		}
 
-		// Subscribe to realtime updates (including live scores)
 		if ($party) {
 			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
 		}
@@ -142,7 +139,6 @@
 	{:else if $party}
 		<svelte:boundary>
 			<div class="space-y-6 max-w-md mx-auto">
-				<!-- Current Status -->
 				<div class="card">
 					<h2 class="text-lg font-semibold mb-2" bind:this={partyStatusHeadingEl} tabindex="-1">
 						Party Status
@@ -157,7 +153,6 @@
 					{/if}
 				</div>
 
-				<!-- Filling Phase Controls -->
 				{#if isFilling($party.status)}
 					<EventDetailsCard party={$party} {storedPin} />
 					<ManagePlayersCard
@@ -168,7 +163,6 @@
 					<LockGridCard {storedPin} />
 				{/if}
 
-				<!-- Active Phase Controls -->
 				{#if isGameInProgress($party.status)}
 					{#if $party.game_id}
 						<LiveScoresPanel party={$party} bind:showManualOverride />
@@ -183,7 +177,6 @@
 					/>
 				{/if}
 
-				<!-- Complete Phase -->
 				{#if $party.status === 'complete'}
 					<div class="card text-center">
 						<h2 class="text-lg font-semibold mb-2">Game Complete</h2>

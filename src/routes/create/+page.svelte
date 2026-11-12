@@ -36,7 +36,6 @@
 	let isReady = $state(false);
 	let error = $state<string | null>(null);
 
-	// Team customization — pre-populated from env-configured defaults
 	let rowTeam = $state(toTeamSelection(DEFAULT_TEAMS.row.name, DEFAULT_TEAMS.row.color));
 	let colTeam = $state(toTeamSelection(DEFAULT_TEAMS.col.name, DEFAULT_TEAMS.col.color));
 
@@ -85,7 +84,6 @@
 
 		await rememberHostPin(code, hostPin);
 
-		// Persist host name
 		await userName.setName(hostName.trim());
 
 		stageNickname(code, nickname);
@@ -108,7 +106,6 @@
 		class="space-y-6 max-w-md mx-auto"
 		data-ready={isReady}
 	>
-		<!-- Event Details -->
 		<div class="card">
 			<EventDetailsFields bind:eventName bind:kickoffInput />
 			<p class="mt-2 text-sm text-muted">
@@ -116,7 +113,6 @@
 			</p>
 		</div>
 
-		<!-- Square Price -->
 		<div class="card">
 			<label class="block">
 				<span class="text-sm text-secondary">Price per square</span>
@@ -139,7 +135,6 @@
 			</p>
 		</div>
 
-		<!-- Prize Split -->
 		<div class="card">
 			<span class="text-sm text-secondary">Prize split</span>
 
@@ -148,7 +143,6 @@
 			</div>
 		</div>
 
-		<!-- Teams -->
 		<div class="card">
 			<TeamMatchupPicker
 				bind:row={rowTeam}
@@ -165,7 +159,6 @@
 			/>
 		</div>
 
-		<!-- Host Name -->
 		<div class="card">
 			<label class="block">
 				<span class="text-sm text-secondary">Your Name (Host)</span>
@@ -182,7 +175,6 @@
 			<p class="mt-2 text-sm text-muted">This name will be PIN-protected so only you can use it</p>
 		</div>
 
-		<!-- Host PIN -->
 		<div class="card">
 			<label class="block">
 				<span class="text-sm text-secondary">Choose your PIN (4 digits)</span>
@@ -191,7 +183,6 @@
 			<p class="mt-2 text-sm text-muted">You'll need this to lock the grid and manage scores</p>
 		</div>
 
-		<!-- Game Nickname (optional) -->
 		<div class="card">
 			<label class="block">
 				<span class="text-sm text-secondary">Game Nickname</span>

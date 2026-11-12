@@ -1,21 +1,17 @@
 <script lang="ts">
 	import { GRID_SIZE } from '$lib/constants';
 
-	// Skeleton loader for the grid while data is loading
 	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
 	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
 </script>
 
 <div class="grid-skeleton">
-	<!-- Header skeleton -->
 	<div class="skeleton-header">
 		<div class="skeleton-badge"></div>
 		<div class="skeleton-text"></div>
 	</div>
 
-	<!-- Grid skeleton -->
 	<div class="skeleton-grid-container">
-		<!-- Column numbers -->
 		<div class="skeleton-col-numbers">
 			<div class="skeleton-corner"></div>
 			{#each cols as _, i (i)}
@@ -23,7 +19,6 @@
 			{/each}
 		</div>
 
-		<!-- Grid rows -->
 		{#each rows as row (row)}
 			<div class="skeleton-row">
 				<div class="skeleton-number"></div>

@@ -24,7 +24,6 @@ if (SENTRY_ENABLED) {
 		sendDefaultPii: false,
 	});
 
-	// Web Vitals → Sentry custom measurements.
 	// Only ship if Sentry is configured; otherwise the metrics have nowhere to go.
 	const reportMetric = (metric: { name: string; value: number; rating: string }) => {
 		Sentry.setMeasurement(metric.name, metric.value, metric.name === 'CLS' ? '' : 'millisecond');

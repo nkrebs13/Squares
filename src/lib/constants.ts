@@ -1,10 +1,8 @@
-/** Shared domain limits. One home for values that were previously repeated as magic numbers. */
+/** Shared domain limits. */
 
-/** The grid is GRID_SIZE x GRID_SIZE squares. */
 export const GRID_SIZE = 10;
 export const TOTAL_SQUARES = GRID_SIZE * GRID_SIZE;
 
-/** A host PIN is exactly this many digits. */
 export const PIN_LENGTH = 4;
 
 /**

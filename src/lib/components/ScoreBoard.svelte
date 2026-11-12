@@ -23,7 +23,6 @@
 		return latest ? (quarterScores.find((q) => q.quarter === latest) ?? null) : null;
 	});
 
-	// Live game detection
 	const isLive = $derived(
 		$liveScores?.status != null &&
 			$liveScores.status !== 'pregame' &&
@@ -31,7 +30,6 @@
 	);
 	const isFinal = $derived($liveScores?.status === 'final');
 
-	// Big score display: live if available, else latest locked quarter
 	const displayRowScore = $derived(
 		isLive ? ($liveScores?.rowScore ?? 0) : (currentQuarter?.rowScore ?? 0)
 	);
@@ -39,7 +37,6 @@
 		isLive ? ($liveScores?.colScore ?? 0) : (currentQuarter?.colScore ?? 0)
 	);
 
-	// Quarter/clock label for live display
 	const quarterLabel = $derived.by(() => {
 		if (!isLive) return currentQuarter?.label ?? '';
 		const q = $liveScores?.quarter ?? 0;

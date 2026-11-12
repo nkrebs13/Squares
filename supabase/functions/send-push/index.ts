@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Validate required environment variables at startup
 function requireEnv(name: string): string {
 	const value = Deno.env.get(name);
 	if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -99,7 +98,6 @@ async function createVapidAuthHeader(audience: string): Promise<string> {
 	if (sigBytes.length === 64) {
 		rawSig = sigBytes;
 	} else {
-		// DER encoded — extract r and s
 		rawSig = derToRaw(sigBytes);
 	}
 
@@ -114,7 +112,6 @@ function derToRaw(der: Uint8Array): Uint8Array {
 	const raw = new Uint8Array(64);
 	let offset = 2; // skip 0x30 and total length
 
-	// Read r
 	offset++; // skip 0x02
 	const rLen = der[offset++];
 	const rStart = rLen > 32 ? offset + (rLen - 32) : offset;
@@ -122,7 +119,6 @@ function derToRaw(der: Uint8Array): Uint8Array {
 	raw.set(der.slice(rStart, offset + rLen), rDest);
 	offset += rLen;
 
-	// Read s
 	offset++; // skip 0x02
 	const sLen = der[offset++];
 	const sStart = sLen > 32 ? offset + (sLen - 32) : offset;
@@ -143,19 +139,16 @@ async function encryptPayload(
 	const subscriberPublicKey = base64UrlDecode(p256dhKey);
 	const subscriberAuth = base64UrlDecode(authSecret);
 
-	// Generate local ECDH key pair
 	const localKeyPair = await crypto.subtle.generateKey(
 		{ name: 'ECDH', namedCurve: 'P-256' },
 		true,
 		['deriveBits']
 	);
 
-	// Export local public key (uncompressed point)
 	const localPublicKeyRaw = new Uint8Array(
 		await crypto.subtle.exportKey('raw', localKeyPair.publicKey)
 	);
 
-	// Import subscriber public key
 	const subscriberKey = await crypto.subtle.importKey(
 		'raw',
 		subscriberPublicKey,
@@ -164,7 +157,6 @@ async function encryptPayload(
 		[]
 	);
 
-	// ECDH shared secret
 	const sharedSecret = new Uint8Array(
 		await crypto.subtle.deriveBits(
 			{ name: 'ECDH', public: subscriberKey },
@@ -173,10 +165,8 @@ async function encryptPayload(
 		)
 	);
 
-	// Generate salt
 	const salt = crypto.getRandomValues(new Uint8Array(16));
 
-	// HKDF to derive encryption key and nonce
 	const authInfo = new TextEncoder().encode('Content-Encoding: auth\0');
 	const ikm = await hkdf(subscriberAuth, sharedSecret, authInfo, 32);
 
@@ -186,7 +176,6 @@ async function encryptPayload(
 	const nonceInfo = createInfo('nonce', subscriberPublicKey, localPublicKeyRaw);
 	const nonce = await hkdf(salt, ikm, nonceInfo, 12);
 
-	// Pad and encrypt
 	const paddedPayload = new Uint8Array(2 + new TextEncoder().encode(payload).length);
 	paddedPayload.set([0, 0]); // 2 bytes padding length (0 = no padding)
 	paddedPayload.set(new TextEncoder().encode(payload), 2);
@@ -246,7 +235,6 @@ async function hkdf(
 	info: Uint8Array,
 	length: number
 ): Promise<Uint8Array> {
-	// Extract
 	const prk = new Uint8Array(
 		await crypto.subtle.sign(
 			'HMAC',
@@ -257,7 +245,6 @@ async function hkdf(
 		)
 	);
 
-	// Expand
 	const prkKey = await crypto.subtle.importKey(
 		'raw',
 		prk,
@@ -327,12 +314,11 @@ async function sendPushNotification(
 }
 
 Deno.serve(async (req) => {
-	// Only allow POST
 	if (req.method !== 'POST') {
 		return new Response('Method not allowed', { status: 405 });
 	}
 
-	// Verify authorization (service role key or a shared secret)
+	// Only the service role key may call this function.
 	const authHeader = req.headers.get('Authorization');
 	if (!authHeader || !authHeader.startsWith('Bearer ')) {
 		return new Response('Unauthorized', { status: 401 });
@@ -354,7 +340,6 @@ Deno.serve(async (req) => {
 		return new Response('Missing party_id or title', { status: 400 });
 	}
 
-	// Input validation
 	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 	if (!uuidRegex.test(payload.party_id)) {
 		return new Response('Invalid party_id', { status: 400 });
@@ -368,7 +353,6 @@ Deno.serve(async (req) => {
 
 	const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	// Fetch subscriptions for this party
 	let query = supabase
 		.from('push_subscriptions')
 		.select('id, endpoint, p256dh, auth, player_name')
@@ -394,12 +378,10 @@ Deno.serve(async (req) => {
 		});
 	}
 
-	// Send push to all matching subscriptions
 	const results = await Promise.allSettled(
 		subscriptions.map((sub: Subscription) => sendPushNotification(sub, payload))
 	);
 
-	// Clean up expired subscriptions
 	const expiredIds: string[] = [];
 	let sent = 0;
 	let failed = 0;
@@ -419,7 +401,6 @@ Deno.serve(async (req) => {
 		}
 	});
 
-	// Delete expired subscriptions
 	if (expiredIds.length > 0) {
 		await supabase.from('push_subscriptions').delete().in('id', expiredIds);
 	}

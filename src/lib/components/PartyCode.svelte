@@ -73,7 +73,6 @@
 					},
 				});
 			} catch (err) {
-				// Non-fatal, but worth surfacing in devtools.
 				logError('QR generation failed:', err);
 				qrError = 'QR code unavailable. Join link shown below.';
 				showManualLink = true;

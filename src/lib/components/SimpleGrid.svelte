@@ -41,10 +41,8 @@
 	} from '$lib/utils/gridLayout';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
-	// DOM refs
 	let scrollContainer: HTMLDivElement;
 
-	// Sizing state
 	// The scroll container's content width: what the 11 columns have to fit in.
 	let containerWidth = $state(0);
 	let zoomState = $state<ZoomState>('fit');
@@ -55,11 +53,9 @@
 		canInteract: () => !!$userName && isFilling($party?.status),
 		canSelectCell,
 		onCellClick: handleSquareClick,
-		// Non-blocking optimistic batch claim
 		onBatch: (cells) => claimSquaresBatchOptimistic(cells),
 	});
 
-	// Lifecycle guards
 	let resizeObserver: ResizeObserver | null = null;
 
 	const fitCellSize = $derived(getFitCellSize(containerWidth));
@@ -72,7 +68,6 @@
 	const showZoomControl = $derived(shouldShowZoomControl(fitCellSize));
 	const headerHeight = $derived(getHeaderHeight(effectiveCellSize));
 
-	// Derived lookup maps for O(1) access
 	const squareMap = $derived(buildSquareMap($squares));
 	const winnerMap = $derived(buildWinnerMap($winners, !!$numbers));
 
@@ -90,13 +85,11 @@
 		return square !== undefined && square.player_name === null;
 	}
 
-	// Check if a square should be highlighted based on player filter
 	function isSquareHighlighted(square: SquareType): boolean {
 		if (!$activePlayerFilter) return false;
 		return square.player_name_lower === $activePlayerFilter;
 	}
 
-	// Check if a square should be dimmed
 	function isSquareDimmed(square: SquareType): boolean {
 		if (!$activePlayerFilter) return false;
 		return square.player_name_lower !== $activePlayerFilter;
@@ -109,10 +102,8 @@
 		if (!square) return;
 
 		if (square.player_name_lower === normalizePlayerName($userName)) {
-			// Non-blocking optimistic unclaim
 			unclaimSquareOptimistic(row, col);
 		} else if (!square.player_name) {
-			// Non-blocking optimistic claim
 			claimSquareOptimistic(row, col);
 		}
 	}
@@ -122,7 +113,6 @@
 		handleSquareClick(row, col);
 	}
 
-	// Check if a square has a pending operation
 	function isSquarePending(row: number, col: number): boolean {
 		return $pendingOperations.has(squareKey(row, col));
 	}
@@ -137,13 +127,11 @@
 
 	onDestroy(() => resizeObserver?.disconnect());
 
-	// Current user's player color for the legend swatch
 	const myColor = $derived($userName ? getPlayerColor(normalizePlayerName($userName)) : null);
 
 	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
 	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
 
-	// Logo visibility — show logo when party team name matches the configured default team name
 	const showColLogo = $derived(
 		$teamTheme.colName?.toLowerCase().trim() ===
 			APP_CONFIG.defaultTeams.col.name.toLowerCase().trim()
@@ -160,7 +148,6 @@
 />
 
 <div class="space-y-4">
-	<!-- Player Stats Bar -->
 	{#if $userName}
 		<div class="stats-bar">
 			<div class="flex items-center gap-2">
@@ -178,9 +165,7 @@
 		</div>
 	{/if}
 
-	<!-- Grid Wrapper -->
 	<div class="grid-wrapper">
-		<!-- Column Team Label -->
 		<div class="team-label-col">
 			{#if showColLogo}
 				<img
@@ -200,7 +185,6 @@
 		</div>
 
 		<div class="grid-with-row-label">
-			<!-- Row Team Label -->
 			<div class="team-label-row">
 				<span
 					class="team-name font-bold text-base sm:text-lg md:text-xl writing-vertical flex items-center"
@@ -219,7 +203,6 @@
 				{/if}
 			</div>
 
-			<!-- Scrollable Grid Container -->
 			<div
 				class="scroll-container"
 				class:fit-mode={zoomState === 'fit' && fitsWithoutScroll}
@@ -293,9 +276,7 @@
 		</div>
 	</div>
 
-	<!-- Expanded Legend / Control Center -->
 	<div class="grid-control-center">
-		<!-- Top Row: Legend + Zoom Toggle -->
 		<div class="control-top-row">
 			<div class="legend-items">
 				<div class="legend-item">
@@ -325,7 +306,6 @@
 				{/if}
 			</div>
 
-			<!-- Zoom Toggle (shown when horizontal scroll would occur) -->
 			{#if showZoomControl}
 				<ZoomToggle
 					{zoomState}
@@ -339,7 +319,6 @@
 		{/if}
 	</div>
 
-	<!-- Selection indicator during drag -->
 	{#if drag.isDragging && drag.selectedCells.size > 0}
 		<div class="selection-indicator">
 			{`${drag.selectedCells.size} squares`}
@@ -474,7 +453,6 @@
 		border-bottom-left-radius: 6px;
 	}
 
-	/* Square wrapper for highlight/dim effects */
 	.square-wrapper {
 		transition:
 			opacity 200ms ease,
@@ -491,7 +469,6 @@
 		opacity: 0.35;
 	}
 
-	/* Control Center (Expanded Legend) */
 	.grid-control-center {
 		display: flex;
 		flex-direction: column;
@@ -556,7 +533,6 @@
 		outline-offset: -1px;
 	}
 
-	/* Selection indicator */
 	.selection-indicator {
 		position: fixed;
 		bottom: calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 1rem);
@@ -574,7 +550,6 @@
 		z-index: 100;
 	}
 
-	/* Mobile: Control center spacing */
 	@media (max-width: 639px) {
 		.grid-control-center {
 			margin-top: 0.5rem;
@@ -598,7 +573,6 @@
 		}
 	}
 
-	/* Reduced motion support */
 	@media (prefers-reduced-motion: reduce) {
 		.square-wrapper {
 			transition: none;

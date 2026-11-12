@@ -51,7 +51,6 @@
 		buildPartyCanonicalUrl(shareMeta?.code || code || APP_CONFIG.demoPartyCode)
 	);
 
-	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
 	let gestureHintRef = $state<GestureHint | null>(null);
 	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
@@ -80,7 +79,6 @@
 	}
 
 	onMount(async () => {
-		// Redirect to join if no name
 		if (!$userName) {
 			goto(joinPath(code));
 			return;
@@ -91,7 +89,6 @@
 		const success = await loadParty(code);
 		if (success && $party) {
 			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
-			// Save to recent parties
 			await saveToRecentParties();
 		}
 	});
@@ -245,7 +242,7 @@
 		flex-direction: column;
 		padding: 1rem;
 		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-		overflow-x: hidden; /* Prevent horizontal page scroll */
+		overflow-x: hidden;
 	}
 
 	/* On mobile, lock to viewport and prevent vertical scroll when possible */
@@ -257,7 +254,6 @@
 			-webkit-overflow-scrolling: touch;
 		}
 
-		/* Grid container should take available space */
 		.main-content {
 			flex: 1;
 			display: flex;
@@ -265,7 +261,6 @@
 			min-height: 0; /* Allow flex shrinking */
 		}
 
-		/* Grid wrapper needs to expand */
 		.main-content > :global(div:has(.grid-wrapper)) {
 			flex: 1;
 			display: flex;
@@ -274,7 +269,6 @@
 		}
 	}
 
-	/* Desktop two-column layout */
 	@media (min-width: 1024px) {
 		.party-page {
 			padding-bottom: 1rem;
@@ -298,7 +292,6 @@
 		}
 	}
 
-	/* Larger desktop - wider sidebar */
 	@media (min-width: 1280px) {
 		.sidebar {
 			width: 380px;

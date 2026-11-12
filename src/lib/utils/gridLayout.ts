@@ -2,7 +2,6 @@ import { squareKey } from './squareKey';
 import { GRID_SIZE } from '$lib/constants';
 import type { Square, Winner } from '$lib/types';
 
-// Grid constants
 export const MIN_CELL_SIZE_MOBILE = 28;
 export const ZOOMED_CELL_SIZE = 64;
 /** Gap between cells; SimpleGrid passes it to its CSS as --grid-gap. */
