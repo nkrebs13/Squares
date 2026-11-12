@@ -38,7 +38,7 @@ export function buildPartyShareDescription(meta: PartyShareMetadata | null | und
 			? 'Follow scores and quarter winners in real time.'
 			: 'Claim squares before kickoff and track winners quarter by quarter in real time.';
 
-	return `Join ${meta.eventName}: ${matchup} football squares. ${statusCopy}`;
+	return `Join ${meta.eventName}: ${matchup} ${APP_CONFIG.appName.toLowerCase()}. ${statusCopy}`;
 }
 
 export function buildPartyCanonicalUrl(code: string): string {

@@ -36,6 +36,7 @@ import {
 	rollbackPendingOpIf,
 } from './game-pending';
 import { normalizePlayerName } from '$lib/utils/playerName';
+import { isStaleImage } from '$lib/partyStatus';
 import { parseSquareKey } from '$lib/utils/squareKey';
 
 /**
@@ -311,7 +312,10 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		handle: (payload) => {
 			if (payload.eventType === 'UPDATE') {
 				const newParty = parseParty(payload.new);
-				if (newParty) party.set(newParty);
+				// A host action emits an earlier UPDATE (the PIN check resets pin_attempts)
+				// before the status change; applied after the action's own result, that older
+				// row image would put the party back a stage and remount the next stage's UI.
+				if (newParty && !isStaleImage(newParty, get(party))) party.set(newParty);
 			}
 		},
 	},

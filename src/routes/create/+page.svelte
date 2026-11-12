@@ -5,7 +5,7 @@
 	import { userName } from '$lib/stores/user';
 	import { rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
-	import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
+	import { currencySymbol, formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 	import { datetimeLocalToIso } from '$lib/utils/datetime';
 	import { createParty as createPartyService } from '$lib/services/createParty';
 	import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
@@ -120,7 +120,7 @@
 			<label class="block">
 				<span class="text-sm text-secondary">Price per square</span>
 				<div class="mt-2 flex items-center gap-2">
-					<span class="text-2xl">$</span>
+					<span class="text-2xl">{currencySymbol()}</span>
 					<input
 						type="text"
 						inputmode="decimal"

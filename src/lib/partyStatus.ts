@@ -33,6 +33,22 @@ export function hasDrawnNumbers(status: PartyStatus | undefined): boolean {
 	return isGameInProgress(status) || isComplete(status);
 }
 
+// filling -> locked/active -> complete. A party never moves back a stage.
+const STAGE: Record<PartyStatus, number> = { filling: 0, locked: 1, active: 1, complete: 2 };
+
+/** True when `next` would move a party back from `current` (an out-of-date row image). */
+export function isBehind(next: PartyStatus, current: PartyStatus | undefined): boolean {
+	return current !== undefined && STAGE[next] < STAGE[current];
+}
+
+/** True when `next` is an older image of the party already shown (same party, earlier stage). */
+export function isStaleImage(
+	next: { id: string; status: PartyStatus },
+	shown: { id: string; status: PartyStatus } | null | undefined
+): boolean {
+	return !!shown && shown.id === next.id && isBehind(next.status, shown.status);
+}
+
 /** How a status reads in the UI (legacy `locked` reads as active). */
 export function statusLabel(status: PartyStatus): string {
 	return status === 'locked' ? 'active' : status;
