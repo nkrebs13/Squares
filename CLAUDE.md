@@ -56,7 +56,7 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 - `player_name_lower` is `GENERATED ALWAYS AS (LOWER(player_name)) STORED` — never set directly in INSERT/UPDATE, only set `player_name`
 - Splits CHECK: `split_q1 + split_q2 + split_q3 + split_final = 100`
 - Winners UNIQUE on `(party_id, quarter)`
-- Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`host_pin_check`, `auto_update_score`, trigger functions, ...) get no grant.
+- Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`host_pin_check`, `auto_update_score`, trigger functions, ...) get no grant. Tables are private by default too (migration 042): browsers may only `SELECT` the tables in `CLIENT_READABLE_TABLES` (same test file) plus the column-granted `parties` columns Realtime needs; every write goes through a function.
 - Live games: a party is auto-scored only through its stored `game_id` (set out of band; 73 production parties were linked to the 2026 Super Bowl that way). `get_party_state` also returns an unlinked matching game, flagged `linked: false`; that one is display-only and never scored. `parties.home_team_is_row` is kept by the `parties_home_team_side` trigger (`game_side`).
 - `push_subscriptions` has no anon table access; browsers subscribe only through `save_push_subscription`.
 

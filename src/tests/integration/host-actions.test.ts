@@ -120,6 +120,18 @@ describe('audit log', () => {
 		return data ?? [];
 	}
 
+	it('records a refused PIN check from host_verify_pin', async () => {
+		const party = await newParty();
+		const { data } = await client.rpc('host_verify_pin', {
+			p_party_code: party.code,
+			p_pin: WRONG_PIN,
+		});
+		expect(data).toEqual({ ok: false, error: 'invalid_pin' });
+		const failed = await events(party.id, 'verify_pin_failed');
+		expect(failed).toHaveLength(1);
+		expect(failed[0].details).toMatchObject({ reason: 'invalid_pin' });
+	});
+
 	it('records a refused PIN with its reason', async () => {
 		const party = await newParty();
 		await fillAllSquares(client, party.id);
