@@ -1,3 +1,4 @@
+import { get } from 'svelte/store';
 // Initial party load: one get_party_state call (migration 039) fills every
 // party store. Imports state from game-state, never the reverse.
 
@@ -12,6 +13,7 @@ import {
 	parseWinner,
 } from '$lib/validators/realtime';
 import { logError } from '$lib/utils/log';
+import { isBehind } from '$lib/partyStatus';
 import {
 	party,
 	squares,
@@ -98,5 +100,9 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
 export async function refreshParty(code: string, isCurrent: () => boolean): Promise<boolean> {
 	const result = await fetchPartyState(code, isCurrent, 'refreshParty');
 	if (!result || !isCurrent() || 'failed' in result) return false;
+	// A snapshot read before a status change that has since been applied is out of date
+	// as a whole (numbers, scores, winners too); keep what we have.
+	const next = result.state ? parseParty(result.state.party) : null;
+	if (next && isBehind(next.status, get(party)?.status)) return false;
 	return applyPartyState(result.state);
 }

@@ -104,6 +104,17 @@ describe('resync after a reconnect', () => {
 		expect(get(pendingOperations).has('0-1')).toBe(true);
 	});
 
+	it('skips a refresh snapshot that is a stage behind what is shown', async () => {
+		party.update((p) => (p ? { ...p, status: 'active' } : p));
+		stateResponds({ status: 'filling' });
+		connection().set({ status: 'reconnecting', attempt: 1 });
+		connection().set({ status: 'connected', attempt: 0 });
+		await flush();
+
+		expect(stateCalls()).toBe(2);
+		expect(get(party)?.status).toBe('active');
+	});
+
 	it('a newer refresh wins when an older one answers last', async () => {
 		let answerOld!: (value: unknown) => void;
 		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answerOld = r)) as never);
