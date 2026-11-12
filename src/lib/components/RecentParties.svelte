@@ -3,10 +3,12 @@
 	import {
 		getRecentParties,
 		HOME_RECENT_PARTIES,
+		partyDetails,
 		removeRecentParty,
 		updatePartyNickname,
 	} from '$lib/recentParties';
 	import RecentPartyRow from './RecentPartyRow.svelte';
+	import { fetchPartyPreview } from '$lib/services/partyPreview';
 	import type { RecentParty } from '$lib/types';
 
 	let recentParties = $state<RecentParty[]>([]);
@@ -18,7 +20,24 @@
 		// The stored list keeps more (MAX_RECENT_PARTIES); the home page shows HOME_RECENT_PARTIES.
 		recentParties = recentParties.slice(0, HOME_RECENT_PARTIES);
 		isLoading = false;
+		refreshDetails();
 	});
+
+	// A stored entry is a snapshot of the last visit; the host may have locked or
+	// finished the party since. Each row is brought up to date from the server, and
+	// keeps what was stored when the party can't be read.
+	function refreshDetails() {
+		for (const { code } of recentParties) {
+			fetchPartyPreview(code)
+				.then((preview) => {
+					if (!preview) return;
+					recentParties = recentParties.map((p) =>
+						p.code === code ? { ...p, ...partyDetails(preview.party) } : p
+					);
+				})
+				.catch(() => {});
+		}
+	}
 
 	async function confirmRemove(code: string) {
 		await removeRecentParty(code);

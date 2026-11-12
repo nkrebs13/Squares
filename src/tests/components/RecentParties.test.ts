@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 
 // Must mock before importing the component
-vi.mock('$lib/recentParties', () => ({
+vi.mock('$lib/recentParties', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/recentParties')>()),
 	HOME_RECENT_PARTIES: 5,
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	removeRecentParty: vi.fn().mockResolvedValue(undefined),
@@ -11,7 +12,11 @@ vi.mock('$lib/recentParties', () => ({
 
 import RecentParties from '$lib/components/RecentParties.svelte';
 import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
-import { createMockRecentParty as createMockParty } from '../factories';
+import {
+	createMockRecentParty as createMockParty,
+	createMockParty as createMockServerParty,
+} from '../factories';
+import { mockSupabaseClient } from '../setup';
 
 const mockGetRecentParties = vi.mocked(getRecentParties);
 const mockRemoveRecentParty = vi.mocked(removeRecentParty);
@@ -25,6 +30,44 @@ describe('RecentParties Component', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	describe('Status from the server', () => {
+		it("shows the party's current status, not the one stored at the last visit", async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({ code: 'LIVE01', status: 'filling' }),
+			]);
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: {
+					party: createMockServerParty({ code: 'LIVE01', status: 'complete' }),
+					filled_count: 100,
+				},
+				error: null,
+			});
+			render(RecentParties);
+
+			await vi.waitFor(() => expect(screen.getByText('Done')).toBeInTheDocument());
+			expect(screen.queryByText('Filling')).not.toBeInTheDocument();
+			expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_party_preview', {
+				p_code: 'LIVE01',
+			});
+		});
+
+		it('keeps the stored status when the party cannot be read', async () => {
+			mockGetRecentParties.mockResolvedValue([
+				createMockParty({ code: 'OFF001', status: 'filling' }),
+			]);
+			mockSupabaseClient.rpc.mockRejectedValueOnce(new Error('offline'));
+			render(RecentParties);
+
+			await vi.waitFor(() =>
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_party_preview', {
+					p_code: 'OFF001',
+				})
+			);
+			await new Promise((r) => setTimeout(r, 0));
+			expect(screen.getByText('Filling')).toBeInTheDocument();
+		});
 	});
 
 	describe('Loading and Empty States', () => {

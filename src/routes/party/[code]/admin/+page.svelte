@@ -17,6 +17,7 @@
 		removePlayer,
 		openParty,
 		cleanup,
+		type PlayerSummary,
 	} from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 
@@ -41,7 +42,7 @@
 	let showDeleteConfirm = $state(false);
 	let isDeleting = $state(false);
 
-	let playerToRemove = $state<{ name: string; normalizedName: string; count: number } | null>(null);
+	let playerToRemove = $state<PlayerSummary | null>(null);
 	let isRemovingPlayer = $state(false);
 	// Set right before `playerToRemove = null` on a successful removal (see
 	// handleRemovePlayer). Distinguishes "closed because the removal

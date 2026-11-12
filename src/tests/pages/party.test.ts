@@ -37,7 +37,8 @@ vi.mock('$lib/stores/game', async (importOriginal) => {
 	return { ...original, openParty: vi.fn().mockResolvedValue(true) };
 });
 
-vi.mock('$lib/recentParties', () => ({
+vi.mock('$lib/recentParties', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/recentParties')>()),
 	saveRecentParty: vi.fn().mockResolvedValue(undefined),
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	stageNickname: vi.fn(),
@@ -421,7 +422,7 @@ describe('Party Page', () => {
 			try {
 				render(PartyPage);
 				await userEvent.setup().click(screen.getByRole('button', { name: /show gesture help/i }));
-				expect(await screen.findByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(await screen.findByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			} finally {
 				// @ts-expect-error - drop the override; setup.ts reinstalls its default
 				delete window.matchMedia;
@@ -434,19 +435,19 @@ describe('Party Page', () => {
 
 			// Hint auto-shows on mount since it hasn't been seen before
 			await waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 
 			const user = userEvent.setup();
-			await user.click(screen.getByRole('button', { name: /Tap to dismiss/ }));
+			await user.click(screen.getByRole('button', { name: /to dismiss$/ }));
 			await waitFor(() => {
-				expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+				expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 			});
 
 			await user.click(screen.getByRole('button', { name: /show gesture help/i }));
 
 			await waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 		});
 
@@ -457,7 +458,7 @@ describe('Party Page', () => {
 			// Not shown once the seen-flag read has answered
 			await waitFor(() => expect(idbGet).toHaveBeenCalledWith('squares_gesture_hint_shown'));
 			await tick();
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			const helpButton = screen.getByRole('button', { name: /show gesture help/i });
 			helpButton.focus();
@@ -467,7 +468,7 @@ describe('Party Page', () => {
 			await user.keyboard('{Enter}');
 
 			await waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 		});
 	});

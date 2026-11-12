@@ -60,7 +60,9 @@
 
 	type Hint = { icon: 'zoom' | 'tap' | 'drag'; text: string };
 	const hints: Hint[] = $derived.by(() => {
-		const zoomRow: Hint[] = zoom ? [{ icon: 'zoom', text: 'Tap Zoom to enlarge grid' }] : [];
+		const zoomRow: Hint[] = zoom
+			? [{ icon: 'zoom', text: `${isTouchDevice ? 'Tap' : 'Click'} Zoom to enlarge grid` }]
+			: [];
 		if (!claiming) return zoomRow;
 		return isTouchDevice
 			? [
@@ -86,7 +88,7 @@
 </script>
 
 <!-- The live region outlives the hint so screen readers announce it when it fills;
-     the button is named by its own text (the hints and "Tap to dismiss"). -->
+     the button is named by its own text (the hints and "Tap/Click to dismiss"). -->
 <div role="status">
 	{#if show}
 		<button class="gesture-hint-overlay" onclick={dismiss}>
@@ -126,7 +128,7 @@
 						<span>{hint.text}</span>
 					</div>
 				{/each}
-				<div class="hint-dismiss">Tap to dismiss</div>
+				<div class="hint-dismiss">{isTouchDevice ? 'Tap' : 'Click'} to dismiss</div>
 			</div>
 		</button>
 	{/if}

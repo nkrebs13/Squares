@@ -20,7 +20,7 @@
 		buildPartyShareDescription,
 		partyToShareMetadata,
 	} from '$lib/partyMeta';
-	import { saveRecentParty } from '$lib/recentParties';
+	import { partyDetails, saveRecentParty } from '$lib/recentParties';
 	import { isFilling } from '$lib/partyStatus';
 	import { mayPlayAs, recallHostPin } from '$lib/hostPin';
 	import type { RecentParty } from '$lib/types';
@@ -55,16 +55,7 @@
 		if (!$party) return;
 		savedStatus = $party.status;
 
-		const recentParty: RecentParty = {
-			code: $party.code,
-			eventName: $party.event_name,
-			kickoffAt: $party.kickoff_at,
-			teamRowName: $party.team_row_name,
-			teamColName: $party.team_col_name,
-			lastVisited: Date.now(),
-			status: $party.status,
-			isHost,
-		};
+		const recentParty: RecentParty = { ...partyDetails($party), lastVisited: Date.now(), isHost };
 
 		await saveRecentParty(recentParty);
 	}

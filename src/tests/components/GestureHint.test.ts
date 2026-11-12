@@ -64,7 +64,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint, { props: FILLING });
 			// Wait for the async onMount to resolve
 			await vi.waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 		});
 
@@ -74,7 +74,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 		});
 
 		it('does not auto-show the hint on a desktop-width layout, even when unseen', async () => {
@@ -84,7 +84,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 		});
 	});
 
@@ -94,13 +94,13 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
-				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
+				expect(screen.getByText('Click Zoom to enlarge grid')).toBeInTheDocument();
 				expect(screen.getByText('Click to claim')).toBeInTheDocument();
 				expect(screen.getByText('Click again to unclaim your square')).toBeInTheDocument();
 				expect(screen.getByText('Click and drag to select multiple')).toBeInTheDocument();
 			});
-			// Touch-only copy must not leak into the non-touch branch
-			expect(screen.queryByText('Tap again to unclaim your square')).not.toBeInTheDocument();
+			// No touch wording anywhere on the mouse card
+			expect(screen.getByRole('status').textContent).not.toMatch(/\bTap\b/);
 		});
 
 		it('displays touch-specific copy when the device reports coarse pointer', async () => {
@@ -112,6 +112,7 @@ describe('GestureHint Component', () => {
 				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
 				expect(screen.getByText('Tap to claim')).toBeInTheDocument();
 				expect(screen.getByText('Tap again to unclaim your square')).toBeInTheDocument();
+				expect(screen.getByText('Tap to dismiss')).toBeInTheDocument();
 			});
 			// Non-touch-only copy must not leak into the touch branch
 			expect(screen.queryByText('Click to claim')).not.toBeInTheDocument();
@@ -123,7 +124,7 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
-				expect(screen.getByText('Tap to dismiss')).toBeInTheDocument();
+				expect(screen.getByText('Click to dismiss')).toBeInTheDocument();
 			});
 		});
 
@@ -132,7 +133,7 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
-				expect(screen.getByRole('status')).toHaveTextContent('Tap to dismiss');
+				expect(screen.getByRole('status')).toHaveTextContent('Click to dismiss');
 			});
 		});
 	});
@@ -144,7 +145,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint, { props: { claiming: false, zoom: true } });
 			await waitForMountDecision();
 
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 			expect(timesMarkedSeen()).toBe(0);
 		});
 
@@ -155,7 +156,7 @@ describe('GestureHint Component', () => {
 			await vi.waitFor(() => {
 				expect(screen.getByText('Click to claim')).toBeInTheDocument();
 			});
-			expect(screen.queryByText('Tap Zoom to enlarge grid')).not.toBeInTheDocument();
+			expect(screen.queryByText('Click Zoom to enlarge grid')).not.toBeInTheDocument();
 		});
 
 		it('reopened on a grid that is no longer filling, shows no claim rows', async () => {
@@ -166,7 +167,7 @@ describe('GestureHint Component', () => {
 			component.reopen();
 
 			await vi.waitFor(() => {
-				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
+				expect(screen.getByText('Click Zoom to enlarge grid')).toBeInTheDocument();
 			});
 			expect(screen.queryByText('Click to claim')).not.toBeInTheDocument();
 		});
@@ -178,13 +179,13 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 
-			await fireEvent.click(screen.getByRole('button', { name: /Tap to dismiss/ }));
+			await fireEvent.click(screen.getByRole('button', { name: /to dismiss$/ }));
 
 			expect(timesMarkedSeen()).toBe(1);
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 		});
 
 		it('auto-dismisses after 5 seconds', async () => {
@@ -195,13 +196,13 @@ describe('GestureHint Component', () => {
 
 			// Wait for mount
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 
 			// Advance past 5 second auto-dismiss
 			await vi.advanceTimersByTimeAsync(5000);
 
 			expect(timesMarkedSeen()).toBe(1);
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			vi.useRealTimers();
 		});
@@ -213,12 +214,12 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			component.reopen();
 
 			await vi.waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 		});
 
@@ -228,12 +229,12 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			component.reopen();
 
 			await vi.waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 		});
 
@@ -242,11 +243,11 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			component.reopen();
 			await vi.waitFor(() => {
-				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 			});
 
 			// reopen() itself must not touch storage - only an explicit dismiss does
@@ -259,15 +260,15 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint, { props: FILLING });
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 
 			component.reopen();
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /to dismiss$/ })).toBeInTheDocument();
 
 			await vi.advanceTimersByTimeAsync(5000);
 
-			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /to dismiss$/ })).not.toBeInTheDocument();
 			expect(timesMarkedSeen()).toBe(1);
 
 			vi.useRealTimers();

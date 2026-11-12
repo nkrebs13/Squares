@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 
-vi.mock('$lib/recentParties', () => ({
+vi.mock('$lib/recentParties', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/recentParties')>()),
 	HOME_RECENT_PARTIES: 5,
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	removeRecentParty: vi.fn().mockResolvedValue(undefined),
