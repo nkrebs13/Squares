@@ -66,6 +66,14 @@ describe('gridLayout maps', () => {
 		expect(map.get('0-0')).toEqual([w3]);
 	});
 
+	it("lists a square's winners in game order, whatever order they arrive in", () => {
+		const final = createMockWinner({ quarter: 'final', winning_row: 1, winning_col: 1 });
+		const q1 = createMockWinner({ quarter: 'q1', winning_row: 1, winning_col: 1 });
+		const q3 = createMockWinner({ quarter: 'q3', winning_row: 1, winning_col: 1 });
+		const map = buildWinnerMap([final, q3, q1], true);
+		expect(map.get('1-1')?.map((w) => w.quarter)).toEqual(['q1', 'q3', 'final']);
+	});
+
 	it('returns no winners until numbers are drawn', () => {
 		expect(buildWinnerMap([createMockWinner()], false).size).toBe(0);
 	});

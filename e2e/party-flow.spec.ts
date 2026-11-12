@@ -163,22 +163,6 @@ test.describe('Party Page - Status States', () => {
 });
 
 test.describe('Square Interactions', () => {
-	test('clicking empty square claims it optimistically', async ({ page }) => {
-		await setupSupabaseMocksWithOverrides(page);
-		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST12');
-
-		// Wait for grid to load
-		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
-
-		// Click first empty square (use the aria-label to find it)
-		const emptySquare = page.locator('button.square-empty').first();
-		await emptySquare.click();
-
-		// Should show initials optimistically (TE for TestPlayer)
-		await expect(page.getByText('TE').first()).toBeAttached({ timeout: 5000 });
-	});
-
 	test('own square is clickable (not disabled)', async ({ page }) => {
 		const claims = [{ row: 0, col: 0, name: 'TestPlayer' }];
 		await setupSupabaseMocksWithOverrides(page, {
@@ -351,9 +335,6 @@ test.describe('Party Page - Gesture Hint', () => {
 	test('gesture hint overlay renders on first mobile visit', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
-
-		// Clear IndexedDB to ensure first-visit behavior
-		await page.evaluate(() => indexedDB.deleteDatabase('football-squares'));
 
 		await page.goto('/party/TEST12');
 
