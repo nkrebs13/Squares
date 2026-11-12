@@ -1,12 +1,9 @@
 /**
- * Network-failure copy for every RPC call site. Refusal codes from the host_*
- * actions are covered in game-admin.test.ts and createParty.test.ts.
- *
- * Written BEFORE the per-call-site humanize*Error copies were folded into one
- * shared `humanizeRpcError` util, to pin each call site's exact output strings
- * through its public entry point. If any row changes, a user-visible error
- * message changed. Each call site's fallback copy is pinned by the network
- * table at the bottom (empty/whitespace handling is covered in rpcError.test.ts).
+ * Network-failure copy for every RPC call site: a rejected fetch never reaches
+ * the user as supabase-js's raw `${name}: ${message}`; each call site shows its
+ * own fallback copy, pinned by the table at the bottom. Refusal codes from the
+ * host_* actions are covered in game-admin.test.ts, createParty.test.ts and
+ * hostAction.test.ts.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import {

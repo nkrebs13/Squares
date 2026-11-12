@@ -59,7 +59,7 @@ async function state(code: string) {
 describe('get_party_state', () => {
 	it('returns the whole party in one read, without the PIN', async () => {
 		const party = await newParty();
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 		expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
 
 		const data = await state(party.code.toLowerCase());

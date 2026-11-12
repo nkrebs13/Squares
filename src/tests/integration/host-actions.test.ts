@@ -7,6 +7,7 @@ import {
 	forceDeleteParty,
 	getServiceRoleClient,
 	getTestClient,
+	MAX_ATTEMPTS,
 	type TestParty,
 } from './helpers';
 
@@ -46,30 +47,14 @@ afterEach(async () => {
 });
 
 describe('host gate', () => {
-	it('counts wrong PINs, then answers locked_out even for the right PIN', async () => {
-		const party = await newParty();
-		for (let i = 1; i <= 5; i++) {
-			const { data, error } = await client.rpc('host_delete_party', {
-				p_party_id: party.id,
-				p_pin: WRONG_PIN,
-			});
-			expect(error).toBeNull();
-			expect(data).toEqual({ ok: false, error: 'invalid_pin' });
-			expect((await pinState(party.id)).pin_attempts).toBe(i);
-		}
-
-		const { data } = await client.rpc('host_delete_party', {
-			p_party_id: party.id,
-			p_pin: party.host_pin,
-		});
-		expect(data).toEqual({ ok: false, error: 'locked_out' });
-	});
-
 	it('starts a fresh window once the lockout has expired', async () => {
 		const party = await newParty();
 		await service
 			.from('parties')
-			.update({ pin_attempts: 5, pin_locked_until: new Date(Date.now() - 1000).toISOString() })
+			.update({
+				pin_attempts: MAX_ATTEMPTS,
+				pin_locked_until: new Date(Date.now() - 1000).toISOString(),
+			})
 			.eq('id', party.id);
 
 		const { data } = await client.rpc('host_verify_pin', {
@@ -134,7 +119,7 @@ describe('audit log', () => {
 
 	it('records a refused PIN with its reason', async () => {
 		const party = await newParty();
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 
 		const { data } = await client.rpc('host_lock_party', {
 			p_party_id: party.id,
@@ -156,7 +141,7 @@ describe('audit log', () => {
 
 	it('records a successful lock', async () => {
 		const party = await newParty();
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 		await client.rpc('host_lock_party', { p_party_id: party.id, p_pin: party.host_pin });
 
 		expect(await events(party.id, 'lock_party_success')).toHaveLength(1);
@@ -187,7 +172,7 @@ describe('audit log', () => {
 describe('host_lock_party', () => {
 	it('refuses a party that is already active', async () => {
 		const party = await newParty('active');
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 		const { data } = await client.rpc('host_lock_party', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
@@ -206,7 +191,7 @@ describe('host_lock_party', () => {
 
 	it('refuses a grid with a single empty square', async () => {
 		const party = await newParty();
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 		const { error } = await service
 			.from('squares')
 			.update({ player_name: null, claimed_at: null })
@@ -230,7 +215,7 @@ describe('host_lock_party', () => {
 
 	it('assigns numbers and returns the active party', async () => {
 		const party = await newParty();
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 
 		const { data } = await client.rpc('host_lock_party', {
 			p_party_id: party.id,

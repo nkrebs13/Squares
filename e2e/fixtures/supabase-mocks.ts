@@ -81,7 +81,6 @@ export function generateFullSquares(partyId: string) {
 }
 
 export const mockNumbers = {
-	id: 'numbers-id',
 	party_id: 'test-party-id',
 	row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 	col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -89,7 +88,6 @@ export const mockNumbers = {
 };
 
 export const mockScores = {
-	id: 'scores-id',
 	party_id: 'test-party-id',
 	q1_row_score: null,
 	q1_col_score: null,
@@ -194,94 +192,33 @@ interface MockOverrides {
 	winnersData?: typeof mockWinnersAll;
 }
 
+/** Answer get_party_state with this body (null = no such party) or an HTTP error. */
+export async function mockPartyState(page: Page, body: unknown, status = 200) {
+	await page.route('**/rest/v1/rpc/get_party_state', (route) => {
+		route.fulfill({
+			status,
+			contentType: 'application/json',
+			body: JSON.stringify(status === 200 ? body : { message: 'Internal Server Error' }),
+		});
+	});
+}
+
 export async function setupSupabaseMocksWithOverrides(page: Page, overrides: MockOverrides = {}) {
 	const partyData = { ...mockParty, ...overrides.partyOverrides };
 	const squaresData = overrides.squaresData ?? generateEmptySquares(partyData.id as string);
 	const scoresData = { ...mockScores, ...overrides.scoresOverrides };
 	const winnersData = overrides.winnersData ?? [];
 
-	// Mock party lookup by code or ID. Match the endpoint broadly because
-	// Supabase can reorder query parameters across client versions.
-	await page.context().route('**/rest/v1/parties*', (route) => {
-		const url = new URL(route.request().url());
-		const codeFilter = url.searchParams.get('code');
-		const idFilter = url.searchParams.get('id');
-		const isLookupByCode = codeFilter === `eq.${partyData.code}`;
-		const isLookupById = idFilter === `eq.${partyData.id}`;
-
-		if (!isLookupByCode && !isLookupById) {
-			route.continue();
-			return;
-		}
-
-		route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify(isLookupById ? [partyData] : partyData),
-		});
-	});
-
-	// Mock squares
-	await page.context().route('**/rest/v1/squares*', (route) => {
-		if (route.request().method() === 'GET') {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(squaresData),
-			});
-		} else if (route.request().method() === 'POST') {
-			route.fulfill({
-				status: 201,
-				contentType: 'application/json',
-				body: JSON.stringify(squaresData),
-			});
-		} else if (route.request().method() === 'PATCH') {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify([{ ...squaresData[0], player_name: 'TestPlayer' }]),
-			});
-		} else {
-			route.continue();
-		}
-	});
-
-	// Mock numbers (returns single object for .single())
-	await page.context().route('**/rest/v1/numbers*', (route) => {
-		route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify(mockNumbers),
-		});
-	});
-
-	// Mock scores (returns single object for .single())
+	// The only REST table reads the app makes: the scores and winners refetch
+	// after a broadcast (game-realtime.ts). Everything else goes through RPCs.
 	await page.context().route('**/rest/v1/scores*', (route) => {
-		if (route.request().method() === 'POST') {
-			route.fulfill({
-				status: 201,
-				contentType: 'application/json',
-				body: JSON.stringify(scoresData),
-			});
-		} else {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(scoresData),
-			});
-		}
-	});
-
-	// Mock game score auto-detection/live-score fetches.
-	await page.context().route('**/rest/v1/game_scores*', (route) => {
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
-			body: JSON.stringify(null),
+			body: JSON.stringify(scoresData),
 		});
 	});
 
-	// Mock winners
 	await page.context().route('**/rest/v1/winners*', (route) => {
 		route.fulfill({
 			status: 200,
@@ -317,7 +254,6 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
-	// Mock RPC endpoints
 	// Every requested cell is claimed.
 	await page.context().route('**/rest/v1/rpc/claim_squares', (route) => {
 		const { p_cells } = route.request().postDataJSON() as {
@@ -334,7 +270,7 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		route.fulfill({
 			status: 200,
 			contentType: 'application/json',
-			body: JSON.stringify(null),
+			body: JSON.stringify(true),
 		});
 	});
 

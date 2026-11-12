@@ -32,7 +32,7 @@ afterEach(async () => {
 async function runningParty(overrides: { square_price?: number } = {}): Promise<TestParty> {
 	const party = await createTestParty(client, overrides);
 	createdParties.push(party.id);
-	await fillAllSquares(client, party.id);
+	await fillAllSquares(party.id);
 	expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
 	return party;
 }

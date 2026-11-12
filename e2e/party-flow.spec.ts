@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+	mockPartyState,
 	setupSupabaseMocks,
 	setupSupabaseMocksWithOverrides,
 	setUserName,
@@ -280,31 +281,19 @@ test.describe('Party Code Sharing', () => {
 
 test.describe('Party Page - Error States', () => {
 	test('shows error when party does not exist', async ({ page }) => {
-		// Mock party not found
-		await page.route('**/rest/v1/parties*', (route) => {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(null),
-			});
-		});
+		// get_party_state returns null for an unknown code
+		await mockPartyState(page, null);
 
 		await setUserName(page, 'TestPlayer');
 
 		await page.goto('/party/INVALID');
 
-		// Should show error message and home link
+		await expect(page.getByText('Party not found')).toBeVisible({ timeout: 10000 });
 		await expect(page.getByRole('link', { name: /go home/i })).toBeVisible({ timeout: 10000 });
 	});
 
 	test('shows error on network failure', async ({ page }) => {
-		await page.route('**/rest/v1/parties*', (route) => {
-			route.fulfill({
-				status: 500,
-				contentType: 'application/json',
-				body: JSON.stringify({ message: 'Internal Server Error' }),
-			});
-		});
+		await mockPartyState(page, null, 500);
 
 		// Mock realtime connections
 		await page.route('**/realtime/**', (route) => {
@@ -314,7 +303,8 @@ test.describe('Party Page - Error States', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		await expect(page.getByRole('link', { name: /go home/i })).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText(/couldn't load that party/i)).toBeVisible({ timeout: 10000 });
+		await expect(page.getByRole('link', { name: /go home/i })).toBeVisible();
 	});
 
 	test('partially filled grid shows correct count', async ({ page }) => {

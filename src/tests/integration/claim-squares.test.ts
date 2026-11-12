@@ -6,6 +6,7 @@ import {
 	forceDeleteParty,
 	getTestClient,
 	type TestParty,
+	waitUntilBlockedOnLock,
 } from './helpers';
 
 // claim_squares (migration 038): claims a set of cells and reports which it
@@ -159,6 +160,7 @@ describe('claim_squares', () => {
 		const us = new pg.Client({ connectionString: url });
 		await rival.connect();
 		await us.connect();
+		const { rows: pidRows } = await us.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
 		try {
 			await rival.query('BEGIN');
 			await rival.query(
@@ -175,8 +177,8 @@ describe('claim_squares', () => {
 					{ row: 0, col: 1 },
 				]),
 			]);
-			// Our UPDATE is now blocked on Bob's row lock.
-			await new Promise((resolve) => setTimeout(resolve, 200));
+			// Wait until our UPDATE is blocked on Bob's row lock.
+			await waitUntilBlockedOnLock(rival, pidRows[0].pid);
 			await rival.query('COMMIT');
 
 			const { rows } = await ours;

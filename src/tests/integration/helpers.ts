@@ -115,12 +115,15 @@ export async function createTestParty(
 	return { id: party.id, code: party.code, host_pin };
 }
 
+/** Wrong PINs a party tolerates before the host gate locks it out (migration 035). */
+export const MAX_ATTEMPTS = 5;
+
 /**
  * Fill all 100 squares with test player names.
  * Uses pattern "Player-R{row}C{col}" so each square has a unique, predictable name.
  * Batches updates 10 at a time (one row per batch) via Promise.all for performance.
  */
-export async function fillAllSquares(_client: SupabaseClient, partyId: string): Promise<void> {
+export async function fillAllSquares(partyId: string): Promise<void> {
 	const service = getServiceRoleClient();
 	for (let row = 0; row < 10; row++) {
 		const updates = Array.from({ length: 10 }, (_, col) =>
@@ -253,4 +256,24 @@ export async function claimCell(
 ): Promise<boolean> {
 	const result = await claimSquares(client, partyId, playerName, [{ row, col }]);
 	return result.ok && (result.claimed?.length ?? 0) === 1;
+}
+
+/** Poll pg_stat_activity until the given backend pid is blocked waiting on a lock. */
+export async function waitUntilBlockedOnLock(
+	poller: {
+		query: (sql: string, params: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+	},
+	pid: number,
+	timeoutMs = 5000
+): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const { rows } = await poller.query(
+			'SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1',
+			[pid]
+		);
+		if (rows[0]?.wait_event_type === 'Lock') return;
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+	throw new Error(`Backend ${pid} never entered a Lock wait state within ${timeoutMs}ms`);
 }
