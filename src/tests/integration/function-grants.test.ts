@@ -202,3 +202,41 @@ describe('live score trigger chain', () => {
 		expect(winners).toEqual([{ quarter: 'q1' }]);
 	});
 });
+
+// Browsers only ever read tables (everything else goes through the functions above),
+// and only these (migration 042). parties is readable column by column, not as a table.
+const CLIENT_READABLE_TABLES = ['game_scores', 'numbers', 'scores', 'squares', 'winners'];
+
+async function tablePrivilegesOf(role: string): Promise<string[]> {
+	const { rows } = await db.query<{ entry: string }>(
+		`SELECT table_name || ':' || privilege_type AS entry
+		 FROM information_schema.role_table_grants
+		 WHERE table_schema = 'public' AND grantee = $1
+		 ORDER BY 1`,
+		[role]
+	);
+	return rows.map((r) => r.entry);
+}
+
+describe('table privileges', () => {
+	it.each(['anon', 'authenticated'])(
+		'%s may only SELECT the client-readable tables',
+		async (role) => {
+			expect(await tablePrivilegesOf(role)).toEqual(
+				CLIENT_READABLE_TABLES.map((t) => `${t}:SELECT`)
+			);
+		}
+	);
+
+	it('a newly created table grants anon nothing', async () => {
+		await db.query('BEGIN');
+		try {
+			await db.query('CREATE TABLE public.grant_probe (id int)');
+			expect(await tablePrivilegesOf('anon')).not.toContainEqual(
+				expect.stringContaining('grant_probe')
+			);
+		} finally {
+			await db.query('ROLLBACK');
+		}
+	});
+});

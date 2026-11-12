@@ -729,19 +729,19 @@ CREATE OR REPLACE FUNCTION "public"."host_verify_pin"("p_party_code" character v
     SET "search_path" TO 'public', 'extensions'
     AS $$
 DECLARE
-    v_party_id UUID;
-    v_check TEXT;
+	v_party_id UUID;
+	v_check TEXT;
 BEGIN
-    SELECT id INTO v_party_id FROM parties WHERE code = UPPER(p_party_code);
-    IF NOT FOUND THEN
-        RETURN jsonb_build_object('ok', false, 'error', 'not_found');
-    END IF;
+	SELECT id INTO v_party_id FROM parties WHERE code = UPPER(p_party_code);
+	IF NOT FOUND THEN
+		RETURN host_refusal(NULL, 'verify_pin', 'not_found');
+	END IF;
 
-    v_check := host_pin_check(v_party_id, p_pin);
-    IF v_check <> 'ok' THEN
-        RETURN jsonb_build_object('ok', false, 'error', v_check);
-    END IF;
-    RETURN jsonb_build_object('ok', true);
+	v_check := host_pin_check(v_party_id, p_pin);
+	IF v_check <> 'ok' THEN
+		RETURN host_refusal(v_party_id, 'verify_pin', v_check);
+	END IF;
+	RETURN jsonb_build_object('ok', true);
 END;
 $$;
 
@@ -853,19 +853,19 @@ CREATE TABLE IF NOT EXISTS "public"."parties" (
     "split_q3" integer DEFAULT 25 NOT NULL,
     "split_final" integer DEFAULT 25 NOT NULL,
     "status" character varying(20) DEFAULT 'filling'::character varying NOT NULL,
-    "team_row_name" character varying(50) DEFAULT 'Seahawks'::character varying NOT NULL,
-    "team_col_name" character varying(50) DEFAULT 'Patriots'::character varying NOT NULL,
-    "team_row_color" character varying(7) DEFAULT '#69BE28'::character varying NOT NULL,
-    "team_col_color" character varying(7) DEFAULT '#C60C30'::character varying NOT NULL,
+    "team_row_name" character varying(50) NOT NULL,
+    "team_col_name" character varying(50) NOT NULL,
+    "team_row_color" character varying(7) NOT NULL,
+    "team_col_color" character varying(7) NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "expires_at" timestamp with time zone DEFAULT ("now"() + '30 days'::interval) NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL,
     "host_name_lower" character varying(50),
     "pin_attempts" integer DEFAULT 0 NOT NULL,
     "pin_locked_until" timestamp with time zone,
     "game_id" character varying(20),
     "home_team_is_row" boolean DEFAULT true NOT NULL,
-    "event_name" character varying(80) DEFAULT 'Football Squares'::character varying NOT NULL,
+    "event_name" character varying(80) NOT NULL,
     "kickoff_at" timestamp with time zone,
     CONSTRAINT "parties_split_final_check" CHECK ((("split_final" >= 0) AND ("split_final" <= 100))),
     CONSTRAINT "parties_split_q1_check" CHECK ((("split_q1" >= 0) AND ("split_q1" <= 100))),
@@ -1113,17 +1113,6 @@ CREATE TABLE IF NOT EXISTS "public"."audit_log" (
 ALTER TABLE "public"."audit_log" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."heartbeat" (
-    "id" integer DEFAULT 1 NOT NULL,
-    "source" character varying(20) NOT NULL,
-    "last_beat" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "heartbeat_id_check" CHECK (("id" = 1))
-);
-
-
-ALTER TABLE "public"."heartbeat" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."numbers" (
     "party_id" "uuid" NOT NULL,
     "row_numbers" integer[] NOT NULL,
@@ -1213,11 +1202,6 @@ ALTER TABLE ONLY "public"."game_scores"
 
 
 
-ALTER TABLE ONLY "public"."heartbeat"
-    ADD CONSTRAINT "heartbeat_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."numbers"
     ADD CONSTRAINT "numbers_pkey" PRIMARY KEY ("party_id");
 
@@ -1280,10 +1264,6 @@ CREATE INDEX "idx_audit_log_party" ON "public"."audit_log" USING "btree" ("party
 
 
 
-CREATE INDEX "idx_parties_code" ON "public"."parties" USING "btree" ("code");
-
-
-
 CREATE INDEX "idx_parties_expires" ON "public"."parties" USING "btree" ("expires_at");
 
 
@@ -1296,23 +1276,11 @@ CREATE INDEX "idx_parties_host_name" ON "public"."parties" USING "btree" ("host_
 
 
 
-CREATE INDEX "idx_push_subscriptions_party" ON "public"."push_subscriptions" USING "btree" ("party_id");
-
-
-
 CREATE INDEX "idx_push_subscriptions_party_player" ON "public"."push_subscriptions" USING "btree" ("party_id", "player_name_lower");
 
 
 
-CREATE INDEX "idx_squares_party" ON "public"."squares" USING "btree" ("party_id");
-
-
-
 CREATE INDEX "idx_squares_player" ON "public"."squares" USING "btree" ("player_name_lower");
-
-
-
-CREATE INDEX "idx_winners_party" ON "public"."winners" USING "btree" ("party_id");
 
 
 
@@ -1379,10 +1347,6 @@ CREATE POLICY "Anyone can read game_scores" ON "public"."game_scores" FOR SELECT
 
 
 
-CREATE POLICY "Anyone can read heartbeat" ON "public"."heartbeat" FOR SELECT USING (true);
-
-
-
 CREATE POLICY "Anyone can read numbers" ON "public"."numbers" FOR SELECT USING (true);
 
 
@@ -1415,9 +1379,6 @@ ALTER TABLE "public"."audit_log" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."game_scores" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."heartbeat" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."numbers" ENABLE ROW LEVEL SECURITY;
@@ -1655,8 +1616,8 @@ GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_na
 
 
 
-GRANT ALL ON TABLE "public"."game_scores" TO "anon";
-GRANT ALL ON TABLE "public"."game_scores" TO "authenticated";
+GRANT SELECT ON TABLE "public"."game_scores" TO "anon";
+GRANT SELECT ON TABLE "public"."game_scores" TO "authenticated";
 GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
 
 
@@ -1771,8 +1732,6 @@ GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "service_role";
 
 
 
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."parties" TO "anon";
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."parties" TO "authenticated";
 GRANT ALL ON TABLE "public"."parties" TO "service_role";
 
 
@@ -1936,20 +1895,12 @@ GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."audit_log" TO "anon";
-GRANT ALL ON TABLE "public"."audit_log" TO "authenticated";
 GRANT ALL ON TABLE "public"."audit_log" TO "service_role";
 
 
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."heartbeat" TO "anon";
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."heartbeat" TO "authenticated";
-GRANT ALL ON TABLE "public"."heartbeat" TO "service_role";
-
-
-
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."numbers" TO "anon";
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."numbers" TO "authenticated";
+GRANT SELECT ON TABLE "public"."numbers" TO "anon";
+GRANT SELECT ON TABLE "public"."numbers" TO "authenticated";
 GRANT ALL ON TABLE "public"."numbers" TO "service_role";
 
 
@@ -1958,20 +1909,20 @@ GRANT ALL ON TABLE "public"."push_subscriptions" TO "service_role";
 
 
 
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."scores" TO "anon";
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."scores" TO "authenticated";
+GRANT SELECT ON TABLE "public"."scores" TO "anon";
+GRANT SELECT ON TABLE "public"."scores" TO "authenticated";
 GRANT ALL ON TABLE "public"."scores" TO "service_role";
 
 
 
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."squares" TO "anon";
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."squares" TO "authenticated";
+GRANT SELECT ON TABLE "public"."squares" TO "anon";
+GRANT SELECT ON TABLE "public"."squares" TO "authenticated";
 GRANT ALL ON TABLE "public"."squares" TO "service_role";
 
 
 
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."winners" TO "anon";
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE "public"."winners" TO "authenticated";
+GRANT SELECT ON TABLE "public"."winners" TO "anon";
+GRANT SELECT ON TABLE "public"."winners" TO "authenticated";
 GRANT ALL ON TABLE "public"."winners" TO "service_role";
 
 
@@ -2001,8 +1952,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUN
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
 
 

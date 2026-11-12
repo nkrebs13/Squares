@@ -27,6 +27,12 @@ describe('database constraints', () => {
 		const { error } = await service.from('parties').insert({
 			code: 'ZZBAD1',
 			host_pin: '0000',
+			event_name: 'Constraint probe',
+			team_row_name: 'Row',
+			team_col_name: 'Col',
+			team_row_color: '#000000',
+			team_col_color: '#ffffff',
+			expires_at: new Date(Date.now() + 86_400_000).toISOString(),
 			split_q1: 30,
 			split_q2: 30,
 			split_q3: 30,
