@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { get } from 'svelte/store';
+import { tick } from 'svelte';
 import {
 	party,
 	squares,
@@ -446,10 +447,10 @@ describe('Party Page', () => {
 			hintAlreadySeen(true);
 			render(PartyPage);
 
-			// Not shown initially since it was already marked as seen
-			await waitFor(() => {
-				expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-			});
+			// Not shown once the seen-flag read has answered
+			await waitFor(() => expect(idbGet).toHaveBeenCalledWith('squares_gesture_hint_shown'));
+			await tick();
+			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
 
 			const helpButton = screen.getByRole('button', { name: /show gesture help/i });
 			helpButton.focus();
