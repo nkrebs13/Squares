@@ -18,12 +18,16 @@ let stopResync: (() => void) | null = null;
  * a square back to its pre-gap snapshot over the fresh row.
  */
 function resyncOnReconnect(code: string, mine: number): () => void {
-	const isCurrent = () => mine === session;
 	let previous: string | null = null;
+	// Only the newest refresh may apply: two quick reconnects must not let an older
+	// response land last and put the party back a step (e.g. complete -> filling).
+	let latestRefresh = 0;
 	return connectionStatus.subscribe(({ status }) => {
 		const reconnected = previous !== null && previous !== 'connected' && status === 'connected';
 		previous = status;
 		if (!reconnected) return;
+		const refresh = ++latestRefresh;
+		const isCurrent = () => mine === session && refresh === latestRefresh;
 		void refreshParty(code, isCurrent).then((applied) => {
 			if (applied && isCurrent()) clearPendingOps();
 		});

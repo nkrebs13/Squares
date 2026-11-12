@@ -80,7 +80,8 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
 	error.set(null);
 
 	const result = await fetchPartyState(code, isCurrent, 'loadParty');
-	if (!result) return false;
+	// Re-check after the await: the caller may have moved on since the fetch returned.
+	if (!result || !isCurrent()) return false;
 	if ('failed' in result)
 		return fail("Couldn't load that party. Check your connection and try again.");
 	if (!applyPartyState(result.state)) return fail('Party not found');
@@ -96,6 +97,6 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
  */
 export async function refreshParty(code: string, isCurrent: () => boolean): Promise<boolean> {
 	const result = await fetchPartyState(code, isCurrent, 'refreshParty');
-	if (!result || 'failed' in result) return false;
+	if (!result || !isCurrent() || 'failed' in result) return false;
 	return applyPartyState(result.state);
 }
