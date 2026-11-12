@@ -124,6 +124,11 @@ describe('Join Page', () => {
 			render(JoinPage);
 			const user = userEvent.setup();
 			const codeInput = await screen.findByPlaceholderText('ABCD12');
+			await waitFor(() =>
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_party_preview', {
+					p_code: 'DEMO01',
+				})
+			);
 			await user.clear(codeInput);
 			await user.type(codeInput, 'XYZ789');
 			await expect(screen.findByText('Second Bowl')).resolves.toBeInTheDocument();
