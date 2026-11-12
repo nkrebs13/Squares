@@ -2,10 +2,9 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { userName } from '$lib/stores/user';
-	import { verifyHostPin } from '$lib/stores/game';
-	import { recallHostPin, rememberHostPin } from '$lib/hostPin';
+	import { mayPlayAs, verifyHostPin } from '$lib/stores/game';
+	import { rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
-	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { partySplits } from '$lib/payouts';
 	import { statusLabel } from '$lib/partyStatus';
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
@@ -92,17 +91,7 @@
 				return;
 			}
 
-			const enteredNameLower = normalizePlayerName(name);
-			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
-				const storedPin = await recallHostPin(upperCode);
-				if (storedPin) {
-					const verified = await verifyHostPin(upperCode, storedPin);
-					if (verified.success) {
-						enterParty(upperCode);
-						return;
-					}
-				}
-
+			if (!(await mayPlayAs(upperCode, partyData.host_name_lower, name))) {
 				pendingPartyCode = upperCode;
 				showPinChallenge = true;
 				pinInput = '';

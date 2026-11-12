@@ -16,9 +16,10 @@ import {
 	cleanup,
 	numbers,
 	verifyHostPin,
+	mayPlayAs,
 } from '$lib/stores/game';
 import type { PartyStatus } from '$lib/types';
-import { mockSupabaseClient } from '../setup';
+import { mockSupabaseClient, sessionStorageMock } from '../setup';
 import { createMockParty, createMockScores, createMockSquare } from '../factories';
 import { APP_CONFIG } from '$lib/config';
 
@@ -472,5 +473,31 @@ describe('host actions are refused by the server, not gated on party status', ()
 				expect(get(squares)[0].player_name).toBe('Alice');
 			}
 		);
+	});
+});
+
+describe('mayPlayAs', () => {
+	it("lets any name but the host's through without asking the server", async () => {
+		expect(await mayPlayAs('ABC123', 'mike', 'Alice')).toBe(true);
+		expect(await mayPlayAs('ABC123', null, 'Mike')).toBe(true);
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+
+	it("refuses the host's name, in any case, when this browser holds no PIN for the party", async () => {
+		expect(await mayPlayAs('ABC123', 'mike', ' MIKE ')).toBe(false);
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+
+	it("allows the host's name only when the server accepts the stored PIN", async () => {
+		sessionStorageMock.setItem('squares_pin_ABC123', '1234');
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+		expect(await mayPlayAs('ABC123', 'mike', 'Mike')).toBe(true);
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('host_verify_pin', {
+			p_party_code: 'ABC123',
+			p_pin: '1234',
+		});
+
+		refuse('invalid_pin');
+		expect(await mayPlayAs('ABC123', 'mike', 'Mike')).toBe(false);
 	});
 });

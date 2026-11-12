@@ -15,7 +15,7 @@ import {
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Square } from '$lib/types';
-import { sessionStorageMock } from '../setup';
+import { mockSupabaseClient, sessionStorageMock } from '../setup';
 import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
 // Mock $app/stores
@@ -131,6 +131,36 @@ describe('Party Page', () => {
 			await waitFor(() => {
 				expect(goto).toHaveBeenCalledWith('/join?code=TEST123');
 			});
+		});
+	});
+
+	describe("The host's name", () => {
+		it("sends a browser using the host's name without this party's PIN to the join form", async () => {
+			const { goto } = await import('$app/navigation');
+			vi.mocked(goto).mockClear();
+			const save = vi.mocked(saveRecentParty);
+			save.mockClear();
+			vi.mocked(openParty).mockResolvedValue(true);
+			await userName.setName('Mike');
+			party.set(createMockParty({ code: 'TEST123', host_name_lower: 'mike' }));
+			render(PartyPage);
+			await waitFor(() => expect(goto).toHaveBeenCalledWith('/join?code=TEST123'));
+			expect(save).not.toHaveBeenCalled();
+		});
+
+		it("keeps the host on the page when the server accepts this browser's PIN", async () => {
+			const { goto } = await import('$app/navigation');
+			vi.mocked(goto).mockClear();
+			const save = vi.mocked(saveRecentParty);
+			save.mockClear();
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+			mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+			vi.mocked(openParty).mockResolvedValue(true);
+			await userName.setName('Mike');
+			party.set(createMockParty({ code: 'TEST123', host_name_lower: 'mike' }));
+			render(PartyPage);
+			await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+			expect(goto).not.toHaveBeenCalled();
 		});
 	});
 

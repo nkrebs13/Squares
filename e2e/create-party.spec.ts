@@ -284,12 +284,25 @@ test.describe('Create Party - Submission', () => {
 			route.abort();
 		});
 
+		// The party page checks the host's name against the PIN the create flow stored.
+		await page.route('**/rest/v1/rpc/host_verify_pin', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ ok: true }),
+			})
+		);
+		const verified = page.waitForRequest('**/rest/v1/rpc/host_verify_pin');
+
 		// Click create
 		await page.getByRole('button', { name: /create party/i }).click();
 
 		// Should navigate to /party/{code}
 		await expect(page).toHaveURL(/\/party\/XTEST1$/, { timeout: 15000 });
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
+		// Once the check has answered, the host is still on the party.
+		expect((await verified).postDataJSON()).toEqual({ p_party_code: 'XTEST1', p_pin: '1234' });
+		await expect(page).toHaveURL(/\/party\/XTEST1$/);
 	});
 
 	test('shows error on creation failure', async ({ page }) => {

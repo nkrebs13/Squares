@@ -14,7 +14,15 @@
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
-	import { openParty, cleanup, party, teamTheme, isLoading, error } from '$lib/stores/game';
+	import {
+		openParty,
+		cleanup,
+		mayPlayAs,
+		party,
+		teamTheme,
+		isLoading,
+		error,
+	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import {
 		buildPartyCanonicalUrl,
@@ -84,6 +92,11 @@
 		await checkIsHost();
 
 		if (await openParty(code)) {
+			// A shared or recent link skips the join form, so the host-name check happens here too.
+			if (!(await mayPlayAs(code, $party?.host_name_lower ?? null, $userName))) {
+				goto(joinPath(code));
+				return;
+			}
 			await saveToRecentParties();
 		}
 	});
