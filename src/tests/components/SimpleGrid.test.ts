@@ -44,7 +44,6 @@ function createMockParty(overrides: Partial<Party> = {}): Party {
 		team_col_name: 'Patriots',
 		team_row_color: '#69BE28',
 		team_col_color: '#C60C30',
-		expires_at: new Date(Date.now() + 86400000).toISOString(),
 		...overrides,
 	});
 }

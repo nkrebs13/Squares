@@ -21,9 +21,6 @@ export const mockParty: Party = {
 	host_name_lower: 'host',
 	game_id: null,
 	home_team_is_row: true,
-	created_at: new Date().toISOString(),
-	updated_at: new Date().toISOString(),
-	expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
 export function generateEmptySquares(partyId: string): Square[] {

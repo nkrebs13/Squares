@@ -20,9 +20,6 @@ export interface Party {
 	team_col_name: string;
 	team_row_color: string;
 	team_col_color: string;
-	created_at: string;
-	updated_at: string;
-	expires_at: string;
 	game_id: string | null;
 	home_team_is_row: boolean;
 }
@@ -41,7 +38,6 @@ export interface Numbers {
 	party_id: string;
 	row_numbers: number[];
 	col_numbers: number[];
-	assigned_at: string;
 }
 
 export interface Scores {
@@ -78,7 +74,6 @@ export interface GameScoresRow {
 	q4_away: number | null;
 	final_home: number | null;
 	final_away: number | null;
-	updated_at: string;
 }
 
 export interface LiveScores {
@@ -97,7 +92,6 @@ export interface Winner {
 	winning_col: number;
 	player_name: string;
 	amount: number;
-	created_at: string;
 }
 
 export interface GridState {

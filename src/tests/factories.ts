@@ -34,9 +34,6 @@ export function createMockParty(overrides: Partial<Party> = {}): Party {
 		team_col_name: 'Chiefs',
 		team_row_color: '#004C54',
 		team_col_color: '#E31837',
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
 		game_id: null,
 		home_team_is_row: true,
 		...overrides,
@@ -75,7 +72,6 @@ export function createMockNumbers(overrides: Partial<Numbers> = {}): Numbers {
 		party_id: 'test-party-id',
 		row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 		col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		assigned_at: new Date().toISOString(),
 		...overrides,
 	};
 }
@@ -118,7 +114,6 @@ export function createMockGameScores(overrides: Partial<GameScoresRow> = {}): Ga
 		q4_away: null,
 		final_home: null,
 		final_away: null,
-		updated_at: new Date().toISOString(),
 		...overrides,
 	};
 }
@@ -132,7 +127,6 @@ export function createMockWinner(overrides: Partial<Winner> = {}): Winner {
 		winning_col: 7,
 		player_name: 'John Doe',
 		amount: 250,
-		created_at: new Date().toISOString(),
 		...overrides,
 	};
 }
