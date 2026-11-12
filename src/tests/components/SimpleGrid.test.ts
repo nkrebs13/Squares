@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, within } from '@testing-library/svelte';
 import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 import {
 	squares,
@@ -100,6 +100,19 @@ describe('SimpleGrid Component', () => {
 				(b) => b.classList.contains('square-empty') || b.classList.contains('square-claimed')
 			);
 			expect(squareButtons.length).toBe(100);
+		});
+
+		it('lays the grid out as rows: a header row, then each row header with its ten cells', () => {
+			setupStores({ withNumbers: true });
+			render(SimpleGrid);
+
+			const rows = within(screen.getByRole('grid')).getAllByRole('row');
+			expect(rows).toHaveLength(11);
+			expect(within(rows[0]).getAllByRole('columnheader')).toHaveLength(10);
+			for (const row of rows.slice(1)) {
+				expect(within(row).getAllByRole('rowheader')).toHaveLength(1);
+				expect(within(row).getAllByRole('gridcell')).toHaveLength(10);
+			}
 		});
 
 		it('renders column headers with numbers', () => {
