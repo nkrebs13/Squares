@@ -31,7 +31,9 @@
 	const { data = { partyMeta: null } } = $props<{
 		data?: { partyMeta: PartyShareMetadata | null };
 	}>();
-	const code = $derived($page.params.code ?? '');
+	// Host PINs are stored under the upper-case code (the RPCs upper-case too), so a URL
+	// typed in lower case still finds them. Not normalizePartyCode: no truncation here.
+	const code = $derived(($page.params.code ?? '').toUpperCase());
 	const matchupLabel = $derived(
 		$party ? formatMatchup($party.team_row_name, $party.team_col_name) : ''
 	);

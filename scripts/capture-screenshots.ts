@@ -10,7 +10,7 @@
  *
  * Requires the preview server to be running at http://localhost:4173 OR
  * the dev server at http://localhost:5173. Set BASE_URL env var to override.
- * Credentials are read from .env (VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY).
+ * Credentials are read from .env (VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
  *
  * Refuses to run against a non-local Supabase host (the repo's .env points
  * VITE_SUPABASE_URL at production) — see assertLocalDb.ts. Override the
@@ -35,7 +35,7 @@ const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? '';
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
 // Use service key if available, otherwise fall back to anon key (RPCs use PIN auth)
-const CLIENT_KEY = process.env.SUPABASE_SERVICE_KEY || ANON_KEY;
+const CLIENT_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ANON_KEY;
 const OUT_DIR = path.resolve(import.meta.dirname, '../docs/screenshots');
 const FRAMES_DIR = path.join(OUT_DIR, 'raw-frames');
 const DEMO_EVENT_NAME = '2027 Championship Squares';
@@ -445,10 +445,17 @@ async function main() {
 				p_pin: partyPin,
 			});
 			if (delErr || deleted?.ok !== true) {
-				// Try service-role direct delete as fallback
-				await supabase.from('parties').delete().eq('id', partyId);
+				// Service-role direct delete as fallback (needs SUPABASE_SERVICE_ROLE_KEY).
+				const { error: fallbackErr } = await supabase.from('parties').delete().eq('id', partyId);
+				if (fallbackErr) {
+					console.error(`  Could not delete test party ${partyCode}: ${fallbackErr.message}`);
+					process.exitCode = 1;
+				} else {
+					console.log('  Party deleted.');
+				}
+			} else {
+				console.log('  Party deleted.');
 			}
-			console.log('  Party deleted.');
 		}
 		await browser.close();
 	}

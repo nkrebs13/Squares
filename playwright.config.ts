@@ -37,5 +37,15 @@ export default defineConfig({
 		url: 'http://localhost:4173',
 		reuseExistingServer: !process.env.CI,
 		timeout: 120000,
+		// Every e2e test mocks Supabase in the browser, and the party page's server load
+		// degrades when Supabase is unreachable. Point the build at an unused port so a
+		// local run never reaches the database in .env (production). A deliberate run
+		// against a real backend sets E2E_SUPABASE_URL / E2E_SUPABASE_ANON_KEY.
+		env: {
+			VITE_SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:59999',
+			VITE_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? 'e2e-unused',
+			SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:59999',
+			SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? 'e2e-unused',
+		},
 	},
 });

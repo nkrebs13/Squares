@@ -108,14 +108,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Run Playwright
-        # Every e2e test mocks Supabase in the browser, and the party page's
-        # server load degrades to no share metadata when Supabase is unreachable.
-        # The URLs point at an unused port so nothing can reach a real database.
-        env:
-          VITE_SUPABASE_URL: http://127.0.0.1:59999
-          VITE_SUPABASE_ANON_KEY: e2e-unused
-          SUPABASE_URL: http://127.0.0.1:59999
-          SUPABASE_ANON_KEY: e2e-unused
+        # playwright.config.ts points the build at an unused Supabase port (no database).
         run: npm run test:e2e
       - name: Upload Playwright report on failure
         if: failure()

@@ -121,7 +121,11 @@ describe('PushOptIn Component', () => {
 	});
 
 	it('hides button after permission denied', async () => {
-		mockSubscribeToPush.mockResolvedValue({ success: false, error: 'Permission denied' });
+		mockSubscribeToPush.mockResolvedValue({
+			success: false,
+			denied: true,
+			error: 'Permission denied',
+		});
 
 		const { container } = render(PushOptIn);
 

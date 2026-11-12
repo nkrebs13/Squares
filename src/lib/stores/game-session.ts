@@ -44,9 +44,22 @@ export async function openParty(code: string): Promise<boolean> {
 	if (!(await loadParty(code, () => mine === session))) return false;
 	const current = get(party);
 	if (!current) return false;
-	subscribeToParty(current.id, current.game_id ?? get(gameScores)?.game_id ?? null);
+	let followedGame = current.game_id ?? get(gameScores)?.game_id ?? null;
+	subscribeToParty(current.id, followedGame);
 	stopResync?.();
-	stopResync = resyncOnReconnect(code, mine);
+	const stopReconnectWatch = resyncOnReconnect(code, mine);
+	// A party linked to a game while it is open (operators link out of band) needs the
+	// game's channel too, or live scores never arrive until a reload.
+	const stopGameWatch = party.subscribe((p) => {
+		if (mine !== session || !p || p.id !== current.id || !p.game_id) return;
+		if (p.game_id === followedGame) return;
+		followedGame = p.game_id;
+		subscribeToParty(p.id, followedGame);
+	});
+	stopResync = () => {
+		stopReconnectWatch();
+		stopGameWatch();
+	};
 	return true;
 }
 

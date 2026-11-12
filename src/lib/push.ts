@@ -27,7 +27,7 @@ export function getPushPermission(): NotificationPermission {
 export async function subscribeToPush(
 	partyId: string,
 	playerName: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; denied?: boolean }> {
 	if (!isPushSupported()) {
 		return { success: false, error: 'Push notifications not supported' };
 	}
@@ -35,7 +35,7 @@ export async function subscribeToPush(
 	try {
 		const permission = await Notification.requestPermission();
 		if (permission !== 'granted') {
-			return { success: false, error: 'Permission denied' };
+			return { success: false, denied: true, error: 'Permission denied' };
 		}
 
 		if (!VAPID_PUBLIC_KEY) {
