@@ -1,23 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import {
+	claimCell,
 	cleanupParty,
 	createTestParty,
 	fillAllSquares,
 	ensureSupabaseReady,
 	getServiceRoleClient,
 	getTestClient,
+	lockParty,
 	type TestParty,
 } from './helpers';
 
 // The functions a browser may call. Everything else in `public` is internal
 // (migration 034). Adding an RPC means adding it here AND granting it.
 const CLIENT_API = [
-	'claim_square',
 	'claim_squares',
-	'claim_squares_batch',
-	'create_party',
-	'delete_party',
 	'get_party_preview',
 	'get_party_state',
 	'host_create_party',
@@ -28,15 +26,8 @@ const CLIENT_API = [
 	'host_update_details',
 	'host_update_payouts',
 	'host_verify_pin',
-	'lock_party',
-	'remove_player',
 	'save_push_subscription',
-	'sync_party_home_team_mapping',
 	'unclaim_square',
-	'update_party_details',
-	'update_payout_structure',
-	'update_score',
-	'verify_host_pin',
 ];
 
 const databaseUrl =
@@ -82,7 +73,7 @@ describe('function grants', () => {
 
 	it('service_role keeps EXECUTE on the internal helpers', async () => {
 		const executable = await functionsExecutableBy('service_role');
-		for (const fn of ['auto_update_score', 'check_pin_lockout', 'log_audit_event']) {
+		for (const fn of ['auto_update_score', 'host_pin_check', 'log_audit_event']) {
 			expect(executable).toContain(fn);
 		}
 	});
@@ -104,13 +95,7 @@ describe('push subscriptions', () => {
 
 	beforeAll(async () => {
 		party = await createTestParty(client);
-		const { data } = await client.rpc('claim_square', {
-			p_party_id: party.id,
-			p_row: 0,
-			p_col: 0,
-			p_player_name: 'Alice',
-		});
-		expect(data).toBe(true);
+		expect(await claimCell(client, party.id, 0, 0, 'Alice')).toBe(true);
 	});
 
 	afterAll(async () => {
@@ -184,11 +169,7 @@ describe('live score trigger chain', () => {
 	beforeAll(async () => {
 		party = await createTestParty(client);
 		await fillAllSquares(client, party.id);
-		const { data } = await client.rpc('lock_party', {
-			p_party_id: party.id,
-			p_pin: party.host_pin,
-		});
-		expect(data).toBe(true);
+		expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
 		const game = await service.from('game_scores').insert({
 			game_id: gameId,
 			home_team_abbrev: 'PHI',

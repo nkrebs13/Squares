@@ -79,8 +79,55 @@ describe('claim_squares', () => {
 		expect(data.taken).toEqual([{ row: 0, col: 1, player_name: 'Bob' }]);
 	});
 
-	it('refuses once the grid is locked', async () => {
-		const party = await newParty('active');
+	it('stores the name trimmed with a case-insensitive lowercase twin and a claim time', async () => {
+		const party = await newParty();
+		await claim(party, 'Alice McName', [{ row: 2, col: 3 }]);
+
+		const { data } = await client
+			.from('squares')
+			.select('player_name, player_name_lower, claimed_at')
+			.eq('party_id', party.id)
+			.eq('row_num', 2)
+			.eq('col_num', 3)
+			.single();
+		expect(data?.player_name).toBe('Alice McName');
+		expect(data?.player_name_lower).toBe('alice mcname');
+		expect(data?.claimed_at).not.toBeNull();
+	});
+
+	it('answers not_found for an unknown party', async () => {
+		const { data, error } = await client.rpc('claim_squares', {
+			p_party_id: '00000000-0000-0000-0000-000000000000',
+			p_player_name: 'Alice',
+			p_cells: [{ row: 0, col: 0 }],
+		});
+		expect(error).toBeNull();
+		expect(data).toEqual({ ok: false, error: 'not_found' });
+	});
+
+	it('concurrent claims of one cell: exactly one wins, the other is told who did', async () => {
+		const party = await newParty();
+		const cell = [{ row: 5, col: 5 }];
+
+		const [a, b] = await Promise.all([claim(party, 'Alice', cell), claim(party, 'Bob', cell)]);
+
+		expect(a.claimed.length + b.claimed.length).toBe(1);
+		const winner = a.claimed.length === 1 ? 'Alice' : 'Bob';
+		const loser = a.claimed.length === 1 ? b : a;
+		expect(loser.taken).toEqual([{ row: 5, col: 5, player_name: winner }]);
+
+		const { data } = await client
+			.from('squares')
+			.select('player_name')
+			.eq('party_id', party.id)
+			.eq('row_num', 5)
+			.eq('col_num', 5)
+			.single();
+		expect(data?.player_name).toBe(winner);
+	});
+
+	it.each(['active', 'complete'])('refuses once the party is %s', async (status) => {
+		const party = await newParty(status);
 		expect(await claim(party, 'Alice', [{ row: 0, col: 0 }])).toEqual({
 			ok: false,
 			error: 'wrong_status',

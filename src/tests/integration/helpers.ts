@@ -78,6 +78,8 @@ export async function createTestParty(
 		split_q3?: number;
 		split_final?: number;
 		status?: string;
+		team_row_name?: string;
+		team_col_name?: string;
 	} = {}
 ): Promise<TestParty> {
 	const host_pin = '1234';
@@ -90,8 +92,8 @@ export async function createTestParty(
 		p_split_q2: overrides.split_q2 ?? 25,
 		p_split_q3: overrides.split_q3 ?? 25,
 		p_split_final: overrides.split_final ?? 25,
-		p_team_row_name: 'Eagles',
-		p_team_col_name: 'Chiefs',
+		p_team_row_name: overrides.team_row_name ?? 'Eagles',
+		p_team_col_name: overrides.team_col_name ?? 'Chiefs',
 		p_team_row_color: '#004C54',
 		p_team_col_color: '#E31837',
 		p_event_name: 'Integration Test Game',
@@ -138,20 +140,20 @@ export async function fillAllSquares(_client: SupabaseClient, partyId: string): 
 
 /**
  * Delete a test party and all cascaded children (squares, numbers, scores, winners).
+ * Goes through host_delete_party (SECURITY DEFINER): direct DELETE is blocked by RLS
+ * (no DELETE policy on parties). Refused while the party is in PIN lockout; use
+ * forceDeleteParty for tests that drive a party into lockout.
  */
 export async function cleanupParty(client: SupabaseClient, partyId: string): Promise<void> {
-	// Use the delete_party RPC (SECURITY DEFINER) — direct DELETE is blocked by RLS
-	// (no DELETE policy on parties table). The RPC cascades to squares, numbers, scores, winners.
-	await client.rpc('delete_party', { p_party_id: partyId, p_pin: '1234' });
+	await client.rpc('host_delete_party', { p_party_id: partyId, p_pin: '1234' });
 }
 
 /**
- * Force-delete a party via the service-role client, bypassing RLS and the
- * check_pin_lockout gate inside delete_party. Required for tests that
- * intentionally drive a party into PIN lockout: delete_party('1234') would
- * itself be refused while the lockout is active (the correct PIN is throttled
- * too), leaking the row. Cascades to squares/numbers/scores/winners via the FK
- * ON DELETE CASCADE.
+ * Force-delete a party via the service-role client, bypassing RLS and the PIN
+ * gate inside host_delete_party. Required for tests that intentionally drive a
+ * party into PIN lockout: host_delete_party('1234') would itself be refused
+ * (locked_out) while the lockout is active, leaking the row. Cascades to
+ * squares/numbers/scores/winners via the FK ON DELETE CASCADE.
  */
 export async function forceDeleteParty(partyId: string): Promise<void> {
 	const service = getServiceRoleClient();
@@ -175,9 +177,15 @@ export async function cleanupAllTestParties(): Promise<void> {
 		.lt('created_at', oneHourAgo);
 
 	if (staleParties && staleParties.length > 0) {
-		for (const p of staleParties) {
-			await client.rpc('delete_party', { p_party_id: p.id, p_pin: '1234' });
-		}
+		// Service-role delete: a stale party may be in PIN lockout, which would
+		// make host_delete_party refuse the cleanup.
+		await client
+			.from('parties')
+			.delete()
+			.in(
+				'id',
+				staleParties.map((p) => p.id)
+			);
 	}
 }
 
@@ -196,4 +204,45 @@ export async function lockParty(
 	});
 	if (error) throw new Error(`host_lock_party RPC error: ${error.message}`);
 	return data?.ok === true;
+}
+
+export interface Cell {
+	row: number;
+	col: number;
+}
+
+export interface ClaimResult {
+	ok: boolean;
+	claimed?: Cell[];
+	taken?: (Cell & { player_name: string })[];
+	error?: string;
+	field?: string;
+}
+
+/** Claim a set of cells through the claim_squares RPC and return its result object. */
+export async function claimSquares(
+	client: SupabaseClient,
+	partyId: string,
+	playerName: string,
+	cells: Cell[]
+): Promise<ClaimResult> {
+	const { data, error } = await client.rpc('claim_squares', {
+		p_party_id: partyId,
+		p_player_name: playerName,
+		p_cells: cells,
+	});
+	if (error) throw new Error(`claim_squares RPC error: ${error.message}`);
+	return data as ClaimResult;
+}
+
+/** Claim one cell; returns true when this call got it. */
+export async function claimCell(
+	client: SupabaseClient,
+	partyId: string,
+	row: number,
+	col: number,
+	playerName: string
+): Promise<boolean> {
+	const result = await claimSquares(client, partyId, playerName, [{ row, col }]);
+	return result.ok && (result.claimed?.length ?? 0) === 1;
 }

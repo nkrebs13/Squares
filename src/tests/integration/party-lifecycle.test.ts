@@ -1,5 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { getTestClient, createTestParty, cleanupParty, type TestParty } from './helpers';
+import {
+	getTestClient,
+	createTestParty,
+	cleanupParty,
+	claimCell,
+	claimSquares,
+	type TestParty,
+} from './helpers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient;
@@ -35,27 +42,18 @@ describe('full party lifecycle', () => {
 
 		expect(emptySquares).toHaveLength(100);
 
-		// ─── Step 2: Claim all 100 squares (mix of single + batch) ───
+		// ─── Step 2: Claim all 100 squares (mix of single + multi-cell) ───
 		// Claim first 10 individually
 		for (let col = 0; col < 10; col++) {
-			const { data } = await client.rpc('claim_square', {
-				p_party_id: party.id,
-				p_row: 0,
-				p_col: col,
-				p_player_name: `Player-R0C${col}`,
-			});
-			expect(data).toBe(true);
+			expect(await claimCell(client, party.id, 0, col, `Player-R0C${col}`)).toBe(true);
 		}
 
-		// Claim remaining 90 via batch (rows 1-9)
+		// Claim remaining 90 via multi-cell claims (rows 1-9)
 		for (let row = 1; row < 10; row++) {
 			const cells = Array.from({ length: 10 }, (_, col) => ({ row, col }));
-			const { data } = await client.rpc('claim_squares_batch', {
-				p_party_id: party.id,
-				p_player_name: `Player-R${row}`,
-				p_cells: cells,
-			});
-			expect(data).toBe(10);
+			const result = await claimSquares(client, party.id, `Player-R${row}`, cells);
+			expect(result).toEqual({ ok: true, claimed: expect.any(Array), taken: [] });
+			expect(result.claimed).toHaveLength(10);
 		}
 
 		// Verify all 100 are claimed
@@ -68,12 +66,12 @@ describe('full party lifecycle', () => {
 		expect(claimed).toHaveLength(100);
 
 		// ─── Step 3: Lock party ───
-		const { data: locked } = await client.rpc('lock_party', {
+		const { data: locked } = await client.rpc('host_lock_party', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
 		});
 
-		expect(locked).toBe(true);
+		expect(locked.ok).toBe(true);
 
 		// Verify status → active
 		const { data: activeParty } = await client
@@ -95,7 +93,7 @@ describe('full party lifecycle', () => {
 		expect(numbers?.col_numbers).toHaveLength(10);
 
 		// ─── Step 4: Enter Q1 score ───
-		const { data: q1Result } = await client.rpc('update_score', {
+		const { data: q1Result } = await client.rpc('host_record_score', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
 			p_quarter: 'q1',
@@ -103,7 +101,7 @@ describe('full party lifecycle', () => {
 			p_col_score: 3,
 		});
 
-		expect(q1Result).toBe(true);
+		expect(q1Result.ok).toBe(true);
 
 		// Verify winner exists for Q1
 		const { data: q1Winner } = await client
@@ -119,7 +117,7 @@ describe('full party lifecycle', () => {
 		expect(Number(q1Winner?.amount)).toBe(50);
 
 		// ─── Step 5: Enter Q2, Q3 scores ───
-		await client.rpc('update_score', {
+		await client.rpc('host_record_score', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
 			p_quarter: 'q2',
@@ -127,7 +125,7 @@ describe('full party lifecycle', () => {
 			p_col_score: 10,
 		});
 
-		await client.rpc('update_score', {
+		await client.rpc('host_record_score', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
 			p_quarter: 'q3',
@@ -136,7 +134,7 @@ describe('full party lifecycle', () => {
 		});
 
 		// ─── Step 6: Enter final score → status becomes 'complete' ───
-		const { data: finalResult } = await client.rpc('update_score', {
+		const { data: finalResult } = await client.rpc('host_record_score', {
 			p_party_id: party.id,
 			p_pin: party.host_pin,
 			p_quarter: 'final',
@@ -144,7 +142,7 @@ describe('full party lifecycle', () => {
 			p_col_score: 24,
 		});
 
-		expect(finalResult).toBe(true);
+		expect(finalResult.ok).toBe(true);
 
 		// Verify status → complete
 		const { data: completeParty } = await client
@@ -168,12 +166,12 @@ describe('full party lifecycle', () => {
 		// ─── Step 7: Delete party → cascade cleanup ───
 		const partyId = party.id;
 
-		const { data: deleted } = await client.rpc('delete_party', {
+		const { data: deleted } = await client.rpc('host_delete_party', {
 			p_party_id: partyId,
 			p_pin: party.host_pin,
 		});
 
-		expect(deleted).toBe(true);
+		expect(deleted).toEqual({ ok: true });
 
 		// Verify everything is gone
 		const { data: gonePty } = await client

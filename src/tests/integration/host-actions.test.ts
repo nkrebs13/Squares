@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+	claimCell,
 	createTestParty,
 	ensureSupabaseReady,
 	fillAllSquares,
@@ -33,13 +34,7 @@ async function pinState(partyId: string) {
 }
 
 async function claim(partyId: string, row: number, col: number, name: string) {
-	const { data } = await client.rpc('claim_square', {
-		p_party_id: partyId,
-		p_row: row,
-		p_col: col,
-		p_player_name: name,
-	});
-	expect(data).toBe(true);
+	expect(await claimCell(client, partyId, row, col, name)).toBe(true);
 }
 
 beforeAll(async () => {
@@ -115,7 +110,79 @@ describe('host gate', () => {
 	});
 });
 
+describe('audit log', () => {
+	async function events(partyId: string, eventType: string) {
+		const { data } = await service
+			.from('audit_log')
+			.select('event_type, details')
+			.eq('party_id', partyId)
+			.eq('event_type', eventType);
+		return data ?? [];
+	}
+
+	it('records a refused PIN with its reason', async () => {
+		const party = await newParty();
+		await fillAllSquares(client, party.id);
+
+		const { data } = await client.rpc('host_lock_party', {
+			p_party_id: party.id,
+			p_pin: WRONG_PIN,
+		});
+		expect(data).toEqual({ ok: false, error: 'invalid_pin' });
+
+		const failed = await events(party.id, 'lock_party_failed');
+		expect(failed).toHaveLength(1);
+		expect(failed[0].details).toMatchObject({ reason: 'invalid_pin' });
+
+		const { data: row } = await service
+			.from('parties')
+			.select('status')
+			.eq('id', party.id)
+			.single();
+		expect(row?.status).toBe('filling');
+	});
+
+	it('records a successful lock', async () => {
+		const party = await newParty();
+		await fillAllSquares(client, party.id);
+		await client.rpc('host_lock_party', { p_party_id: party.id, p_pin: party.host_pin });
+
+		expect(await events(party.id, 'lock_party_success')).toHaveLength(1);
+	});
+
+	it('records a refused delete, and a successful one survives the party (party_id NULL)', async () => {
+		const party = await newParty();
+		await client.rpc('host_delete_party', { p_party_id: party.id, p_pin: WRONG_PIN });
+		const failed = await events(party.id, 'delete_party_failed');
+		expect(failed).toHaveLength(1);
+		expect(failed[0].details).toMatchObject({ reason: 'invalid_pin' });
+
+		const { data: stillThere } = await client.from('parties').select('id').eq('id', party.id);
+		expect(stillThere).toHaveLength(1);
+
+		await client.rpc('host_delete_party', { p_party_id: party.id, p_pin: party.host_pin });
+		const { data: logs } = await service
+			.from('audit_log')
+			.select('party_id, details')
+			.eq('event_type', 'delete_party_success')
+			.contains('details', { deleted_party_id: party.id });
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0].party_id).toBeNull();
+		expect(logs?.[0].details.code).toBe(party.code);
+	});
+});
+
 describe('host_lock_party', () => {
+	it('refuses a party that is already active', async () => {
+		const party = await newParty('active');
+		await fillAllSquares(client, party.id);
+		const { data } = await client.rpc('host_lock_party', {
+			p_party_id: party.id,
+			p_pin: party.host_pin,
+		});
+		expect(data).toEqual({ ok: false, error: 'wrong_status' });
+	});
+
 	it('refuses an incomplete grid', async () => {
 		const party = await newParty();
 		const { data } = await client.rpc('host_lock_party', {
