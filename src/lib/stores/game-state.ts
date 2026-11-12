@@ -47,6 +47,9 @@ export const gameHomeIsRow = resettable(true);
 export const isLoading = resettable(true);
 export const error = resettable<string | null>(null);
 
+/** Shown when the party does not exist, or stops existing while open. */
+export const PARTY_NOT_FOUND = 'Party not found';
+
 export const gridState = derived(
 	[party, squares, numbers, scores, winners],
 	([$party, $squares, $numbers, $scores, $winners]) => {

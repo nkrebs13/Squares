@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadEnv } from 'vite';
+
+/** Each PUBLIC_* variable the production build would see, set to ''. */
+function blankPublicEnv(): Record<string, string> {
+	const seen = loadEnv('production', process.cwd(), 'PUBLIC_');
+	return Object.fromEntries(Object.keys(seen).map((key) => [key, '']));
+}
 
 export default defineConfig({
 	testDir: './e2e',
@@ -46,25 +53,10 @@ export default defineConfig({
 			VITE_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? 'e2e-unused',
 			SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:59999',
 			SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? 'e2e-unused',
-			// Brand and locale settings left empty, so the build uses the app defaults
-			// (src/lib/app-defaults.ts) that the specs assert, whatever a local .env says.
-			PUBLIC_APP_DESCRIPTION: '',
-			PUBLIC_APP_EYEBROW: '',
-			PUBLIC_APP_INTRO: '',
-			PUBLIC_APP_NAME: '',
-			PUBLIC_APP_TAGLINE: '',
-			PUBLIC_APP_URL: '',
-			PUBLIC_CURRENCY_CODE: '',
-			PUBLIC_DEFAULT_EVENT_NAME: '',
-			PUBLIC_DEFAULT_TEAM_COL_COLOR: '',
-			PUBLIC_DEFAULT_TEAM_COL_LOGO: '',
-			PUBLIC_DEFAULT_TEAM_COL_NAME: '',
-			PUBLIC_DEFAULT_TEAM_ROW_COLOR: '',
-			PUBLIC_DEFAULT_TEAM_ROW_LOGO: '',
-			PUBLIC_DEFAULT_TEAM_ROW_NAME: '',
-			PUBLIC_DEMO_PARTY_CODE: '',
-			PUBLIC_GRID_LABEL: '',
-			PUBLIC_LOCALE: '',
+			// Every PUBLIC_* setting the build would pick up (from .env files or the shell)
+			// is left empty, so it uses the app defaults (src/lib/app-defaults.ts) that the
+			// specs assert, and optional integrations such as PUBLIC_SENTRY_DSN stay off.
+			...blankPublicEnv(),
 		},
 	},
 });

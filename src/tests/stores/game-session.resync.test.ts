@@ -115,6 +115,15 @@ describe('resync after a reconnect', () => {
 		expect(get(party)?.status).toBe('active');
 	});
 
+	it('marks the party not found when a refresh finds it deleted', async () => {
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: null });
+		connection().set({ status: 'reconnecting', attempt: 1 });
+		connection().set({ status: 'connected', attempt: 0 });
+		await flush();
+
+		expect(get(error)).toBe('Party not found');
+	});
+
 	it('a newer refresh wins when an older one answers last', async () => {
 		let answerOld!: (value: unknown) => void;
 		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answerOld = r)) as never);
