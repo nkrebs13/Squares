@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
-import type { MockCallback } from './factories';
+import { mockDeferredThenable, mockThenable, type MockCallback } from './factories';
 
 // Mock SvelteKit's $app/environment
 vi.mock('$app/environment', () => ({
@@ -42,8 +42,13 @@ vi.mock('idb-keyval', () => ({
 // Capture channel handlers for direct invocation in tests
 const mockChannelHandlers: Record<string, MockCallback> = {};
 
-// Capture subscribe callbacks for simulating channel status changes
-let subscribeCallbacks: MockCallback[] = [];
+// Capture subscribe callbacks, tagged with the name of the channel they belong to,
+// for simulating channel status changes
+type StatusCallback = (status: string) => void;
+let subscribeCallbacks: Array<{ name: string; cb: StatusCallback }> = [];
+// Name passed to the latest supabase.channel(name); the .on(...).subscribe(cb) chain
+// that follows runs synchronously, so subscribe() belongs to that channel.
+let latestChannelName = '';
 
 const mockSupabaseChannel = {
 	on: vi.fn((event: string, filter: unknown, callback?: MockCallback) => {
@@ -59,7 +64,7 @@ const mockSupabaseChannel = {
 	}),
 	subscribe: vi.fn((callback?: MockCallback) => {
 		if (typeof callback === 'function') {
-			subscribeCallbacks.push(callback);
+			subscribeCallbacks.push({ name: latestChannelName, cb: callback as StatusCallback });
 		}
 		return mockSupabaseChannel;
 	}),
@@ -79,26 +84,25 @@ const mockSupabaseChannel = {
  * For more granular testing, consider enhancing to allow targeting specific channels.
  */
 function simulateChannelStatus(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') {
-	subscribeCallbacks.forEach((cb) => cb(status));
+	subscribeCallbacks.forEach(({ cb }) => cb(status));
 }
 
 /**
- * Simulate a channel status change for a SINGLE captured subscribe callback, by the
- * order it was registered. Channels are created in the order broadcast → party → game,
- * accumulating across successive subscribeToParty() calls. This enables per-channel
- * isolation tests — e.g. delivering the async CLOSED that Supabase fires on an
- * intentionally-unsubscribed channel WITHOUT touching a newer channel's callback.
+ * The status callbacks of every channel created under `name` (for example
+ * 'party:abc'), oldest first. A reconnect creates a new channel under the same
+ * name, so index 0 is the original and index 1 the replacement. Call a callback
+ * to deliver a status to that one channel only, e.g. the late CLOSED Supabase
+ * fires on a channel that was already unsubscribed.
  */
-function simulateChannelStatusAt(
-	index: number,
-	status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'
-) {
-	subscribeCallbacks[index]?.(status);
+function channelStatusCallbacks(name: string): StatusCallback[] {
+	return subscribeCallbacks.filter((c) => c.name === name).map((c) => c.cb);
 }
 
-/** Number of subscribe callbacks captured so far (see simulateChannelStatusAt). */
-function subscribeCallbackCount(): number {
-	return subscribeCallbacks.length;
+/** The handler registered with channel.on(event, { ...table|event }) on the latest channel set. */
+function channelHandler(event: 'broadcast' | 'postgres_changes', name: string): MockCallback {
+	const handler = mockChannelHandlers[`${event}:${name}`];
+	if (!handler) throw new Error(`no ${event} handler registered for ${name}`);
+	return handler;
 }
 
 const mockSupabaseClient = {
@@ -112,7 +116,10 @@ const mockSupabaseClient = {
 		single: vi.fn().mockResolvedValue({ data: null, error: null }),
 	})),
 	rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
-	channel: vi.fn(() => mockSupabaseChannel),
+	channel: vi.fn((name: string) => {
+		latestChannelName = name;
+		return mockSupabaseChannel;
+	}),
 };
 
 vi.mock('$lib/supabase', () => ({
@@ -140,7 +147,7 @@ function restoreMockDefaults() {
 	);
 	mockSupabaseChannel.subscribe.mockImplementation((callback?: MockCallback) => {
 		if (typeof callback === 'function') {
-			subscribeCallbacks.push(callback);
+			subscribeCallbacks.push({ name: latestChannelName, cb: callback as StatusCallback });
 		}
 		return mockSupabaseChannel;
 	});
@@ -155,11 +162,36 @@ function restoreMockDefaults() {
 		single: vi.fn().mockResolvedValue({ data: null, error: null }),
 	}));
 	mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
-	mockSupabaseClient.channel.mockImplementation(() => mockSupabaseChannel);
+	mockSupabaseClient.channel.mockImplementation((name: string) => {
+		latestChannelName = name;
+		return mockSupabaseChannel;
+	});
 
 	for (const key in mockChannelHandlers) {
 		delete mockChannelHandlers[key];
 	}
+}
+
+type RpcCall = ReturnType<typeof mockSupabaseClient.rpc>;
+
+/**
+ * The claim/unclaim RPCs are consumed through a non-blocking `.then()`, so these
+ * return thenables rather than promises. The result is delivered synchronously.
+ */
+function rpcResolvesWith(result: { data?: unknown; error?: unknown }) {
+	mockSupabaseClient.rpc.mockReturnValue(mockThenable<RpcCall>(result));
+}
+
+/** A request that never answers: the `.then` callback is never invoked. */
+function rpcHangs() {
+	mockSupabaseClient.rpc.mockReturnValue(mockDeferredThenable<RpcCall>().value);
+}
+
+/** A request held in flight; call `resolve(result)` to deliver the answer later. */
+function rpcDeferred() {
+	const { value, resolve } = mockDeferredThenable<RpcCall>();
+	mockSupabaseClient.rpc.mockReturnValue(value);
+	return { resolve };
 }
 
 // Mock crypto — keep getRandomValues from Node's webcrypto for real randomness in tests,
@@ -303,6 +335,9 @@ export {
 	localStorageMock,
 	sessionStorageMock,
 	simulateChannelStatus,
-	simulateChannelStatusAt,
-	subscribeCallbackCount,
+	channelStatusCallbacks,
+	channelHandler,
+	rpcResolvesWith,
+	rpcHangs,
+	rpcDeferred,
 };

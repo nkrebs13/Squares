@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	claimSquareOptimistic,
@@ -10,27 +10,54 @@ import {
 	cleanup,
 	subscribeToParty,
 	selectedPlayerFilter,
+	activePlayerFilter,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import { toast } from '$lib/stores/toast';
-import { mockSupabaseClient, mockSupabaseChannel } from '../setup';
+import type { PartyStatus } from '$lib/types';
+import {
+	mockSupabaseClient,
+	mockSupabaseChannel,
+	rpcDeferred,
+	rpcHangs,
+	rpcResolvesWith,
+} from '../setup';
 import {
 	createEmptyGrid,
 	createMockParty,
 	createMockSquare,
 	mockDeferredThenable,
-	mockThenable,
 } from '../factories';
 import { applySquareUpdate } from '$lib/stores/game-pending';
 
-function mockRpcResult(result: { data?: unknown; error?: { message: string } }) {
-	mockSupabaseClient.rpc.mockReturnValue(mockThenable(result));
-}
+const NON_FILLING_STATUSES: PartyStatus[] = ['locked', 'active', 'complete'];
 
 function latestErrorToast(): string | undefined {
 	return get(toast)
 		.filter((t) => t.type === 'error')
 		.at(-1)?.message;
+}
+
+/** The square keys of every broadcast of `type` sent to other tabs so far. */
+function sentBroadcastKeys(type: string): string[] {
+	return mockSupabaseChannel.send.mock.calls
+		.map((c) => c[0] as { event: string; payload: { type?: string; squareKey?: string } })
+		.filter((m) => m.event === 'square_update' && m.payload.type === type)
+		.map((m) => m.payload.squareKey as string)
+		.sort();
+}
+
+function squareAt(row: number, col: number) {
+	return get(squares).find((s) => s.row_num === row && s.col_num === col);
+}
+
+/** A square Alice holds, as the store would carry it after a confirmed claim. */
+function aliceSquare(row = 0, col = 0, claimed_at = '2024-01-01T00:00:00Z') {
+	return createMockSquare(row, col, {
+		player_name: 'Alice',
+		player_name_lower: 'alice',
+		claimed_at,
+	});
 }
 
 describe('claimSquareOptimistic', () => {
@@ -53,13 +80,6 @@ describe('claimSquareOptimistic', () => {
 		expect(get(squares)[0].player_name).toBeNull();
 	});
 
-	it('returns early when party is not filling', () => {
-		party.set(createMockParty({ status: 'active' }));
-		squares.set([createMockSquare(0, 0)]);
-		claimSquareOptimistic(0, 0);
-		expect(get(squares)[0].player_name).toBeNull();
-	});
-
 	it('returns early when square is already claimed', () => {
 		party.set(createMockParty());
 		squares.set([
@@ -73,48 +93,35 @@ describe('claimSquareOptimistic', () => {
 		expect(get(squares)[0].player_name).toBe('Bob');
 	});
 
-	it('captures correct originalState', () => {
+	it('updates square immediately with player name', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquareOptimistic(0, 0);
 
-		const ops = get(pendingOperations);
-		const op = ops.get('0-0');
-		expect(op).toBeDefined();
-		expect(op?.originalState).toEqual({
+		expect(get(squares)[0].player_name).toBe('Alice');
+		expect(get(squares)[0].player_name_lower).toBe('alice');
+	});
+
+	it('captures correct originalState', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		rpcHangs();
+
+		claimSquareOptimistic(0, 0);
+
+		expect(get(pendingOperations).get('0-0')?.originalState).toEqual({
 			player_name: null,
 			player_name_lower: null,
 			claimed_at: null,
 		});
 	});
 
-	it('rolls back on RPC failure', () => {
-		party.set(createMockParty());
-		squares.set([createMockSquare(0, 0)]);
-
-		// Mock RPC to call the .then callback with error
-		mockSupabaseClient.rpc.mockReturnValue(mockThenable({ error: { message: 'Already claimed' } }));
-
-		claimSquareOptimistic(0, 0);
-
-		// After rollback, square should be null again
-		const sq = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
-		expect(sq?.player_name).toBeNull();
-
-		// Pending op should be removed
-		expect(get(pendingOperations).has('0-0')).toBe(false);
-	});
-
 	it('claims a single square as a set of one', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-
-		mockSupabaseClient.rpc.mockReturnValue(mockThenable({ error: { message: 'Already claimed' } }));
+		rpcHangs();
 
 		claimSquareOptimistic(0, 0);
 
@@ -128,10 +135,7 @@ describe('claimSquareOptimistic', () => {
 	it('sets pending operation on claim', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquareOptimistic(0, 0);
 
@@ -140,21 +144,37 @@ describe('claimSquareOptimistic', () => {
 		expect(ops.get('0-0')?.type).toBe('claim');
 	});
 
+	it('claim then unclaim results in unclaimed', () => {
+		party.set(createMockParty());
+		squares.set([createMockSquare(0, 0)]);
+		rpcHangs();
+
+		claimSquareOptimistic(0, 0);
+		expect(get(squares)[0].player_name).toBe('Alice');
+
+		unclaimSquareOptimistic(0, 0);
+		expect(get(squares)[0].player_name).toBeNull();
+	});
+
 	it('toasts a retry message, not "already claimed", when the RPC errors', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockRpcResult({ error: { message: 'Failed to fetch' } });
+		subscribeToParty('test-party-id');
+		rpcResolvesWith({ error: { message: 'Failed to fetch' } });
 
 		claimSquareOptimistic(0, 0);
 
 		expect(latestErrorToast()).toBe("Couldn't save that claim — try again.");
 		expect(get(squares)[0].player_name).toBeNull();
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(sentBroadcastKeys('claim_rejected')).toEqual(['0-0']);
 	});
 
 	it('shows the owner and toasts "already claimed" when someone else got the square', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockRpcResult({
+		subscribeToParty('test-party-id');
+		rpcResolvesWith({
 			data: { ok: true, claimed: [], taken: [{ row: 0, col: 0, player_name: 'Bob' }] },
 		});
 
@@ -163,6 +183,7 @@ describe('claimSquareOptimistic', () => {
 		expect(latestErrorToast()).toBe('Square already claimed');
 		expect(get(squares)[0].player_name).toBe('Bob');
 		expect(get(pendingOperations).size).toBe(0);
+		expect(sentBroadcastKeys('claim_rejected')).toEqual(['0-0']);
 	});
 
 	it('still says "already claimed" when the winner\'s update arrived before our answer', () => {
@@ -189,7 +210,7 @@ describe('claimSquareOptimistic', () => {
 	it('rolls back and says so when the grid was locked meanwhile', () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
-		mockRpcResult({ data: { ok: false, error: 'wrong_status' } });
+		rpcResolvesWith({ data: { ok: false, error: 'wrong_status' } });
 
 		claimSquareOptimistic(0, 0);
 
@@ -202,19 +223,6 @@ describe('unclaimSquareOptimistic', () => {
 	beforeEach(() => {
 		cleanup();
 		userName.setName('Alice');
-	});
-
-	it('returns early when party not filling', () => {
-		party.set(createMockParty({ status: 'active' }));
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-			}),
-		]);
-
-		unclaimSquareOptimistic(0, 0);
-		expect(get(squares)[0].player_name).toBe('Alice');
 	});
 
 	it('returns early when square is empty', () => {
@@ -240,17 +248,8 @@ describe('unclaimSquareOptimistic', () => {
 
 	it('clears square immediately on unclaim', () => {
 		party.set(createMockParty());
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-				claimed_at: new Date().toISOString(),
-			}),
-		]);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		squares.set([aliceSquare()]);
+		rpcHangs();
 
 		unclaimSquareOptimistic(0, 0);
 
@@ -260,40 +259,10 @@ describe('unclaimSquareOptimistic', () => {
 		expect(sq.claimed_at).toBeNull();
 	});
 
-	it('rolls back on RPC failure', () => {
-		party.set(createMockParty());
-		const originalClaimed = new Date().toISOString();
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-				claimed_at: originalClaimed,
-			}),
-		]);
-
-		mockSupabaseClient.rpc.mockReturnValue(mockThenable({ error: { message: 'Failed' } }));
-
-		unclaimSquareOptimistic(0, 0);
-
-		const sq = get(squares)[0];
-		expect(sq.player_name).toBe('Alice');
-		expect(sq.player_name_lower).toBe('alice');
-		expect(sq.claimed_at).toBe(originalClaimed);
-	});
-
 	it('sets pending operation', () => {
 		party.set(createMockParty());
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-				claimed_at: new Date().toISOString(),
-			}),
-		]);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		squares.set([aliceSquare()]);
+		rpcHangs();
 
 		unclaimSquareOptimistic(0, 0);
 
@@ -301,6 +270,9 @@ describe('unclaimSquareOptimistic', () => {
 		expect(ops.has('0-0')).toBe(true);
 		expect(ops.get('0-0')?.type).toBe('unclaim');
 	});
+
+	// A false return means zero rows changed, so no postgres_changes event follows to
+	// heal anyone: the client must undo its own change and tell the other tabs.
 	it.each([
 		['errors', { error: { message: 'Failed to fetch' } }],
 		['returns false', { data: false }],
@@ -308,18 +280,37 @@ describe('unclaimSquareOptimistic', () => {
 		'on rejection when the RPC %s, restores the square, the player filter, and toasts',
 		(_label, result) => {
 			party.set(createMockParty());
-			squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+			squares.set([aliceSquare()]);
 			selectedPlayerFilter.set('alice');
-			mockRpcResult(result);
+			subscribeToParty('test-party-id');
+			rpcResolvesWith(result);
 
 			unclaimSquareOptimistic(0, 0);
 
-			expect(get(squares)[0].player_name).toBe('Alice');
+			expect(get(squares)[0]).toMatchObject({
+				player_name: 'Alice',
+				player_name_lower: 'alice',
+				claimed_at: '2024-01-01T00:00:00Z',
+			});
 			expect(get(pendingOperations).has('0-0')).toBe(false);
 			expect(get(selectedPlayerFilter)).toBe('alice');
+			expect(get(activePlayerFilter)).toBe('alice');
 			expect(latestErrorToast()).toBe("Couldn't unclaim that square — try again.");
+			expect(sentBroadcastKeys('unclaim_rejected')).toEqual(['0-0']);
 		}
 	);
+
+	it('stops highlighting while the last square is optimistically cleared', () => {
+		party.set(createMockParty());
+		squares.set([aliceSquare()]);
+		selectedPlayerFilter.set('alice');
+		subscribeToParty('test-party-id');
+		rpcDeferred();
+
+		unclaimSquareOptimistic(0, 0);
+
+		expect(get(activePlayerFilter)).toBeNull();
+	});
 });
 
 describe('claimSquaresBatchOptimistic', () => {
@@ -336,44 +327,27 @@ describe('claimSquaresBatchOptimistic', () => {
 		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
 	});
 
-	it('does nothing when party is not filling', () => {
-		party.set(createMockParty({ status: 'active' }));
-		squares.set(createEmptyGrid());
-
-		claimSquaresBatchOptimistic([{ row: 0, col: 0 }]);
-		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-	});
-
 	it('filters out already claimed cells', () => {
 		party.set(createMockParty());
 		const grid = createEmptyGrid();
 		grid[0].player_name = 'Bob';
 		grid[0].player_name_lower = 'bob';
 		squares.set(grid);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 }, // Already claimed by Bob
 			{ row: 0, col: 1 }, // Available
 		]);
 
-		// Only one square should be updated
-		const sq00 = get(squares).find((s) => s.row_num === 0 && s.col_num === 0);
-		const sq01 = get(squares).find((s) => s.row_num === 0 && s.col_num === 1);
-		expect(sq00?.player_name).toBe('Bob'); // Unchanged
-		expect(sq01?.player_name).toBe('Alice'); // Claimed
+		expect(squareAt(0, 0)?.player_name).toBe('Bob');
+		expect(squareAt(0, 1)?.player_name).toBe('Alice');
 	});
 
 	it('updates all claimable squares immediately', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 },
@@ -381,24 +355,19 @@ describe('claimSquaresBatchOptimistic', () => {
 			{ row: 1, col: 0 },
 		]);
 
-		const currentSquares = get(squares);
-		for (const { row, col } of [
-			{ row: 0, col: 0 },
-			{ row: 0, col: 1 },
-			{ row: 1, col: 0 },
+		for (const [row, col] of [
+			[0, 0],
+			[0, 1],
+			[1, 0],
 		]) {
-			const sq = currentSquares.find((s) => s.row_num === row && s.col_num === col);
-			expect(sq?.player_name).toBe('Alice');
+			expect(squareAt(row, col)?.player_name).toBe('Alice');
 		}
 	});
 
 	it('sends every claimable cell in one claim_squares call', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 },
@@ -422,10 +391,8 @@ describe('claimSquaresBatchOptimistic', () => {
 		grid[0].player_name_lower = 'bob';
 		grid[0].claimed_at = '2026-01-01T00:00:00.000Z';
 		squares.set(grid);
-
-		mockSupabaseClient.rpc.mockReturnValue(
-			mockThenable({ data: null, error: { message: 'Network error' } })
-		);
+		subscribeToParty('test-party-id');
+		rpcResolvesWith({ data: null, error: { message: 'Network error' } });
 
 		claimSquaresBatchOptimistic([
 			{ row: 0, col: 0 }, // Already claimed by Bob
@@ -433,16 +400,39 @@ describe('claimSquaresBatchOptimistic', () => {
 			{ row: 1, col: 0 },
 		]);
 
-		const currentSquares = get(squares);
-		const bobSquare = currentSquares.find((s) => s.row_num === 0 && s.col_num === 0);
-		const firstRolledBack = currentSquares.find((s) => s.row_num === 0 && s.col_num === 1);
-		const secondRolledBack = currentSquares.find((s) => s.row_num === 1 && s.col_num === 0);
+		expect(squareAt(0, 0)?.player_name).toBe('Bob');
+		expect(squareAt(0, 1)?.player_name).toBeNull();
+		expect(squareAt(1, 0)?.player_name).toBeNull();
+		expect(get(pendingOperations).size).toBe(0);
+		// Other tabs are told to drop the cells we previewed, and only those.
+		expect(sentBroadcastKeys('claim_rejected')).toEqual(['0-1', '1-0']);
+	});
 
-		expect(bobSquare?.player_name).toBe('Bob');
-		expect(firstRolledBack?.player_name).toBeNull();
-		expect(secondRolledBack?.player_name).toBeNull();
-		expect(get(pendingOperations).has('0-1')).toBe(false);
-		expect(get(pendingOperations).has('1-0')).toBe(false);
+	it('a short batch shows each lost cell with its owner, without refetching', () => {
+		party.set(createMockParty());
+		squares.set(createEmptyGrid());
+		subscribeToParty('test-party-id');
+		rpcResolvesWith({
+			data: {
+				ok: true,
+				claimed: [{ row: 0, col: 1 }],
+				taken: [{ row: 0, col: 0, player_name: 'Mallory' }],
+			},
+			error: null,
+		});
+
+		claimSquaresBatchOptimistic([
+			{ row: 0, col: 0 },
+			{ row: 0, col: 1 },
+		]);
+
+		expect(squareAt(0, 0)).toMatchObject({ player_name: 'Mallory', player_name_lower: 'mallory' });
+		expect(squareAt(0, 1)?.player_name).toBe('Alice');
+		expect(get(pendingOperations).has('0-0')).toBe(false);
+		expect(get(pendingOperations).has('0-1')).toBe(true);
+		// one claim_squares call, no follow-up fetch
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+		expect(sentBroadcastKeys('claim_rejected')).toEqual(['0-0']);
 	});
 
 	it('does nothing when all cells are already claimed', () => {
@@ -457,7 +447,50 @@ describe('claimSquaresBatchOptimistic', () => {
 	});
 });
 
-describe('offline handling', () => {
+describe('actions once the grid is no longer filling', () => {
+	beforeEach(() => {
+		cleanup();
+		userName.setName('Alice');
+	});
+
+	it.each(NON_FILLING_STATUSES)('claimSquareOptimistic rejects when status is %s', (status) => {
+		party.set(createMockParty({ status }));
+		squares.set([createMockSquare(0, 0)]);
+
+		claimSquareOptimistic(0, 0);
+
+		expect(get(squares)[0].player_name).toBeNull();
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+
+	it.each(NON_FILLING_STATUSES)('unclaimSquareOptimistic rejects when status is %s', (status) => {
+		party.set(createMockParty({ status }));
+		squares.set([aliceSquare()]);
+
+		unclaimSquareOptimistic(0, 0);
+
+		expect(get(squares)[0].player_name).toBe('Alice');
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+	});
+
+	it.each(NON_FILLING_STATUSES)(
+		'claimSquaresBatchOptimistic rejects when status is %s',
+		(status) => {
+			party.set(createMockParty({ status }));
+			squares.set([createMockSquare(0, 0), createMockSquare(0, 1)]);
+
+			claimSquaresBatchOptimistic([
+				{ row: 0, col: 0 },
+				{ row: 0, col: 1 },
+			]);
+
+			expect(get(squares).map((sq) => sq.player_name)).toEqual([null, null]);
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+		}
+	);
+});
+
+describe('refuses to act while offline', () => {
 	beforeEach(() => {
 		cleanup();
 		userName.setName('Alice');
@@ -465,10 +498,18 @@ describe('offline handling', () => {
 
 	// Activates the isOffline store the same way a real session does:
 	// subscribeToParty() registers the window online/offline listeners, then
-	// an 'offline' event flips isOffline to true.
+	// an 'offline' event flips isOffline to true. Subscribing also opens the
+	// broadcast channel, so a stray broadcast would be seen.
 	function goOffline() {
 		subscribeToParty('test-party-id');
 		window.dispatchEvent(new Event('offline'));
+	}
+
+	function expectNothingSentAndOfflineToast() {
+		expect(get(pendingOperations).size).toBe(0);
+		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+		expect(get(toast).some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
 	}
 
 	it('claimSquareOptimistic fails immediately when offline: no mutation, pending op, broadcast, or RPC', () => {
@@ -479,32 +520,18 @@ describe('offline handling', () => {
 		claimSquareOptimistic(0, 0);
 
 		expect(get(squares)[0].player_name).toBeNull();
-		expect(get(pendingOperations).has('0-0')).toBe(false);
-		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
-		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		const toasts = get(toast);
-		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+		expectNothingSentAndOfflineToast();
 	});
 
 	it('unclaimSquareOptimistic fails immediately when offline: no mutation, pending op, broadcast, or RPC', () => {
 		party.set(createMockParty());
-		squares.set([
-			createMockSquare(0, 0, {
-				player_name: 'Alice',
-				player_name_lower: 'alice',
-				claimed_at: new Date().toISOString(),
-			}),
-		]);
+		squares.set([aliceSquare()]);
 		goOffline();
 
 		unclaimSquareOptimistic(0, 0);
 
 		expect(get(squares)[0].player_name).toBe('Alice');
-		expect(get(pendingOperations).has('0-0')).toBe(false);
-		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
-		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		const toasts = get(toast);
-		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+		expectNothingSentAndOfflineToast();
 	});
 
 	it('claimSquaresBatchOptimistic fails immediately when offline: no mutation, pending ops, broadcast, or RPC', () => {
@@ -517,14 +544,9 @@ describe('offline handling', () => {
 			{ row: 1, col: 1 },
 		]);
 
-		const current = get(squares);
-		expect(current.find((s) => s.row_num === 0 && s.col_num === 0)?.player_name).toBeNull();
-		expect(current.find((s) => s.row_num === 1 && s.col_num === 1)?.player_name).toBeNull();
-		expect(get(pendingOperations).size).toBe(0);
-		expect(mockSupabaseChannel.send).not.toHaveBeenCalled();
-		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
-		const toasts = get(toast);
-		expect(toasts.some((t) => t.type === 'error' && /offline/i.test(t.message))).toBe(true);
+		expect(squareAt(0, 0)?.player_name).toBeNull();
+		expect(squareAt(1, 1)?.player_name).toBeNull();
+		expectNothingSentAndOfflineToast();
 	});
 
 	it('does not block claims once back online', () => {
@@ -532,10 +554,7 @@ describe('offline handling', () => {
 		squares.set([createMockSquare(0, 0)]);
 		goOffline();
 		window.dispatchEvent(new Event('online'));
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
+		rpcHangs();
 
 		claimSquareOptimistic(0, 0);
 
