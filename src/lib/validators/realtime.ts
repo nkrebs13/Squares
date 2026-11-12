@@ -201,61 +201,20 @@ export function parseWinnerArray(payload: unknown): Winner[] | null {
 export function parseGameScores(payload: unknown): GameScoresRow | null {
 	if (!isObject(payload)) return warn('game_scores', payload, 'not an object');
 	const p = payload;
-	const requiredStr = [
-		'game_id',
-		'sport',
-		'home_team_abbrev',
-		'away_team_abbrev',
-		'home_team_name',
-		'away_team_name',
-		'game_clock',
-	] as const;
-	for (const f of requiredStr) {
-		if (!isStr(p[f])) return warn('game_scores', p, `${f} missing`);
-	}
+	if (!isStr(p.game_id)) return warn('game_scores', p, 'game_id missing');
+	if (!isStr(p.game_clock)) return warn('game_scores', p, 'game_clock missing');
 	if (!isGameStatus(p.game_status)) {
 		return warn('game_scores', p, 'game_status not in GameStatus union');
 	}
-	const requiredNum = ['home_score', 'away_score', 'game_quarter'] as const;
-	for (const f of requiredNum) {
-		if (!isNum(p[f])) return warn('game_scores', p, `${f} missing`);
-	}
-	const optionalNum = [
-		'q1_home',
-		'q1_away',
-		'q2_home',
-		'q2_away',
-		'q3_home',
-		'q3_away',
-		'q4_home',
-		'q4_away',
-		'final_home',
-		'final_away',
-	] as const;
-	for (const f of optionalNum) {
-		if (!isNumOrNull(p[f])) return warn('game_scores', p, `${f} not number|null`);
-	}
+	if (!isNum(p.home_score)) return warn('game_scores', p, 'home_score missing');
+	if (!isNum(p.away_score)) return warn('game_scores', p, 'away_score missing');
+	if (!isNum(p.game_quarter)) return warn('game_scores', p, 'game_quarter missing');
 	return {
-		game_id: p.game_id as string,
-		sport: p.sport as string,
-		home_team_abbrev: p.home_team_abbrev as string,
-		away_team_abbrev: p.away_team_abbrev as string,
-		home_team_name: p.home_team_name as string,
-		away_team_name: p.away_team_name as string,
-		home_score: p.home_score as number,
-		away_score: p.away_score as number,
-		game_clock: p.game_clock as string,
-		game_quarter: p.game_quarter as number,
+		game_id: p.game_id,
+		home_score: p.home_score,
+		away_score: p.away_score,
+		game_clock: p.game_clock,
+		game_quarter: p.game_quarter,
 		game_status: p.game_status,
-		q1_home: p.q1_home as number | null,
-		q1_away: p.q1_away as number | null,
-		q2_home: p.q2_home as number | null,
-		q2_away: p.q2_away as number | null,
-		q3_home: p.q3_home as number | null,
-		q3_away: p.q3_away as number | null,
-		q4_home: p.q4_home as number | null,
-		q4_away: p.q4_away as number | null,
-		final_home: p.final_home as number | null,
-		final_away: p.final_away as number | null,
 	};
 }

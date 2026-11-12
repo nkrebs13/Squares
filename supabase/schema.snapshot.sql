@@ -104,13 +104,16 @@ DECLARE
 	v_home INT;
 	v_away INT;
 	v_old_home INT;
+	v_old_away INT;
 BEGIN
 	FOREACH v_q IN ARRAY ARRAY['q1', 'q2', 'q3', 'final'] LOOP
 		EXECUTE format('SELECT ($1).%I, ($1).%I', v_q || '_home', v_q || '_away')
 			INTO v_home, v_away USING p_new;
-		EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_old_home USING p_old;
+		EXECUTE format('SELECT ($1).%I, ($1).%I', v_q || '_home', v_q || '_away')
+			INTO v_old_home, v_old_away USING p_old;
 
-		IF v_home IS NOT NULL AND v_old_home IS NULL THEN
+		IF v_home IS NOT NULL AND v_away IS NOT NULL
+			AND (v_old_home IS NULL OR v_old_away IS NULL) THEN
 			IF p_home_is_row THEN
 				PERFORM auto_update_score(p_party_id, v_q, v_home, v_away);
 			ELSE

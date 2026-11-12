@@ -94,26 +94,11 @@ export function createMockScores(overrides: Partial<Scores> = {}): Scores {
 export function createMockGameScores(overrides: Partial<GameScoresRow> = {}): GameScoresRow {
 	return {
 		game_id: 'test-game-id',
-		sport: 'nfl',
-		home_team_abbrev: 'PHI',
-		away_team_abbrev: 'KC',
-		home_team_name: 'Eagles',
-		away_team_name: 'Chiefs',
 		home_score: 0,
 		away_score: 0,
 		game_clock: '',
 		game_quarter: 0,
 		game_status: 'pregame',
-		q1_home: null,
-		q1_away: null,
-		q2_home: null,
-		q2_away: null,
-		q3_home: null,
-		q3_away: null,
-		q4_home: null,
-		q4_away: null,
-		final_home: null,
-		final_away: null,
 		...overrides,
 	};
 }

@@ -149,7 +149,14 @@ describe('parseSquare', () => {
 const { created_at: _pc, updated_at: _pu, expires_at: _pe, ...readParty } = validParty;
 const { assigned_at: _na, ...readNumbers } = validNumbers;
 const { created_at: _wc, ...readWinner } = validWinner;
-const { updated_at: _gu, ...readGameScores } = validGameScores;
+const readGameScores = {
+	game_id: validGameScores.game_id,
+	home_score: validGameScores.home_score,
+	away_score: validGameScores.away_score,
+	game_clock: validGameScores.game_clock,
+	game_quarter: validGameScores.game_quarter,
+	game_status: validGameScores.game_status,
+};
 
 describe('parseParty', () => {
 	it('returns the typed party for a valid payload', () => {
@@ -289,22 +296,13 @@ describe('parseGameScores', () => {
 		expect(parseGameScores('string')).toBeNull();
 	});
 
-	it('rejects when an optional quarter score is the wrong type', () => {
-		expect(parseGameScores({ ...validGameScores, q1_home: 'seven' })).toBeNull();
+	it('ignores the quarter breakdown (SQL applies it), so a bad quarter column cannot drop the row', () => {
+		expect(parseGameScores({ ...validGameScores, q1_home: 'seven' })).toEqual(readGameScores);
 	});
 
 	it('rejects when game_quarter is missing', () => {
 		const { game_quarter: _gq, ...missing } = validGameScores;
 		expect(parseGameScores(missing)).toBeNull();
-	});
-
-	it('accepts null for optional quarter scores', () => {
-		const partial = {
-			...readGameScores,
-			q1_home: null,
-			q1_away: null,
-		};
-		expect(parseGameScores(partial)).toEqual(partial);
 	});
 });
 

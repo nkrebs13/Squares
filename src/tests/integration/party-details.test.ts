@@ -7,9 +7,12 @@ import {
 	type TestParty,
 } from './helpers';
 import { INPUT_FIELD_COPY } from '../../lib/services/hostCopy';
+import { PARTY_CODE_LENGTH } from '../../lib/utils/partyCode';
 import {
 	DB_MAX_NAME_LENGTH,
 	DB_MAX_TEAM_NAME_LENGTH,
+	PIN_LENGTH,
+	TOTAL_SQUARES,
 	MAX_EVENT_NAME_LENGTH,
 	MIN_SQUARE_PRICE,
 	SQUARE_PRICE_CEILING,
@@ -64,13 +67,13 @@ describe('host_create_party', () => {
 			status: 'filling',
 		});
 		expect(data.party).not.toHaveProperty('host_pin');
-		expect(data.party.code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+		expect(data.party.code).toMatch(new RegExp(`^[A-HJ-NP-Z2-9]{${PARTY_CODE_LENGTH}}$`));
 
 		const { count } = await client
 			.from('squares')
 			.select('id', { count: 'exact', head: true })
 			.eq('party_id', data.party.id);
-		expect(count).toBe(100);
+		expect(count).toBe(TOTAL_SQUARES);
 		const { data: scores } = await client
 			.from('scores')
 			.select('party_id')
@@ -113,15 +116,15 @@ describe('host_create_party', () => {
 			.from('squares')
 			.select('row_num, col_num')
 			.eq('party_id', first.party.id);
-		expect(new Set(squares?.map((s) => `${s.row_num}-${s.col_num}`)).size).toBe(100);
+		expect(new Set(squares?.map((s) => `${s.row_num}-${s.col_num}`)).size).toBe(TOTAL_SQUARES);
 	});
 
 	it.each([
 		['host_name', { p_host_name: '   ' }],
 		['host_name', { p_host_name: 'x'.repeat(DB_MAX_NAME_LENGTH + 1) }],
 		['pin', { p_pin: '12a4' }],
-		['pin', { p_pin: '12' }],
-		['pin', { p_pin: '12345' }],
+		['pin', { p_pin: '1'.repeat(PIN_LENGTH - 1) }],
+		['pin', { p_pin: '1'.repeat(PIN_LENGTH + 1) }],
 		['pin', { p_pin: '' }],
 		['square_price', { p_square_price: 0 }],
 		['square_price', { p_square_price: -1 }],
@@ -152,6 +155,7 @@ describe('host_create_party', () => {
 			},
 		],
 		['the longest host name', { p_host_name: 'x'.repeat(DB_MAX_NAME_LENGTH) }],
+		['a PIN of PIN_LENGTH digits', { p_pin: '0'.repeat(PIN_LENGTH) }],
 		['the lowest price', { p_square_price: MIN_SQUARE_PRICE }],
 		['the highest price', { p_square_price: SQUARE_PRICE_CEILING - 0.01 }],
 	])('accepts %s', async (_what, overrides) => {

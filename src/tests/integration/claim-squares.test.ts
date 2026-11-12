@@ -9,7 +9,7 @@ import {
 	waitUntilBlockedOnLock,
 	getTestDatabaseUrl,
 } from './helpers';
-import { DB_MAX_NAME_LENGTH } from '../../lib/constants';
+import { DB_MAX_NAME_LENGTH, GRID_SIZE, TOTAL_SQUARES } from '../../lib/constants';
 
 // claim_squares (migration 038): claims a set of cells and reports which it
 // got and who holds the rest.
@@ -129,6 +129,17 @@ describe('claim_squares', () => {
 		expect(data?.player_name).toBe(winner);
 	});
 
+	it('claims the whole grid in one call', async () => {
+		const party = await newParty();
+		const cells = Array.from({ length: TOTAL_SQUARES }, (_, i) => ({
+			row: Math.floor(i / GRID_SIZE),
+			col: i % GRID_SIZE,
+		}));
+		const result = await claim(party, 'Alice', cells);
+		expect(result.ok).toBe(true);
+		expect(result.claimed).toHaveLength(TOTAL_SQUARES);
+	});
+
 	it.each(['active', 'complete'])('refuses once the party is %s', async (status) => {
 		const party = await newParty(status);
 		expect(await claim(party, 'Alice', [{ row: 0, col: 0 }])).toEqual({
@@ -146,7 +157,15 @@ describe('claim_squares', () => {
 			'player_name',
 		],
 		['no cells', 'Alice', [], 'cells'],
-		['a cell off the grid', 'Alice', [{ row: 10, col: 0 }], 'cells'],
+		['a row off the grid', 'Alice', [{ row: GRID_SIZE, col: 0 }], 'cells'],
+		['a column off the grid', 'Alice', [{ row: 0, col: GRID_SIZE }], 'cells'],
+		['a negative cell', 'Alice', [{ row: -1, col: 0 }], 'cells'],
+		[
+			'more cells than the grid holds',
+			'Alice',
+			Array.from({ length: TOTAL_SQUARES + 1 }, (_, i) => ({ row: i % GRID_SIZE, col: 0 })),
+			'cells',
+		],
 		['a fractional cell', 'Alice', [{ row: 1.5, col: 0 }], 'cells'],
 		['a malformed cell', 'Alice', [{ row: '1', col: 0 }], 'cells'],
 		['a non-numeric cell', 'Alice', [{ row: 'x', col: 0 }], 'cells'],
