@@ -134,8 +134,17 @@
 		<h1 class="text-3xl font-bold mt-2">Host Panel</h1>
 	</header>
 
+	{#snippet partyMissing()}
+		<div class="card max-w-md mx-auto text-center">
+			<p class="text-error">{$partyLoadError || 'This party could not be found.'}</p>
+			<a href="/" class="btn btn-secondary mt-4">Go Home</a>
+		</div>
+	{/snippet}
+
 	{#if !storedPin}
 		<PinGate {code} onauthorized={(pin) => (storedPin = pin)} />
+	{:else if $partyLoadError}
+		{@render partyMissing()}
 	{:else if $party}
 		<svelte:boundary>
 			<div class="space-y-6 max-w-md mx-auto">
@@ -198,10 +207,7 @@
 			<p class="text-secondary">Loading party…</p>
 		</div>
 	{:else}
-		<div class="card max-w-md mx-auto text-center">
-			<p class="text-error">{$partyLoadError || 'This party could not be found.'}</p>
-			<a href="/" class="btn btn-secondary mt-4">Go Home</a>
-		</div>
+		{@render partyMissing()}
 	{/if}
 </div>
 

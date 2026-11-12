@@ -119,6 +119,19 @@ describe('Admin Page - Score Entry', () => {
 		clearToasts();
 	});
 
+	describe('Party deleted while the panel is open', () => {
+		it('replaces the panel with "Party not found"', async () => {
+			renderAuthorizedAdmin({ status: 'filling' });
+			expect(screen.getByText('Party Status')).toBeInTheDocument();
+
+			error.set('Party not found');
+			await tick();
+
+			expect(screen.getByText('Party not found')).toBeInTheDocument();
+			expect(screen.queryByText('Party Status')).not.toBeInTheDocument();
+		});
+	});
+
 	describe('Party session', () => {
 		it('opens the party named in the URL and leaves it on unmount', async () => {
 			const { unmount } = renderAuthorizedAdmin();
