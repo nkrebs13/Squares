@@ -332,7 +332,7 @@ describe('Join Page', () => {
 			expect((screen.getByPlaceholderText('Enter your name') as HTMLInputElement).value).toBe('');
 		});
 
-		it('auto-passes PIN if stored PIN is valid', async () => {
+		it("enters at once when this browser holds the party's PIN, without asking the server", async () => {
 			const { goto } = await import('$app/navigation');
 			const { get: idbGet } = await import('idb-keyval');
 
@@ -354,6 +354,8 @@ describe('Join Page', () => {
 
 			// Should NOT have shown the PIN challenge
 			expect(screen.queryByText('Host Name Protected')).not.toBeInTheDocument();
+			// A lockout from someone else's wrong guesses cannot keep the host out.
+			expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith('host_verify_pin', expect.anything());
 		});
 	});
 

@@ -6,8 +6,6 @@ import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/va
 import type { Quarter } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
 import { eventNameOrDefault } from '$lib/config';
-import { recallHostPin } from '$lib/hostPin';
-import { normalizePlayerName } from '$lib/utils/playerName';
 
 export interface PartyDetailsInput {
 	eventName: string;
@@ -192,19 +190,4 @@ export async function verifyHostPin(code: string, pin: string): Promise<AdminRes
 		{ failed: 'Unable to verify PIN. Please try again.' }
 	);
 	return result.ok ? { success: true } : { success: false, error: result.error };
-}
-
-/**
- * The host's name is PIN-protected: a browser may play under it only while it holds this
- * party's host PIN and the server accepts it. Every way into a party (the join form, a
- * shared or recent /party link) asks this, so the rule has one home.
- */
-export async function mayPlayAs(
-	code: string,
-	hostNameLower: string | null,
-	name: string
-): Promise<boolean> {
-	if (!hostNameLower || normalizePlayerName(name) !== hostNameLower) return true;
-	const pin = await recallHostPin(code);
-	return pin !== null && (await verifyHostPin(code, pin)).success;
 }

@@ -52,7 +52,6 @@ export {
 	removePlayer,
 	deleteParty,
 	verifyHostPin,
-	mayPlayAs,
 } from './game-admin';
 
 export { openParty, cleanup } from './game-session';

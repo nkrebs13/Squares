@@ -2,8 +2,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { userName } from '$lib/stores/user';
-	import { mayPlayAs, verifyHostPin } from '$lib/stores/game';
-	import { rememberHostPin } from '$lib/hostPin';
+	import { verifyHostPin } from '$lib/stores/game';
+	import { mayPlayAs, rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
 	import { partySplits } from '$lib/payouts';
 	import { statusLabel } from '$lib/partyStatus';

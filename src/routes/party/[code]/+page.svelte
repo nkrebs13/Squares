@@ -14,15 +14,7 @@
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
-	import {
-		openParty,
-		cleanup,
-		mayPlayAs,
-		party,
-		teamTheme,
-		isLoading,
-		error,
-	} from '$lib/stores/game';
+	import { openParty, cleanup, party, teamTheme, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import {
 		buildPartyCanonicalUrl,
@@ -31,7 +23,7 @@
 		partyToShareMetadata,
 	} from '$lib/partyMeta';
 	import { saveRecentParty } from '$lib/recentParties';
-	import { recallHostPin } from '$lib/hostPin';
+	import { mayPlayAs, recallHostPin } from '$lib/hostPin';
 	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
