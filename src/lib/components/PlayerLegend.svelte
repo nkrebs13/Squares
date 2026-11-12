@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { plural } from '$lib/utils/format';
 	import { isFilling } from '$lib/partyStatus';
 	import {
 		playerSummary,
@@ -93,7 +94,7 @@
 				{/each}
 				{#if isFilling($party?.status) && $availableCount > 0}
 					<div class="available-count">
-						{$availableCount} squares available
+						{plural($availableCount, 'square', 'squares')} available
 					</div>
 				{/if}
 			</div>

@@ -521,7 +521,11 @@ BEGIN
     )
     RETURNING * INTO v_numbers;
 
-    UPDATE parties SET status = 'active' WHERE id = p_party_id RETURNING * INTO v_party;
+    UPDATE parties SET status = 'active' WHERE id = p_party_id;
+
+    -- A game linked to this party may already have scored quarters.
+    PERFORM backfill_party_scores(p_party_id);
+    SELECT * INTO v_party FROM parties WHERE id = p_party_id;
 
     PERFORM log_audit_event('lock_party_success', p_party_id, NULL);
     RETURN jsonb_build_object(

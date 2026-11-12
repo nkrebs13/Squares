@@ -1,4 +1,5 @@
 import { canActOnGrid } from '$lib/partyStatus';
+import { plural } from '$lib/utils/format';
 import { get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
 import type { OptimisticOperation, Square } from '$lib/types';
@@ -13,8 +14,8 @@ import {
 	isSameOp,
 	newPendingOp,
 	rollbackPendingOpIf,
-	type SquareSnapshot,
 } from './game-pending';
+import type { SquareSnapshot } from '$lib/types';
 import { broadcast } from './game-realtime';
 import { isOffline } from './connectivity';
 
@@ -91,10 +92,6 @@ type ClaimResult =
 
 function isClaimResult(data: unknown): data is ClaimResult {
 	return typeof data === 'object' && data !== null && typeof (data as ClaimResult).ok === 'boolean';
-}
-
-function plural(n: number, one: string, many: string): string {
-	return `${n} ${n === 1 ? one : many}`;
 }
 
 /** Claim any set of empty cells; a tap is a set of one. */

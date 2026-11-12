@@ -122,17 +122,16 @@ export interface RecentParty {
 	isHost: boolean;
 }
 
+/** The ownership fields of a square: what an optimistic op changes and a rollback restores. */
+export type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
+
 export interface OptimisticOperation {
 	type: 'claim' | 'unclaim';
 	row: number;
 	col: number;
 	timestamp: number;
 	/** The square's ownership before the op, restored on rollback. */
-	originalState: {
-		player_name: string | null;
-		player_name_lower: string | null;
-		claimed_at: string | null;
-	};
+	originalState: SquareSnapshot;
 	/** The tab that made the change: this tab ('local') or another one we are previewing. */
 	clientId: string;
 	origin: 'local' | 'remote';

@@ -64,6 +64,14 @@ describe('PlayerLegend Component', () => {
 		expect(screen.getByText('2 squares available')).toBeInTheDocument();
 	});
 
+	it('says "1 square available" for the last square', () => {
+		party.set(createMockParty({ status: 'filling' }));
+		squares.set([createMockSquare(0, 0, 'Alice'), createMockSquare(0, 1)]);
+		render(PlayerLegend);
+
+		expect(screen.getByText('1 square available')).toBeInTheDocument();
+	});
+
 	it('hides available count when not filling', () => {
 		party.set(createMockParty({ status: 'active' }));
 		squares.set([

@@ -23,7 +23,6 @@
 	} from '$lib/partyMeta';
 	import { saveRecentParty } from '$lib/recentParties';
 	import { mayPlayAs, recallHostPin } from '$lib/hostPin';
-	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
 
@@ -39,9 +38,7 @@
 	const shareMeta = $derived($party ? partyToShareMetadata($party) : data.partyMeta);
 	const pageTitle = $derived(buildPartyPageTitle(shareMeta));
 	const pageDescription = $derived(buildPartyShareDescription(shareMeta));
-	const canonicalUrl = $derived(
-		buildPartyCanonicalUrl(shareMeta?.code || code || APP_CONFIG.demoPartyCode)
-	);
+	const canonicalUrl = $derived(buildPartyCanonicalUrl(shareMeta?.code || code));
 
 	let isHost = $state(false);
 	let gestureHintRef = $state<GestureHint | null>(null);
