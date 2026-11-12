@@ -116,7 +116,7 @@
 				{copiedLink ? 'Copied!' : 'Copy Link'}
 			</button>
 			<button onclick={shareCode} class="btn btn-primary text-sm w-full">Share</button>
-			<button onclick={toggleQR} class="btn btn-secondary text-sm w-full">
+			<button onclick={toggleQR} class="btn btn-secondary text-sm w-full" aria-expanded={showQR}>
 				{showQR ? 'Hide QR' : 'QR Code'}
 			</button>
 		</div>

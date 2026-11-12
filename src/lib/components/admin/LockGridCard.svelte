@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { filledCount, isGridFull, lockParty } from '$lib/stores/game';
+	import { filledCount, isGridFull, lockParty, party } from '$lib/stores/game';
 	import { TOTAL_SQUARES } from '$lib/constants';
 	import { toast } from '$lib/stores/toast';
 
@@ -19,8 +19,11 @@
 		const result = await lockParty(storedPin);
 
 		if (result.success) {
+			// A linked party is scored from its game; the score form is a hidden override.
 			toast.success(
-				'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
+				$party?.game_id
+					? 'Game started! Numbers have been assigned. Scores update automatically from the game.'
+					: 'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
 			);
 		} else {
 			toast.error(result.error || 'Failed to lock grid');

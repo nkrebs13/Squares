@@ -419,6 +419,40 @@ describe('Square Component', () => {
 			);
 		});
 
+		it("does not offer to unclaim the user's square once the grid is locked", () => {
+			const square = createMockSquare({ player_name: 'Me', player_name_lower: 'me' });
+
+			render(Square, {
+				props: { size: 44, square, isLocked: true, isMine: true, rowNumber: 1, colNumber: 1 },
+			});
+
+			expect(screen.getByRole('button')).toHaveAttribute(
+				'aria-label',
+				'Row 1, Column 1. Your square.'
+			);
+		});
+
+		it('names the user as the owner of their own winning square', () => {
+			const square = createMockSquare({ player_name: 'Me', player_name_lower: 'me' });
+
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: true,
+					isMine: true,
+					winners: [createMockWinner({ quarter: 'q2' })],
+					rowNumber: 3,
+					colNumber: 8,
+				},
+			});
+
+			expect(screen.getByRole('button')).toHaveAttribute(
+				'aria-label',
+				'Row 3, Column 8. Winner for Q2, claimed by you.'
+			);
+		});
+
 		it('has proper aria-label for winner square', () => {
 			const square = createMockSquare({
 				player_name: 'Winner',
