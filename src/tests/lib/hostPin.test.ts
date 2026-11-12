@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { forgetHostPin, recallHostPin, rememberHostPin } from '$lib/hostPin';
-import { localStorageMock, sessionStorageMock } from '../setup';
+import { forgetHostPin, mayPlayAs, recallHostPin, rememberHostPin } from '$lib/hostPin';
+import { localStorageMock, mockSupabaseClient, sessionStorageMock } from '../setup';
 import { useFakeIdb } from './idbFake';
 
 describe('host PIN memory', () => {
@@ -44,5 +44,32 @@ describe('host PIN memory', () => {
 		await rememberHostPin('ABC123', '1234');
 		expect(idb.data.get('squares_host_pins')).toEqual({ ABC123: '1234' });
 		expect(sessionStorageMock.getItem('squares_pin_ABC123')).toBe('1234');
+	});
+});
+
+describe('mayPlayAs', () => {
+	beforeEach(() => {
+		useFakeIdb();
+	});
+
+	it("lets any name but the host's through", async () => {
+		expect(await mayPlayAs('ABC123', 'mike', 'Alice')).toBe(true);
+		expect(await mayPlayAs('ABC123', null, 'Mike')).toBe(true);
+	});
+
+	it("allows the host's name, in any case, only while this browser holds the party's PIN", async () => {
+		expect(await mayPlayAs('ABC123', 'mike', ' MIKE ')).toBe(false);
+
+		await rememberHostPin('XYZ789', '1234');
+		expect(await mayPlayAs('ABC123', 'mike', 'Mike')).toBe(false);
+
+		await rememberHostPin('ABC123', '1234');
+		expect(await mayPlayAs('ABC123', 'mike', ' MIKE ')).toBe(true);
+	});
+
+	it('never asks the server, so wrong guesses elsewhere cannot lock the host out', async () => {
+		await rememberHostPin('ABC123', '1234');
+		await mayPlayAs('ABC123', 'mike', 'Mike');
+		expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
 	});
 });

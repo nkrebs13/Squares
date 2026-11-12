@@ -23,7 +23,7 @@
 		partyToShareMetadata,
 	} from '$lib/partyMeta';
 	import { saveRecentParty } from '$lib/recentParties';
-	import { recallHostPin } from '$lib/hostPin';
+	import { mayPlayAs, recallHostPin } from '$lib/hostPin';
 	import { APP_CONFIG } from '$lib/config';
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
@@ -84,6 +84,11 @@
 		await checkIsHost();
 
 		if (await openParty(code)) {
+			// A shared or recent link skips the join form, so the host-name check happens here too.
+			if (!(await mayPlayAs(code, $party?.host_name_lower ?? null, $userName))) {
+				goto(joinPath(code));
+				return;
+			}
 			await saveToRecentParties();
 		}
 	});
