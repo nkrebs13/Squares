@@ -136,56 +136,6 @@ $_$;
 ALTER FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_party RECORD;
-BEGIN
-  SELECT host_pin, pin_attempts, pin_locked_until
-  INTO v_party
-  FROM parties
-  WHERE id = p_party_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Check if currently locked out
-  IF v_party.pin_locked_until IS NOT NULL AND v_party.pin_locked_until > NOW() THEN
-    RETURN FALSE;
-  END IF;
-
-  -- If lockout expired, reset attempts
-  IF v_party.pin_locked_until IS NOT NULL AND v_party.pin_locked_until <= NOW() THEN
-    UPDATE parties SET pin_attempts = 0, pin_locked_until = NULL WHERE id = p_party_id;
-  END IF;
-
-  -- Check PIN
-  IF v_party.host_pin = p_pin THEN
-    -- Reset attempts on success
-    UPDATE parties SET pin_attempts = 0, pin_locked_until = NULL WHERE id = p_party_id;
-    RETURN TRUE;
-  ELSE
-    -- Increment failure count
-    UPDATE parties
-    SET pin_attempts = pin_attempts + 1,
-        pin_locked_until = CASE
-          WHEN pin_attempts + 1 >= 5 THEN NOW() + INTERVAL '5 minutes'
-          ELSE pin_locked_until
-        END
-    WHERE id = p_party_id;
-    RETURN FALSE;
-  END IF;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."check_push_subscription_limit"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -199,41 +149,6 @@ $$;
 
 
 ALTER FUNCTION "public"."check_push_subscription_limit"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-    v_party_status VARCHAR(20);
-    v_rows_affected INTEGER;
-    v_trimmed_name VARCHAR(50);
-BEGIN
-    v_trimmed_name := TRIM(p_player_name);
-    IF v_trimmed_name = '' OR v_trimmed_name IS NULL THEN
-        RETURN FALSE;
-    END IF;
-
-    SELECT status INTO v_party_status FROM parties WHERE id = p_party_id;
-    IF v_party_status IS NULL OR v_party_status != 'filling' THEN
-        RETURN FALSE;
-    END IF;
-
-    UPDATE squares
-    SET player_name = v_trimmed_name, claimed_at = NOW()
-    WHERE party_id = p_party_id
-      AND row_num = p_row
-      AND col_num = p_col
-      AND player_name IS NULL;
-
-    GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
-    RETURN v_rows_affected > 0;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") RETURNS "jsonb"
@@ -315,270 +230,9 @@ $$;
 
 ALTER FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") OWNER TO "postgres";
 
-
-CREATE OR REPLACE FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") RETURNS integer
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-    v_party_status VARCHAR(20);
-    v_claimed_count INTEGER := 0;
-    v_trimmed_name VARCHAR(50);
-BEGIN
-    v_trimmed_name := TRIM(p_player_name);
-    IF v_trimmed_name = '' OR v_trimmed_name IS NULL THEN
-        RETURN 0;
-    END IF;
-
-    SELECT status INTO v_party_status FROM parties WHERE id = p_party_id;
-    IF v_party_status IS NULL OR v_party_status != 'filling' THEN
-        RETURN 0;
-    END IF;
-
-    UPDATE squares
-    SET player_name = v_trimmed_name, claimed_at = NOW()
-    WHERE party_id = p_party_id
-      AND player_name IS NULL
-      AND (row_num, col_num) IN (
-          SELECT (elem->>'row')::INTEGER, (elem->>'col')::INTEGER
-          FROM jsonb_array_elements(p_cells) AS elem
-      );
-
-    GET DIAGNOSTICS v_claimed_count = ROW_COUNT;
-    RETURN v_claimed_count;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") OWNER TO "postgres";
-
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
-
-
-CREATE TABLE IF NOT EXISTS "public"."parties" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "code" character varying(6) NOT NULL,
-    "host_pin" character varying(4) NOT NULL,
-    "square_price" numeric(10,2) DEFAULT 1.00 NOT NULL,
-    "split_q1" integer DEFAULT 25 NOT NULL,
-    "split_q2" integer DEFAULT 25 NOT NULL,
-    "split_q3" integer DEFAULT 25 NOT NULL,
-    "split_final" integer DEFAULT 25 NOT NULL,
-    "status" character varying(20) DEFAULT 'filling'::character varying NOT NULL,
-    "team_row_name" character varying(50) DEFAULT 'Seahawks'::character varying NOT NULL,
-    "team_col_name" character varying(50) DEFAULT 'Patriots'::character varying NOT NULL,
-    "team_row_color" character varying(7) DEFAULT '#69BE28'::character varying NOT NULL,
-    "team_col_color" character varying(7) DEFAULT '#C60C30'::character varying NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "expires_at" timestamp with time zone DEFAULT ("now"() + '30 days'::interval) NOT NULL,
-    "host_name_lower" character varying(50),
-    "pin_attempts" integer DEFAULT 0 NOT NULL,
-    "pin_locked_until" timestamp with time zone,
-    "game_id" character varying(20),
-    "home_team_is_row" boolean DEFAULT true NOT NULL,
-    "event_name" character varying(80) DEFAULT 'Football Squares'::character varying NOT NULL,
-    "kickoff_at" timestamp with time zone,
-    CONSTRAINT "parties_split_final_check" CHECK ((("split_final" >= 0) AND ("split_final" <= 100))),
-    CONSTRAINT "parties_split_q1_check" CHECK ((("split_q1" >= 0) AND ("split_q1" <= 100))),
-    CONSTRAINT "parties_split_q2_check" CHECK ((("split_q2" >= 0) AND ("split_q2" <= 100))),
-    CONSTRAINT "parties_split_q3_check" CHECK ((("split_q3" >= 0) AND ("split_q3" <= 100))),
-    CONSTRAINT "parties_status_check" CHECK ((("status")::"text" = ANY ((ARRAY['filling'::character varying, 'locked'::character varying, 'active'::character varying, 'complete'::character varying])::"text"[]))),
-    CONSTRAINT "split_total" CHECK ((((("split_q1" + "split_q2") + "split_q3") + "split_final") = 100))
-);
-
-
-ALTER TABLE "public"."parties" OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying DEFAULT 'Seahawks'::character varying, "p_team_col_name" character varying DEFAULT 'Patriots'::character varying, "p_team_row_color" character varying DEFAULT '#69BE28'::character varying, "p_team_col_color" character varying DEFAULT '#C60C30'::character varying, "p_event_name" character varying DEFAULT 'Football Squares'::character varying, "p_kickoff_at" timestamp with time zone DEFAULT NULL::timestamp with time zone) RETURNS "public"."parties"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $_$
-DECLARE
-  v_alphabet CONSTANT TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_alphabet_len CONSTANT INT := length(v_alphabet);
-  v_code VARCHAR(6);
-  v_attempt INT;
-  v_party parties;
-  v_trimmed_host VARCHAR(50);
-  v_trimmed_event VARCHAR(80);
-  v_trimmed_row_name VARCHAR(50);
-  v_trimmed_col_name VARCHAR(50);
-  v_normalized_row_name TEXT;
-  v_normalized_col_name TEXT;
-  v_random_bytes BYTEA;
-  v_expires_at TIMESTAMPTZ;
-BEGIN
-  v_trimmed_host := TRIM(p_host_name);
-  IF v_trimmed_host IS NULL OR length(v_trimmed_host) = 0 THEN
-    RAISE EXCEPTION 'host_name must be non-empty after trim'
-      USING ERRCODE = 'check_violation';
-  END IF;
-  IF length(v_trimmed_host) > 50 THEN
-    RAISE EXCEPTION 'host_name must be at most 50 characters'
-      USING ERRCODE = 'string_data_right_truncation';
-  END IF;
-
-  v_trimmed_event := COALESCE(NULLIF(TRIM(p_event_name), ''), 'Football Squares');
-  IF length(v_trimmed_event) > 80 THEN
-    RAISE EXCEPTION 'event_name must be at most 80 characters'
-      USING ERRCODE = 'string_data_right_truncation';
-  END IF;
-
-  v_trimmed_row_name := TRIM(p_team_row_name);
-  v_trimmed_col_name := TRIM(p_team_col_name);
-  IF v_trimmed_row_name IS NULL OR length(v_trimmed_row_name) = 0 THEN
-    RAISE EXCEPTION 'team_row_name must be non-empty after trim'
-      USING ERRCODE = 'check_violation';
-  END IF;
-  IF v_trimmed_col_name IS NULL OR length(v_trimmed_col_name) = 0 THEN
-    RAISE EXCEPTION 'team_col_name must be non-empty after trim'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  v_normalized_row_name := lower(regexp_replace(v_trimmed_row_name, '\s+', ' ', 'g'));
-  v_normalized_col_name := lower(regexp_replace(v_trimmed_col_name, '\s+', ' ', 'g'));
-  IF v_normalized_row_name = v_normalized_col_name THEN
-    RAISE EXCEPTION 'matchup must use two different teams'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF p_team_row_color IS NULL
-     OR p_team_col_color IS NULL
-     OR p_team_row_color !~ '^#[0-9A-Fa-f]{6}$'
-     OR p_team_col_color !~ '^#[0-9A-Fa-f]{6}$' THEN
-    RAISE EXCEPTION 'team colors must be 6-digit hex values'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF p_pin IS NULL OR p_pin !~ '^\d{4}$' THEN
-    RAISE EXCEPTION 'PIN must be exactly 4 digits'
-      USING ERRCODE = 'invalid_text_representation';
-  END IF;
-
-  IF p_square_price IS NULL OR p_square_price <= 0 THEN
-    RAISE EXCEPTION 'square_price must be greater than 0'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF p_split_q1 IS NULL OR p_split_q2 IS NULL
-     OR p_split_q3 IS NULL OR p_split_final IS NULL THEN
-    RAISE EXCEPTION 'all split values must be provided'
-      USING ERRCODE = 'not_null_violation';
-  END IF;
-
-  IF p_split_q1 < 0 OR p_split_q1 > 100
-     OR p_split_q2 < 0 OR p_split_q2 > 100
-     OR p_split_q3 < 0 OR p_split_q3 > 100
-     OR p_split_final < 0 OR p_split_final > 100 THEN
-    RAISE EXCEPTION 'each split must be between 0 and 100'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF (p_split_q1 + p_split_q2 + p_split_q3 + p_split_final) != 100 THEN
-    RAISE EXCEPTION 'splits must sum to exactly 100 (got %)',
-      p_split_q1 + p_split_q2 + p_split_q3 + p_split_final
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  v_expires_at := GREATEST(
-    NOW() + INTERVAL '30 days',
-    COALESCE(p_kickoff_at + INTERVAL '14 days', NOW() + INTERVAL '30 days')
-  );
-
-  FOR v_attempt IN 1..5 LOOP
-    v_random_bytes := gen_random_bytes(6);
-    v_code :=
-      substr(v_alphabet, (get_byte(v_random_bytes, 0) % v_alphabet_len) + 1, 1) ||
-      substr(v_alphabet, (get_byte(v_random_bytes, 1) % v_alphabet_len) + 1, 1) ||
-      substr(v_alphabet, (get_byte(v_random_bytes, 2) % v_alphabet_len) + 1, 1) ||
-      substr(v_alphabet, (get_byte(v_random_bytes, 3) % v_alphabet_len) + 1, 1) ||
-      substr(v_alphabet, (get_byte(v_random_bytes, 4) % v_alphabet_len) + 1, 1) ||
-      substr(v_alphabet, (get_byte(v_random_bytes, 5) % v_alphabet_len) + 1, 1);
-
-    BEGIN
-      INSERT INTO parties (
-        code, host_pin, host_name_lower,
-        event_name, kickoff_at,
-        square_price,
-        split_q1, split_q2, split_q3, split_final,
-        status,
-        team_row_name, team_col_name,
-        team_row_color, team_col_color,
-        expires_at
-      )
-      VALUES (
-        v_code, p_pin, LOWER(v_trimmed_host),
-        v_trimmed_event, p_kickoff_at,
-        p_square_price,
-        p_split_q1, p_split_q2, p_split_q3, p_split_final,
-        'filling',
-        v_trimmed_row_name, v_trimmed_col_name,
-        p_team_row_color, p_team_col_color,
-        v_expires_at
-      )
-      RETURNING * INTO v_party;
-
-      EXIT;
-
-    EXCEPTION
-      WHEN unique_violation THEN
-        IF v_attempt = 5 THEN
-          RAISE EXCEPTION 'failed to generate unique party code after 5 attempts'
-            USING ERRCODE = 'unique_violation';
-        END IF;
-    END;
-  END LOOP;
-
-  INSERT INTO squares (party_id, row_num, col_num)
-  SELECT v_party.id, r, c
-  FROM generate_series(0, 9) AS r
-  CROSS JOIN generate_series(0, 9) AS c;
-
-  INSERT INTO scores (party_id) VALUES (v_party.id);
-
-  RETURN v_party;
-END;
-$_$;
-
-
-ALTER FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_pin_ok BOOLEAN;
-  v_code VARCHAR(6);
-BEGIN
-  -- Get party code for logging before deletion
-  SELECT code INTO v_code FROM parties WHERE id = p_party_id;
-
-  -- Check PIN with rate limiting
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    PERFORM log_audit_event('delete_party_failed', p_party_id,
-      jsonb_build_object('reason', 'invalid_pin_or_lockout'));
-    RETURN FALSE;
-  END IF;
-
-  -- Log before delete (since party_id will be gone after)
-  PERFORM log_audit_event('delete_party_success', NULL,
-    jsonb_build_object('deleted_party_id', p_party_id, 'code', v_code));
-
-  -- Delete the party (cascades to all related tables)
-  DELETE FROM parties WHERE id = p_party_id;
-  RETURN TRUE;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."game_scores" (
@@ -1095,78 +749,6 @@ $$;
 ALTER FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" character varying) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_party RECORD;
-  v_pin_ok BOOLEAN;
-BEGIN
-  -- Check PIN with rate limiting
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    PERFORM log_audit_event('lock_party_failed', p_party_id,
-      jsonb_build_object('reason', 'invalid_pin_or_lockout'));
-    RETURN FALSE;
-  END IF;
-
-  -- Get party for status check
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND OR v_party.status != 'filling' THEN
-    PERFORM log_audit_event('lock_party_failed', p_party_id,
-      jsonb_build_object('reason', 'invalid_status', 'status', COALESCE(v_party.status, 'not_found')));
-    RETURN FALSE;
-  END IF;
-
-  -- Lock every square row for this party for the rest of the transaction.
-  -- Locking only the empty rows would not block a concurrent unclaim_square of
-  -- an already-filled row, so all 100 rows are locked here. `FOR UPDATE`
-  -- cannot be combined with an aggregate in the same SELECT, so fullness is
-  -- checked separately below against these now-locked rows -- any concurrent
-  -- claim_square/unclaim_square UPDATE against this party's squares blocks
-  -- until this transaction commits or rolls back.
-  PERFORM 1 FROM squares WHERE party_id = p_party_id FOR UPDATE;
-
-  -- Verify all squares are filled
-  IF EXISTS (
-    SELECT 1 FROM squares
-    WHERE party_id = p_party_id AND player_name IS NULL
-  ) THEN
-    PERFORM log_audit_event('lock_party_failed', p_party_id,
-      jsonb_build_object('reason', 'incomplete_grid'));
-    RETURN FALSE;
-  END IF;
-
-  -- Generate random numbers (0-9 for each position)
-  INSERT INTO numbers (party_id, row_numbers, col_numbers)
-  VALUES (
-    p_party_id,
-    (SELECT array_agg(n ORDER BY random()) FROM generate_series(0, 9) AS n),
-    (SELECT array_agg(n ORDER BY random()) FROM generate_series(0, 9) AS n)
-  )
-  ON CONFLICT (party_id) DO UPDATE SET
-    row_numbers = EXCLUDED.row_numbers,
-    col_numbers = EXCLUDED.col_numbers,
-    assigned_at = NOW();
-
-  -- Insert scores row (idempotent via ON CONFLICT)
-  INSERT INTO scores (party_id)
-  VALUES (p_party_id)
-  ON CONFLICT (party_id) DO NOTHING;
-
-  -- Update party status to active
-  UPDATE parties SET status = 'active', updated_at = NOW() WHERE id = p_party_id;
-
-  PERFORM log_audit_event('lock_party_success', p_party_id, NULL);
-  RETURN TRUE;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" character varying) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb" DEFAULT NULL::"jsonb") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1261,6 +843,42 @@ $_$;
 ALTER FUNCTION "public"."propagate_game_scores"() OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."parties" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "code" character varying(6) NOT NULL,
+    "host_pin" character varying(4) NOT NULL,
+    "square_price" numeric(10,2) DEFAULT 1.00 NOT NULL,
+    "split_q1" integer DEFAULT 25 NOT NULL,
+    "split_q2" integer DEFAULT 25 NOT NULL,
+    "split_q3" integer DEFAULT 25 NOT NULL,
+    "split_final" integer DEFAULT 25 NOT NULL,
+    "status" character varying(20) DEFAULT 'filling'::character varying NOT NULL,
+    "team_row_name" character varying(50) DEFAULT 'Seahawks'::character varying NOT NULL,
+    "team_col_name" character varying(50) DEFAULT 'Patriots'::character varying NOT NULL,
+    "team_row_color" character varying(7) DEFAULT '#69BE28'::character varying NOT NULL,
+    "team_col_color" character varying(7) DEFAULT '#C60C30'::character varying NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "expires_at" timestamp with time zone DEFAULT ("now"() + '30 days'::interval) NOT NULL,
+    "host_name_lower" character varying(50),
+    "pin_attempts" integer DEFAULT 0 NOT NULL,
+    "pin_locked_until" timestamp with time zone,
+    "game_id" character varying(20),
+    "home_team_is_row" boolean DEFAULT true NOT NULL,
+    "event_name" character varying(80) DEFAULT 'Football Squares'::character varying NOT NULL,
+    "kickoff_at" timestamp with time zone,
+    CONSTRAINT "parties_split_final_check" CHECK ((("split_final" >= 0) AND ("split_final" <= 100))),
+    CONSTRAINT "parties_split_q1_check" CHECK ((("split_q1" >= 0) AND ("split_q1" <= 100))),
+    CONSTRAINT "parties_split_q2_check" CHECK ((("split_q2" >= 0) AND ("split_q2" <= 100))),
+    CONSTRAINT "parties_split_q3_check" CHECK ((("split_q3" >= 0) AND ("split_q3" <= 100))),
+    CONSTRAINT "parties_status_check" CHECK ((("status")::"text" = ANY ((ARRAY['filling'::character varying, 'locked'::character varying, 'active'::character varying, 'complete'::character varying])::"text"[]))),
+    CONSTRAINT "split_total" CHECK ((((("split_q1" + "split_q2") + "split_q3") + "split_final") = 100))
+);
+
+
+ALTER TABLE "public"."parties" OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."public_party_json"("p_party" "public"."parties") RETURNS "jsonb"
     LANGUAGE "sql" STABLE
     AS $$
@@ -1333,62 +951,6 @@ $_$;
 
 
 ALTER FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) RETURNS integer
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-    v_party parties;
-    v_pin_ok BOOLEAN;
-    v_removed_count INTEGER := 0;
-    v_player_name_lower VARCHAR(50);
-BEGIN
-    v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-    IF NOT v_pin_ok THEN
-        PERFORM log_audit_event('remove_player_failed', p_party_id,
-            jsonb_build_object('reason', 'invalid_pin_or_lockout'));
-        -- Sentinel refusal, NOT RAISE (see file header). A RAISE would roll back
-        -- BOTH this audit-log row AND check_pin_lockout's increment. NULL (not 0)
-        -- so callers can distinguish a rejected PIN from a legitimate
-        -- "matched no squares" result of 0.
-        RETURN NULL;
-    END IF;
-
-    SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'party not found'
-          USING ERRCODE = 'no_data_found';
-    END IF;
-
-    IF v_party.status != 'filling' THEN
-        RAISE EXCEPTION 'players can only be removed before the grid is locked'
-          USING ERRCODE = 'check_violation';
-    END IF;
-
-    v_player_name_lower := lower(TRIM(p_player_name_lower));
-    IF v_player_name_lower IS NULL OR v_player_name_lower = '' THEN
-        RAISE EXCEPTION 'player name must be provided'
-          USING ERRCODE = 'check_violation';
-    END IF;
-
-    UPDATE squares
-    SET player_name = NULL, claimed_at = NULL
-    WHERE party_id = p_party_id
-      AND player_name_lower = v_player_name_lower;
-
-    GET DIAGNOSTICS v_removed_count = ROW_COUNT;
-
-    PERFORM log_audit_event('remove_player_success', p_party_id,
-        jsonb_build_object('player_name_lower', v_player_name_lower, 'removed_count', v_removed_count));
-
-    RETURN v_removed_count;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") RETURNS boolean
@@ -1485,91 +1047,6 @@ $$;
 ALTER FUNCTION "public"."sync_linked_home_team_side"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") RETURNS "jsonb"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_party parties;
-  v_game game_scores;
-  v_row_name TEXT;
-  v_col_name TEXT;
-  v_home_name TEXT;
-  v_away_name TEXT;
-  v_home_abbrev TEXT;
-  v_away_abbrev TEXT;
-  v_row_name_esc TEXT;
-  v_col_name_esc TEXT;
-  v_home_name_esc TEXT;
-  v_away_name_esc TEXT;
-  v_row_home BOOLEAN;
-  v_row_away BOOLEAN;
-  v_col_home BOOLEAN;
-  v_col_away BOOLEAN;
-  v_home_is_row BOOLEAN;
-BEGIN
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'party not found'
-      USING ERRCODE = 'no_data_found';
-  END IF;
-
-  IF v_party.game_id IS NULL THEN
-    RETURN public_party_json(v_party);
-  END IF;
-
-  SELECT * INTO v_game FROM game_scores WHERE game_id = v_party.game_id;
-  IF NOT FOUND THEN
-    RETURN public_party_json(v_party);
-  END IF;
-
-  v_row_name := lower(v_party.team_row_name);
-  v_col_name := lower(v_party.team_col_name);
-  v_home_name := lower(v_game.home_team_name);
-  v_away_name := lower(v_game.away_team_name);
-  v_home_abbrev := lower(v_game.home_team_abbrev);
-  v_away_abbrev := lower(v_game.away_team_abbrev);
-  v_row_name_esc := replace(replace(replace(v_row_name, '\', '\\'), '%', '\%'), '_', '\_');
-  v_col_name_esc := replace(replace(replace(v_col_name, '\', '\\'), '%', '\%'), '_', '\_');
-  v_home_name_esc := replace(replace(replace(v_home_name, '\', '\\'), '%', '\%'), '_', '\_');
-  v_away_name_esc := replace(replace(replace(v_away_name, '\', '\\'), '%', '\%'), '_', '\_');
-
-  v_row_home := v_home_name LIKE '%' || v_row_name_esc || '%' ESCAPE '\'
-    OR v_row_name LIKE '%' || v_home_name_esc || '%' ESCAPE '\'
-    OR v_home_abbrev = v_row_name;
-  v_row_away := v_away_name LIKE '%' || v_row_name_esc || '%' ESCAPE '\'
-    OR v_row_name LIKE '%' || v_away_name_esc || '%' ESCAPE '\'
-    OR v_away_abbrev = v_row_name;
-  v_col_home := v_home_name LIKE '%' || v_col_name_esc || '%' ESCAPE '\'
-    OR v_col_name LIKE '%' || v_home_name_esc || '%' ESCAPE '\'
-    OR v_home_abbrev = v_col_name;
-  v_col_away := v_away_name LIKE '%' || v_col_name_esc || '%' ESCAPE '\'
-    OR v_col_name LIKE '%' || v_away_name_esc || '%' ESCAPE '\'
-    OR v_away_abbrev = v_col_name;
-
-  IF v_row_home AND v_col_away THEN
-    v_home_is_row := TRUE;
-  ELSIF v_row_away AND v_col_home THEN
-    v_home_is_row := FALSE;
-  ELSE
-    RETURN public_party_json(v_party);
-  END IF;
-
-  IF v_home_is_row IS DISTINCT FROM v_party.home_team_is_row THEN
-    UPDATE parties
-    SET home_team_is_row = v_home_is_row
-    WHERE id = p_party_id
-    RETURNING * INTO v_party;
-  END IF;
-
-  RETURN public_party_json(v_party);
-END;
-$$;
-
-
-ALTER FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1610,171 +1087,6 @@ $$;
 ALTER FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone DEFAULT NULL::timestamp with time zone, "p_team_row_name" character varying DEFAULT 'Seahawks'::character varying, "p_team_col_name" character varying DEFAULT 'Patriots'::character varying, "p_team_row_color" character varying DEFAULT '#69BE28'::character varying, "p_team_col_color" character varying DEFAULT '#C60C30'::character varying) RETURNS "public"."parties"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $_$
-DECLARE
-  v_party parties;
-  v_pin_ok BOOLEAN;
-  v_trimmed_event VARCHAR(80);
-  v_trimmed_row_name VARCHAR(50);
-  v_trimmed_col_name VARCHAR(50);
-  v_normalized_row_name TEXT;
-  v_normalized_col_name TEXT;
-  v_expires_at TIMESTAMPTZ;
-BEGIN
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    -- Sentinel refusal, NOT RAISE. A RAISE here aborts this single-statement
-    -- PostgREST transaction and rolls back check_pin_lockout's pin_attempts
-    -- increment, defeating the throttle. Returning NULL lets the increment
-    -- commit. See file header.
-    RETURN NULL;
-  END IF;
-
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'party not found'
-      USING ERRCODE = 'no_data_found';
-  END IF;
-
-  IF v_party.status != 'filling' THEN
-    RAISE EXCEPTION 'party details can only be changed before the grid is locked'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  v_trimmed_event := COALESCE(NULLIF(TRIM(p_event_name), ''), 'Football Squares');
-  IF length(v_trimmed_event) > 80 THEN
-    RAISE EXCEPTION 'event_name must be at most 80 characters'
-      USING ERRCODE = 'string_data_right_truncation';
-  END IF;
-
-  v_trimmed_row_name := TRIM(p_team_row_name);
-  v_trimmed_col_name := TRIM(p_team_col_name);
-  IF v_trimmed_row_name IS NULL OR length(v_trimmed_row_name) = 0 THEN
-    RAISE EXCEPTION 'team_row_name must be non-empty after trim'
-      USING ERRCODE = 'check_violation';
-  END IF;
-  IF v_trimmed_col_name IS NULL OR length(v_trimmed_col_name) = 0 THEN
-    RAISE EXCEPTION 'team_col_name must be non-empty after trim'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  v_normalized_row_name := lower(regexp_replace(v_trimmed_row_name, '\s+', ' ', 'g'));
-  v_normalized_col_name := lower(regexp_replace(v_trimmed_col_name, '\s+', ' ', 'g'));
-  IF v_normalized_row_name = v_normalized_col_name THEN
-    RAISE EXCEPTION 'matchup must use two different teams'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF p_team_row_color IS NULL
-     OR p_team_col_color IS NULL
-     OR p_team_row_color !~ '^#[0-9A-Fa-f]{6}$'
-     OR p_team_col_color !~ '^#[0-9A-Fa-f]{6}$' THEN
-    RAISE EXCEPTION 'team colors must be 6-digit hex values'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  v_expires_at := GREATEST(
-    NOW() + INTERVAL '30 days',
-    COALESCE(p_kickoff_at + INTERVAL '14 days', NOW() + INTERVAL '30 days')
-  );
-
-  UPDATE parties
-  SET
-    event_name = v_trimmed_event,
-    kickoff_at = p_kickoff_at,
-    team_row_name = v_trimmed_row_name,
-    team_col_name = v_trimmed_col_name,
-    team_row_color = p_team_row_color,
-    team_col_color = p_team_col_color,
-    expires_at = v_expires_at
-  WHERE id = p_party_id
-  RETURNING * INTO v_party;
-
-  RETURN v_party;
-END;
-$_$;
-
-
-ALTER FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) RETURNS "public"."parties"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_party parties;
-  v_pin_ok BOOLEAN;
-BEGIN
-  v_pin_ok := check_pin_lockout(p_party_id, p_pin);
-  IF NOT v_pin_ok THEN
-    -- Sentinel refusal, NOT RAISE (see file header). Lets check_pin_lockout's
-    -- increment commit so repeated wrong PINs durably throttle.
-    RETURN NULL;
-  END IF;
-
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'party not found'
-      USING ERRCODE = 'no_data_found';
-  END IF;
-
-  IF v_party.status != 'filling' THEN
-    RAISE EXCEPTION 'payout structure can only be changed before the grid is locked'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF p_split_q1 IS NULL OR p_split_q2 IS NULL
-     OR p_split_q3 IS NULL OR p_split_final IS NULL THEN
-    RAISE EXCEPTION 'all split values must be provided'
-      USING ERRCODE = 'not_null_violation';
-  END IF;
-
-  IF p_split_q1 < 0 OR p_split_q1 > 100
-     OR p_split_q2 < 0 OR p_split_q2 > 100
-     OR p_split_q3 < 0 OR p_split_q3 > 100
-     OR p_split_final < 0 OR p_split_final > 100 THEN
-    RAISE EXCEPTION 'each split must be between 0 and 100'
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  IF (p_split_q1 + p_split_q2 + p_split_q3 + p_split_final) != 100 THEN
-    RAISE EXCEPTION 'splits must sum to exactly 100 (got %)',
-      p_split_q1 + p_split_q2 + p_split_q3 + p_split_final
-      USING ERRCODE = 'check_violation';
-  END IF;
-
-  UPDATE parties
-  SET
-    split_q1 = p_split_q1,
-    split_q2 = p_split_q2,
-    split_q3 = p_split_q3,
-    split_final = p_split_final
-  WHERE id = p_party_id
-  RETURNING * INTO v_party;
-
-  RETURN v_party;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-    SELECT (host_record_score(p_party_id, p_pin, p_quarter, p_row_score, p_col_score) ->> 'ok')::BOOLEAN;
-$$;
-
-
-ALTER FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."update_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -1786,25 +1098,6 @@ $$;
 
 
 ALTER FUNCTION "public"."update_updated_at"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."verify_host_pin"("p_party_code" character varying, "p_pin" character varying) RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-DECLARE
-  v_party_id UUID;
-BEGIN
-  SELECT id INTO v_party_id FROM parties WHERE code = p_party_code;
-  IF NOT FOUND THEN
-    RETURN FALSE;
-  END IF;
-  RETURN check_pin_lockout(v_party_id, p_pin);
-END;
-$$;
-
-
-ALTER FUNCTION "public"."verify_host_pin"("p_party_code" character varying, "p_pin" character varying) OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."audit_log" (
@@ -2350,20 +1643,8 @@ GRANT ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") TO "
 
 
 
-REVOKE ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."check_pin_lockout"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."check_push_subscription_limit"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."check_push_subscription_limit"() TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."claim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "service_role";
 
 
 
@@ -2374,10 +1655,119 @@ GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_na
 
 
 
-REVOKE ALL ON FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."claim_squares_batch"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "service_role";
+GRANT ALL ON TABLE "public"."game_scores" TO "anon";
+GRANT ALL ON TABLE "public"."game_scores" TO "authenticated";
+GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."get_party_state"("p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_gate"("p_party_id" "uuid", "p_pin" character varying, "p_action" "text", "p_required_status" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_gate"("p_party_id" "uuid", "p_pin" character varying, "p_action" "text", "p_required_status" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "service_role";
+GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "anon";
+GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."party_details_problem"("p_event_name" "text", "p_team_row_name" "text", "p_team_col_name" "text", "p_team_row_color" "text", "p_team_col_color" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."party_details_problem"("p_event_name" "text", "p_team_row_name" "text", "p_team_col_name" "text", "p_team_row_color" "text", "p_team_col_color" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."party_expiry"("p_kickoff_at" timestamp with time zone) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."party_expiry"("p_kickoff_at" timestamp with time zone) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."propagate_game_scores"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "service_role";
 
 
 
@@ -2487,141 +1877,6 @@ GRANT SELECT("kickoff_at") ON TABLE "public"."parties" TO "authenticated";
 
 
 
-REVOKE ALL ON FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "anon";
-GRANT ALL ON FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."game_scores" TO "anon";
-GRANT ALL ON TABLE "public"."game_scores" TO "authenticated";
-GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "service_role";
-GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_party_preview"("p_code" "text") TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."get_party_state"("p_code" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "service_role";
-GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_party_state"("p_code" "text") TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_create_party"("p_host_name" character varying, "p_pin" character varying, "p_square_price" numeric, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_delete_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_gate"("p_party_id" "uuid", "p_pin" character varying, "p_action" "text", "p_required_status" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_gate"("p_party_id" "uuid", "p_pin" character varying, "p_action" "text", "p_required_status" "text") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_pin_check"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_refusal"("p_party_id" "uuid", "p_action" "text", "p_error" "text", "p_field" "text") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name" character varying) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_update_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_update_payouts"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "authenticated";
-
-
-
-REVOKE ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "service_role";
-GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."host_verify_pin"("p_party_code" character varying, "p_pin" character varying) TO "authenticated";
-
-
-
-GRANT ALL ON FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."lock_party"("p_party_id" "uuid", "p_pin" character varying) TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."log_audit_event"("p_event_type" character varying, "p_party_id" "uuid", "p_details" "jsonb") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."party_details_problem"("p_event_name" "text", "p_team_row_name" "text", "p_team_col_name" "text", "p_team_row_color" "text", "p_team_col_color" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."party_details_problem"("p_event_name" "text", "p_team_row_name" "text", "p_team_col_name" "text", "p_team_row_color" "text", "p_team_col_color" "text") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."party_expiry"("p_kickoff_at" timestamp with time zone) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."party_expiry"("p_kickoff_at" timestamp with time zone) TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."propagate_game_scores"() FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."propagate_game_scores"() TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties") TO "service_role";
 
@@ -2629,13 +1884,6 @@ GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties")
 
 REVOKE ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."remove_player"("p_party_id" "uuid", "p_pin" character varying, "p_player_name_lower" character varying) TO "service_role";
 
 
 
@@ -2661,13 +1909,6 @@ GRANT ALL ON FUNCTION "public"."sync_linked_home_team_side"() TO "service_role";
 
 
 
-REVOKE ALL ON FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."sync_party_home_team_mapping"("p_party_id" "uuid") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "anon";
 GRANT ALL ON FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) TO "authenticated";
@@ -2675,34 +1916,8 @@ GRANT ALL ON FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" int
 
 
 
-REVOKE ALL ON FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."update_party_details"("p_party_id" "uuid", "p_pin" character varying, "p_event_name" character varying, "p_kickoff_at" timestamp with time zone, "p_team_row_name" character varying, "p_team_col_name" character varying, "p_team_row_color" character varying, "p_team_col_color" character varying) TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."update_payout_structure"("p_party_id" "uuid", "p_pin" character varying, "p_split_q1" integer, "p_split_q2" integer, "p_split_q3" integer, "p_split_final" integer) TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."update_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."update_updated_at"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."verify_host_pin"("p_party_code" character varying, "p_pin" character varying) TO "anon";
-GRANT ALL ON FUNCTION "public"."verify_host_pin"("p_party_code" character varying, "p_pin" character varying) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."verify_host_pin"("p_party_code" character varying, "p_pin" character varying) TO "service_role";
 
 
 
