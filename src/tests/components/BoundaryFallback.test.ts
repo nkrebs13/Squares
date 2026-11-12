@@ -16,7 +16,7 @@ describe('BoundaryFallback', () => {
 
 	it('renders the error message', () => {
 		const { getByText } = render(BoundaryFallback, { props: { reset: vi.fn() } });
-		expect(getByText('This section encountered an error.')).toBeTruthy();
+		expect(getByText('This section encountered an error.')).toBeInTheDocument();
 	});
 
 	it('calls reset prop when Try again is clicked', async () => {

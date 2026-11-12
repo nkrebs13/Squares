@@ -1,13 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 
+vi.mock('$lib/recentParties', () => ({
+	getRecentParties: vi.fn().mockResolvedValue([]),
+	removeRecentParty: vi.fn().mockResolvedValue(undefined),
+	updatePartyNickname: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Import the page component
 import HomePage from '../../routes/+page.svelte';
+import { getRecentParties } from '$lib/recentParties';
+import { createMockRecentParty } from '../factories';
 
 describe('Home Page', () => {
 	beforeEach(() => {
-		// setup.ts handles mock resets
+		// setup.ts resets mocks; restore the empty default for the RecentParties child
+		vi.mocked(getRecentParties).mockResolvedValue([]);
 	});
 
 	it('renders "Football Squares" heading', () => {
@@ -78,12 +87,10 @@ describe('Home Page', () => {
 		expect(goto).toHaveBeenCalledWith('/join?code=DEMO01');
 	});
 
-	it('renders RecentParties component', () => {
+	it("lists the visitor's recent parties", async () => {
+		vi.mocked(getRecentParties).mockResolvedValueOnce([createMockRecentParty({ code: 'HOME01' })]);
 		render(HomePage);
-		// RecentParties renders in a container — it will be present even if loading
-		// The component mounts and calls getRecentParties() which is mocked via idb-keyval
-		// Just verify the page renders without error including the child component
-		expect(screen.getByText('Football Squares')).toBeInTheDocument();
+		expect(await screen.findByText('HOME01')).toBeInTheDocument();
 	});
 
 	it('renders tagline', () => {

@@ -73,8 +73,7 @@ test.describe('Join Party Page', () => {
 		const nicknameInput = page.getByPlaceholder(/work pool/i);
 		const longName = 'A'.repeat(35);
 		await nicknameInput.fill(longName);
-		const value = await nicknameInput.inputValue();
-		expect(value.length).toBeLessThanOrEqual(30);
+		await expect(nicknameInput).toHaveValue('A'.repeat(30));
 	});
 
 	test('Join Party button is enabled without nickname', async ({ page }) => {
@@ -165,8 +164,7 @@ test.describe('Join Party Page', () => {
 		const longName = 'A'.repeat(25);
 		await nameInput.fill(longName);
 
-		const value = await nameInput.inputValue();
-		expect(value.length).toBeLessThanOrEqual(20);
+		await expect(nameInput).toHaveValue('A'.repeat(20));
 	});
 });
 

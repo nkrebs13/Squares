@@ -158,7 +158,6 @@ test.describe('Golden Path: Create → Join → Play → Win', () => {
 
 		// The page should show winner information — verify at least one winner name appears
 		const pageContent = await page.textContent('body');
-		expect(pageContent).toBeTruthy();
 
 		// Verify winner names from mockWinnersAll are present on the page
 		const hasWinnerContent =

@@ -34,7 +34,7 @@ describe('Concurrency: two users claim same square', () => {
 
 		// Bob's broadcast arrives after
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		broadcastHandler({
 			payload: {
@@ -99,7 +99,7 @@ describe('Concurrency: postgres_changes overrides optimistic state', () => {
 
 		// Simulate postgres_changes UPDATE
 		const pgHandler = mockChannelHandlers['postgres_changes:squares'];
-		if (!pgHandler) return;
+		expect(pgHandler).toBeDefined();
 
 		pgHandler({
 			eventType: 'UPDATE',

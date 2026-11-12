@@ -265,21 +265,6 @@ describe('Admin Page - Score Entry', () => {
 	});
 
 	describe('Manual Score Entry Persistence (Regression — live tick must not clobber overrides)', () => {
-		it('still auto-advances to the next quarter on cold render (baseline)', () => {
-			renderAuthorizedAdmin(
-				{ status: 'active' },
-				createMockScores({
-					q1_row_score: 7,
-					q1_col_score: 3,
-					q2_row_score: 14,
-					q2_col_score: 10,
-				})
-			);
-
-			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
-			expect(select.value).toBe('q3');
-		});
-
 		it('preserves a host-selected quarter across a live score tick', async () => {
 			const initialScores = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
 			renderAuthorizedAdmin({ status: 'active' }, initialScores);

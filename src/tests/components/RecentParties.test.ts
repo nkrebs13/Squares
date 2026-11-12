@@ -210,8 +210,8 @@ describe('RecentParties Component', () => {
 				expect(screen.getByText('NAV001')).toBeInTheDocument();
 			});
 
-			const link = container.querySelector('a.card-nav-link') as HTMLAnchorElement;
-			expect(link).toBeTruthy();
+			const link = container.querySelector('a.card-nav-link');
+			expect(link).not.toBeNull();
 			expect(link?.getAttribute('href')).toBe('/party/NAV001');
 		});
 
@@ -223,8 +223,11 @@ describe('RecentParties Component', () => {
 				expect(screen.getByText('LBL001')).toBeInTheDocument();
 			});
 
-			const link = screen.getByRole('link', { name: /open/i });
-			expect(link).toBeTruthy();
+			// displayName falls back to the team matchup when there is no nickname
+			expect(screen.getByRole('link', { name: 'Open Seahawks vs Patriots' })).toHaveAttribute(
+				'href',
+				'/party/LBL001'
+			);
 		});
 	});
 

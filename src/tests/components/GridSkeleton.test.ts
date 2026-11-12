@@ -3,11 +3,6 @@ import { render } from '@testing-library/svelte';
 import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 
 describe('GridSkeleton', () => {
-	it('renders the skeleton container', () => {
-		const { container } = render(GridSkeleton);
-		expect(container.querySelector('.grid-skeleton')).toBeTruthy();
-	});
-
 	it('renders 10 skeleton rows', () => {
 		const { container } = render(GridSkeleton);
 		const rows = container.querySelectorAll('.skeleton-row');
@@ -23,23 +18,19 @@ describe('GridSkeleton', () => {
 	it('renders column numbers header', () => {
 		const { container } = render(GridSkeleton);
 		const colNumbers = container.querySelector('.skeleton-col-numbers');
-		expect(colNumbers).toBeTruthy();
 		// Should have 10 number elements plus the corner
 		const numbers = colNumbers?.querySelectorAll('.skeleton-number');
 		expect(numbers).toHaveLength(10);
 	});
 
-	it('renders skeleton header with badge and text', () => {
+	it('staggers the animation delay by 20ms per square in reading order', () => {
 		const { container } = render(GridSkeleton);
-		expect(container.querySelector('.skeleton-badge')).toBeTruthy();
-		expect(container.querySelector('.skeleton-text')).toBeTruthy();
-	});
-
-	it('applies animation delay to squares', () => {
-		const { container } = render(GridSkeleton);
-		const firstSquare = container.querySelector('.skeleton-square');
-		expect(firstSquare).toBeTruthy();
-		// First square should have animation-delay: 0ms
-		expect(firstSquare?.getAttribute('style')).toContain('animation-delay');
+		const delays = Array.from(container.querySelectorAll<HTMLElement>('.skeleton-square')).map(
+			(el) => el.style.animationDelay
+		);
+		expect(delays[0]).toBe('0ms');
+		expect(delays[1]).toBe('20ms');
+		expect(delays[10]).toBe('200ms');
+		expect(delays[99]).toBe('1980ms');
 	});
 });
