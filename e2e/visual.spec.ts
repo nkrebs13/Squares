@@ -34,7 +34,7 @@ import {
  */
 async function dismissGestureHint(page: Page, testInfo: TestInfo) {
 	if (testInfo.project.name !== 'Mobile Chrome') return;
-	const hint = page.getByRole('button', { name: /Tap to dismiss/ });
+	const hint = page.getByRole('button', { name: /to dismiss$/ });
 	await hint.click();
 	await expect(hint).toBeHidden();
 }

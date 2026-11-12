@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { plural } from '$lib/utils/format';
-	import { playerSummary } from '$lib/stores/game';
-
-	type PlayerRow = { name: string; normalizedName: string; count: number };
+	import { playerSummary, type PlayerSummary } from '$lib/stores/game';
 
 	interface Props {
 		hostNameLower: string | null;
-		onremove: (player: PlayerRow) => void;
+		onremove: (player: PlayerSummary) => void;
 	}
 
 	const { hostNameLower, onremove }: Props = $props();

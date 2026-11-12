@@ -3,7 +3,7 @@
 
 import { browser } from '$app/environment';
 import { get, set } from 'idb-keyval';
-import type { RecentParty } from '$lib/types';
+import type { Party, RecentParty } from '$lib/types';
 import { PARTY_STATUSES, type PartyStatus } from '$lib/partyStatus';
 import { local, session, STORAGE_KEYS } from '$lib/storage';
 
@@ -68,6 +68,23 @@ async function mutate(fn: (parties: RecentParty[]) => RecentParty[]): Promise<vo
 export function stageNickname(code: string, nickname: string): void {
 	const trimmed = nickname.trim();
 	if (trimmed) session.set(STORAGE_KEYS.partyNickname(code), trimmed);
+}
+
+/** The parts of a recent-parties entry that come from the party itself. */
+export function partyDetails(
+	party: Party
+): Pick<
+	RecentParty,
+	'code' | 'eventName' | 'kickoffAt' | 'teamRowName' | 'teamColName' | 'status'
+> {
+	return {
+		code: party.code,
+		eventName: party.event_name,
+		kickoffAt: party.kickoff_at,
+		teamRowName: party.team_row_name,
+		teamColName: party.team_col_name,
+		status: party.status,
+	};
 }
 
 /** Record a visit (newest first, capped). Keeps an existing or staged nickname. */
