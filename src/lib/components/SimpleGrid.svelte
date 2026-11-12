@@ -545,6 +545,7 @@
 		-webkit-backdrop-filter: blur(8px);
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		border-radius: 20px;
+		box-shadow: 0 4px 24px var(--shadow-color);
 		font-size: 0.875rem;
 		font-weight: 600;
 		color: var(--text-primary);

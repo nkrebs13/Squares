@@ -16,6 +16,7 @@
 	--rgb-accent: 244 143 177;
 	--rgb-error: 239 68 68;
 	--color-error-text: #f87171;
+	--color-error-soft: #fca5a5;
 
 	/* Aurora dark mode colors */
 	--bg-primary: #0f0f14;
@@ -94,14 +95,6 @@ body {
 	background: rgba(255, 255, 255, 0.2);
 }
 
-.team-row-bg {
-	background-color: var(--team-row-color);
-}
-
-.team-col-bg {
-	background-color: var(--team-col-color);
-}
-
 .team-row-text {
 	color: var(--team-row-color);
 }
@@ -169,7 +162,9 @@ body {
 	outline: 3px solid var(--square-winner-ring);
 	outline-offset: -1px;
 	border-color: var(--square-winner-border);
-	animation: glow-winner 2.5s ease-in-out infinite;
+	animation:
+		winner-entrance 0.4s ease-out,
+		glow-winner 2.5s ease-in-out infinite 0.4s;
 }
 
 @keyframes glow-winner {
@@ -198,12 +193,6 @@ body {
 		transform: scale(1);
 		opacity: 1;
 	}
-}
-
-.square-winner {
-	animation:
-		winner-entrance 0.4s ease-out,
-		glow-winner 2.5s ease-in-out infinite 0.4s;
 }
 
 /* Leading square — the square matching current live score digits */
@@ -267,9 +256,6 @@ body {
 	}
 	.square-pending::after {
 		animation: none;
-	}
-	.square-leading {
-		/* no animation to disable — static white border */
 	}
 	.square-mine {
 		animation: none;
@@ -569,14 +555,6 @@ body {
 	background: rgba(255, 255, 255, 0.03);
 }
 
-.selection-indicator {
-	@apply fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full z-50 font-medium;
-	background: var(--bg-secondary);
-	border: 1px solid var(--border-color);
-	box-shadow: 0 4px 24px var(--shadow-color);
-	color: var(--text-primary);
-}
-
 /* Color utilities — these mirror the most common inline-style patterns
  * (`style="color: var(--text-secondary)"` etc.) so callers can use a class
  * instead of inlining. Kept as plain CSS rather than @utility/@apply so the
@@ -590,7 +568,7 @@ body {
 }
 
 .text-error {
-	color: #fca5a5;
+	color: var(--color-error-soft);
 }
 
 .text-success {
@@ -602,7 +580,7 @@ body {
 	background: rgb(var(--rgb-error) / 0.1);
 	border: 1px solid rgb(var(--rgb-error) / 0.3);
 	border-radius: 12px;
-	color: #fca5a5;
+	color: var(--color-error-soft);
 }
 
 .progress-bar {
@@ -629,6 +607,7 @@ body {
 	display: inline-block;
 	filter: drop-shadow(0 4px 12px rgb(var(--rgb-teal) / 0.25))
 		drop-shadow(0 0 24px rgb(var(--rgb-sky) / 0.2));
+	animation: logo-glow 4s ease-in-out infinite;
 }
 
 .logo-title::before {
@@ -660,10 +639,6 @@ body {
 		filter: drop-shadow(0 4px 16px rgb(var(--rgb-teal) / 0.35))
 			drop-shadow(0 0 32px rgb(var(--rgb-sky) / 0.3));
 	}
-}
-
-.logo-gradient {
-	animation: logo-glow 4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

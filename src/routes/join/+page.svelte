@@ -194,7 +194,7 @@
 				/>
 			</label>
 			{#if code && !isCompletePartyCode(code)}
-				<p class="mt-2 text-sm" style="color: #fca5a5">Party codes are 6 characters.</p>
+				<p class="mt-2 text-sm text-error">Party codes are 6 characters.</p>
 			{/if}
 		</div>
 
@@ -240,7 +240,7 @@
 						</div>
 					</div>
 				{:else if previewError}
-					<p class="mt-2 text-sm" style="color: #fca5a5">{previewError}</p>
+					<p class="mt-2 text-sm text-error">{previewError}</p>
 				{/if}
 			</div>
 		{/if}
