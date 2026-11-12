@@ -9,6 +9,7 @@ import {
 	getTestClient,
 	lockParty,
 	type TestParty,
+	getTestDatabaseUrl,
 } from './helpers';
 
 // One scoring path (migration 037): host_record_score and the live
@@ -180,8 +181,7 @@ describe('live scores (game_scores trigger)', () => {
 
 	it('a party deleted mid-update is skipped, not an error', async () => {
 		const db = new pg.Client({
-			connectionString:
-				process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+			connectionString: getTestDatabaseUrl(),
 		});
 		await db.connect();
 		try {

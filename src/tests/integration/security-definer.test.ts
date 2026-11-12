@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { getTestDatabaseUrl } from './helpers';
 
 const { Client } = pg;
 
-const databaseUrl =
-	process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const databaseUrl = getTestDatabaseUrl();
 
 const client = new Client({ connectionString: databaseUrl });
 let connected = false;

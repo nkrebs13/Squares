@@ -8,6 +8,7 @@ import {
 	waitUntilBlockedOnLock,
 	cleanupParty,
 	type TestParty,
+	getTestDatabaseUrl,
 } from './helpers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -29,8 +30,7 @@ const { Client } = pg;
 // issued *before* host_lock_party commits, so it's mid-flight and blocked on the
 // parties-row lock when host_lock_party's commit finally releases it.
 
-const databaseUrl =
-	process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const databaseUrl = getTestDatabaseUrl();
 
 /**
  * Owner name for square (row, col), matching fillAllSquares' `Player-R${row}C${col}`

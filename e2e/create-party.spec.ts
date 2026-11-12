@@ -334,10 +334,14 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
-		// Mock with delay to see loading state
+		// Hold the response until the test has seen the loading state
+		let releaseResponse!: () => void;
+		const responseGate = new Promise<void>((resolve) => {
+			releaseResponse = resolve;
+		});
 		await page.route('**/rest/v1/rpc/host_create_party', async (route) => {
-			await new Promise((r) => setTimeout(r, 2000));
-			route.fulfill({
+			await responseGate;
+			await route.fulfill({
 				status: 200,
 				contentType: 'application/json',
 				body: JSON.stringify({
@@ -355,5 +359,8 @@ test.describe('Create Party - Submission', () => {
 
 		// Button should show loading text
 		await expect(page.getByText(/creating/i)).toBeVisible({ timeout: 5000 });
+
+		releaseResponse();
+		await expect(page.getByText(/creating/i)).toBeHidden({ timeout: 10000 });
 	});
 });
