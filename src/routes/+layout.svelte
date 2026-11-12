@@ -1,27 +1,24 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { requestPersistentStorage } from '$lib/storage';
 
 	const { children } = $props();
 
 	onMount(async () => {
-		if (browser) {
-			requestPersistentStorage();
+		requestPersistentStorage();
 
-			try {
-				const { pwaInfo } = await import('virtual:pwa-info');
-				if (pwaInfo) {
-					const { registerSW } = await import('virtual:pwa-register');
-					registerSW({
-						immediate: true,
-					});
-				}
-			} catch {
-				// PWA not available in dev mode
+		try {
+			const { pwaInfo } = await import('virtual:pwa-info');
+			if (pwaInfo) {
+				const { registerSW } = await import('virtual:pwa-register');
+				registerSW({
+					immediate: true,
+				});
 			}
+		} catch {
+			// PWA not available in dev mode
 		}
 	});
 </script>

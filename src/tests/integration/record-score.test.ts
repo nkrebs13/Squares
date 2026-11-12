@@ -98,11 +98,18 @@ describe('host_record_score', () => {
 
 	it('re-scoring a quarter replaces its winner', async () => {
 		const party = await runningParty();
-		await record(party, 'q1', 0, 0);
+		const { data: first } = await record(party, 'q1', 0, 0);
 		const { data } = await record(party, 'q1', 1, 1);
 
 		expect(data.winners).toHaveLength(1);
 		expect(data.scores).toMatchObject({ q1_row_score: 1, q1_col_score: 1 });
+		// The numbers are a permutation, so last digits 1/1 name a different square than 0/0.
+		const { row_numbers, col_numbers } = await numbersOf(party.id);
+		expect(data.winners[0]).toMatchObject({
+			winning_row: row_numbers.indexOf(1),
+			winning_col: col_numbers.indexOf(1),
+		});
+		expect(data.winners[0].winning_row).not.toBe(first.winners[0].winning_row);
 	});
 
 	it('completes the game on the final score', async () => {
@@ -245,6 +252,10 @@ describe('live scores (game_scores trigger)', () => {
 			.select('quarter')
 			.eq('party_id', party.id);
 		expect(winners).toEqual([{ quarter: 'q1' }]);
+
+		// Once scored, a later change to that quarter in the feed is not applied again.
+		await service.from('game_scores').update({ q1_home: 10 }).eq('game_id', gameId);
+		expect(await scoresOf(party.id)).toMatchObject({ q1_row_score: 7, q1_col_score: 3 });
 	});
 
 	it('the backfill applies every quarter already scored to a party linked late', async () => {
