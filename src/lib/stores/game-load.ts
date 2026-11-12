@@ -39,26 +39,30 @@ function fail(message: string): false {
 	return false;
 }
 
-export async function loadParty(code: string, isCurrent: () => boolean): Promise<boolean> {
-	isLoading.set(true);
-	error.set(null);
-
-	let data: unknown;
+/** Call get_party_state. Null when the call went stale (page left); `failed` carries the error. */
+async function fetchPartyState(
+	code: string,
+	isCurrent: () => boolean,
+	label: string
+): Promise<{ state: PartyState | null } | { failed: Error } | null> {
 	try {
 		const response = await getSupabaseClient().rpc('get_party_state', { p_code: code });
 		// The page may have been left (or another party opened) while this was in flight.
-		if (!isCurrent()) return false;
+		if (!isCurrent()) return null;
 		if (response.error) throw new Error(response.error.message);
-		data = response.data;
+		return { state: response.data as PartyState | null };
 	} catch (e) {
-		if (!isCurrent()) return false;
-		logError('[loadParty] get_party_state failed:', e instanceof Error ? e.message : String(e));
-		return fail("Couldn't load that party. Check your connection and try again.");
+		if (!isCurrent()) return null;
+		const err = e instanceof Error ? e : new Error(String(e));
+		logError(`[${label}] get_party_state failed:`, err.message);
+		return { failed: err };
 	}
+}
 
-	const state = data as PartyState | null;
+/** Write a fetched party state into every party store. False when it holds no valid party. */
+function applyPartyState(state: PartyState | null): boolean {
 	const partyData = state ? parseParty(state.party) : null;
-	if (!state || !partyData) return fail('Party not found');
+	if (!state || !partyData) return false;
 
 	party.set(partyData);
 	// Invalid rows are dropped; an invalid single row becomes null.
@@ -68,7 +72,30 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
 	winners.set(state.winners.map(parseWinner).filter((r): r is Winner => r !== null));
 	gameScores.set(state.game ? parseGameScores(state.game.row) : null);
 	gameHomeIsRow.set(state.game?.home_is_row ?? true);
+	return true;
+}
+
+export async function loadParty(code: string, isCurrent: () => boolean): Promise<boolean> {
+	isLoading.set(true);
+	error.set(null);
+
+	const result = await fetchPartyState(code, isCurrent, 'loadParty');
+	if (!result) return false;
+	if ('failed' in result)
+		return fail("Couldn't load that party. Check your connection and try again.");
+	if (!applyPartyState(result.state)) return fail('Party not found');
 
 	isLoading.set(false);
 	return true;
+}
+
+/**
+ * Re-read a party we are already showing (after a realtime reconnect) and apply it.
+ * Quiet: never touches isLoading or error, and a failure keeps the current state.
+ * True when fresh state was applied.
+ */
+export async function refreshParty(code: string, isCurrent: () => boolean): Promise<boolean> {
+	const result = await fetchPartyState(code, isCurrent, 'refreshParty');
+	if (!result || 'failed' in result) return false;
+	return applyPartyState(result.state);
 }

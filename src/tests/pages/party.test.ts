@@ -42,6 +42,7 @@ vi.mock('$lib/recentParties', () => ({
 	stageNickname: vi.fn(),
 }));
 
+import { saveRecentParty } from '$lib/recentParties';
 import PartyPage from '../../routes/party/[code]/+page.svelte';
 import { get as idbGet } from 'idb-keyval';
 
@@ -75,6 +76,25 @@ describe('Party Page', () => {
 			await waitFor(() => expect(openParty).toHaveBeenCalledWith('TEST123'));
 			unmount();
 			expect(get(party)).toBeNull();
+		});
+
+		it('saves the recent entry once, then again when the status changes', async () => {
+			const save = vi.mocked(saveRecentParty);
+			save.mockClear();
+			vi.mocked(openParty).mockResolvedValue(true);
+			party.set(createMockParty({ code: 'TEST123', status: 'filling' }));
+			render(PartyPage);
+			await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+			expect(save.mock.calls[0][0].status).toBe('filling');
+
+			party.update((p) => (p ? { ...p, status: 'active' } : p));
+			await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+			expect(save.mock.calls[1][0].status).toBe('active');
+
+			// A change that leaves the status alone does not re-save.
+			party.update((p) => (p ? { ...p, event_name: 'Renamed' } : p));
+			await new Promise((r) => setTimeout(r, 20));
+			expect(save).toHaveBeenCalledTimes(2);
 		});
 	});
 

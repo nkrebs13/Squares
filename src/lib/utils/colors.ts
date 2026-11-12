@@ -1,3 +1,5 @@
+import { normalizePlayerName } from './playerName';
+
 export interface PlayerColor {
 	bg: string;
 	text: string;
@@ -42,7 +44,9 @@ export const PLAYER_COLORS: readonly PlayerColor[] = PALETTE.map(([bg, text, alp
 	textAt: (a: number) => rgba(text, a),
 }));
 
+/** A player's colour, keyed by the normalized name so "Ann " and "ann" share one. */
 export function getPlayerColor(name: string): PlayerColor {
+	name = normalizePlayerName(name);
 	let hash = 0;
 	for (let i = 0; i < name.length; i++) {
 		hash = name.charCodeAt(i) + ((hash << 5) - hash);

@@ -12,7 +12,6 @@ vi.mock('$lib/recentParties', () => ({
 import RecentParties from '$lib/components/RecentParties.svelte';
 import { goto } from '$app/navigation';
 import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
-import type { RecentParty } from '$lib/types';
 import { createMockRecentParty as createMockParty } from '../factories';
 
 const mockGetRecentParties = vi.mocked(getRecentParties);
@@ -409,19 +408,6 @@ describe('RecentParties Component', () => {
 			if (card) await fireEvent.click(card);
 
 			expect(mockGoto).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('Status Badges — Edge Cases', () => {
-		it('shows raw status text for unknown status values', async () => {
-			mockGetRecentParties.mockResolvedValue([
-				createMockParty({ status: 'unknown_status' as RecentParty['status'] }),
-			]);
-			render(RecentParties);
-
-			await vi.waitFor(() => {
-				expect(screen.getByText('unknown_status')).toBeInTheDocument();
-			});
 		});
 	});
 

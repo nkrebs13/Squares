@@ -42,3 +42,10 @@ describe('getPlayerColor', () => {
 		expect(uniqueColors.size).toBeGreaterThan(1);
 	});
 });
+
+describe('getPlayerColor normalization', () => {
+	it('keys by the normalized name', () => {
+		expect(getPlayerColor('  Alice ')).toBe(getPlayerColor('alice'));
+		expect(getPlayerColor('ALICE')).toBe(getPlayerColor('alice'));
+	});
+});

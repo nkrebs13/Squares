@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	canActOnGrid,
 	getStatusBadge,
 	hasDrawnNumbers,
 	isComplete,
@@ -33,15 +34,23 @@ describe('party status', () => {
 
 describe('getStatusBadge', () => {
 	it.each([
-		['filling', 'Filling', 'badge-filling'],
-		['locked', 'Locked', 'badge-locked'],
-		['active', 'Live', 'badge-active'],
-		['complete', 'Done', 'badge-complete'],
-	] as const)('maps %s', (status, text, cls) => {
-		expect(getStatusBadge(status)).toEqual({ text, class: cls });
+		['filling', 'Filling', 'filling'],
+		['locked', 'Locked', 'locked'],
+		['active', 'Live', 'live'],
+		['complete', 'Done', 'done'],
+	] as const)('maps %s', (status, text, tone) => {
+		expect(getStatusBadge(status)).toEqual({ text, tone });
 	});
+});
 
-	it('passes unknown statuses through with no class', () => {
-		expect(getStatusBadge('mystery' as never)).toEqual({ text: 'mystery', class: '' });
+describe('canActOnGrid', () => {
+	it('needs a user name and a filling party', () => {
+		expect(canActOnGrid('filling', 'Ann')).toBe(true);
+		expect(canActOnGrid('filling', '')).toBe(false);
+		expect(canActOnGrid('filling', null)).toBe(false);
+		expect(canActOnGrid(undefined, 'Ann')).toBe(false);
+		for (const status of ['locked', 'active', 'complete'] as const) {
+			expect(canActOnGrid(status, 'Ann')).toBe(false);
+		}
 	});
 });

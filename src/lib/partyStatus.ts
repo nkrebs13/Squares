@@ -10,6 +10,14 @@ export function isFilling(status: PartyStatus | undefined): boolean {
 	return status === 'filling';
 }
 
+/** The one rule for "this user can act on the grid" (claim, unclaim, drag-select). */
+export function canActOnGrid(
+	status: PartyStatus | undefined,
+	userName: string | null | undefined
+): boolean {
+	return !!userName && isFilling(status);
+}
+
 /** The grid is locked and the game is being scored. `locked` is legacy (see types.ts). */
 export function isGameInProgress(status: PartyStatus | undefined): boolean {
 	return status === 'active' || status === 'locked';
@@ -30,18 +38,18 @@ export function statusLabel(status: PartyStatus): string {
 	return status === 'locked' ? 'active' : status;
 }
 
-/** The recent-parties badge for a status: its text and CSS class. */
-export function getStatusBadge(status: PartyStatus): { text: string; class: string } {
+export type StatusTone = 'filling' | 'live' | 'locked' | 'done';
+
+/** The recent-parties badge for a status: its text and a semantic tone (the view maps tone to style). */
+export function getStatusBadge(status: PartyStatus): { text: string; tone: StatusTone } {
 	switch (status) {
 		case 'filling':
-			return { text: 'Filling', class: 'badge-filling' };
+			return { text: 'Filling', tone: 'filling' };
 		case 'locked':
-			return { text: 'Locked', class: 'badge-locked' };
+			return { text: 'Locked', tone: 'locked' };
 		case 'active':
-			return { text: 'Live', class: 'badge-active' };
+			return { text: 'Live', tone: 'live' };
 		case 'complete':
-			return { text: 'Done', class: 'badge-complete' };
-		default:
-			return { text: status, class: '' };
+			return { text: 'Done', tone: 'done' };
 	}
 }

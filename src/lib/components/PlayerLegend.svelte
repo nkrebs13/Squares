@@ -8,7 +8,6 @@
 		activePlayerFilter,
 	} from '$lib/stores/game';
 	import { getPlayerColor } from '$lib/utils/colors';
-	import { normalizePlayerName } from '$lib/utils/playerName';
 
 	interface Props {
 		/** Show the list behind a toggle (the mobile layout, under the grid). */
@@ -80,7 +79,7 @@
 		{#if expanded}
 			<div class="players-grid">
 				{#each $playerSummary as player (player.normalizedName)}
-					{@const color = getPlayerColor(normalizePlayerName(player.name))}
+					{@const color = getPlayerColor(player.name)}
 					<button
 						class="player-pill"
 						class:selected={$activePlayerFilter === player.normalizedName}

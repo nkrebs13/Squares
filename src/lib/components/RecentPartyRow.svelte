@@ -180,7 +180,7 @@
 				</button>
 			</div>
 		{:else}
-			<span class="status-badge {badge.class}">{badge.text}</span>
+			<span class="status-badge badge-{badge.tone}">{badge.text}</span>
 			<button class="remove-btn" onclick={handleRemove} aria-label="Remove from recent">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -401,12 +401,12 @@
 		color: var(--color-warning);
 	}
 
-	.badge-active {
+	.badge-live {
 		background: rgb(var(--rgb-success) / 0.15);
 		color: var(--color-success);
 	}
 
-	.badge-complete {
+	.badge-done {
 		background: rgba(148, 163, 184, 0.15);
 		color: var(--text-secondary);
 	}
