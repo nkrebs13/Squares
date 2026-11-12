@@ -3,7 +3,8 @@ import { get } from 'svelte/store';
 import { getSupabaseClient } from '$lib/supabase';
 import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
-import { userName, normalizePlayerName } from './user';
+import { userName } from './user';
+import { normalizePlayerName } from '$lib/utils/playerName';
 import { party, squares, squareKey } from './game-state';
 import {
 	addPendingOps,

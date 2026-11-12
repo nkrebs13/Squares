@@ -1,7 +1,7 @@
 import { parseParty } from '$lib/validators/realtime';
 import { type Party } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
-import { eventNameOrDefault } from '$lib/utils/partyForm';
+import { eventNameOrDefault } from '$lib/config';
 
 export interface CreatePartyInput {
 	eventName?: string;
@@ -19,7 +19,7 @@ export interface CreatePartyInput {
 export type CreatePartyResult = { ok: true; party: Party } | { ok: false; error: string };
 
 /**
- * Create a party with its 100 squares and scores row in one transaction
+ * Create a party with its grid of squares and scores row in one transaction
  * (`host_create_party`, migration 036). Invalid input comes back as copy for
  * the offending field.
  */

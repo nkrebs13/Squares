@@ -19,7 +19,7 @@ export function isPushSupported(): boolean {
 	return 'serviceWorker' in navigator && 'PushManager' in window && !!VAPID_PUBLIC_KEY;
 }
 
-export async function getPushPermission(): Promise<NotificationPermission> {
+export function getPushPermission(): NotificationPermission {
 	if (!browser) return 'default';
 	return Notification.permission;
 }

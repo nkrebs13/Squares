@@ -12,7 +12,8 @@ import type {
 } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
 import { DEFAULT_TEAMS } from '$lib/config';
-import { userName, normalizePlayerName } from './user';
+import { userName } from './user';
+import { normalizePlayerName } from '$lib/utils/playerName';
 
 // Unique client ID per browser tab (for broadcast deduplication)
 export const clientId =

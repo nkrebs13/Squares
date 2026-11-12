@@ -4,7 +4,8 @@
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import { party, filledCount, isGridFull } from '$lib/stores/game';
 
-	import { buildPayoutRows, calculateTotalPot } from '$lib/payouts';
+	import { buildPayoutRows, calculateTotalPot, partySplits } from '$lib/payouts';
+	import { TOTAL_SQUARES } from '$lib/constants';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatMatchup, formatPrice } from '$lib/utils/format';
 	import ScoreBoard from './ScoreBoard.svelte';
@@ -17,19 +18,7 @@
 	// Above the grid on mobile; a titled column with the player legend on desktop.
 	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 	const totalPot = $derived($party ? calculateTotalPot($party.square_price) : 0);
-	const payoutRows = $derived(
-		$party
-			? buildPayoutRows(
-					{
-						q1: $party.split_q1,
-						q2: $party.split_q2,
-						q3: $party.split_q3,
-						final: $party.split_final,
-					},
-					totalPot
-				)
-			: []
-	);
+	const payoutRows = $derived($party ? buildPayoutRows(partySplits($party), totalPot) : []);
 </script>
 
 {#if $party}
@@ -50,7 +39,7 @@
 
 {#if isFilling($party?.status)}
 	<div class="mb-4 status-banner status-banner-filling">
-		<span class="font-medium">{$filledCount}/100</span> squares filled
+		<span class="font-medium">{$filledCount}/{TOTAL_SQUARES}</span> squares filled
 		{#if $isGridFull}
 			<span class="ml-2 text-success">• Ready to lock!</span>
 		{/if}

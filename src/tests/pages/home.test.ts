@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 
 vi.mock('$lib/recentParties', () => ({
+	HOME_RECENT_PARTIES: 5,
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	removeRecentParty: vi.fn().mockResolvedValue(undefined),
 	updatePartyNickname: vi.fn().mockResolvedValue(undefined),

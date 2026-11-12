@@ -105,6 +105,14 @@ describe('Join Page', () => {
 			expect(screen.getByText('filling')).toBeInTheDocument();
 		});
 
+		it('reads a legacy locked party as active, like the rest of the app', async () => {
+			serve({ previews: [previewParty({ status: 'locked' })] });
+			render(JoinPage);
+
+			await expect(screen.findByText('active')).resolves.toBeInTheDocument();
+			expect(screen.queryByText('locked')).not.toBeInTheDocument();
+		});
+
 		it('ignores stale preview results after code becomes incomplete', async () => {
 			let resolvePreview!: (value: unknown) => void;
 			mockSupabaseClient.rpc.mockImplementationOnce(

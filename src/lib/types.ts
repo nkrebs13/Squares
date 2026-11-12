@@ -1,20 +1,12 @@
-// 'locked' exists in the DB CHECK constraint and frontend rendering but is never
-// set by current RPCs — host_lock_party jumps directly to 'active'. Do not remove it.
-export type PartyStatus = 'filling' | 'locked' | 'active' | 'complete';
-export type Quarter = 'q1' | 'q2' | 'q3' | 'final';
+import type { PartyStatus } from '$lib/partyStatus';
+import type { Quarter } from '$lib/quarters';
+import type { GameStatus } from '$lib/liveGame';
 
-// Sourced from the `game_scores.game_status` column (migration 017) and the
-// ESPN scoreboard API. The known values our code branches on are listed
-// explicitly so a `if (status === '...')` typo is caught at compile time.
-// New ESPN status values appearing in payloads will fail the realtime
-// validator (see src/lib/validators/realtime.ts) — that is the intended
-// observability signal rather than a silent passthrough.
-export type GameStatus = 'pregame' | 'in_progress' | 'halftime' | 'final';
+export type { PartyStatus, Quarter, GameStatus };
 
 export interface Party {
 	id: string;
 	code: string;
-	host_pin?: string;
 	host_name_lower: string | null;
 	event_name: string;
 	kickoff_at: string | null;
@@ -116,6 +108,9 @@ export interface GridState {
 	winners: Winner[];
 }
 
+/** Name of the preset whose percentages are entered by hand. */
+export const CUSTOM_PRESET_NAME = 'Custom';
+
 export interface SplitPreset {
 	name: string;
 	q1: number;
@@ -128,7 +123,7 @@ export const SPLIT_PRESETS: SplitPreset[] = [
 	{ name: 'Rising', q1: 10, q2: 20, q3: 30, final: 40 },
 	{ name: 'Equal', q1: 25, q2: 25, q3: 25, final: 25 },
 	{ name: 'Big Finish', q1: 20, q2: 20, q3: 20, final: 40 },
-	{ name: 'Custom', q1: 0, q2: 0, q3: 0, final: 0 },
+	{ name: CUSTOM_PRESET_NAME, q1: 0, q2: 0, q3: 0, final: 0 },
 ];
 
 // Default teams live in $lib/config (env-overridable). Re-export here for any

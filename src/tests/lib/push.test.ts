@@ -63,14 +63,14 @@ describe('Push Notification Module', () => {
 	});
 
 	describe('getPushPermission', () => {
-		it('returns current notification permission', async () => {
+		it('returns current notification permission', () => {
 			(Notification as unknown as { permission: string }).permission = 'granted';
-			expect(await getPushPermission()).toBe('granted');
+			expect(getPushPermission()).toBe('granted');
 		});
 
-		it('returns default when not yet asked', async () => {
+		it('returns default when not yet asked', () => {
 			(Notification as unknown as { permission: string }).permission = 'default';
-			expect(await getPushPermission()).toBe('default');
+			expect(getPushPermission()).toBe('default');
 		});
 	});
 

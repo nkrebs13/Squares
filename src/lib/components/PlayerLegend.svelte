@@ -8,7 +8,7 @@
 		activePlayerFilter,
 	} from '$lib/stores/game';
 	import { getPlayerColor } from '$lib/utils/colors';
-	import { normalizePlayerName } from '$lib/stores/user';
+	import { normalizePlayerName } from '$lib/utils/playerName';
 
 	interface Props {
 		/** Show the list behind a toggle (the mobile layout, under the grid). */

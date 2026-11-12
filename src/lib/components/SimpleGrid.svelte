@@ -22,7 +22,8 @@
 		leadingSquare,
 		teamTheme,
 	} from '$lib/stores/game';
-	import { userName, normalizePlayerName } from '$lib/stores/user';
+	import { userName } from '$lib/stores/user';
+	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { formatPrice } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import { APP_CONFIG } from '$lib/config';
@@ -212,7 +213,7 @@
 				<div
 					class="grid-11x11"
 					role="grid"
-					aria-label="Football squares grid, {GRID_SIZE} by {GRID_SIZE}."
+					aria-label="{APP_CONFIG.gridLabel}, {GRID_SIZE} by {GRID_SIZE}."
 					aria-rowcount={GRID_SIZE + 1}
 					aria-colcount={GRID_SIZE + 1}
 				>

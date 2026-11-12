@@ -1,22 +1,7 @@
 import { formatMatchup } from '$lib/utils/format';
 import { APP_CONFIG } from '$lib/config';
 import { formatKickoff } from '$lib/utils/datetime';
-import type { RecentParty, PartyStatus } from '$lib/types';
-
-export function getStatusBadge(status: PartyStatus): { text: string; class: string } {
-	switch (status) {
-		case 'filling':
-			return { text: 'Filling', class: 'badge-filling' };
-		case 'locked':
-			return { text: 'Locked', class: 'badge-locked' };
-		case 'active':
-			return { text: 'Live', class: 'badge-active' };
-		case 'complete':
-			return { text: 'Done', class: 'badge-complete' };
-		default:
-			return { text: status, class: '' };
-	}
-}
+import type { RecentParty } from '$lib/types';
 
 function isSameLabel(first: string, second: string): boolean {
 	return first.trim().toLowerCase() === second.trim().toLowerCase();

@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getRecentParties, removeRecentParty, updatePartyNickname } from '$lib/recentParties';
+	import {
+		getRecentParties,
+		HOME_RECENT_PARTIES,
+		removeRecentParty,
+		updatePartyNickname,
+	} from '$lib/recentParties';
 	import RecentPartyRow from './RecentPartyRow.svelte';
 	import type { RecentParty } from '$lib/types';
 
@@ -10,8 +15,8 @@
 
 	onMount(async () => {
 		recentParties = await getRecentParties();
-		// The stored list keeps more (MAX_RECENT_PARTIES); the home page shows five.
-		recentParties = recentParties.slice(0, 5);
+		// The stored list keeps more (MAX_RECENT_PARTIES); the home page shows HOME_RECENT_PARTIES.
+		recentParties = recentParties.slice(0, HOME_RECENT_PARTIES);
 		isLoading = false;
 	});
 

@@ -64,6 +64,8 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 
 UI inputs bound to `player_name` (and `host_name`) use `maxlength="20"` for grid legibility — names must fit inside 28-44 px square cells. The DB column is sized `VARCHAR(50)` to absorb larger inputs that may arrive via the SQL editor or admin CLI without requiring a column-widen migration. The asymmetry is intentional, not a bug.
 
+Team names follow the same pattern: the UI input stops at `MAX_TEAM_NAME_LENGTH` (30, grid headers) while the DB accepts 1–50 (`DB_MAX_TEAM_NAME_LENGTH`). Refusal copy that states a DB limit (`hostAction.ts` `INPUT_FIELD_COPY`) reads it from `src/lib/constants.ts` (`PIN_LENGTH`, `MAX_EVENT_NAME_LENGTH`, `DB_MAX_TEAM_NAME_LENGTH`, `MIN_SQUARE_PRICE`, `SQUARE_PRICE_CEILING`), so the numbers have one home.
+
 ## Host Actions (`host_*` RPCs, migrations 035–037)
 
 Every host action is a `host_*` function; the PIN-gated ones start with `host_gate(party_id, pin, action, required_status)`. Each returns `{ok: true, ...}` or `{ok: false, error, field?}`. Refusal codes: `not_found`, `invalid_pin`, `locked_out`, `wrong_status`, `grid_incomplete`, `invalid_input` (with `field`). Validation is shared: `party_details_problem`, `splits_valid`, `party_expiry`. Scoring has one path, `record_quarter_score`, used by `host_record_score` and the live `game_scores` trigger (`auto_update_score`); it RAISEs when the winning square has no owner so the score never lands without a winner, and the trigger contains that per party. The client maps codes to copy in one place (`src/lib/services/hostAction.ts`, plus per-action overrides); it never matches on error text for these RPCs.

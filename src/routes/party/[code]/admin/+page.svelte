@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
 	import { page } from '$app/stores';
+	import { TOTAL_SQUARES } from '$lib/constants';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { cachedHostPin, forgetHostPin, recallHostPin } from '$lib/hostPin';
@@ -148,7 +149,7 @@
 					</div>
 					{#if isFilling($party.status)}
 						<p class="text-sm mt-2 text-secondary">
-							{$filledCount}/100 squares filled
+							{$filledCount}/{TOTAL_SQUARES} squares filled
 						</p>
 					{/if}
 				</div>

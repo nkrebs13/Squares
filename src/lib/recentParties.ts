@@ -7,6 +7,8 @@ import type { RecentParty } from '$lib/types';
 import { local, session, STORAGE_KEYS } from '$lib/storage';
 
 const MAX_RECENT_PARTIES = 10;
+/** How many of the stored parties the home page lists. */
+export const HOME_RECENT_PARTIES = 5;
 const EXPIRY_MS = 90 * 24 * 60 * 60 * 1000;
 
 function withoutExpired(parties: RecentParty[]): RecentParty[] {

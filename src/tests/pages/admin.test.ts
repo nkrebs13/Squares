@@ -8,6 +8,7 @@ import { get } from 'svelte/store';
 import { party, scores, squares, cleanup } from '$lib/stores/game';
 import { toast } from '$lib/stores/toast';
 import { SPLIT_PRESETS, type Party, type Scores, type Square } from '$lib/types';
+import { TOTAL_SQUARES } from '$lib/constants';
 import { mockSupabaseClient, sessionStorageMock } from '../setup';
 
 const mockIdbGet = vi.mocked(idbGet);
@@ -875,6 +876,27 @@ describe('Admin Page - Score Entry', () => {
 			render(AdminPage);
 
 			expect(screen.getByText(/Grid is not full yet/)).toBeInTheDocument();
+		});
+
+		it('sizes the progress bar by the share of TOTAL_SQUARES filled', () => {
+			party.set(createMockParty({ status: 'filling' }));
+			squares.set(
+				Array.from({ length: 25 }, (_, i) =>
+					createMockSquare(Math.floor(i / 10), i % 10, {
+						player_name: 'Alice',
+						player_name_lower: 'alice',
+					})
+				)
+			);
+			scores.set(createMockScores());
+			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
+
+			const { container } = render(AdminPage);
+
+			expect(container.querySelector('.progress-bar-fill')).toHaveStyle({
+				width: `${(25 / TOTAL_SQUARES) * 100}%`,
+			});
+			expect(screen.getByText(new RegExp(`\\(25/${TOTAL_SQUARES}\\)`))).toBeInTheDocument();
 		});
 	});
 

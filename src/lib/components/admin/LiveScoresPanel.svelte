@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { liveScores } from '$lib/stores/game';
 	import type { Party } from '$lib/types';
+	import { isGameFinal, isGameStarted, isHalftime } from '$lib/liveGame';
 	import { formatGamePeriod } from '$lib/quarters';
 
 	interface Props {
@@ -17,7 +18,7 @@
 	role="region"
 	aria-label="Live game integration"
 >
-	{#if $liveScores?.status && $liveScores.status !== 'pregame'}
+	{#if isGameStarted($liveScores?.status) && $liveScores}
 		<div class="flex items-center justify-between">
 			<p class="text-sm" style="color: rgb(147, 197, 253);" aria-live="polite">
 				<span class="font-semibold">
@@ -25,9 +26,9 @@
 					{$liveScores.rowScore} - {party.team_col_name}
 					{$liveScores.colScore}
 				</span>
-				{#if $liveScores.status === 'final'}
+				{#if isGameFinal($liveScores.status)}
 					<span class="ml-2" role="status">FINAL</span>
-				{:else if $liveScores.status === 'halftime'}
+				{:else if isHalftime($liveScores.status)}
 					<span class="ml-2" role="status">HALFTIME</span>
 				{:else if $liveScores.clock}
 					<span class="ml-2" role="status">

@@ -1,22 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { APP_CONFIG } from '$lib/config';
-import { getDetailLine, getDisplayName, getStatusBadge } from '$lib/utils/recentParties';
+import { getDetailLine, getDisplayName } from '$lib/utils/recentParties';
 import { createMockRecentParty } from '../factories';
-
-describe('getStatusBadge', () => {
-	it.each([
-		['filling', 'Filling', 'badge-filling'],
-		['locked', 'Locked', 'badge-locked'],
-		['active', 'Live', 'badge-active'],
-		['complete', 'Done', 'badge-complete'],
-	] as const)('maps %s', (status, text, cls) => {
-		expect(getStatusBadge(status)).toEqual({ text, class: cls });
-	});
-
-	it('passes unknown statuses through with no class', () => {
-		expect(getStatusBadge('mystery' as never)).toEqual({ text: 'mystery', class: '' });
-	});
-});
 
 describe('getDisplayName', () => {
 	it('prefers the nickname', () => {

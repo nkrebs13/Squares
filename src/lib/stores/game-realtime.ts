@@ -36,7 +36,7 @@ import {
 	newPendingOp,
 	rollbackPendingOpIf,
 } from './game-pending';
-import { normalizePlayerName } from './user';
+import { normalizePlayerName } from '$lib/utils/playerName';
 import { parseSquareKey } from '$lib/utils/squareKey';
 
 /**

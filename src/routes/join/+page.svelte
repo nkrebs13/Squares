@@ -5,6 +5,8 @@
 	import { verifyHostPin } from '$lib/stores/game';
 	import { recallHostPin, rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
+	import { partySplits } from '$lib/payouts';
+	import { statusLabel } from '$lib/partyStatus';
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 	import Modal from '$lib/components/forms/Modal.svelte';
@@ -220,12 +222,7 @@
 							</div>
 						</div>
 						<PayoutPreview
-							splits={{
-								q1: preview.party.split_q1,
-								q2: preview.party.split_q2,
-								q3: preview.party.split_q3,
-								final: preview.party.split_final,
-							}}
+							splits={partySplits(preview.party)}
 							squarePrice={preview.party.square_price}
 							testIdPrefix="join"
 							class="mt-3"
@@ -239,7 +236,7 @@
 							</div>
 						{/if}
 						<div class="mt-2 text-xs uppercase text-muted">
-							{preview.party.status}
+							{statusLabel(preview.party.status)}
 						</div>
 					</div>
 				{:else if previewError}

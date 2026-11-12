@@ -6,7 +6,6 @@ import {
 	partyToShareMetadata,
 	type PartyShareMetadata,
 } from '$lib/partyMeta';
-import type { Party } from '$lib/types';
 
 const meta: PartyShareMetadata = {
 	code: 'BOWL27',
@@ -57,7 +56,7 @@ describe('partyMeta', () => {
 			split_q2: 20,
 			split_q3: 30,
 			split_final: 40,
-			status: 'filling',
+			status: 'filling' as const,
 			team_row_name: 'Chiefs',
 			team_col_name: 'Eagles',
 			team_row_color: '#E31837',
@@ -67,7 +66,7 @@ describe('partyMeta', () => {
 			expires_at: '2027-02-21T00:00:00.000Z',
 			game_id: null,
 			home_team_is_row: null,
-		} satisfies Party;
+		};
 
 		expect(partyToShareMetadata(party)).toEqual(meta);
 	});

@@ -137,6 +137,9 @@ Brand strings, default event/team labels, and currency live in [`src/lib/config.
 | `PUBLIC_APP_URL`                | `https://squares.nathankrebs.com`     |
 | `PUBLIC_APP_TAGLINE`            | `Football squares pools for any game` |
 | `PUBLIC_APP_DESCRIPTION`        | `Real-time football squares pools. …` |
+| `PUBLIC_APP_EYEBROW`            | `Real-time football squares`          |
+| `PUBLIC_APP_INTRO`              | `Run a live pool from one shared …`   |
+| `PUBLIC_GRID_LABEL`             | `Football squares grid`               |
 | `PUBLIC_DEMO_PARTY_CODE`        | `DEMO01`                              |
 | `PUBLIC_DEFAULT_EVENT_NAME`     | `Football Squares`                    |
 | `PUBLIC_DEFAULT_TEAM_ROW_NAME`  | `Seahawks`                            |

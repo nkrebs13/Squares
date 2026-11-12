@@ -79,7 +79,6 @@ vi.mock('$lib/stores/game', () => ({
 }));
 
 vi.mock('$lib/stores/user', () => ({
-	normalizePlayerName: (name: string) => name.trim().toLowerCase(),
 	userName: {
 		subscribe: vi.fn((cb: (v: string) => void) => {
 			cb('TestUser');

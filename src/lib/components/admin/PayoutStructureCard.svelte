@@ -2,7 +2,7 @@
 	import { updatePayoutStructure } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 	import type { Party } from '$lib/types';
-	import { isValidSplit, type PayoutSplits } from '$lib/payouts';
+	import { isValidSplit, partySplits, type PayoutSplits } from '$lib/payouts';
 	import PayoutSplitEditor from '$lib/components/forms/PayoutSplitEditor.svelte';
 
 	interface Props {
@@ -15,12 +15,7 @@
 	// Initialized from the party once. A realtime party update must NOT clobber
 	// the host's unsaved edits, so these never re-derive from `party`.
 	function initialSplits(): PayoutSplits {
-		return {
-			q1: party.split_q1,
-			q2: party.split_q2,
-			q3: party.split_q3,
-			final: party.split_final,
-		};
+		return partySplits(party);
 	}
 
 	let payoutSplits = $state<PayoutSplits>(initialSplits());
