@@ -316,7 +316,10 @@ describe('Party Page', () => {
 			});
 		});
 
-		it('hides "Host Panel" link when not isHost', () => {
+		it('hides "Host Panel" link when not isHost', async () => {
+			const save = vi.mocked(saveRecentParty);
+			save.mockClear();
+			vi.mocked(openParty).mockResolvedValue(true);
 			isLoading.set(false);
 			error.set(null);
 			party.set(createMockParty({ status: 'active' }));
@@ -336,6 +339,9 @@ describe('Party Page', () => {
 			numbers.set(null);
 			render(PartyPage);
 
+			// The recent entry is saved after the host check has answered.
+			await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+			expect(save.mock.calls[0][0].isHost).toBe(false);
 			expect(screen.queryByRole('link', { name: /Host Panel/i })).not.toBeInTheDocument();
 		});
 	});

@@ -113,22 +113,26 @@ describe('Join Page', () => {
 			expect(screen.queryByText('locked')).not.toBeInTheDocument();
 		});
 
-		it('ignores stale preview results after code becomes incomplete', async () => {
+		it("a late answer for the previous code never replaces the current code's preview", async () => {
 			let resolvePreview!: (value: unknown) => void;
+			// The URL's code asks first; its answer is held back.
 			mockSupabaseClient.rpc.mockImplementationOnce(
 				() => new Promise((resolve) => (resolvePreview = resolve)) as never
 			);
+			serve({ previews: [previewParty({ code: 'XYZ789', event_name: 'Second Bowl' })] });
 
 			render(JoinPage);
 			const user = userEvent.setup();
 			const codeInput = await screen.findByPlaceholderText('ABCD12');
-
 			await user.clear(codeInput);
-			resolvePreview({ data: { party: previewParty(), filled_count: 12 }, error: null });
+			await user.type(codeInput, 'XYZ789');
+			await expect(screen.findByText('Second Bowl')).resolves.toBeInTheDocument();
 
-			await waitFor(() => {
-				expect(screen.queryByText('2027 Championship')).not.toBeInTheDocument();
-			});
+			resolvePreview({ data: { party: previewParty(), filled_count: 12 }, error: null });
+			await new Promise((r) => setTimeout(r, 20));
+
+			expect(screen.getByText('Second Bowl')).toBeInTheDocument();
+			expect(screen.queryByText('2027 Championship')).not.toBeInTheDocument();
 		});
 	});
 
