@@ -176,7 +176,7 @@
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">
-		<a href="/" class="text-sm hover:opacity-100" style="color: var(--text-secondary)">← Back</a>
+		<a href="/" class="text-sm hover:opacity-100 text-secondary">← Back</a>
 		<h1 class="text-3xl font-bold mt-2">Join Party</h1>
 	</header>
 
@@ -189,7 +189,7 @@
 	>
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Party Code</span>
+				<span class="text-sm text-secondary">Party Code</span>
 				<input
 					type="text"
 					bind:value={code}
@@ -207,24 +207,22 @@
 
 		{#if isCompletePartyCode(code)}
 			<div class="card">
-				<span class="text-sm" style="color: var(--text-secondary)">Party preview</span>
+				<span class="text-sm text-secondary">Party preview</span>
 				{#if isLoadingPreview}
-					<p class="mt-2 text-sm" style="color: var(--text-muted)">Looking up this party...</p>
+					<p class="mt-2 text-sm text-muted">Looking up this party...</p>
 				{:else if preview}
 					<div class="mt-2">
 						<div class="font-semibold">{preview.party.event_name}</div>
-						<div class="mt-1 text-sm" style="color: var(--text-secondary)">
+						<div class="mt-1 text-sm text-secondary">
 							{formatMatchup(preview.party.team_row_name, preview.party.team_col_name)}
 						</div>
 						<div class="mt-3 grid grid-cols-2 gap-3">
 							<div>
-								<div class="text-xs uppercase" style="color: var(--text-muted)">
-									Price per square
-								</div>
+								<div class="text-xs uppercase text-muted">Price per square</div>
 								<div class="font-semibold">{formatPrice(preview.party.square_price)}</div>
 							</div>
 							<div>
-								<div class="text-xs uppercase" style="color: var(--text-muted)">Open squares</div>
+								<div class="text-xs uppercase text-muted">Open squares</div>
 								<div class="font-semibold">
 									{TOTAL_SQUARES - preview.filledCount}
 								</div>
@@ -242,14 +240,14 @@
 							class="mt-3"
 						/>
 						{#if formatKickoff(preview.party.kickoff_at)}
-							<div class="mt-1 text-sm" style="color: var(--text-muted)">
+							<div class="mt-1 text-sm text-muted">
 								{formatKickoff(preview.party.kickoff_at, {
 									includeWeekday: true,
 									includeTimeZone: true,
 								})}
 							</div>
 						{/if}
-						<div class="mt-2 text-xs uppercase" style="color: var(--text-muted)">
+						<div class="mt-2 text-xs uppercase text-muted">
 							{preview.party.status}
 						</div>
 					</div>
@@ -261,7 +259,7 @@
 
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Your Name</span>
+				<span class="text-sm text-secondary">Your Name</span>
 				<input
 					type="text"
 					bind:value={name}
@@ -273,15 +271,13 @@
 					onblur={() => (name = name.trim())}
 				/>
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				Use the same name to claim more squares later
-			</p>
+			<p class="mt-2 text-sm text-muted">Use the same name to claim more squares later</p>
 		</div>
 
 		<div class="card">
 			<label class="block">
-				<span class="text-sm" style="color: var(--text-secondary)">Game Nickname</span>
-				<span class="text-xs ml-1" style="color: var(--text-muted)">(optional)</span>
+				<span class="text-sm text-secondary">Game Nickname</span>
+				<span class="text-xs ml-1 text-muted">(optional)</span>
 				<input
 					type="text"
 					bind:value={nickname}
@@ -290,9 +286,7 @@
 					maxlength={MAX_NICKNAME_LENGTH}
 				/>
 			</label>
-			<p class="mt-2 text-sm" style="color: var(--text-muted)">
-				Helps you tell games apart if you're in multiple pools
-			</p>
+			<p class="mt-2 text-sm text-muted">Helps you tell games apart if you're in multiple pools</p>
 		</div>
 
 		{#if error}
@@ -319,7 +313,7 @@
 >
 	<div class="card max-w-sm w-full">
 		<h2 id="pin-modal-title" class="text-xl font-bold mb-2">Host Name Protected</h2>
-		<p id="pin-modal-description" class="text-sm mb-4" style="color: var(--text-secondary)">
+		<p id="pin-modal-description" class="text-sm mb-4 text-secondary">
 			This name belongs to the party host. Enter the host PIN to continue.
 		</p>
 
@@ -332,7 +326,7 @@
 		>
 			<div>
 				<label class="block">
-					<span class="text-sm" style="color: var(--text-secondary)">Enter Host PIN</span>
+					<span class="text-sm text-secondary">Enter Host PIN</span>
 					<PinInput bind:value={pinInput} class="mt-2" autocomplete="off" />
 				</label>
 			</div>

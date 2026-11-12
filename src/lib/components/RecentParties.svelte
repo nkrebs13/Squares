@@ -84,13 +84,13 @@
 	}
 
 	.empty-link {
-		color: rgba(100, 210, 200, 0.95);
+		color: rgb(var(--rgb-teal) / 0.95);
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
 
 	.empty-link:hover {
-		color: rgba(100, 210, 200, 1);
+		color: rgb(var(--rgb-teal));
 	}
 
 	.party-list {

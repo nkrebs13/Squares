@@ -76,17 +76,17 @@
 	}
 
 	.toast-success {
-		background: rgba(100, 200, 130, 0.9);
+		background: rgb(var(--rgb-success) / 0.9);
 		color: #0f0f14;
 	}
 
 	.toast-error {
-		background: rgba(239, 68, 68, 0.9);
+		background: rgb(var(--rgb-error) / 0.9);
 		color: white;
 	}
 
 	.toast-info {
-		background: rgba(100, 170, 230, 0.9);
+		background: rgb(var(--rgb-sky) / 0.9);
 		color: #0f0f14;
 	}
 

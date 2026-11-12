@@ -9,6 +9,14 @@
 }
 
 :root {
+	/* Brand colour channels, used as rgb(var(--rgb-x) / alpha) so one hue serves every opacity. */
+	--rgb-teal: 100 210 200;
+	--rgb-sky: 100 170 230;
+	--rgb-success: 100 200 130;
+	--rgb-accent: 244 143 177;
+	--rgb-error: 239 68 68;
+	--color-error-text: #f87171;
+
 	/* Aurora dark mode colors */
 	--bg-primary: #0f0f14;
 	--bg-secondary: #1a1a24;
@@ -19,10 +27,10 @@
 	--shadow-color: rgba(0, 0, 0, 0.3);
 
 	/* Aurora glow colors */
-	--aurora-mint: rgba(100, 210, 200, 0.12);
+	--aurora-mint: rgb(var(--rgb-teal) / 0.12);
 	--aurora-lavender: rgba(180, 130, 200, 0.12);
 	--aurora-peach: rgba(255, 180, 130, 0.1);
-	--aurora-sky: rgba(100, 170, 230, 0.12);
+	--aurora-sky: rgb(var(--rgb-sky) / 0.12);
 
 	/* Team colors (keep for Super Bowl theming) */
 	--team-row-color: #e31837;
@@ -102,9 +110,9 @@ body {
 
 /* Accessibility: visible focus state for keyboard navigation */
 .square:focus-visible {
-	outline: 2px solid rgba(100, 210, 200, 0.9);
+	outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.25);
+	box-shadow: 0 0 0 4px rgb(var(--rgb-teal) / 0.25);
 }
 
 .square-empty {
@@ -116,8 +124,8 @@ body {
 
 .square-empty:hover {
 	background: rgba(255, 255, 255, 0.1);
-	border-color: rgba(100, 210, 200, 0.25);
-	box-shadow: 0 0 16px rgba(100, 210, 200, 0.15);
+	border-color: rgb(var(--rgb-teal) / 0.25);
+	box-shadow: 0 0 16px rgb(var(--rgb-teal) / 0.15);
 }
 
 .square-empty:active {
@@ -130,27 +138,27 @@ body {
 }
 
 .square-mine {
-	outline: 3px solid var(--mine-outline, rgba(244, 143, 177, 0.7));
+	outline: 3px solid var(--mine-outline, rgb(var(--rgb-accent) / 0.7));
 	outline-offset: -1px;
-	box-shadow: 0 0 12px var(--mine-glow, rgba(244, 143, 177, 0.25));
+	box-shadow: 0 0 12px var(--mine-glow, rgb(var(--rgb-accent) / 0.25));
 	animation: pulse-mine 4s ease-in-out infinite;
 }
 
 @keyframes pulse-mine {
 	0%,
 	100% {
-		box-shadow: 0 0 12px var(--mine-glow, rgba(244, 143, 177, 0.25));
+		box-shadow: 0 0 12px var(--mine-glow, rgb(var(--rgb-accent) / 0.25));
 	}
 	50% {
-		box-shadow: 0 0 18px var(--mine-glow-strong, rgba(244, 143, 177, 0.4));
+		box-shadow: 0 0 18px var(--mine-glow-strong, rgb(var(--rgb-accent) / 0.4));
 	}
 }
 
 .square-winner {
-	background: linear-gradient(135deg, rgba(100, 200, 130, 0.35), rgba(100, 210, 200, 0.35));
-	outline: 3px solid rgba(100, 200, 130, 0.8);
+	background: linear-gradient(135deg, rgb(var(--rgb-success) / 0.35), rgb(var(--rgb-teal) / 0.35));
+	outline: 3px solid rgb(var(--rgb-success) / 0.8);
 	outline-offset: -1px;
-	border-color: rgba(100, 200, 130, 0.6);
+	border-color: rgb(var(--rgb-success) / 0.6);
 	animation: glow-winner 2.5s ease-in-out infinite;
 }
 
@@ -158,13 +166,13 @@ body {
 	0%,
 	100% {
 		box-shadow:
-			0 0 12px rgba(100, 200, 130, 0.4),
-			0 0 24px rgba(100, 200, 130, 0.2);
+			0 0 12px rgb(var(--rgb-success) / 0.4),
+			0 0 24px rgb(var(--rgb-success) / 0.2);
 	}
 	50% {
 		box-shadow:
-			0 0 20px rgba(100, 200, 130, 0.6),
-			0 0 36px rgba(100, 200, 130, 0.3);
+			0 0 20px rgb(var(--rgb-success) / 0.6),
+			0 0 36px rgb(var(--rgb-success) / 0.3);
 	}
 }
 
@@ -189,33 +197,6 @@ body {
 		glow-winner 2.5s ease-in-out infinite 0.4s;
 }
 
-/* Error shake animation */
-@keyframes shake-error {
-	0%,
-	100% {
-		transform: translateX(0);
-	}
-	10%,
-	30%,
-	50%,
-	70%,
-	90% {
-		transform: translateX(-4px);
-	}
-	20%,
-	40%,
-	60%,
-	80% {
-		transform: translateX(4px);
-	}
-}
-
-.square-error {
-	animation: shake-error 0.5s ease-in-out;
-	background: rgba(239, 68, 68, 0.2) !important;
-	border-color: rgba(239, 68, 68, 0.5) !important;
-}
-
 /* Leading square — the square matching current live score digits */
 .square-leading {
 	outline: 3px solid rgba(255, 255, 255, 0.9);
@@ -224,10 +205,10 @@ body {
 }
 
 .square-selected {
-	background: linear-gradient(135deg, rgba(244, 143, 177, 0.25), rgba(180, 130, 200, 0.25));
-	outline: 2px solid rgba(244, 143, 177, 0.6);
+	background: linear-gradient(135deg, rgb(var(--rgb-accent) / 0.25), rgba(180, 130, 200, 0.25));
+	outline: 2px solid rgb(var(--rgb-accent) / 0.6);
 	outline-offset: -1px;
-	border-color: rgba(244, 143, 177, 0.4);
+	border-color: rgb(var(--rgb-accent) / 0.4);
 }
 
 /* Pending claim animation - subtle pulse to indicate waiting for confirmation */
@@ -289,9 +270,6 @@ body {
 	.square-winner {
 		animation: none;
 	}
-	.square-error {
-		animation: none;
-	}
 }
 
 /* Button styles */
@@ -302,20 +280,20 @@ body {
 
 /* Accessibility: visible focus state for keyboard navigation */
 .btn:focus-visible {
-	outline: 2px solid rgba(100, 210, 200, 0.9);
+	outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.25);
+	box-shadow: 0 0 0 4px rgb(var(--rgb-teal) / 0.25);
 }
 
 .btn-primary {
-	background: linear-gradient(135deg, rgba(100, 210, 200, 0.4), rgba(100, 170, 230, 0.4));
+	background: linear-gradient(135deg, rgb(var(--rgb-teal) / 0.4), rgb(var(--rgb-sky) / 0.4));
 	color: var(--text-primary);
-	border: 1px solid rgba(100, 210, 200, 0.3);
+	border: 1px solid rgb(var(--rgb-teal) / 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-	background: linear-gradient(135deg, rgba(100, 210, 200, 0.5), rgba(100, 170, 230, 0.5));
-	box-shadow: 0 0 20px rgba(100, 210, 200, 0.2);
+	background: linear-gradient(135deg, rgb(var(--rgb-teal) / 0.5), rgb(var(--rgb-sky) / 0.5));
+	box-shadow: 0 0 20px rgb(var(--rgb-teal) / 0.2);
 }
 
 .btn-secondary {
@@ -330,32 +308,32 @@ body {
 }
 
 .btn-success {
-	background: linear-gradient(135deg, rgba(100, 200, 130, 0.5), rgba(100, 210, 200, 0.4));
+	background: linear-gradient(135deg, rgb(var(--rgb-success) / 0.5), rgb(var(--rgb-teal) / 0.4));
 	color: var(--text-primary);
-	border: 1px solid rgba(100, 200, 130, 0.4);
+	border: 1px solid rgb(var(--rgb-success) / 0.4);
 }
 
 .btn-success:hover:not(:disabled) {
-	background: linear-gradient(135deg, rgba(100, 200, 130, 0.6), rgba(100, 210, 200, 0.5));
-	box-shadow: 0 0 20px rgba(100, 200, 130, 0.2);
+	background: linear-gradient(135deg, rgb(var(--rgb-success) / 0.6), rgb(var(--rgb-teal) / 0.5));
+	box-shadow: 0 0 20px rgb(var(--rgb-success) / 0.2);
 }
 
 .btn-danger {
-	background: #ef4444;
+	background: rgb(var(--rgb-error));
 	color: white;
 }
 
 /* Tinted destructive buttons for in-card actions (not the confirm step). */
 .btn-danger-soft {
-	background: rgba(239, 68, 68, 0.15);
-	color: #f87171;
-	border: 1px solid rgba(239, 68, 68, 0.3);
+	background: rgb(var(--rgb-error) / 0.15);
+	color: var(--color-error-text);
+	border: 1px solid rgb(var(--rgb-error) / 0.3);
 }
 
 .btn-danger-outline {
-	background: rgba(239, 68, 68, 0.2);
-	color: #ef4444;
-	border: 1px solid rgba(239, 68, 68, 0.3);
+	background: rgb(var(--rgb-error) / 0.2);
+	color: rgb(var(--rgb-error));
+	border: 1px solid rgb(var(--rgb-error) / 0.3);
 }
 
 .btn-sm {
@@ -378,8 +356,8 @@ body {
 
 .input:focus {
 	outline: none;
-	border-color: rgba(100, 210, 200, 0.4);
-	box-shadow: 0 0 0 3px rgba(100, 210, 200, 0.1);
+	border-color: rgb(var(--rgb-teal) / 0.4);
+	box-shadow: 0 0 0 3px rgb(var(--rgb-teal) / 0.1);
 }
 
 /* Hide number input spinners */
@@ -432,8 +410,12 @@ body {
 /* Winner announcement */
 .winner-banner {
 	@apply p-4 border;
-	background: linear-gradient(to right, rgba(100, 200, 130, 0.2), rgba(100, 200, 130, 0.05));
-	border-color: rgba(100, 200, 130, 0.3);
+	background: linear-gradient(
+		to right,
+		rgb(var(--rgb-success) / 0.2),
+		rgb(var(--rgb-success) / 0.05)
+	);
+	border-color: rgb(var(--rgb-success) / 0.3);
 	border-radius: 12px;
 	animation: soft-pulse 3s ease-in-out infinite;
 }
@@ -572,18 +554,13 @@ body {
 }
 
 .status-banner-filling {
-	background: rgba(244, 143, 177, 0.1);
-	border-color: rgba(244, 143, 177, 0.3);
+	background: rgb(var(--rgb-accent) / 0.1);
+	border-color: rgb(var(--rgb-accent) / 0.3);
 }
 
 .status-banner-locked {
 	background: rgba(255, 183, 77, 0.1);
 	border-color: rgba(255, 183, 77, 0.3);
-}
-
-.status-banner-success {
-	background: rgba(100, 200, 130, 0.1);
-	border-color: rgba(100, 200, 130, 0.3);
 }
 
 /* Stats bar */
@@ -609,12 +586,6 @@ body {
 	color: var(--text-primary);
 }
 
-/* Divider */
-.divider {
-	height: 1px;
-	background: var(--border-color);
-}
-
 /* Color utilities — these mirror the most common inline-style patterns
  * (`style="color: var(--text-secondary)"` etc.) so callers can use a class
  * instead of inlining. Kept as plain CSS rather than @utility/@apply so the
@@ -638,18 +609,10 @@ body {
 /* Error/Success message boxes */
 .message-error {
 	@apply p-4;
-	background: rgba(239, 68, 68, 0.1);
-	border: 1px solid rgba(239, 68, 68, 0.3);
+	background: rgb(var(--rgb-error) / 0.1);
+	border: 1px solid rgb(var(--rgb-error) / 0.3);
 	border-radius: 12px;
 	color: #fca5a5;
-}
-
-.message-success {
-	@apply p-4;
-	background: rgba(100, 200, 130, 0.1);
-	border: 1px solid rgba(100, 200, 130, 0.3);
-	border-radius: 12px;
-	color: rgba(134, 239, 172, 1);
 }
 
 /* Progress bar */
@@ -660,7 +623,7 @@ body {
 
 .progress-bar-fill {
 	@apply h-full transition-all duration-300;
-	background: linear-gradient(90deg, rgba(100, 210, 200, 0.6), rgba(244, 143, 177, 0.6));
+	background: linear-gradient(90deg, rgb(var(--rgb-teal) / 0.6), rgb(var(--rgb-accent) / 0.6));
 }
 
 /* Logo styles */
@@ -676,8 +639,8 @@ body {
 	background-clip: text;
 	position: relative;
 	display: inline-block;
-	filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-		drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+	filter: drop-shadow(0 4px 12px rgb(var(--rgb-teal) / 0.25))
+		drop-shadow(0 0 24px rgb(var(--rgb-sky) / 0.2));
 }
 
 /* Add a subtle background glow behind the logo */
@@ -691,8 +654,8 @@ body {
 	height: 140%;
 	background: radial-gradient(
 		ellipse at center,
-		rgba(100, 210, 200, 0.08) 0%,
-		rgba(100, 170, 230, 0.05) 40%,
+		rgb(var(--rgb-teal) / 0.08) 0%,
+		rgb(var(--rgb-sky) / 0.05) 40%,
 		transparent 70%
 	);
 	filter: blur(20px);
@@ -704,12 +667,12 @@ body {
 @keyframes logo-glow {
 	0%,
 	100% {
-		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-			drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+		filter: drop-shadow(0 4px 12px rgb(var(--rgb-teal) / 0.25))
+			drop-shadow(0 0 24px rgb(var(--rgb-sky) / 0.2));
 	}
 	50% {
-		filter: drop-shadow(0 4px 16px rgba(100, 210, 200, 0.35))
-			drop-shadow(0 0 32px rgba(100, 170, 230, 0.3));
+		filter: drop-shadow(0 4px 16px rgb(var(--rgb-teal) / 0.35))
+			drop-shadow(0 0 32px rgb(var(--rgb-sky) / 0.3));
 	}
 }
 
@@ -721,7 +684,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
 	.logo-gradient {
 		animation: none;
-		filter: drop-shadow(0 4px 12px rgba(100, 210, 200, 0.25))
-			drop-shadow(0 0 24px rgba(100, 170, 230, 0.2));
+		filter: drop-shadow(0 4px 12px rgb(var(--rgb-teal) / 0.25))
+			drop-shadow(0 0 24px rgb(var(--rgb-sky) / 0.2));
 	}
 }

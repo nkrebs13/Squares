@@ -136,8 +136,8 @@
 	}
 
 	.players-toggle.has-indicator {
-		background: rgba(100, 170, 230, 0.08);
-		border-color: rgba(100, 170, 230, 0.3);
+		background: rgb(var(--rgb-sky) / 0.08);
+		border-color: rgb(var(--rgb-sky) / 0.3);
 	}
 
 	.players-label {
@@ -150,8 +150,8 @@
 	.filter-badge {
 		font-size: 0.6875rem;
 		padding: 0.125rem 0.375rem;
-		background: rgba(100, 170, 230, 0.2);
-		color: rgba(100, 170, 230, 1);
+		background: rgb(var(--rgb-sky) / 0.2);
+		color: rgb(var(--rgb-sky));
 		border-radius: 4px;
 		font-weight: 600;
 	}

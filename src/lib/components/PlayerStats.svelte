@@ -8,18 +8,18 @@
 	<div class="card">
 		<div class="flex justify-between items-center">
 			<div>
-				<div class="text-sm" style="color: var(--text-secondary)">Playing as</div>
+				<div class="text-sm text-secondary">Playing as</div>
 				<div class="font-semibold">{$userName}</div>
 			</div>
 
 			<div class="text-right">
-				<div class="text-sm" style="color: var(--text-secondary)">Squares owned</div>
+				<div class="text-sm text-secondary">Squares owned</div>
 				<div class="font-semibold">{$mySquareCount}</div>
 			</div>
 
 			{#if $party && $party.square_price > 0}
 				<div class="text-right">
-					<div class="text-sm" style="color: var(--text-secondary)">Amount owed</div>
+					<div class="text-sm text-secondary">Amount owed</div>
 					<div class="font-semibold" style="color: var(--color-warning)">
 						{formatPrice($amountOwed)}
 					</div>

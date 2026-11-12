@@ -217,7 +217,7 @@
 
 	.party-card:has(.card-nav-link:hover) {
 		background: rgba(255, 255, 255, 0.05);
-		border-color: rgba(100, 210, 200, 0.3);
+		border-color: rgb(var(--rgb-teal) / 0.3);
 	}
 
 	.party-card:has(.card-nav-link:active) {
@@ -233,9 +233,9 @@
 	}
 
 	.card-nav-link:focus-visible {
-		outline: 2px solid rgba(100, 210, 200, 0.9);
+		outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 		outline-offset: 2px;
-		box-shadow: 0 0 0 4px rgba(100, 210, 200, 0.2);
+		box-shadow: 0 0 0 4px rgb(var(--rgb-teal) / 0.2);
 	}
 
 	.party-info {
@@ -280,11 +280,11 @@
 	}
 
 	.edit-btn:hover {
-		color: rgba(100, 210, 200, 0.9);
+		color: rgb(var(--rgb-teal) / 0.9);
 	}
 
 	.edit-btn:focus-visible {
-		outline: 2px solid rgba(100, 210, 200, 0.5);
+		outline: 2px solid rgb(var(--rgb-teal) / 0.5);
 		outline-offset: 2px;
 	}
 
@@ -327,7 +327,7 @@
 		font-size: 0.9375rem;
 		color: var(--text-primary);
 		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(100, 210, 200, 0.4);
+		border: 1px solid rgb(var(--rgb-teal) / 0.4);
 		border-radius: 6px;
 		padding: 0.25rem 0.5rem;
 		width: 100%;
@@ -337,8 +337,8 @@
 
 	.nickname-input:focus {
 		outline: none;
-		border-color: rgba(100, 210, 200, 0.6);
-		box-shadow: 0 0 0 3px rgba(100, 210, 200, 0.15);
+		border-color: rgb(var(--rgb-teal) / 0.6);
+		box-shadow: 0 0 0 3px rgb(var(--rgb-teal) / 0.15);
 	}
 
 	.nickname-input::placeholder {
@@ -398,7 +398,7 @@
 	}
 
 	.badge-filling {
-		background: rgba(244, 143, 177, 0.15);
+		background: rgb(var(--rgb-accent) / 0.15);
 		color: var(--color-accent);
 	}
 
@@ -408,7 +408,7 @@
 	}
 
 	.badge-active {
-		background: rgba(100, 200, 130, 0.15);
+		background: rgb(var(--rgb-success) / 0.15);
 		color: var(--color-success);
 	}
 
@@ -465,12 +465,12 @@
 	}
 
 	.confirm-yes-btn {
-		background: rgba(239, 68, 68, 0.15);
-		color: #ef4444;
+		background: rgb(var(--rgb-error) / 0.15);
+		color: rgb(var(--rgb-error));
 	}
 
 	.confirm-yes-btn:hover {
-		background: rgba(239, 68, 68, 0.3);
+		background: rgb(var(--rgb-error) / 0.3);
 	}
 
 	.confirm-no-btn {

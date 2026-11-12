@@ -37,15 +37,15 @@
 		width: 3.5rem;
 		height: 3.5rem;
 		border-radius: 50%;
-		background: rgba(239, 68, 68, 0.15);
-		color: #f87171;
+		background: rgb(var(--rgb-error) / 0.15);
+		color: var(--color-error-text);
 		font-size: 1.5rem;
 		font-weight: bold;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		margin: 0 auto 1.5rem;
-		border: 1px solid rgba(239, 68, 68, 0.3);
+		border: 1px solid rgb(var(--rgb-error) / 0.3);
 	}
 
 	h1 {

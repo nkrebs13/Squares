@@ -233,7 +233,7 @@
 	}
 
 	.help-btn:focus-visible {
-		outline: 2px solid rgba(100, 210, 200, 0.9);
+		outline: 2px solid rgb(var(--rgb-teal) / 0.9);
 		outline-offset: 2px;
 	}
 
