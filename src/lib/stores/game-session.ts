@@ -54,28 +54,37 @@ export async function openParty(code: string): Promise<boolean> {
 	stopResync?.();
 	const refresh = quietRefresher(code, mine);
 	const stopReconnectWatch = resyncOnReconnect(refresh);
-	// A party linked to a game while it is open (operators link out of band) needs the
-	// game's channel too, or live scores never arrive until a reload. Resubscribing
-	// rejoins every channel, so re-read once: it also fetches the newly linked game.
-	// An unlinked party's game and sides are detected from its team names, so renaming
-	// the teams re-reads too.
+	// The channel must follow the party's game: its linked one, else the one the server
+	// detects from its team names. Resubscribing rejoins every channel, so re-read once
+	// after it; the re-read also fetches the newly followed game.
+	const follow = (partyId: string, gameId: string | null) => {
+		if (gameId === followedGame) return;
+		followedGame = gameId;
+		subscribeToParty(partyId, gameId);
+		refresh();
+	};
+	// A game linked while the party is open (operators link out of band).
+	// Renaming an unlinked party's teams changes which game it matches: re-read to learn it.
 	let teams = `${current.team_row_name}|${current.team_col_name}`;
-	const stopGameWatch = party.subscribe((p) => {
+	const stopPartyWatch = party.subscribe((p) => {
 		if (mine !== session || !p || p.id !== current.id) return;
-		if (p.game_id && p.game_id !== followedGame) {
-			followedGame = p.game_id;
-			subscribeToParty(p.id, followedGame);
-			refresh();
-		}
+		if (p.game_id) follow(p.id, p.game_id);
 		const nowTeams = `${p.team_row_name}|${p.team_col_name}`;
 		if (nowTeams !== teams) {
 			teams = nowTeams;
 			if (!p.game_id) refresh();
 		}
 	});
+	// An unlinked party follows whatever game the last read detected, or none.
+	const stopDetectedWatch = gameScores.subscribe((game) => {
+		const p = get(party);
+		if (mine !== session || !p || p.id !== current.id || p.game_id) return;
+		follow(p.id, game?.game_id ?? null);
+	});
 	stopResync = () => {
 		stopReconnectWatch();
-		stopGameWatch();
+		stopPartyWatch();
+		stopDetectedWatch();
 	};
 	return true;
 }

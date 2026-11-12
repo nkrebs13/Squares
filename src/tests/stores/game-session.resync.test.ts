@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get, type Writable } from 'svelte/store';
-import { party, squares, isLoading, error } from '$lib/stores/game-state';
+import { party, squares, isLoading, error, gameScores } from '$lib/stores/game-state';
 import { pendingOperations, addPendingOps, newPendingOp } from '$lib/stores/game-pending';
 import { mockSupabaseClient } from '../setup';
-import { createEmptyGrid, createMockParty } from '../factories';
+import { createEmptyGrid, createMockGameScores, createMockParty } from '../factories';
 
 type Connection = { status: string; attempt: number };
 const hoisted = vi.hoisted(() => ({ store: null as unknown }));
@@ -267,6 +267,45 @@ describe('following a game linked while the party is open', () => {
 		party.update((p) => (p ? { ...p, event_name: 'Renamed' } : p));
 		await flush();
 		expect(stateCalls()).toBe(2);
+	});
+
+	it("an unlinked party's channel follows the game a re-read detects, and drops it when none matches", async () => {
+		const renamedTo = (row: string, col: string, game: string | null) => {
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: {
+					party: createMockParty({ id: 'p1', team_row_name: row, team_col_name: col }),
+					squares: createEmptyGrid(),
+					numbers: null,
+					scores: null,
+					winners: [],
+					game: game
+						? { row: createMockGameScores({ game_id: game }), home_is_row: true, linked: false }
+						: null,
+				},
+				error: null,
+			});
+			party.update((p) => (p ? { ...p, team_row_name: row, team_col_name: col } : p));
+		};
+
+		stateResponds(); // the re-read after following
+		renamedTo('Ravens', 'Lions', 'g2');
+		await flush();
+		expect(get(gameScores)?.game_id).toBe('g2');
+		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', 'g2');
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+
+		renamedTo('Jets', 'Bills', null);
+		await flush();
+		expect(get(gameScores)).toBeNull();
+		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', null);
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(3);
+	});
+
+	it('does not resubscribe when a re-read finds the same detected game', async () => {
+		gameScores.set(createMockGameScores({ game_id: 'g2' }));
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+		gameScores.set(createMockGameScores({ game_id: 'g2', home_score: 7 }));
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
 	});
 
 	it('stops following after the party is left', () => {
