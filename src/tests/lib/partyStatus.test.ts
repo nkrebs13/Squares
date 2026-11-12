@@ -5,6 +5,7 @@ import {
 	hasDrawnNumbers,
 	isComplete,
 	isFilling,
+	isBehind,
 	isGameInProgress,
 	PARTY_STATUSES,
 	statusLabel,
@@ -52,5 +53,20 @@ describe('canActOnGrid', () => {
 		for (const status of ['locked', 'active', 'complete'] as const) {
 			expect(canActOnGrid(status, 'Ann')).toBe(false);
 		}
+	});
+});
+
+describe('isBehind', () => {
+	it.each([
+		['filling', 'active', true],
+		['filling', 'locked', true],
+		['active', 'complete', true],
+		['active', 'locked', false],
+		['active', 'filling', false],
+		['complete', 'active', false],
+		['filling', 'filling', false],
+		['filling', undefined, false],
+	] as const)('%s behind %s: %s', (next, current, expected) => {
+		expect(isBehind(next, current)).toBe(expected);
 	});
 });

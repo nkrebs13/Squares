@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
 
 describe('formatPrice (default USD/en-US)', () => {
+	it('labels the price input with $ by default', async () => {
+		const { currencySymbol } = await import('$lib/utils/format');
+		expect(currencySymbol()).toBe('$');
+	});
+
 	it('returns no decimals for integer amounts', () => {
 		expect(formatPrice(10)).toBe('$10');
 	});
@@ -38,6 +43,20 @@ describe('formatPrice (config-driven currency override)', () => {
 		expect(formatted).toContain('€');
 		expect(formatted).toContain('10');
 		expect(formatted).not.toContain('$');
+	});
+
+	it('labels the price input with the configured currency symbol', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: { PUBLIC_CURRENCY_CODE: 'EUR', PUBLIC_LOCALE: 'de-DE' },
+		}));
+		const { currencySymbol } = await import('$lib/utils/format');
+		expect(currencySymbol()).toBe('€');
+	});
+
+	it('falls back to the code as the symbol for an unknown currency', async () => {
+		vi.doMock('$env/dynamic/public', () => ({ env: { PUBLIC_CURRENCY_CODE: 'ZZZZ' } }));
+		const { currencySymbol } = await import('$lib/utils/format');
+		expect(currencySymbol()).toBe('ZZZZ');
 	});
 
 	it('falls back to plain "amount code" when given an unknown currency', async () => {

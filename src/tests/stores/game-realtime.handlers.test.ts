@@ -88,6 +88,28 @@ describe('postgres_changes: parties', () => {
 		expect(get(party)?.status).toBe('complete');
 	});
 
+	it('ignores an older row image that would move the party back a stage', () => {
+		// The PIN check's pin_attempts reset is an UPDATE that still carries the old status.
+		party.set(createMockParty({ status: 'active' }));
+		open();
+
+		pgChange('parties', { eventType: 'UPDATE', new: createMockParty({ status: 'filling' }) });
+
+		expect(get(party)?.status).toBe('active');
+	});
+
+	it('applies an UPDATE within the same stage (e.g. edited details while filling)', () => {
+		party.set(createMockParty({ status: 'filling', event_name: 'Old' }));
+		open();
+
+		pgChange('parties', {
+			eventType: 'UPDATE',
+			new: createMockParty({ status: 'filling', event_name: 'New' }),
+		});
+
+		expect(get(party)?.event_name).toBe('New');
+	});
+
 	it('ignores non-UPDATE events', () => {
 		party.set(createMockParty({ status: 'filling' }));
 		open();

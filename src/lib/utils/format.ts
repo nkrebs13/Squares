@@ -24,6 +24,19 @@ export function formatPrice(amount: number): string {
 	}
 }
 
+/** The configured currency's symbol (e.g. "$", "€"), for labelling a price input. */
+export function currencySymbol(): string {
+	const { code, locale } = APP_CONFIG.currency;
+	try {
+		const part = new Intl.NumberFormat(locale, { style: 'currency', currency: code })
+			.formatToParts(0)
+			.find((p) => p.type === 'currency');
+		return part?.value ?? code;
+	} catch {
+		return code;
+	}
+}
+
 /**
  * Validate that a string represents a valid currency amount.
  * Allows positive numbers with up to 2 decimal places.
