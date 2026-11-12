@@ -15,10 +15,24 @@ import {
 	activePlayerFilter,
 	cleanup,
 	numbers,
+	gameScores,
+	gameHomeIsRow,
+	isLoading,
+	error,
+	pendingOperations,
 	verifyHostPin,
 } from '$lib/stores/game';
+import type { PartyStatus } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-import { createMockParty, createMockScores, createMockSquare } from '../factories';
+import {
+	createEmptyGrid,
+	createMockGameScores,
+	createMockNumbers,
+	createMockParty,
+	createMockScores,
+	createMockSquare,
+	createMockWinner,
+} from '../factories';
 import { APP_CONFIG } from '$lib/config';
 
 const refuse = (error: string, field?: string) =>
@@ -359,6 +373,20 @@ describe('removePlayer', () => {
 		expect(get(activePlayerFilter)).toBeNull();
 	});
 
+	it('leaves an unrelated filter untouched when a different player is removed', async () => {
+		party.set(createMockParty());
+		squares.set([
+			createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' }),
+			createMockSquare(0, 1, { player_name: 'Bob', player_name_lower: 'bob' }),
+		]);
+		selectedPlayerFilter.set('bob');
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
+
+		await removePlayer('1234', 'alice');
+
+		expect(get(selectedPlayerFilter)).toBe('bob');
+	});
+
 	it('leaves local squares alone when refused', async () => {
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
@@ -388,14 +416,6 @@ describe('removePlayer', () => {
 	});
 });
 
-describe('cleanup', () => {
-	it('forgets the picked player filter when leaving a party', () => {
-		selectedPlayerFilter.set('alice');
-		cleanup();
-		expect(get(selectedPlayerFilter)).toBeNull();
-	});
-});
-
 describe('deleteParty', () => {
 	beforeEach(() => {
 		cleanup();
@@ -418,16 +438,98 @@ describe('deleteParty', () => {
 	});
 });
 
-describe('cleanup resets every party store', () => {
-	it('leaves no party state behind', () => {
+// The client does not gate these on party status: the host_* RPC refuses with
+// wrong_status and the store maps that to copy and leaves state alone.
+describe('host actions are refused by the server, not gated on party status', () => {
+	const NON_FILLING_STATUSES: PartyStatus[] = ['locked', 'active', 'complete'];
+
+	beforeEach(() => {
+		cleanup();
+	});
+
+	describe('updatePayoutStructure', () => {
+		it.each(NON_FILLING_STATUSES)(
+			'surfaces the wrong_status refusal when status is %s',
+			async (status) => {
+				const original = createMockParty({ status, host_pin: '1234' });
+				party.set(original);
+				refuse('wrong_status');
+
+				const result = await updatePayoutStructure('1234', {
+					q1: 25,
+					q2: 25,
+					q3: 25,
+					final: 25,
+				});
+
+				expect(result).toEqual({ success: false, error: 'Grid is already locked' });
+				expect(get(party)).toEqual(original);
+			}
+		);
+	});
+
+	describe('removePlayer', () => {
+		it.each(NON_FILLING_STATUSES)(
+			'surfaces the wrong_status refusal when status is %s',
+			async (status) => {
+				party.set(createMockParty({ status, host_pin: '1234' }));
+				squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
+				refuse('wrong_status');
+
+				const result = await removePlayer('1234', 'alice');
+
+				expect(result).toEqual({
+					success: false,
+					removedCount: 0,
+					error: 'Cannot remove players after grid is locked',
+				});
+				expect(get(squares)[0].player_name).toBe('Alice');
+			}
+		);
+	});
+});
+
+describe('cleanup (leaving a party)', () => {
+	it('resets all stores to initial state', () => {
 		party.set(createMockParty());
-		squares.set([createMockSquare(0, 0)]);
+		squares.set(createEmptyGrid());
+		numbers.set(createMockNumbers());
+		scores.set(createMockScores());
+		winners.set([createMockWinner()]);
+		gameScores.set(createMockGameScores());
+		error.set('Some error');
+		isLoading.set(false);
+		gameHomeIsRow.set(false);
 		selectedPlayerFilter.set('alice');
+		pendingOperations.set(
+			new Map([
+				[
+					'0-0',
+					{
+						clientId: 'test-client',
+						origin: 'local',
+						type: 'claim',
+						row: 0,
+						col: 0,
+						timestamp: Date.now(),
+						originalState: { player_name: null, player_name_lower: null, claimed_at: null },
+					},
+				],
+			])
+		);
 
 		cleanup();
 
 		expect(get(party)).toBeNull();
 		expect(get(squares)).toEqual([]);
+		expect(get(numbers)).toBeNull();
+		expect(get(scores)).toBeNull();
+		expect(get(winners)).toEqual([]);
+		expect(get(gameScores)).toBeNull();
+		expect(get(isLoading)).toBe(true);
+		expect(get(gameHomeIsRow)).toBe(true);
+		expect(get(error)).toBeNull();
 		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(get(pendingOperations).size).toBe(0);
 	});
 });
