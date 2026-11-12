@@ -91,6 +91,7 @@ describe('PlayerLegend Component', () => {
 		await user.click(screen.getByText('Alice'));
 
 		expect(get(selectedPlayerFilter)).toBe('alice');
+		expect(screen.getByRole('button', { name: /Alice/ })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('clicking active filter clears it', async () => {
@@ -99,9 +100,11 @@ describe('PlayerLegend Component', () => {
 		render(PlayerLegend);
 
 		const user = userEvent.setup();
+		expect(screen.getByRole('button', { name: /Alice/ })).toHaveAttribute('aria-pressed', 'true');
 		await user.click(screen.getByText('Alice'));
 
 		expect(get(selectedPlayerFilter)).toBeNull();
+		expect(screen.getByRole('button', { name: /Alice/ })).toHaveAttribute('aria-pressed', 'false');
 	});
 
 	it('colors the pill dot from the normalized (lowercase) player name, not the raw casing (Bug 2 regression)', () => {

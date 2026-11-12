@@ -994,6 +994,26 @@ describe('Admin Page - Score Entry', () => {
 				expect(screen.queryByText('Enter Host PIN')).not.toBeInTheDocument();
 			});
 		});
+
+		it('announces a refused PIN', async () => {
+			const user = userEvent.setup();
+			party.set(createMockParty({ status: 'active' }));
+			scores.set(createMockScores());
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: false, error: 'invalid_pin' },
+				error: null,
+			});
+
+			render(AdminPage);
+
+			await user.type(screen.getByPlaceholderText('0000'), '9999');
+			await user.click(screen.getByRole('button', { name: /Verify/i }));
+
+			await waitFor(() => {
+				expect(screen.getByRole('alert')).toHaveTextContent(/Incorrect PIN/i);
+			});
+			expect(screen.getByText('Enter Host PIN')).toBeInTheDocument();
+		});
 	});
 
 	describe('Danger Zone', () => {

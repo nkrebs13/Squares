@@ -291,10 +291,12 @@ describe('RecentParties Component', () => {
 
 			// Cancel the removal
 			const cancelBtn = screen.getByLabelText('Cancel remove');
+			await vi.waitFor(() => expect(cancelBtn).toHaveFocus());
 			await fireEvent.click(cancelBtn);
 
-			// Party should still be visible and confirmation UI gone
+			// Party should still be visible, confirmation UI gone, focus back on remove
 			expect(screen.getByText('DEL001')).toBeInTheDocument();
+			await vi.waitFor(() => expect(screen.getByLabelText('Remove from recent')).toHaveFocus());
 			expect(screen.queryByText('Remove?')).not.toBeInTheDocument();
 			expect(mockRemoveRecentParty).not.toHaveBeenCalled();
 		});
@@ -360,6 +362,9 @@ describe('RecentParties Component', () => {
 			await fireEvent.keyDown(input, { key: 'Enter' });
 
 			expect(mockUpdatePartyNickname).toHaveBeenCalledWith('EDIT01', 'New Name');
+			await vi.waitFor(() =>
+				expect(screen.getByRole('button', { name: /nickname/i })).toHaveFocus()
+			);
 		});
 
 		it('cancels edit on Escape key', async () => {
@@ -376,8 +381,11 @@ describe('RecentParties Component', () => {
 			await fireEvent.input(input, { target: { value: 'Changed' } });
 			await fireEvent.keyDown(input, { key: 'Escape' });
 
-			// Should show original name again, not changed
+			// Should show original name again, not changed, with focus back on its button
 			expect(screen.getByText('Original')).toBeInTheDocument();
+			await vi.waitFor(() =>
+				expect(screen.getByLabelText('Edit nickname: Original')).toHaveFocus()
+			);
 			expect(mockUpdatePartyNickname).not.toHaveBeenCalled();
 		});
 

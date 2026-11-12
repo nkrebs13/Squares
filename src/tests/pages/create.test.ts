@@ -231,9 +231,7 @@ describe('Create Page', () => {
 			await user.click(screen.getByRole('button', { name: /Create Party/i }));
 
 			await waitFor(() => {
-				const errBanner = document.querySelector('.message-error');
-				expect(errBanner).toBeInTheDocument();
-				expect(errBanner?.textContent).toMatch(/4 digits/i);
+				expect(screen.getByRole('alert')).toHaveTextContent(/4 digits/i);
 			});
 		});
 

@@ -84,6 +84,7 @@
 					<button
 						class="player-pill"
 						class:selected={$activePlayerFilter === player.normalizedName}
+						aria-pressed={$activePlayerFilter === player.normalizedName}
 						style="--player-bg: {color.bg}; --player-text: {color.text};"
 						onclick={() => togglePlayerFilter(player.normalizedName)}
 					>

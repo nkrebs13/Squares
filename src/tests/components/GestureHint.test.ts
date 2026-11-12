@@ -61,7 +61,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint);
 			// Wait for the async onMount to resolve
 			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
 		});
 
@@ -71,7 +71,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint);
 			await waitForMountDecision();
 
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 		});
 
 		it('does not auto-show the hint on a desktop-width layout, even when unseen', async () => {
@@ -81,7 +81,7 @@ describe('GestureHint Component', () => {
 			render(GestureHint);
 			await waitForMountDecision();
 
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 		});
 	});
 
@@ -129,7 +129,7 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint);
 			await vi.waitFor(() => {
-				expect(screen.getByRole('status')).toBeInTheDocument();
+				expect(screen.getByRole('status')).toHaveTextContent('Tap to dismiss');
 			});
 		});
 	});
@@ -140,13 +140,13 @@ describe('GestureHint Component', () => {
 
 			render(GestureHint);
 			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
 
-			await fireEvent.click(screen.getByLabelText('Dismiss hint'));
+			await fireEvent.click(screen.getByRole('button', { name: /Tap to dismiss/ }));
 
 			expect(timesMarkedSeen()).toBe(1);
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 		});
 
 		it('auto-dismisses after 5 seconds', async () => {
@@ -157,13 +157,13 @@ describe('GestureHint Component', () => {
 
 			// Wait for mount
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 
 			// Advance past 5 second auto-dismiss
 			await vi.advanceTimersByTimeAsync(5000);
 
 			expect(timesMarkedSeen()).toBe(1);
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
 			vi.useRealTimers();
 		});
@@ -175,12 +175,12 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint);
 			await waitForMountDecision();
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
 			component.reopen();
 
 			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
 		});
 
@@ -190,12 +190,12 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint);
 			await waitForMountDecision();
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
 			component.reopen();
 
 			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
 		});
 
@@ -204,11 +204,11 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint);
 			await waitForMountDecision();
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
 			component.reopen();
 			await vi.waitFor(() => {
-				expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
 
 			// reopen() itself must not touch storage - only an explicit dismiss does
@@ -221,15 +221,15 @@ describe('GestureHint Component', () => {
 
 			const { component } = render(GestureHint);
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
 			component.reopen();
 			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.getByLabelText('Dismiss hint')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 
 			await vi.advanceTimersByTimeAsync(5000);
 
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 			expect(timesMarkedSeen()).toBe(1);
 
 			vi.useRealTimers();

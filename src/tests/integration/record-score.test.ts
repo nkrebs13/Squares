@@ -11,6 +11,7 @@ import {
 	type TestParty,
 	getTestDatabaseUrl,
 } from './helpers';
+import { QUARTER_KEYS } from '$lib/quarters';
 
 // One scoring path (migration 037): host_record_score and the live
 // game_scores trigger both go through record_quarter_score.
@@ -31,7 +32,7 @@ afterEach(async () => {
 });
 
 async function runningParty(
-	overrides: { square_price?: number; team_row_name?: string; team_col_name?: string } = {}
+	overrides: Parameters<typeof createTestParty>[1] = {}
 ): Promise<TestParty> {
 	const party = await createTestParty(client, overrides);
 	createdParties.push(party.id);
@@ -94,6 +95,25 @@ describe('host_record_score', () => {
 			}),
 		]);
 		expect(data.party.status).toBe('active');
+	});
+
+	it('pays each quarter its own split of the pot', async () => {
+		// Distinct splits, so a quarter paid from another quarter's split is caught.
+		const party = await runningParty({
+			square_price: 2,
+			split_q1: 10,
+			split_q2: 20,
+			split_q3: 30,
+			split_final: 40,
+		});
+		const paid: Record<string, number> = {};
+		for (const quarter of QUARTER_KEYS) {
+			const { data } = await record(party, quarter, 0, 0);
+			const won = data.winners.find((w: { quarter: string }) => w.quarter === quarter);
+			paid[quarter] = Number(won.amount);
+		}
+		// Pot: $2 x 100 squares = $200.
+		expect(paid).toEqual({ q1: 20, q2: 40, q3: 60, final: 80 });
 	});
 
 	it('re-scoring a quarter replaces its winner', async () => {

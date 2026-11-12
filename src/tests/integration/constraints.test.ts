@@ -43,17 +43,6 @@ describe('database constraints', () => {
 		expect(error?.message).toMatch(/split_total|check/i);
 	});
 
-	it('square row_num must be 0-9 (row=10 fails)', async () => {
-		const { error } = await service.from('squares').insert({
-			party_id: party.id,
-			row_num: 10,
-			col_num: 0,
-		});
-
-		expect(error).not.toBeNull();
-		expect(error?.message).toMatch(/check|row_num/i);
-	});
-
 	it('square (party_id, row_num, col_num) is UNIQUE', async () => {
 		// The grid already has (0,0) from createTestParty
 		const { error } = await service.from('squares').insert({
@@ -107,17 +96,6 @@ describe('database constraints', () => {
 		expect(error?.message).toMatch(/check|quarter/i);
 	});
 
-	it('numbers arrays must have exactly 10 elements', async () => {
-		const { error } = await service.from('numbers').insert({
-			party_id: party.id,
-			row_numbers: [0, 1, 2], // Only 3, needs 10
-			col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-		});
-
-		expect(error).not.toBeNull();
-		expect(error?.message).toMatch(/check|array_length/i);
-	});
-
 	// The functions validate first, so these CHECKs are the backstop for writes that
 	// bypass them (operator SQL, a future function). Each must refuse on its own.
 	const winner = { quarter: 'q2', winning_row: 0, winning_col: 0, player_name: 'A', amount: 1 };
@@ -129,6 +107,15 @@ describe('database constraints', () => {
 		[
 			'squares_col_num_check',
 			() => service.from('squares').insert({ party_id: party.id, row_num: 0, col_num: 10 }),
+		],
+		[
+			'numbers_row_numbers_check',
+			() =>
+				service.from('numbers').insert({
+					party_id: party.id,
+					row_numbers: [0, 1, 2],
+					col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+				}),
 		],
 		[
 			'numbers_col_numbers_check',

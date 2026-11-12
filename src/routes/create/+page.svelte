@@ -202,7 +202,7 @@
 		</div>
 
 		{#if error}
-			<div class="message-error">
+			<div class="message-error" role="alert">
 				{error}
 			</div>
 		{/if}
