@@ -364,11 +364,13 @@ test.describe('Party Page - OG Meta Tags', () => {
 		// Wait for page to load
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
-		// Verify OG meta tags (layout has default, party page overrides with event + teams)
-		const ogTitle = page.locator('meta[property="og:title"]').last();
+		// Each share tag is emitted exactly once, carrying the party's text (not the app default)
+		const ogTitle = page.locator('meta[property="og:title"]');
+		await expect(ogTitle).toHaveCount(1);
 		await expect(ogTitle).toHaveAttribute('content', /Test Football Squares.*Seahawks.*Patriots/);
 
-		const ogDescription = page.locator('meta[property="og:description"]').last();
+		const ogDescription = page.locator('meta[property="og:description"]');
+		await expect(ogDescription).toHaveCount(1);
 		await expect(ogDescription).toHaveAttribute('content', /track winners quarter by quarter/i);
 	});
 });

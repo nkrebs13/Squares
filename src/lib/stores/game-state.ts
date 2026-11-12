@@ -68,7 +68,7 @@ export const liveScores = derived<
 	if (!$gameScores) return null;
 	// A linked game's side lives on the party row (kept current by realtime);
 	// a detected, unlinked game uses the side computed when it was loaded.
-	const homeIsRow = $party?.game_id ? $party.home_team_is_row !== false : $detectedHomeIsRow;
+	const homeIsRow = $party?.game_id ? $party.home_team_is_row : $detectedHomeIsRow;
 	return {
 		rowScore: homeIsRow ? $gameScores.home_score : $gameScores.away_score,
 		colScore: homeIsRow ? $gameScores.away_score : $gameScores.home_score,

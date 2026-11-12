@@ -42,10 +42,6 @@ function isNumOrNull(v: unknown): v is number | null {
 	return v === null || (typeof v === 'number' && Number.isFinite(v));
 }
 
-function isBoolOrNull(v: unknown): v is boolean | null {
-	return v === null || typeof v === 'boolean';
-}
-
 function isPartyStatus(v: unknown): v is PartyStatus {
 	return PARTY_STATUSES.includes(v as PartyStatus);
 }
@@ -120,8 +116,8 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isStr(p.updated_at)) return warn('parties', p, 'updated_at missing');
 	if (!isStr(p.expires_at)) return warn('parties', p, 'expires_at missing');
 	if (!isStrOrNull(p.game_id)) return warn('parties', p, 'game_id not str|null');
-	if (!isBoolOrNull(p.home_team_is_row))
-		return warn('parties', p, 'home_team_is_row not bool|null');
+	if (typeof p.home_team_is_row !== 'boolean')
+		return warn('parties', p, 'home_team_is_row not a bool');
 
 	return {
 		id: p.id,

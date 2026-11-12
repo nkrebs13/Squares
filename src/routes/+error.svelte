@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 </script>
+
+<PageMeta />
 
 <div class="error-page">
 	<div class="error-card">

@@ -7,6 +7,7 @@
 	import { browser } from '$app/environment';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 	import GestureHint from '$lib/components/GestureHint.svelte';
@@ -84,17 +85,7 @@
 	onDestroy(cleanup);
 </script>
 
-<svelte:head>
-	<title>{pageTitle}</title>
-	<meta name="description" content={pageDescription} />
-	<link rel="canonical" href={canonicalUrl} />
-	<meta property="og:url" content={canonicalUrl} />
-	<meta property="og:title" content={pageTitle} />
-	<meta property="og:description" content={pageDescription} />
-	<meta name="twitter:card" content="summary" />
-	<meta name="twitter:title" content={pageTitle} />
-	<meta name="twitter:description" content={pageDescription} />
-</svelte:head>
+<PageMeta title={pageTitle} description={pageDescription} url={canonicalUrl} />
 
 <div
 	class="party-page"
@@ -163,7 +154,7 @@
 					<!-- Mounted in both layouts: the header's help button calls reopen() on it. -->
 					<GestureHint bind:this={gestureHintRef} />
 
-					<div class="mb-4 lg:mb-0">
+					<div class="grid-slot mb-4 lg:mb-0">
 						<SimpleGrid />
 					</div>
 				</div>
@@ -244,7 +235,7 @@
 			min-height: 0; /* Allow flex shrinking */
 		}
 
-		.main-content > :global(div:has(.grid-wrapper)) {
+		.main-content > .grid-slot {
 			flex: 1;
 			display: flex;
 			flex-direction: column;

@@ -18,6 +18,7 @@
 		toTeamSelection,
 	} from '$lib/utils/partyForm';
 	import { calculateTotalPot, isValidSplit, presetToSplits } from '$lib/payouts';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 	import EventDetailsFields from '$lib/components/forms/EventDetailsFields.svelte';
 	import PayoutSplitEditor from '$lib/components/forms/PayoutSplitEditor.svelte';
@@ -91,6 +92,8 @@
 		goto(`/party/${code}`);
 	}
 </script>
+
+<PageMeta />
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">

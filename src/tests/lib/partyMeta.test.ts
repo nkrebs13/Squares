@@ -65,7 +65,7 @@ describe('partyMeta', () => {
 			updated_at: '2026-01-01T00:00:00.000Z',
 			expires_at: '2027-02-21T00:00:00.000Z',
 			game_id: null,
-			home_team_is_row: null,
+			home_team_is_row: true,
 		};
 
 		expect(partyToShareMetadata(party)).toEqual(meta);

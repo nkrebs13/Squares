@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { quarterInfo } from '$lib/quarters';
-	import { userName } from '$lib/stores/user';
 	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import type { Square as SquareType, Winner } from '$lib/types';
@@ -10,6 +9,8 @@
 		size: number;
 		rowNumber?: number;
 		colNumber?: number;
+		/** Whether the current user owns this square (computed once by the grid). */
+		isMine?: boolean;
 		isLocked: boolean;
 		isSelected?: boolean;
 		isPending?: boolean;
@@ -26,6 +27,7 @@
 		size,
 		rowNumber,
 		colNumber,
+		isMine = false,
 		isLocked,
 		isSelected = false,
 		isPending = false,
@@ -45,10 +47,6 @@
 		}
 		return name.substring(0, 2).toUpperCase();
 	}
-
-	const isMine = $derived(
-		Boolean($userName) && square.player_name_lower === normalizePlayerName($userName ?? '')
-	);
 
 	const isWinner = $derived(winners.length > 0);
 

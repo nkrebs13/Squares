@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import RecentParties from '$lib/components/RecentParties.svelte';
 	import { APP_CONFIG } from '$lib/config';
 	import {
@@ -40,16 +41,11 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{APP_CONFIG.appName} | {APP_CONFIG.appEyebrow}</title>
-	<meta name="description" content={APP_CONFIG.appDescription} />
-	<link rel="canonical" href={canonicalUrl} />
-	<meta property="og:url" content={canonicalUrl} />
-	<meta property="og:title" content={APP_CONFIG.appName} />
-	<meta property="og:description" content={APP_CONFIG.appDescription} />
-	<meta name="twitter:title" content={APP_CONFIG.appName} />
-	<meta name="twitter:description" content={APP_CONFIG.appDescription} />
-</svelte:head>
+<PageMeta
+	title="{APP_CONFIG.appName} | {APP_CONFIG.appEyebrow}"
+	shareTitle={APP_CONFIG.appName}
+	url={canonicalUrl}
+/>
 
 <div class="home-page">
 	<section class="hero-shell" aria-labelledby="home-title">

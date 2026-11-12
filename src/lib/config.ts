@@ -9,6 +9,8 @@ import {
 	DEFAULT_DEMO_PARTY_CODE,
 	DEFAULT_EVENT_NAME,
 	DEFAULT_GRID_LABEL,
+	DEFAULT_TEAM_COL_COLOR,
+	DEFAULT_TEAM_ROW_COLOR,
 } from '$lib/app-defaults';
 
 /** Validate a CSS hex color from env config; fall back to the literal default if malformed. */
@@ -50,7 +52,10 @@ export const APP_CONFIG = {
 			/** Override with PUBLIC_DEFAULT_TEAM_ROW_NAME. */
 			name: env.PUBLIC_DEFAULT_TEAM_ROW_NAME || 'Seahawks',
 			/** Override with PUBLIC_DEFAULT_TEAM_ROW_COLOR. CSS color string. */
-			color: safeColor(env.PUBLIC_DEFAULT_TEAM_ROW_COLOR || '#69BE28', '#69BE28'),
+			color: safeColor(
+				env.PUBLIC_DEFAULT_TEAM_ROW_COLOR || DEFAULT_TEAM_ROW_COLOR,
+				DEFAULT_TEAM_ROW_COLOR
+			),
 			/** Override with PUBLIC_DEFAULT_TEAM_ROW_LOGO. Path to logo image. */
 			logoUrl: env.PUBLIC_DEFAULT_TEAM_ROW_LOGO || '/logos/seahawks.png',
 		},
@@ -58,7 +63,10 @@ export const APP_CONFIG = {
 			/** Override with PUBLIC_DEFAULT_TEAM_COL_NAME. */
 			name: env.PUBLIC_DEFAULT_TEAM_COL_NAME || 'Patriots',
 			/** Override with PUBLIC_DEFAULT_TEAM_COL_COLOR. CSS color string. */
-			color: safeColor(env.PUBLIC_DEFAULT_TEAM_COL_COLOR || '#C60C30', '#C60C30'),
+			color: safeColor(
+				env.PUBLIC_DEFAULT_TEAM_COL_COLOR || DEFAULT_TEAM_COL_COLOR,
+				DEFAULT_TEAM_COL_COLOR
+			),
 			/** Override with PUBLIC_DEFAULT_TEAM_COL_LOGO. Path to logo image. */
 			logoUrl: env.PUBLIC_DEFAULT_TEAM_COL_LOGO || '/logos/patriots.png',
 		},

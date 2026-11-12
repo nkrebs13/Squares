@@ -1,3 +1,5 @@
+import { DEFAULT_TEAM_COL_COLOR, DEFAULT_TEAM_ROW_COLOR } from '$lib/app-defaults';
+
 export interface NflTeamPreset {
 	id: string;
 	name: string;
@@ -26,14 +28,14 @@ export const NFL_TEAM_PRESETS: NflTeamPreset[] = [
 	{ id: 'lar', name: 'Rams', color: '#003594' },
 	{ id: 'mia', name: 'Dolphins', color: '#008E97' },
 	{ id: 'min', name: 'Vikings', color: '#4F2683' },
-	{ id: 'ne', name: 'Patriots', color: '#C60C30' },
+	{ id: 'ne', name: 'Patriots', color: DEFAULT_TEAM_COL_COLOR },
 	{ id: 'no', name: 'Saints', color: '#D3BC8D' },
 	{ id: 'nyg', name: 'Giants', color: '#0B2265' },
 	{ id: 'nyj', name: 'Jets', color: '#125740' },
 	{ id: 'phi', name: 'Eagles', color: '#004C54' },
 	{ id: 'pit', name: 'Steelers', color: '#FFB612' },
 	{ id: 'sf', name: '49ers', color: '#AA0000' },
-	{ id: 'sea', name: 'Seahawks', color: '#69BE28' },
+	{ id: 'sea', name: 'Seahawks', color: DEFAULT_TEAM_ROW_COLOR },
 	{ id: 'tb', name: 'Buccaneers', color: '#D50A0A' },
 	{ id: 'ten', name: 'Titans', color: '#4B92DB' },
 	{ id: 'was', name: 'Commanders', color: '#5A1414' },

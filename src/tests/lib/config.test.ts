@@ -25,6 +25,16 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.currency.locale).toBe('en-US');
 	});
 
+	it('default teams match their NFL presets (the create form preselects by name + colour)', async () => {
+		vi.doMock('$env/dynamic/public', () => ({ env: {} }));
+		const { DEFAULT_TEAMS } = await import('$lib/config');
+		const { NFL_TEAM_PRESETS } = await import('$lib/nflTeams');
+
+		for (const team of [DEFAULT_TEAMS.row, DEFAULT_TEAMS.col]) {
+			expect(NFL_TEAM_PRESETS).toContainEqual(expect.objectContaining(team));
+		}
+	});
+
 	it('honors PUBLIC_* env overrides for every brand value', async () => {
 		vi.doMock('$env/dynamic/public', () => ({
 			env: {

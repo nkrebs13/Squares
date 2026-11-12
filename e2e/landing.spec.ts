@@ -11,6 +11,24 @@ test.describe('Landing Page', () => {
 		await expect(page.getByText(/football squares pools for any game/i)).toBeVisible();
 	});
 
+	test('emits each share tag exactly once with the app text', async ({ page }) => {
+		await page.goto('/');
+
+		for (const sel of [
+			'meta[property="og:title"]',
+			'meta[property="og:description"]',
+			'meta[name="twitter:title"]',
+			'meta[name="twitter:description"]',
+			'meta[name="description"]',
+		]) {
+			await expect(page.locator(sel), sel).toHaveCount(1);
+		}
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+			'content',
+			'Football Squares'
+		);
+	});
+
 	test('has Create Party button that navigates to create page', async ({ page }) => {
 		const createButton = page.getByRole('link', { name: /create party/i });
 		await expect(createButton).toBeVisible();

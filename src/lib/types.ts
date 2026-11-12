@@ -24,7 +24,7 @@ export interface Party {
 	updated_at: string;
 	expires_at: string;
 	game_id: string | null;
-	home_team_is_row: boolean | null;
+	home_team_is_row: boolean;
 }
 
 export interface Square {
