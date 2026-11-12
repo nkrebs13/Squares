@@ -5,7 +5,7 @@ import { tick } from 'svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { recallHostPin } from '$lib/hostPin';
 import { get } from 'svelte/store';
-import { party, scores, squares, cleanup } from '$lib/stores/game';
+import { party, scores, squares, cleanup, openParty, error, isLoading } from '$lib/stores/game';
 import { toast } from '$lib/stores/toast';
 import { SPLIT_PRESETS, type Party, type Scores, type Square } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
@@ -27,6 +27,12 @@ vi.mock('$app/stores', async () => {
 });
 
 // Import the page component AFTER mocks are set up
+// Tests set the party stores directly; opening the party must not reload over them.
+vi.mock('$lib/stores/game', async (importOriginal) => {
+	const original = (await importOriginal()) as Record<string, unknown>;
+	return { ...original, openParty: vi.fn().mockResolvedValue(true) };
+});
+
 import AdminPage from '../../routes/party/[code]/admin/+page.svelte';
 import { createMockParty, createMockScores, createMockSquare } from '../factories';
 
@@ -111,6 +117,15 @@ describe('Admin Page - Score Entry', () => {
 	beforeEach(() => {
 		cleanup();
 		clearToasts();
+	});
+
+	describe('Party session', () => {
+		it('opens the party named in the URL and leaves it on unmount', async () => {
+			const { unmount } = renderAuthorizedAdmin();
+			await waitFor(() => expect(openParty).toHaveBeenCalledWith('TEST123'));
+			unmount();
+			expect(get(party)).toBeNull();
+		});
 	});
 
 	describe('Score Entry Visibility', () => {
@@ -1071,15 +1086,11 @@ describe('Admin Page - Score Entry', () => {
 			// host PIN is still present, which used to leave isAuthorized=true
 			// and $party=null matching neither template branch (blank page).
 			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
-
-			mockSupabaseClient.from.mockReturnValueOnce({
-				select: vi.fn().mockReturnThis(),
-				eq: vi.fn().mockReturnThis(),
-				single: vi.fn().mockResolvedValue({
-					data: null,
-					error: { message: 'not found' },
-				}),
-			} as ReturnType<typeof mockSupabaseClient.from>);
+			vi.mocked(openParty).mockImplementationOnce(async () => {
+				error.set('Party not found');
+				isLoading.set(false);
+				return false;
+			});
 
 			const { container } = render(AdminPage);
 

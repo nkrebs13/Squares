@@ -1,6 +1,6 @@
 // Barrel re-export — all existing imports from '$lib/stores/game' continue working.
 // See game-state.ts, game-load.ts, game-pending.ts, game-realtime.ts,
-// game-optimistic.ts, game-admin.ts for implementations.
+// game-optimistic.ts, game-admin.ts, game-session.ts for implementations.
 
 export {
 	party,
@@ -51,8 +51,9 @@ export {
 	updatePayoutStructure,
 	removePlayer,
 	deleteParty,
-	cleanup,
 	verifyHostPin,
 } from './game-admin';
+
+export { openParty, cleanup } from './game-session';
 
 export type { PartyDetailsInput } from './game-admin';

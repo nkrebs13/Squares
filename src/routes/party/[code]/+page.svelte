@@ -13,16 +13,7 @@
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
-	import {
-		loadParty,
-		subscribeToParty,
-		cleanup,
-		party,
-		gameScores,
-		teamTheme,
-		isLoading,
-		error,
-	} from '$lib/stores/game';
+	import { openParty, cleanup, party, teamTheme, isLoading, error } from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import {
 		buildPartyCanonicalUrl,
@@ -40,7 +31,6 @@
 		data?: { partyMeta: PartyShareMetadata | null };
 	}>();
 	const code = $derived($page.params.code ?? '');
-	let unsubscribe: (() => void) | null = null;
 	const matchupLabel = $derived(
 		$party ? formatMatchup($party.team_row_name, $party.team_col_name) : ''
 	);
@@ -86,19 +76,12 @@
 
 		await checkIsHost();
 
-		const success = await loadParty(code);
-		if (success && $party) {
-			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
+		if (await openParty(code)) {
 			await saveToRecentParties();
 		}
 	});
 
-	onDestroy(() => {
-		if (unsubscribe) {
-			unsubscribe();
-		}
-		cleanup();
-	});
+	onDestroy(cleanup);
 </script>
 
 <svelte:head>

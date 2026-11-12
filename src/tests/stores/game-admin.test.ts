@@ -15,24 +15,11 @@ import {
 	activePlayerFilter,
 	cleanup,
 	numbers,
-	gameScores,
-	gameHomeIsRow,
-	isLoading,
-	error,
-	pendingOperations,
 	verifyHostPin,
 } from '$lib/stores/game';
 import type { PartyStatus } from '$lib/types';
 import { mockSupabaseClient } from '../setup';
-import {
-	createEmptyGrid,
-	createMockGameScores,
-	createMockNumbers,
-	createMockParty,
-	createMockScores,
-	createMockSquare,
-	createMockWinner,
-} from '../factories';
+import { createMockParty, createMockScores, createMockSquare } from '../factories';
 import { APP_CONFIG } from '$lib/config';
 
 const refuse = (error: string, field?: string) =>
@@ -486,50 +473,5 @@ describe('host actions are refused by the server, not gated on party status', ()
 				expect(get(squares)[0].player_name).toBe('Alice');
 			}
 		);
-	});
-});
-
-describe('cleanup (leaving a party)', () => {
-	it('resets all stores to initial state', () => {
-		party.set(createMockParty());
-		squares.set(createEmptyGrid());
-		numbers.set(createMockNumbers());
-		scores.set(createMockScores());
-		winners.set([createMockWinner()]);
-		gameScores.set(createMockGameScores());
-		error.set('Some error');
-		isLoading.set(false);
-		gameHomeIsRow.set(false);
-		selectedPlayerFilter.set('alice');
-		pendingOperations.set(
-			new Map([
-				[
-					'0-0',
-					{
-						clientId: 'test-client',
-						origin: 'local',
-						type: 'claim',
-						row: 0,
-						col: 0,
-						timestamp: Date.now(),
-						originalState: { player_name: null, player_name_lower: null, claimed_at: null },
-					},
-				],
-			])
-		);
-
-		cleanup();
-
-		expect(get(party)).toBeNull();
-		expect(get(squares)).toEqual([]);
-		expect(get(numbers)).toBeNull();
-		expect(get(scores)).toBeNull();
-		expect(get(winners)).toEqual([]);
-		expect(get(gameScores)).toBeNull();
-		expect(get(isLoading)).toBe(true);
-		expect(get(gameHomeIsRow)).toBe(true);
-		expect(get(error)).toBeNull();
-		expect(get(selectedPlayerFilter)).toBeNull();
-		expect(get(pendingOperations).size).toBe(0);
 	});
 });

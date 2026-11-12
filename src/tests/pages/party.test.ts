@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { get } from 'svelte/store';
 import {
 	party,
 	squares,
@@ -10,6 +11,7 @@ import {
 	isLoading,
 	error,
 	cleanup,
+	openParty,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { Square } from '$lib/types';
@@ -28,14 +30,10 @@ vi.mock('$app/stores', async () => {
 	};
 });
 
-// Mock loadParty and subscribeToParty so onMount doesn't fire real logic
+// Tests set the party stores directly; opening the party must not reload over them.
 vi.mock('$lib/stores/game', async (importOriginal) => {
 	const original = (await importOriginal()) as Record<string, unknown>;
-	return {
-		...original,
-		loadParty: vi.fn().mockResolvedValue(true),
-		subscribeToParty: vi.fn().mockReturnValue(() => {}),
-	};
+	return { ...original, openParty: vi.fn().mockResolvedValue(true) };
 });
 
 vi.mock('$lib/recentParties', () => ({
@@ -68,6 +66,16 @@ describe('Party Page', () => {
 	beforeEach(async () => {
 		cleanup();
 		await userName.setName('TestUser');
+	});
+
+	describe('Party session', () => {
+		it('opens the party named in the URL and leaves it on unmount', async () => {
+			party.set(createMockParty());
+			const { unmount } = render(PartyPage);
+			await waitFor(() => expect(openParty).toHaveBeenCalledWith('TEST123'));
+			unmount();
+			expect(get(party)).toBeNull();
+		});
 	});
 
 	describe('Loading State', () => {

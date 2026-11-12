@@ -137,3 +137,16 @@ describe('loadParty', () => {
 		expect(get(liveScores)).toMatchObject({ rowScore: 7, colScore: 14 });
 	});
 });
+
+describe('loadParty when the caller has moved on', () => {
+	it('writes nothing and reports failure once the load is no longer current', async () => {
+		cleanup();
+		let current = true;
+		stateResponds();
+		const pending = loadParty('ABC123', () => current);
+		current = false;
+		expect(await pending).toBe(false);
+		expect(get(party)).toBeNull();
+		expect(get(error)).toBeNull();
+	});
+});

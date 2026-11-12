@@ -8,15 +8,13 @@
 	import { removeRecentParty } from '$lib/recentParties';
 	import {
 		party,
-		gameScores,
 		teamTheme,
 		filledCount,
 		isLoading,
 		error as partyLoadError,
-		loadParty,
 		deleteParty,
 		removePlayer,
-		subscribeToParty,
+		openParty,
 		cleanup,
 	} from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
@@ -58,26 +56,15 @@
 	// mounted — e.g. absent during PIN entry / loading).
 	let partyStatusHeadingEl = $state<HTMLHeadingElement | null>(null);
 
-	let unsubscribe: (() => void) | null = null;
-
 	onMount(async () => {
 		if (browser) {
 			storedPin = cachedHostPin(code) ?? (await recallHostPin(code));
 		}
 
-		if (!$party) {
-			await loadParty(code);
-		}
-
-		if ($party) {
-			unsubscribe = subscribeToParty($party.id, $party.game_id ?? $gameScores?.game_id ?? null);
-		}
+		await openParty(code);
 	});
 
-	onDestroy(() => {
-		if (unsubscribe) unsubscribe();
-		cleanup();
-	});
+	onDestroy(cleanup);
 
 	async function handleDeleteParty() {
 		if (!storedPin) return;
