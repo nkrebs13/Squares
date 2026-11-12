@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+	claimCell,
 	createTestParty,
 	ensureSupabaseReady,
 	forceDeleteParty,
@@ -186,16 +187,18 @@ describe('PIN lockout throttle: recovery', () => {
 		expect(await readPinState(party.id)).toEqual({ pin_attempts: 0, pin_locked_until: null });
 	});
 
-	it('host_remove_player: the correct PIN succeeds and resets pin_attempts to 0', async () => {
+	it('host_remove_player: wrong PINs remove nothing; the correct PIN removes and resets pin_attempts to 0', async () => {
 		const party = await newParty();
 		const remove = ACTIONS[1];
+		expect(await claimCell(client, party.id, 0, 0, 'Alice')).toBe(true);
+		expect(await claimCell(client, party.id, 0, 1, 'Alice')).toBe(true);
 
 		for (let i = 0; i < 3; i++) await client.rpc(remove.name, remove.args(party, WRONG_PIN));
 		expect((await readPinState(party.id)).pin_attempts).toBe(3);
 
 		const { data, error } = await client.rpc(remove.name, remove.args(party, party.host_pin));
 		expect(error).toBeNull();
-		expect(data).toEqual({ ok: true, removed: 0 });
+		expect(data).toEqual({ ok: true, removed: 2 });
 		expect(await readPinState(party.id)).toEqual({ pin_attempts: 0, pin_locked_until: null });
 	});
 });
