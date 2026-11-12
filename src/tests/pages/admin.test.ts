@@ -364,19 +364,19 @@ describe('Admin Page - Score Entry', () => {
 	});
 
 	describe('Lock Grid → Score Entry Transition', () => {
-		function renderFullFillingGrid() {
-			party.set(createMockParty({ status: 'filling' }));
+		function renderFullFillingGrid(overrides: Partial<Party> = {}) {
+			party.set(createMockParty({ status: 'filling', ...overrides }));
 			squares.set(createFullGrid());
 			scores.set(createMockScores());
 			sessionStorageMock.setItem('squares_pin_TEST123', '1234');
 			render(AdminPage);
 		}
 
-		function lockResponds(status: 'active' | 'locked') {
+		function lockResponds(status: 'active' | 'locked', overrides: Partial<Party> = {}) {
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
 				data: {
 					ok: true,
-					party: createMockParty({ status }),
+					party: createMockParty({ status, ...overrides }),
 					numbers: {
 						id: 'numbers-id',
 						party_id: 'test-party-id',
@@ -408,6 +408,19 @@ describe('Admin Page - Score Entry', () => {
 				'Game started! Numbers have been assigned. Enter scores below as each quarter ends.'
 			);
 			expect(goto).not.toHaveBeenCalled();
+		});
+
+		it('tells the host of a linked party that scores arrive on their own', async () => {
+			renderFullFillingGrid({ game_id: 'nfl-1' });
+			lockResponds('active', { game_id: 'nfl-1' });
+
+			await clickLock();
+
+			await waitFor(() =>
+				expectToast(
+					'Game started! Numbers have been assigned. Scores update automatically from the game.'
+				)
+			);
 		});
 
 		it('shows score entry for a party reported as locked', async () => {
@@ -1103,8 +1116,11 @@ describe('Admin Page - Score Entry', () => {
 			renderAuthorizedAdmin({ status: 'active', game_id: 'nba-game-123' });
 
 			const user = userEvent.setup();
-			await user.click(screen.getByRole('button', { name: /show manual override/i }));
+			const toggle = screen.getByRole('button', { name: /show manual override/i });
+			expect(toggle).toHaveAttribute('aria-expanded', 'false');
+			await user.click(toggle);
 
+			expect(toggle).toHaveAttribute('aria-expanded', 'true');
 			expect(screen.getByText('Manual Score Entry')).toBeInTheDocument();
 			expect(screen.getByText(/Override live scores from the API/i)).toBeInTheDocument();
 		});

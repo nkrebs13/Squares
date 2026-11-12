@@ -63,15 +63,17 @@
 				? `Row ${rowNumber}, Column ${colNumber}. `
 				: '';
 
+		const owner = isMine ? 'you' : square.player_name || 'unknown player';
 		if (isWinner) {
 			const quarters = winners.map((w) => quarterInfo(w.quarter).short).join(', ');
-			return `${position}Winner for ${quarters}, claimed by ${square.player_name || 'unknown player'}.`;
+			return `${position}Winner for ${quarters}, claimed by ${owner}.`;
 		}
 		if (isLeading && square.player_name) {
-			return `${position}Currently winning square, claimed by ${square.player_name}.`;
+			return `${position}Currently winning square, claimed by ${owner}.`;
 		}
 		if (isMine) {
-			return `${position}Your square. Press to unclaim.`;
+			// Unclaiming is only possible while the grid fills.
+			return isLocked ? `${position}Your square.` : `${position}Your square. Press to unclaim.`;
 		}
 		if (square.player_name) {
 			return `${position}Claimed by ${square.player_name}.`;

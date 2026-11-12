@@ -50,6 +50,7 @@
 
 	<button
 		onclick={() => (showManualOverride = !showManualOverride)}
+		aria-expanded={showManualOverride}
 		class="text-xs mt-2"
 		style="color: rgb(147, 197, 253); opacity: 0.7; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;"
 	>

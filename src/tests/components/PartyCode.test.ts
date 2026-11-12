@@ -149,15 +149,17 @@ describe('PartyCode Component', () => {
 			render(PartyCode);
 
 			// Show QR
+			expect(screen.getByText('QR Code')).toHaveAttribute('aria-expanded', 'false');
 			await fireEvent.click(screen.getByText('QR Code'));
 			await vi.waitFor(() => {
 				expect(screen.getByAltText('QR code to join party')).toBeInTheDocument();
 			});
+			expect(screen.getByText('Hide QR')).toHaveAttribute('aria-expanded', 'true');
 
 			// Hide QR
 			await fireEvent.click(screen.getByText('Hide QR'));
 			expect(screen.queryByAltText('QR code to join party')).not.toBeInTheDocument();
-			expect(screen.getByText('QR Code')).toBeInTheDocument();
+			expect(screen.getByText('QR Code')).toHaveAttribute('aria-expanded', 'false');
 		});
 
 		it('handles QR generation failure gracefully', async () => {
