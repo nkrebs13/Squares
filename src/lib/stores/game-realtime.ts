@@ -19,6 +19,8 @@ import {
 } from '$lib/validators/realtime';
 import {
 	clientId,
+	error,
+	PARTY_NOT_FOUND,
 	squares,
 	party,
 	numbers,
@@ -316,6 +318,10 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 				// before the status change; applied after the action's own result, that older
 				// row image would put the party back a stage and remount the next stage's UI.
 				if (newParty && !isStaleImage(newParty, get(party))) party.set(newParty);
+			} else if (payload.eventType === 'DELETE') {
+				// The host deleted the party: say so instead of leaving a live-looking grid.
+				const old = payload.old as { id?: string } | null;
+				if (old?.id && old.id === get(party)?.id) error.set(PARTY_NOT_FOUND);
 			}
 		},
 	},

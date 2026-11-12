@@ -24,6 +24,7 @@ import {
 	gameHomeIsRow,
 	isLoading,
 	error,
+	PARTY_NOT_FOUND,
 } from './game-state';
 
 type PartyState = {
@@ -86,7 +87,7 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
 	if (!result || !isCurrent()) return false;
 	if ('failed' in result)
 		return fail("Couldn't load that party. Check your connection and try again.");
-	if (!applyPartyState(result.state)) return fail('Party not found');
+	if (!applyPartyState(result.state)) return fail(PARTY_NOT_FOUND);
 
 	isLoading.set(false);
 	return true;
@@ -100,6 +101,11 @@ export async function loadParty(code: string, isCurrent: () => boolean): Promise
 export async function refreshParty(code: string, isCurrent: () => boolean): Promise<boolean> {
 	const result = await fetchPartyState(code, isCurrent, 'refreshParty');
 	if (!result || !isCurrent() || 'failed' in result) return false;
+	// No party at all: it was deleted while open.
+	if (result.state === null) {
+		error.set(PARTY_NOT_FOUND);
+		return false;
+	}
 	// A snapshot read before a status change that has since been applied is out of date
 	// as a whole (numbers, scores, winners too); keep what we have.
 	const next = result.state ? parseParty(result.state.party) : null;

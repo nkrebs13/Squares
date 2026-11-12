@@ -16,6 +16,7 @@ import {
 	gameScores,
 	pendingOperations,
 	cleanup,
+	error,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
 import type { BroadcastMessage } from '$lib/types';
@@ -121,6 +122,25 @@ describe('postgres_changes: parties', () => {
 		});
 
 		expect(get(party)?.event_name).toBe('New');
+	});
+
+	it('marks the open party not found when it is deleted', () => {
+		party.set(createMockParty({ id: 'party-a' }));
+		open();
+
+		pgChange('parties', { eventType: 'DELETE', old: { id: 'party-a' } });
+
+		expect(get(error)).toBe('Party not found');
+	});
+
+	it('ignores the deletion of a different party', () => {
+		party.set(createMockParty({ id: 'party-a' }));
+		error.set(null);
+		open();
+
+		pgChange('parties', { eventType: 'DELETE', old: { id: 'party-b' } });
+
+		expect(get(error)).toBeNull();
 	});
 
 	it('ignores non-UPDATE events', () => {
