@@ -25,8 +25,7 @@ import {
 	scores,
 	gameScores,
 	winners,
-	applyWinnerInsert,
-	applyWinnerUpdate,
+	applyWinner,
 	applyWinnerDelete,
 } from './game-state';
 import {
@@ -340,12 +339,9 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		table: 'winners',
 		filterColumn: 'party_id',
 		handle: (payload) => {
-			if (payload.eventType === 'INSERT') {
+			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 				const newWinner = parseWinner(payload.new);
-				if (newWinner) applyWinnerInsert(newWinner);
-			} else if (payload.eventType === 'UPDATE') {
-				const newWinner = parseWinner(payload.new);
-				if (newWinner) applyWinnerUpdate(newWinner);
+				if (newWinner) applyWinner(newWinner);
 			} else if (payload.eventType === 'DELETE') {
 				const deleted = parseWinner(payload.old);
 				if (deleted) applyWinnerDelete(deleted);
