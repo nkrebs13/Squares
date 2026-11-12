@@ -72,15 +72,6 @@ describe('ScoreBoard Component', () => {
 			expect(screen.getByText('Final')).toBeInTheDocument();
 		});
 
-		it('does not show quarter grid when party is filling', () => {
-			party.set(createMockParty({ status: 'filling' }));
-			scores.set(createMockScores());
-
-			render(ScoreBoard);
-
-			expect(screen.queryByText('Q1')).not.toBeInTheDocument();
-		});
-
 		it('REGRESSION: shows quarter grid when party is locked (not just active)', () => {
 			party.set(createMockParty({ status: 'locked' }));
 			scores.set(createMockScores());

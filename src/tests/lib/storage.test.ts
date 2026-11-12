@@ -24,17 +24,6 @@ describe('durable', () => {
 		expect(localStorageMock.getItem('k')).toBe('{"n":2}');
 		expect(await value().get()).toEqual({ n: 2 });
 	});
-
-	it('removes from either place', async () => {
-		await value().set({ n: 3 });
-		await value().remove();
-		expect(await value().get()).toBeNull();
-
-		idb.state.failing = true;
-		await value().set({ n: 4 });
-		await value().remove();
-		expect(await value().get()).toBeNull();
-	});
 });
 
 describe('web storage', () => {

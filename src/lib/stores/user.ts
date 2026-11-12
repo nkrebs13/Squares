@@ -36,12 +36,6 @@ function createUserStore() {
 			local.set(STORAGE_KEYS.userName, trimmed);
 			await stored.set(trimmed);
 		},
-		clear: async () => {
-			changedLocally = true;
-			set(null);
-			local.remove(STORAGE_KEYS.userName);
-			await stored.remove();
-		},
 	};
 }
 

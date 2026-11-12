@@ -73,7 +73,7 @@ describe('claimSquareOptimistic', () => {
 	});
 
 	it('returns early when no user name', async () => {
-		await userName.clear();
+		await userName.setName('');
 		party.set(createMockParty());
 		squares.set([createMockSquare(0, 0)]);
 		claimSquareOptimistic(0, 0);

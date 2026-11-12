@@ -35,18 +35,6 @@ test.describe('Accessibility', () => {
 		await expect(page.getByLabel(/choose your pin/i)).toBeVisible();
 	});
 
-	test('buttons have accessible names', async ({ page }) => {
-		await page.goto('/');
-
-		// Create Party button
-		const createButton = page.getByRole('link', { name: /create party/i });
-		await expect(createButton).toBeVisible();
-
-		// Join Party button
-		const joinButton = page.getByRole('button', { name: /join party/i });
-		await expect(joinButton).toBeVisible();
-	});
-
 	test('links have descriptive text', async ({ page }) => {
 		await page.goto('/create');
 

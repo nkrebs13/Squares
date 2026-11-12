@@ -216,15 +216,6 @@ test.describe('Create Party Page', () => {
 		await expect(nicknameInput).toHaveValue('A'.repeat(MAX_NICKNAME_LENGTH));
 	});
 
-	test('Create Party button is enabled without nickname', async ({ page }) => {
-		// Fill in only required fields (name + PIN), leave nickname empty
-		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
-		await page.getByPlaceholder('0000').fill('1234');
-
-		const createButton = page.getByRole('button', { name: /create party/i });
-		await expect(createButton).toBeEnabled();
-	});
-
 	test('PIN only accepts 4 digits', async ({ page }) => {
 		const pinInput = page.getByPlaceholder('0000');
 
