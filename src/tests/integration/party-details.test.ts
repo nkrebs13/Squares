@@ -6,15 +6,14 @@ import {
 	getTestClient,
 	type TestParty,
 } from './helpers';
+import { INPUT_FIELD_COPY } from '../../lib/services/hostCopy';
 import {
+	DB_MAX_NAME_LENGTH,
 	DB_MAX_TEAM_NAME_LENGTH,
 	MAX_EVENT_NAME_LENGTH,
 	MIN_SQUARE_PRICE,
 	SQUARE_PRICE_CEILING,
 } from '../../lib/constants';
-
-// host_name / player_name are VARCHAR(50); no shared constant exists for them.
-const DB_MAX_NAME_LENGTH = 50;
 
 // host_create_party / host_update_details (migration 036): one validator,
 // refusals as {ok:false, error:'invalid_input', field}.
@@ -137,8 +136,9 @@ describe('host_create_party', () => {
 		['team_name', { p_team_col_name: 'y'.repeat(DB_MAX_TEAM_NAME_LENGTH + 1) }],
 		['teams', { p_team_col_name: ' eagles ' }],
 		['team_color', { p_team_row_color: 'green' }],
-	])('refuses an invalid %s', async (field, overrides) => {
+	])('refuses an invalid %s, a field the client has copy for', async (field, overrides) => {
 		expect(await createParty(overrides)).toEqual({ ok: false, error: 'invalid_input', field });
+		expect(INPUT_FIELD_COPY).toHaveProperty(field);
 	});
 	// The limits the client states (src/lib/constants.ts) are the DB's own edges: the
 	// value at each limit is accepted, the refusals above cover one step past it.

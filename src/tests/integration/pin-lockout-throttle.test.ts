@@ -9,6 +9,7 @@ import {
 	getTestClient,
 	getTestDatabaseUrl,
 	MAX_ATTEMPTS,
+	PIN_LOCKOUT_MINUTES,
 	type TestParty,
 } from './helpers';
 
@@ -156,7 +157,10 @@ describe.each(ACTIONS)('PIN lockout throttle: $name', ({ name, args }) => {
 
 		const state = await readPinState(party.id);
 		expect(state.pin_locked_until).not.toBeNull();
-		expect(new Date(state.pin_locked_until as string).getTime()).toBeGreaterThan(Date.now());
+		// The lockout lasts PIN_LOCKOUT_MINUTES (the copy says "a few minutes").
+		const lockedFor = new Date(state.pin_locked_until as string).getTime() - Date.now();
+		expect(lockedFor).toBeGreaterThan((PIN_LOCKOUT_MINUTES - 1) * 60_000);
+		expect(lockedFor).toBeLessThanOrEqual(PIN_LOCKOUT_MINUTES * 60_000);
 
 		const { data: locked, error: lockedError } = await client.rpc(
 			name,

@@ -9,9 +9,7 @@ import {
 	waitUntilBlockedOnLock,
 	getTestDatabaseUrl,
 } from './helpers';
-
-// player_name is VARCHAR(50); no shared constant exists for it.
-const DB_MAX_NAME_LENGTH = 50;
+import { DB_MAX_NAME_LENGTH } from '../../lib/constants';
 
 // claim_squares (migration 038): claims a set of cells and reports which it
 // got and who holds the rest.

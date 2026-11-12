@@ -4,7 +4,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import PageMeta from '$lib/components/PageMeta.svelte';
@@ -49,9 +48,7 @@
 	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 
 	async function checkIsHost() {
-		if (browser && code) {
-			isHost = (await recallHostPin(code)) !== null;
-		}
+		isHost = (await recallHostPin(code)) !== null;
 	}
 
 	/** The status last written to the recent-parties entry (undefined until the first save). */

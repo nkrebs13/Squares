@@ -13,28 +13,25 @@ describe('toast store', () => {
 	});
 
 	it('shows toasts in order with their type', () => {
-		toast.info('one');
-		toast.success('two');
-		toast.error('three');
+		toast.success('one');
+		toast.error('two');
 		expect(get(toast).map((t) => [t.message, t.type])).toEqual([
-			['one', 'info'],
-			['two', 'success'],
-			['three', 'error'],
+			['one', 'success'],
+			['two', 'error'],
 		]);
 	});
 
 	it('removes a toast exactly when its duration ends', () => {
-		toast.show('bye', 'info', 1000);
+		toast.success('bye', 1000);
 		vi.advanceTimersByTime(999);
 		expect(get(toast)).toHaveLength(1);
 		vi.advanceTimersByTime(1);
 		expect(get(toast)).toHaveLength(0);
 	});
 
-	it('keeps errors up for 6s and everything else for 3s', () => {
+	it('keeps errors up for 6s and confirmations for 3s', () => {
 		toast.error('Error occurred');
 		toast.success('Saved');
-		toast.info('FYI');
 
 		vi.advanceTimersByTime(3000);
 		expect(get(toast).map((t) => t.type)).toEqual(['error']);
@@ -44,14 +41,14 @@ describe('toast store', () => {
 	});
 
 	it('removes one toast by id and leaves the others', () => {
-		const first = toast.show('first');
-		const second = toast.show('second');
+		const first = toast.success('first');
+		const second = toast.success('second');
 		toast.remove(first);
 		expect(get(toast).map((t) => t.id)).toEqual([second]);
 	});
 
 	it('cancels the timer of a toast removed early', () => {
-		const id = toast.show('early', 'info', 1000);
+		const id = toast.success('early', 1000);
 		toast.remove(id);
 		expect(vi.getTimerCount()).toBe(0);
 	});

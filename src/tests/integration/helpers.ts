@@ -122,6 +122,8 @@ export async function createTestParty(
 
 /** Wrong PINs a party tolerates before the host gate locks it out (migration 035). */
 export const MAX_ATTEMPTS = 5;
+/** How long that lockout lasts (host_pin_check). */
+export const PIN_LOCKOUT_MINUTES = 5;
 
 /**
  * Fill all 100 squares with test player names.

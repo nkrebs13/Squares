@@ -3,7 +3,7 @@ import { writable } from 'svelte/store';
 export interface Toast {
 	id: string;
 	message: string;
-	type: 'success' | 'error' | 'info';
+	type: 'success' | 'error';
 	duration: number;
 }
 
@@ -17,11 +17,7 @@ function createToastStore() {
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 	let idCounter = 0;
 
-	function show(
-		message: string,
-		type: Toast['type'] = 'info',
-		duration = DEFAULT_TOAST_DURATION_MS
-	) {
+	function show(message: string, type: Toast['type'], duration = DEFAULT_TOAST_DURATION_MS) {
 		const id = `toast-${++idCounter}`;
 		update((toasts) => [...toasts, { id, message, type, duration }]);
 		timers.set(
@@ -39,11 +35,10 @@ function createToastStore() {
 
 	return {
 		subscribe,
-		show,
 		success: (message: string, duration?: number) => show(message, 'success', duration),
 		error: (message: string, duration = ERROR_TOAST_DURATION_MS) =>
 			show(message, 'error', duration),
-		info: (message: string, duration?: number) => show(message, 'info', duration),
+		/** Ends a toast early (and is how tests start from an empty stack). */
 		remove,
 	};
 }

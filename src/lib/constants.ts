@@ -10,6 +10,8 @@ export const PIN_LENGTH = 4;
  * grid cells; the DB column is VARCHAR(50) on purpose (see CLAUDE.md, UI / DB asymmetry).
  */
 export const MAX_NAME_LENGTH = 20;
+/** `host_name` / `player_name` columns are VARCHAR(50); the server refuses longer names. */
+export const DB_MAX_NAME_LENGTH = 50;
 export const MAX_NICKNAME_LENGTH = 30;
 export const MAX_EVENT_NAME_LENGTH = 80;
 /** Team names in the UI (grid headers); the DB column allows 50 (see DB_MAX_TEAM_NAME_LENGTH). */

@@ -18,7 +18,7 @@ describe('ToastContainer', () => {
 	it('stacks every shown toast in one container', async () => {
 		render(ToastContainer);
 		toast.success('First');
-		toast.info('Second');
+		toast.error('Second');
 		await tick();
 
 		const toasts = document.querySelectorAll('.toast-container > .toast');
@@ -39,7 +39,7 @@ describe('ToastContainer', () => {
 
 	it('takes a toast off the page when the store removes it', async () => {
 		render(ToastContainer);
-		toast.show('Temporary', 'info', 1000);
+		toast.success('Temporary', 1000);
 		await tick();
 		expect(screen.getByText('Temporary')).toBeInTheDocument();
 

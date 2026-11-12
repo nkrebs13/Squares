@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { canActOnGrid, isFilling } from '$lib/partyStatus';
 	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import Square from './Square.svelte';
@@ -127,7 +126,7 @@
 	}
 
 	onMount(() => {
-		if (!browser || !scrollContainer) return;
+		if (!scrollContainer) return;
 		resizeObserver = new ResizeObserver(([entry]) => {
 			containerWidth = entry.contentRect.width;
 		});

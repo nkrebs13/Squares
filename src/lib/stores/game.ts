@@ -25,7 +25,6 @@ export {
 	availableCount,
 	selectedPlayerFilter,
 	activePlayerFilter,
-	squareKey,
 } from './game-state';
 
 export { loadParty } from './game-load';
