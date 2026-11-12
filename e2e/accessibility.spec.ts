@@ -1,3 +1,4 @@
+import { DEFAULT_APP_NAME } from '../src/lib/app-defaults';
 import { test, expect } from '@playwright/test';
 
 test.describe('Accessibility', () => {
@@ -6,7 +7,7 @@ test.describe('Accessibility', () => {
 
 		const h1 = page.getByRole('heading', { level: 1 });
 		await expect(h1).toBeVisible();
-		await expect(h1).toContainText(/football squares/i);
+		await expect(h1).toContainText(DEFAULT_APP_NAME);
 	});
 
 	test('create page has proper heading hierarchy', async ({ page }) => {
@@ -120,7 +121,7 @@ test.describe('Mobile Responsiveness', () => {
 	test('landing page is usable on mobile', async ({ page }) => {
 		await page.goto('/');
 
-		await expect(page.getByRole('heading', { name: /football squares/i })).toBeVisible();
+		await expect(page.getByRole('heading', { name: DEFAULT_APP_NAME })).toBeVisible();
 		await expect(page.getByRole('link', { name: /create party/i })).toBeVisible();
 		await expect(page.getByPlaceholder(/enter party code/i)).toBeVisible();
 	});

@@ -280,6 +280,22 @@ describe('Admin Page - Score Entry', () => {
 		});
 	});
 
+	describe('Manual Score Entry follows the scores until the host edits it', () => {
+		it('an untouched form shows the next quarter after live scoring, not its mount-time quarter', async () => {
+			// Linked game: the form mounts hidden behind the manual-override toggle.
+			renderAuthorizedAdmin({ status: 'active', game_id: 'nfl-1' });
+			await tick();
+
+			// A live tick scores Q1 while the form is hidden.
+			scores.set(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
+			await tick();
+
+			await userEvent.setup().click(screen.getByRole('button', { name: /manual override/i }));
+			const quarter = screen.getByLabelText('Quarter') as HTMLSelectElement;
+			expect(quarter.value).toBe('q2');
+		});
+	});
+
 	describe('Manual Score Entry Persistence (Regression — live tick must not clobber overrides)', () => {
 		it('preserves a host-selected quarter across a live score tick', async () => {
 			const initialScores = createMockScores({ q1_row_score: 7, q1_col_score: 3 });

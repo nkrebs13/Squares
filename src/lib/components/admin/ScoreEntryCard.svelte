@@ -34,29 +34,25 @@
 		manualScores.colScore = col ?? 0;
 	}
 
-	// The quarter select's own change handler — a direct user action, so it's
-	// fine to resync row/col fields to the newly-selected quarter's committed
-	// values here.
-	function handleQuarterSelected() {
-		syncManualScoreFields($scores, manualScores.quarter);
-	}
-
-	// Initialize the quarter selector (to the next quarter needing entry) and
-	// its row/col fields ONCE, from the current scores snapshot. `scores` is
-	// replaced wholesale on every postgres UPDATE of the scores row —
-	// including the game_scores_live_propagate trigger's live-tick updates
-	// (migration 017:199-219) — so re-running this on every `$scores` change
-	// would silently overwrite the host's in-progress manual override
-	// (destroying the exact feature this form exists for). Initialize once,
-	// never clobber unsaved work after that.
-	let manualScoreEntryInitialized = $state(false);
+	// The form follows the scores (next quarter to enter, its committed values) until the
+	// host edits it, then never overwrites their work. `scores` is replaced on every
+	// postgres UPDATE, including live-game ticks, so following it unconditionally would
+	// clobber an in-progress override; initialising only once instead left a hidden form
+	// (linked game, override closed) showing a stale quarter that a later save would
+	// rewrite with the wrong score.
+	let edited = $state(false);
 	$effect(() => {
-		if (!manualScoreEntryInitialized && isGameInProgress(party.status) && $scores) {
+		if (!edited && isGameInProgress(party.status) && $scores) {
 			manualScores.quarter = nextQuarter;
 			syncManualScoreFields($scores, nextQuarter);
-			manualScoreEntryInitialized = true;
 		}
 	});
+
+	// A direct user choice: show that quarter's committed values and stop following.
+	function handleQuarterSelected() {
+		edited = true;
+		syncManualScoreFields($scores, manualScores.quarter);
+	}
 
 	async function handleUpdateScore() {
 		isUpdatingScore = true;
@@ -75,7 +71,7 @@
 			// host's next submit silently overwrites it (recomputing that quarter's
 			// winner — real money). This advances ONLY on an explicit save, so it does
 			// NOT reintroduce the $scores live-tick clobber that
-			// manualScoreEntryInitialized guards against.
+			// the `edited` flag guards against.
 			//
 			// updateScore has just set the store; read it with get() because the
 			// runes-batched $scores binding may not have flushed yet.
@@ -83,6 +79,8 @@
 			const next = nextQuarterToScore(reloadedScores);
 			manualScores.quarter = next;
 			syncManualScoreFields(reloadedScores, next);
+			// Saved: nothing unsaved is left, so the form follows the scores again.
+			edited = false;
 		} else {
 			toast.error(result.error || 'Failed to update score');
 		}
@@ -120,6 +118,7 @@
 						id="row-score"
 						type="number"
 						bind:value={manualScores.rowScore}
+						oninput={() => (edited = true)}
 						min="0"
 						class="input input-no-spinner mt-1"
 					/>
@@ -130,6 +129,7 @@
 						id="col-score"
 						type="number"
 						bind:value={manualScores.colScore}
+						oninput={() => (edited = true)}
 						min="0"
 						class="input input-no-spinner mt-1"
 					/>

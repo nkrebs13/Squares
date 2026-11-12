@@ -239,6 +239,27 @@ describe('following a game linked while the party is open', () => {
 		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
 	});
 
+	it('re-reads an unlinked party when its team names change (its game is detected by name)', async () => {
+		mockSupabaseClient.rpc.mockResolvedValueOnce({
+			data: {
+				party: createMockParty({ id: 'p1', team_row_name: 'Ravens', team_col_name: 'Lions' }),
+				squares: createEmptyGrid(),
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		party.update((p) => (p ? { ...p, team_row_name: 'Ravens', team_col_name: 'Lions' } : p));
+		await flush();
+		expect(stateCalls()).toBe(2);
+
+		party.update((p) => (p ? { ...p, event_name: 'Renamed' } : p));
+		await flush();
+		expect(stateCalls()).toBe(2);
+	});
+
 	it('stops following after the party is left', () => {
 		cleanup();
 		party.set(createMockParty({ id: 'p1', game_id: 'g9' }));

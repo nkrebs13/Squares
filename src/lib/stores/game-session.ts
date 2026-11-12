@@ -57,12 +57,21 @@ export async function openParty(code: string): Promise<boolean> {
 	// A party linked to a game while it is open (operators link out of band) needs the
 	// game's channel too, or live scores never arrive until a reload. Resubscribing
 	// rejoins every channel, so re-read once: it also fetches the newly linked game.
+	// An unlinked party's game and sides are detected from its team names, so renaming
+	// the teams re-reads too.
+	let teams = `${current.team_row_name}|${current.team_col_name}`;
 	const stopGameWatch = party.subscribe((p) => {
-		if (mine !== session || !p || p.id !== current.id || !p.game_id) return;
-		if (p.game_id === followedGame) return;
-		followedGame = p.game_id;
-		subscribeToParty(p.id, followedGame);
-		refresh();
+		if (mine !== session || !p || p.id !== current.id) return;
+		if (p.game_id && p.game_id !== followedGame) {
+			followedGame = p.game_id;
+			subscribeToParty(p.id, followedGame);
+			refresh();
+		}
+		const nowTeams = `${p.team_row_name}|${p.team_col_name}`;
+		if (nowTeams !== teams) {
+			teams = nowTeams;
+			if (!p.game_id) refresh();
+		}
 	});
 	stopResync = () => {
 		stopReconnectWatch();
