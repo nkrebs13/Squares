@@ -528,6 +528,35 @@ describe('broadcast score_update', () => {
 		expect(mockSupabaseClient.from).not.toHaveBeenCalled();
 	});
 
+	it('drops a refetch that lands after another party was opened', () => {
+		// Hold both reads until the test answers them.
+		const pending: Array<(r: { data: unknown }) => void> = [];
+		mockSupabaseClient.from.mockImplementation(() => ({
+			select: vi.fn().mockReturnThis(),
+			insert: vi.fn().mockReturnThis(),
+			update: vi.fn().mockReturnThis(),
+			delete: vi.fn().mockReturnThis(),
+			eq: vi.fn().mockReturnThis(),
+			order: vi.fn().mockReturnThis(),
+			single: vi.fn().mockReturnThis(),
+			then: vi.fn((cb: (r: { data: unknown }) => void) => pending.push(cb)),
+		}));
+		party.set(createMockParty({ id: 'party-a' }));
+		open();
+		scoreUpdateFrom('other-client-id');
+
+		const partyB = createMockParty({ id: 'party-b', code: 'BBBB22' });
+		party.set(partyB);
+		scores.set(null);
+		winners.set([]);
+		const [answerScores, answerWinners] = pending;
+		answerScores({ data: mockScores });
+		answerWinners({ data: mockWinners });
+
+		expect(get(scores)).toBeNull();
+		expect(get(winners)).toEqual([]);
+	});
+
 	it('re-fetches scores and winners on external score update', () => {
 		party.set(createMockParty());
 		tablesRespond({ data: mockScores }, { data: mockWinners });

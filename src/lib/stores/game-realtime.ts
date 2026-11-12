@@ -238,19 +238,23 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 	// Re-fetch scores and winners from the database (source of truth)
 	const currentParty = get(party);
 	if (!currentParty) return;
+	const partyId = currentParty.id;
+	// The page may be left, or another party opened, while a refetch is in flight.
+	const stillOpen = () => get(party)?.id === partyId;
 
 	const supabase = getSupabaseClient();
 
 	supabase
 		.from('scores')
 		.select('*')
-		.eq('party_id', currentParty.id)
+		.eq('party_id', partyId)
 		.single()
 		.then(({ data, error }) => {
 			if (error) {
 				logWarn('[realtime] failed to refetch scores after broadcast:', error.message);
 				return;
 			}
+			if (!stillOpen()) return;
 			const parsed = parseScores(data);
 			if (parsed) scores.set(parsed);
 		});
@@ -258,13 +262,14 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 	supabase
 		.from('winners')
 		.select('*')
-		.eq('party_id', currentParty.id)
+		.eq('party_id', partyId)
 		.order('quarter')
 		.then(({ data, error }) => {
 			if (error) {
 				logWarn('[realtime] failed to refetch winners after broadcast:', error.message);
 				return;
 			}
+			if (!stillOpen()) return;
 			const parsed = parseWinnerArray(data);
 			if (parsed) winners.set(parsed);
 		});

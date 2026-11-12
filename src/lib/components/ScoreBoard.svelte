@@ -36,8 +36,8 @@
 		followsGame ? ($liveScores?.colScore ?? 0) : (currentQuarter?.colScore ?? 0)
 	);
 
+	// Read only inside the live badge.
 	const quarterLabel = $derived.by(() => {
-		if (!isLive) return currentQuarter?.label ?? '';
 		const q = $liveScores?.quarter ?? 0;
 		if (isHalftime($liveScores?.status)) return 'HALF';
 		return formatGamePeriod(q);

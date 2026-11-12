@@ -1,3 +1,4 @@
+import type { PayoutSplits } from '$lib/payouts';
 import { get } from 'svelte/store';
 import { party, squares, numbers, scores, winners } from './game-state';
 import { clearSquareFields } from './game-pending';
@@ -82,7 +83,7 @@ export async function updateScore(
 
 export async function updatePayoutStructure(
 	pin: string,
-	splits: { q1: number; q2: number; q3: number; final: number }
+	splits: PayoutSplits
 ): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };

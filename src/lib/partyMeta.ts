@@ -3,6 +3,7 @@ import { isComplete, isGameInProgress } from '$lib/partyStatus';
 import { APP_CONFIG } from '$lib/config';
 import type { Party } from '$lib/types';
 
+/** A party's public summary: what share metadata and a recent-parties entry are built from. */
 export interface PartyShareMetadata {
 	code: string;
 	eventName: string;

@@ -1,3 +1,4 @@
+import type { PayoutSplits } from '$lib/payouts';
 import { parseParty } from '$lib/validators/realtime';
 import { type Party } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
@@ -9,7 +10,7 @@ export interface CreatePartyInput {
 	hostName: string;
 	hostPin: string;
 	squarePrice: number;
-	splits: { q1: number; q2: number; q3: number; final: number };
+	splits: PayoutSplits;
 	teams: {
 		row: { name: string; color: string };
 		col: { name: string; color: string };
