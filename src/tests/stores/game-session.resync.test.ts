@@ -77,6 +77,32 @@ describe('resync after a reconnect', () => {
 		expect(get(error)).toBeNull();
 	});
 
+	it('drops a refresh still in flight when the party is left', async () => {
+		let respond!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (respond = r)) as never);
+
+		connection().set({ status: 'reconnecting', attempt: 1 });
+		connection().set({ status: 'connected', attempt: 0 });
+		cleanup();
+		// A claim started after leaving belongs to whatever comes next; the stale refresh must not end it.
+		addPendingOps([newPendingOp('claim', createEmptyGrid()[1], Date.now())]);
+		respond({
+			data: {
+				party: createMockParty({ id: 'p1', status: 'active' }),
+				squares: createEmptyGrid(),
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		await flush();
+
+		expect(get(party)).toBeNull();
+		expect(get(pendingOperations).has('0-1')).toBe(true);
+	});
+
 	it('also refreshes after the connection had failed', async () => {
 		connection().set({ status: 'failed', attempt: 5 });
 		stateResponds();
