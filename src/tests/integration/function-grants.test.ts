@@ -146,6 +146,49 @@ describe('push subscriptions', () => {
 
 		expect(await subscriptionRows()).toHaveLength(1);
 	});
+
+	it('a full party still refreshes its devices but takes no new one', async () => {
+		// The cap trigger fires before ON CONFLICT resolves, so the save must update an
+		// existing endpoint before it tries to insert (an upsert would refuse this refresh).
+		const full = await createTestParty(client);
+		const service = getServiceRoleClient();
+		try {
+			expect(await claimCell(client, full.id, 0, 0, 'Bob')).toBe(true);
+			const rows = Array.from({ length: 200 }, (_, i) => ({
+				party_id: full.id,
+				player_name: 'Bob',
+				endpoint: `https://push.example/full-${i}`,
+				p256dh: 'key-1',
+				auth: 'auth-1',
+			}));
+			expect((await service.from('push_subscriptions').insert(rows)).error).toBeNull();
+			const saveTo = (endpoint: string, p256dh: string) =>
+				client.rpc('save_push_subscription', {
+					p_party_id: full.id,
+					p_player_name: 'Bob',
+					p_endpoint: endpoint,
+					p_p256dh: p256dh,
+					p_auth: 'auth-1',
+				});
+
+			const refresh = await saveTo('https://push.example/full-7', 'key-2');
+			expect(refresh.error).toBeNull();
+			expect(refresh.data).toBe(true);
+
+			const extra = await saveTo('https://push.example/full-200', 'key-1');
+			expect(extra.error?.message).toContain('Push subscription limit reached');
+
+			const { data, error } = await service
+				.from('push_subscriptions')
+				.select('endpoint, p256dh')
+				.eq('party_id', full.id);
+			expect(error).toBeNull();
+			expect(data).toHaveLength(200);
+			expect(data?.find((r) => r.endpoint.endsWith('/full-7'))?.p256dh).toBe('key-2');
+		} finally {
+			await cleanupParty(client, full.id);
+		}
+	});
 });
 
 // Browsers only ever read tables (everything else goes through the functions above),

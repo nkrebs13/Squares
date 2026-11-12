@@ -144,7 +144,7 @@ export function parseNumbers(payload: unknown): Numbers | null {
 	if (!isNumberArray(p.row_numbers) || p.row_numbers.length !== GRID_SIZE)
 		return warn('numbers', p, `row_numbers not number[${GRID_SIZE}]`);
 	if (!isNumberArray(p.col_numbers) || p.col_numbers.length !== GRID_SIZE)
-		return warn('numbers', p, 'col_numbers not number[10]');
+		return warn('numbers', p, `col_numbers not number[${GRID_SIZE}]`);
 	return {
 		party_id: p.party_id,
 		row_numbers: p.row_numbers,

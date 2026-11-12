@@ -78,17 +78,13 @@
 				<div data-testid={`party-payout-${row.key}`}>
 					<div class="text-muted">{row.label}</div>
 					<div class="font-medium">{row.percent}%</div>
-					{#if $party.square_price > 0}
-						<div class="text-xs text-secondary">{formatPrice(row.amount)}</div>
-					{/if}
+					<div class="text-xs text-secondary">{formatPrice(row.amount)}</div>
 				</div>
 			{/each}
 		</div>
-		{#if $party.square_price > 0}
-			<div class="mt-3 text-center text-secondary">
-				{formatPrice($party.square_price)}/square • {formatPrice(totalPot)} total pot
-			</div>
-		{/if}
+		<div class="mt-3 text-center text-secondary">
+			{formatPrice($party.square_price)}/square • {formatPrice(totalPot)} total pot
+		</div>
 	</div>
 {/if}
 

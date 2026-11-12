@@ -13,7 +13,6 @@ export {
 	teamTheme,
 	isLoading,
 	error,
-	gridState,
 	liveScores,
 	leadingSquare,
 	filledCount,
