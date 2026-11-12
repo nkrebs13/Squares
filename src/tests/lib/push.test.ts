@@ -108,7 +108,7 @@ describe('Push Notification Module', () => {
 
 			const result = await subscribeToPush('party-123', 'Alice');
 
-			expect(result).toEqual({ success: false, error: 'Permission denied' });
+			expect(result).toEqual({ success: false, denied: true, error: 'Permission denied' });
 			expect(mockPushManager.subscribe).not.toHaveBeenCalled();
 		});
 

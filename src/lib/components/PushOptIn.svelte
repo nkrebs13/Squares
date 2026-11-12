@@ -28,7 +28,7 @@
 		if (result.success) {
 			subscribed = true;
 			toast.success('Notifications enabled!');
-		} else if (result.error === 'Permission denied') {
+		} else if (result.denied) {
 			denied = true;
 		} else {
 			toast.error(result.error || 'Failed to enable notifications');
