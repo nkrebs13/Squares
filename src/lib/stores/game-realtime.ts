@@ -178,13 +178,16 @@ function handleChannelStatus(
  * treated as stale and cannot schedule a reconnect.
  */
 function teardownChannels() {
-	for (const key of Object.keys(channelStates)) {
-		const state = channelStates[key];
-		if (!state.channel) continue;
-		state.channel.unsubscribe();
-		state.channel = null;
-		resetReconnectState(key);
-	}
+	for (const key of Object.keys(channelStates)) dropChannel(key);
+}
+
+/** Unsubscribe one channel, drop the reference, cancel its reconnect state. */
+function dropChannel(key: string) {
+	const state = channelStates[key];
+	if (!state.channel) return;
+	state.channel.unsubscribe();
+	state.channel = null;
+	resetReconnectState(key);
 }
 
 // Another tab's claim or unclaim. Its intent is previewed as a remote pending
@@ -436,6 +439,19 @@ export function subscribeToParty(partyId: string, gameId: string | null = null) 
 		++currentGeneration;
 		teardownChannels();
 	};
+}
+
+/**
+ * Point the game channel at another game (or none) and leave the party's channels
+ * joined, so no square, status or winner event is lost while it switches. A game
+ * update missed while the new channel joins heals on the next one (each carries the
+ * whole row).
+ */
+export function followGame(gameId: string | null) {
+	// Bump first: the old channel's async CLOSED must not schedule a reconnect.
+	++channelStates.game.instanceToken;
+	dropChannel('game');
+	if (gameId) setupGameChannel(gameId, currentGeneration);
 }
 
 export function broadcast(message: Omit<BroadcastMessage, 'clientId'>) {

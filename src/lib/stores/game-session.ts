@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { party, gameScores, resetPartyState } from './game-state';
 import { loadParty, refreshParty } from './game-load';
 import { clearPendingOps } from './game-pending';
-import { subscribeToParty, cleanupChannels, connectionStatus } from './game-realtime';
+import { subscribeToParty, followGame, cleanupChannels, connectionStatus } from './game-realtime';
 
 /** Bumped by every open and every cleanup; a load that finishes under an older value is stale. */
 let session = 0;
@@ -54,28 +54,37 @@ export async function openParty(code: string): Promise<boolean> {
 	stopResync?.();
 	const refresh = quietRefresher(code, mine);
 	const stopReconnectWatch = resyncOnReconnect(refresh);
-	// A party linked to a game while it is open (operators link out of band) needs the
-	// game's channel too, or live scores never arrive until a reload. Resubscribing
-	// rejoins every channel, so re-read once: it also fetches the newly linked game.
-	// An unlinked party's game and sides are detected from its team names, so renaming
-	// the teams re-reads too.
+	// The game channel follows the party's game: its linked one, else the one the
+	// server detects from its team names. Only that channel is re-keyed.
+	const follow = (gameId: string | null): boolean => {
+		if (gameId === followedGame) return false;
+		followedGame = gameId;
+		followGame(gameId);
+		return true;
+	};
+	// A game linked while the party is open (operators link out of band): re-read to
+	// fetch its row. Renaming an unlinked party's teams changes which game it matches:
+	// re-read to learn it.
 	let teams = `${current.team_row_name}|${current.team_col_name}`;
-	const stopGameWatch = party.subscribe((p) => {
+	const stopPartyWatch = party.subscribe((p) => {
 		if (mine !== session || !p || p.id !== current.id) return;
-		if (p.game_id && p.game_id !== followedGame) {
-			followedGame = p.game_id;
-			subscribeToParty(p.id, followedGame);
-			refresh();
-		}
+		if (p.game_id && follow(p.game_id)) refresh();
 		const nowTeams = `${p.team_row_name}|${p.team_col_name}`;
 		if (nowTeams !== teams) {
 			teams = nowTeams;
 			if (!p.game_id) refresh();
 		}
 	});
+	// An unlinked party follows whatever game the last read detected, or none.
+	const stopDetectedWatch = gameScores.subscribe((game) => {
+		const p = get(party);
+		if (mine !== session || !p || p.id !== current.id || p.game_id) return;
+		follow(game?.game_id ?? null);
+	});
 	stopResync = () => {
 		stopReconnectWatch();
-		stopGameWatch();
+		stopPartyWatch();
+		stopDetectedWatch();
 	};
 	return true;
 }
