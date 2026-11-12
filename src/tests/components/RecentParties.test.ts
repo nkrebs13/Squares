@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 
 // Must mock before importing the component
@@ -20,6 +20,11 @@ const mockUpdatePartyNickname = vi.mocked(updatePartyNickname);
 const mockGoto = vi.mocked(goto);
 
 describe('RecentParties Component', () => {
+	// Some tests switch to fake timers; restore even when an assertion fails first.
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});

@@ -102,8 +102,12 @@
 
 		if (result.success) {
 			toast.success(`Removed ${player.name} (${result.removedCount} squares freed)`);
-			removePlayerSucceeded = true;
-			playerToRemove = null;
+			// Only when this dialog is still open: one dismissed mid-request already
+			// returned focus, and a stale flag would misdirect the next dialog's.
+			if (playerToRemove === player) {
+				removePlayerSucceeded = true;
+				playerToRemove = null;
+			}
 		} else {
 			toast.error(result.error || 'Failed to remove player');
 		}
