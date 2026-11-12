@@ -18,7 +18,7 @@ describe('PlayerStats Component', () => {
 	beforeEach(async () => {
 		party.set(null);
 		squares.set([]);
-		await userName.clear();
+		await userName.setName('');
 	});
 
 	it('renders nothing when no userName', () => {

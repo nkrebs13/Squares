@@ -152,11 +152,25 @@ describe('push subscriptions', () => {
 // and only these (migration 042). parties is readable column by column, not as a table.
 const CLIENT_READABLE_TABLES = ['game_scores', 'numbers', 'scores', 'squares', 'winners'];
 
+/**
+ * What `role` can do to each table, view or sequence in public, as Postgres decides it:
+ * direct grants, grants to PUBLIC and role membership all count (has_*_privilege), so a
+ * grant to PUBLIC cannot slip past. A table readable only column by column (parties)
+ * does not count as table-readable.
+ */
 async function tablePrivilegesOf(role: string): Promise<string[]> {
 	const { rows } = await db.query<{ entry: string }>(
-		`SELECT table_name || ':' || privilege_type AS entry
-		 FROM information_schema.role_table_grants
-		 WHERE table_schema = 'public' AND grantee = $1
+		`SELECT c.relname || ':' || p.priv AS entry
+		 FROM pg_class c
+		 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+		 CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS p(priv)
+		 WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND has_table_privilege($1, c.oid, p.priv)
+		 UNION ALL
+		 SELECT c.relname || ':' || p.priv
+		 FROM pg_class c
+		 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+		 CROSS JOIN unnest(ARRAY['USAGE','SELECT','UPDATE']) AS p(priv)
+		 WHERE c.relkind = 'S' AND has_sequence_privilege($1, c.oid, p.priv)
 		 ORDER BY 1`,
 		[role]
 	);
@@ -173,13 +187,23 @@ describe('table privileges', () => {
 		}
 	);
 
-	it('a newly created table grants anon nothing', async () => {
+	it('a newly created table or sequence grants anon nothing', async () => {
+		await db.query('BEGIN');
+		try {
+			await db.query('CREATE TABLE public.grant_probe (id serial)');
+			const probe = (await tablePrivilegesOf('anon')).filter((e) => e.startsWith('grant_probe'));
+			expect(probe).toEqual([]);
+		} finally {
+			await db.query('ROLLBACK');
+		}
+	});
+
+	it('counts a grant to PUBLIC (it reaches every role)', async () => {
 		await db.query('BEGIN');
 		try {
 			await db.query('CREATE TABLE public.grant_probe (id int)');
-			expect(await tablePrivilegesOf('anon')).not.toContainEqual(
-				expect.stringContaining('grant_probe')
-			);
+			await db.query('GRANT INSERT ON public.grant_probe TO PUBLIC');
+			expect(await tablePrivilegesOf('anon')).toContain('grant_probe:INSERT');
 		} finally {
 			await db.query('ROLLBACK');
 		}

@@ -124,7 +124,7 @@ describe('Party Page', () => {
 	describe('No Username Redirect', () => {
 		it('redirects to /join?code=X when no userName', async () => {
 			const { goto } = await import('$app/navigation');
-			await userName.clear();
+			await userName.setName('');
 
 			isLoading.set(false);
 			render(PartyPage);

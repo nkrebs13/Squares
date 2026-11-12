@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { set as idbSet, del as idbDel } from 'idb-keyval';
+import { set as idbSet } from 'idb-keyval';
 
 const mockIdbSet = vi.mocked(idbSet);
-const mockIdbDel = vi.mocked(idbDel);
 
 // We need to re-import fresh modules per test to reset store state
 let userName: typeof import('$lib/stores/user').userName;
@@ -73,14 +72,6 @@ describe('userName store', () => {
 		await userName.setName('');
 		expect(get(userName)).toBeNull();
 	});
-
-	it('clear removes from store and storage', async () => {
-		await userName.setName('Alice');
-		await userName.clear();
-		expect(get(userName)).toBeNull();
-		expect(localStorage.removeItem).toHaveBeenCalledWith('squares_user_name');
-		expect(mockIdbDel).toHaveBeenCalledWith('squares_user_name');
-	});
 });
 
 describe('userName async IndexedDB initialization', () => {
@@ -129,18 +120,5 @@ describe('userName async IndexedDB initialization', () => {
 		// Store should still be updated (set() is called before await)
 		expect(get(userName)).toBe('Charlie');
 		expect(localStorage.getItem('squares_user_name')).toBe('Charlie');
-	});
-
-	it('clear works when clearUserName throws (IndexedDB error)', async () => {
-		const idbDelMock = vi.mocked((await import('idb-keyval')).del);
-		idbDelMock.mockRejectedValueOnce(new Error('IDB delete failed'));
-
-		await userName.setName('Dave');
-
-		// clearUserName in storage.ts catches the error and falls back to localStorage
-		await userName.clear();
-
-		expect(get(userName)).toBeNull();
-		expect(localStorage.removeItem).toHaveBeenCalledWith('squares_user_name');
 	});
 });

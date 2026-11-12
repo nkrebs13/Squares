@@ -468,9 +468,11 @@
 	}
 
 	.square-wrapper.highlighted {
+		/* One colour for the glow and, without motion, the outline that replaces it. */
+		--highlight: rgb(var(--rgb-teal) / 0.6);
 		z-index: 5;
 		transform: scale(1.05);
-		filter: drop-shadow(0 0 8px var(--player-text, rgb(var(--rgb-teal) / 0.6)));
+		filter: drop-shadow(0 0 8px var(--highlight));
 	}
 
 	.square-wrapper.dimmed {
@@ -589,7 +591,7 @@
 
 		.square-wrapper.highlighted {
 			filter: none;
-			outline: 2px solid var(--player-text);
+			outline: 2px solid var(--highlight);
 		}
 	}
 </style>

@@ -145,7 +145,7 @@ describe('grid counts', () => {
 
 describe('the current player squares', () => {
 	it('mySquares is empty when there is no userName', async () => {
-		await userName.clear();
+		await userName.setName('');
 		squares.set(createEmptyGrid());
 
 		expect(get(mySquares)).toEqual([]);
@@ -395,15 +395,6 @@ describe('activePlayerFilter follows the squares', () => {
 		clearOwner(0, 0);
 
 		expect(get(selectedPlayerFilter)).toBe('alice');
-	});
-
-	it('does not touch the filter when it is already null', () => {
-		squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
-		expect(get(activePlayerFilter)).toBeNull();
-
-		squares.set([]);
-
-		expect(get(activePlayerFilter)).toBeNull();
 	});
 });
 

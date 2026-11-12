@@ -84,12 +84,21 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.currency.code).toBe('USD');
 	});
 
-	it('exports DEFAULT_TEAMS aliasing APP_CONFIG.defaultTeams', async () => {
-		vi.doMock('$env/dynamic/public', () => ({ env: {} }));
-		const { DEFAULT_TEAMS, APP_CONFIG } = await import('$lib/config');
+	it('DEFAULT_TEAMS (the create form defaults) follows the team settings', async () => {
+		vi.doMock('$env/dynamic/public', () => ({
+			env: {
+				PUBLIC_DEFAULT_TEAM_ROW_NAME: 'Lakers',
+				PUBLIC_DEFAULT_TEAM_ROW_COLOR: '#552583',
+				PUBLIC_DEFAULT_TEAM_COL_NAME: 'Celtics',
+				PUBLIC_DEFAULT_TEAM_COL_COLOR: '#007A33',
+			},
+		}));
+		const { DEFAULT_TEAMS } = await import('$lib/config');
 
-		expect(DEFAULT_TEAMS.row.name).toBe(APP_CONFIG.defaultTeams.row.name);
-		expect(DEFAULT_TEAMS.col.name).toBe(APP_CONFIG.defaultTeams.col.name);
+		expect(DEFAULT_TEAMS).toEqual({
+			row: { name: 'Lakers', color: '#552583' },
+			col: { name: 'Celtics', color: '#007A33' },
+		});
 	});
 });
 

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { hasDrawnNumbers } from '$lib/partyStatus';
-	import { scores, liveScores, party, teamTheme } from '$lib/stores/game';
+	import { scores, liveScores, teamTheme } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
 	import { isGameFinal, isGameLive, isHalftime } from '$lib/liveGame';
 	import { QUARTERS, formatGamePeriod, latestScoredQuarter, quarterScore } from '$lib/quarters';
@@ -76,18 +75,16 @@
 		</div>
 	</div>
 
-	{#if hasDrawnNumbers($party?.status)}
-		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
-			{#each quarterScores as qs (qs.quarter)}
-				<div class="quarter-score-box">
-					<div class="font-medium text-secondary">{qs.label}</div>
-					<div class="font-mono">
-						{qs.rowScore ?? '-'} - {qs.colScore ?? '-'}
-					</div>
+	<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
+		{#each quarterScores as qs (qs.quarter)}
+			<div class="quarter-score-box">
+				<div class="font-medium text-secondary">{qs.label}</div>
+				<div class="font-mono">
+					{qs.rowScore ?? '-'} - {qs.colScore ?? '-'}
 				</div>
-			{/each}
-		</div>
-	{/if}
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>

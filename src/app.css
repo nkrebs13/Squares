@@ -538,11 +538,6 @@ body {
 	border-color: rgb(var(--rgb-accent) / 0.3);
 }
 
-.status-banner-locked {
-	background: rgba(255, 183, 77, 0.1);
-	border-color: rgba(255, 183, 77, 0.3);
-}
-
 .stats-bar {
 	@apply flex items-center justify-between px-4 py-3;
 	background: var(--bg-secondary);

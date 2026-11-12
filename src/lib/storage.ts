@@ -4,7 +4,7 @@
 //
 // Key names are what users' browsers already hold: never rename one.
 
-import { get, set, del } from 'idb-keyval';
+import { get, set } from 'idb-keyval';
 import { browser } from '$app/environment';
 
 export const STORAGE_KEYS = {
@@ -85,14 +85,6 @@ export function durable<T>(key: string, codec: Codec<T> | null) {
 				return true;
 			} catch {
 				return codec ? local.set(key, codec.encode(value)) : false;
-			}
-		},
-		async remove(): Promise<void> {
-			if (!browser) return;
-			try {
-				await del(key);
-			} catch {
-				if (codec) local.remove(key);
 			}
 		},
 	};

@@ -86,7 +86,7 @@ describe('SimpleGrid Component', () => {
 		winners.set([]);
 		pendingOperations.set(new Map());
 		selectedPlayerFilter.set(null);
-		await userName.clear();
+		await userName.setName('');
 	});
 
 	describe('Grid Rendering', () => {

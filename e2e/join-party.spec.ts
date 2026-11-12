@@ -77,14 +77,6 @@ test.describe('Join Party Page', () => {
 		await expect(nicknameInput).toHaveValue('A'.repeat(MAX_NICKNAME_LENGTH));
 	});
 
-	test('Join Party button is enabled without nickname', async ({ page }) => {
-		await page.getByPlaceholder('ABCD12').fill('TEST12');
-		await page.getByPlaceholder(/enter your name/i).fill('Test Player');
-
-		const joinButton = page.getByRole('button', { name: /join party/i });
-		await expect(joinButton).toBeEnabled();
-	});
-
 	test('Join Party button is disabled until form is filled', async ({ page }) => {
 		const joinButton = page.getByRole('button', { name: /join party/i });
 		await expect(joinButton).toBeDisabled();

@@ -346,3 +346,24 @@ test.describe('Party Page - Gesture Hint', () => {
 		await expect(page.locator('.gesture-hint-overlay')).toBeVisible({ timeout: 5000 });
 	});
 });
+
+test.describe('Party Page - Reduced motion', () => {
+	// Without motion the highlighted player's glow is dropped; an outline must take its place.
+	test("a highlighted player's squares are outlined", async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await setupSupabaseMocksWithOverrides(page, {
+			squaresData: generatePartiallyFilledSquares('test-party-id', [
+				{ row: 0, col: 0, name: 'Alice' },
+				{ row: 1, col: 1, name: 'Alice' },
+			]),
+		});
+		await setUserName(page, 'Viewer');
+		await page.goto('/party/TEST12');
+		await page.locator('.player-pill', { hasText: 'Alice' }).first().click();
+
+		const square = page.locator('.square-wrapper.highlighted').first();
+		await expect(square).toBeVisible();
+		await expect(square).toHaveCSS('outline-style', 'solid');
+		await expect(square).toHaveCSS('outline-width', '2px');
+	});
+});
