@@ -36,7 +36,7 @@
 	);
 	const hasChanges = $derived(
 		eventName.trim() !== party.event_name ||
-			datetimeLocalToIso(kickoffInput) !== party.kickoff_at ||
+			kickoffInput !== toDatetimeLocalValue(party.kickoff_at) ||
 			rowTeam.name.trim() !== party.team_row_name ||
 			colTeam.name.trim() !== party.team_col_name ||
 			rowTeam.color !== party.team_row_color ||

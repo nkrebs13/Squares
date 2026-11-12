@@ -14,7 +14,7 @@ Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supab
 
 - Brand strings (app name, tagline, OG description), default team labels/colors, and currency code/locale live in `src/lib/config.ts` (`APP_CONFIG`).
 - Each value reads a `PUBLIC_*` env var via `$env/dynamic/public` with a hardcoded fallback that preserves the current Football Squares experience.
-- `DEFAULT_TEAMS` is exported from `$lib/config`. `$lib/types` re-exports it for backwards compatibility, but new imports should source from `$lib/config` directly.
+- `DEFAULT_TEAMS` is exported from `$lib/config`.
 - `vite.config.ts` reads `process.env.PUBLIC_APP_NAME` / `PUBLIC_APP_DESCRIPTION` at build time so the PWA manifest stays in sync.
 - When adding new brand-aware UI strings or defaults, extend `APP_CONFIG` rather than hardcoding in components.
 

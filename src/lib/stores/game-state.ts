@@ -1,16 +1,7 @@
 import { isGameInProgress } from '$lib/partyStatus';
 import { isGameLive } from '$lib/liveGame';
 import { writable, derived } from 'svelte/store';
-import type {
-	Party,
-	Square,
-	Numbers,
-	Scores,
-	Winner,
-	GridState,
-	GameScoresRow,
-	LiveScores,
-} from '$lib/types';
+import type { Party, Square, Numbers, Scores, Winner, GameScoresRow, LiveScores } from '$lib/types';
 import { TOTAL_SQUARES } from '$lib/constants';
 import { DEFAULT_TEAMS } from '$lib/config';
 import { userName } from './user';
@@ -49,20 +40,6 @@ export const error = resettable<string | null>(null);
 
 /** Shown when the party does not exist, or stops existing while open. */
 export const PARTY_NOT_FOUND = 'Party not found';
-
-export const gridState = derived(
-	[party, squares, numbers, scores, winners],
-	([$party, $squares, $numbers, $scores, $winners]) => {
-		if (!$party) return null;
-		return {
-			party: $party,
-			squares: $squares,
-			numbers: $numbers,
-			scores: $scores,
-			winners: $winners,
-		} as GridState;
-	}
-);
 
 export const liveScores = derived<
 	[typeof gameScores, typeof gameHomeIsRow, typeof party],
@@ -186,13 +163,6 @@ export function applyWinner(newWinner: Winner): void {
 			? current.map((w) => (same(w) ? newWinner : w))
 			: [...current, newWinner];
 	});
-}
-
-/** Apply a DELETE on the winners table. Matches by (party_id, quarter). */
-export function applyWinnerDelete(deleted: Winner): void {
-	winners.update((current) =>
-		current.filter((w) => !(w.party_id === deleted.party_id && w.quarter === deleted.quarter))
-	);
 }
 
 /** The party's teams and colours, with the configured defaults before a party loads. */

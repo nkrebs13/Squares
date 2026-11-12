@@ -60,13 +60,4 @@ describe('PlayerStats Component', () => {
 		expect(screen.getByText('Amount owed')).toBeInTheDocument();
 		expect(screen.getByText('$10')).toBeInTheDocument();
 	});
-
-	it('hides amount owed when price is 0', async () => {
-		await userName.setName('Alice');
-		party.set(createMockParty({ square_price: 0 }));
-		squares.set([createMockSquare(0, 0, 'Alice')]);
-		render(PlayerStats);
-
-		expect(screen.queryByText('Amount owed')).not.toBeInTheDocument();
-	});
 });

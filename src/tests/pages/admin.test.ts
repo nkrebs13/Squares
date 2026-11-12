@@ -669,6 +669,16 @@ describe('Admin Page - Score Entry', () => {
 			expect(screen.getByLabelText('Top Team')).toHaveValue('Chiefs');
 		});
 
+		it('has nothing to save until the host edits something, with a kickoff set', async () => {
+			// The server writes timestamps as +00:00, never the .000Z the input converts to.
+			renderAuthorizedAdmin({ status: 'filling', kickoff_at: '2027-02-14T23:30:00+00:00' });
+			const save = screen.getByRole('button', { name: /Save Event Details/i });
+			expect(save).toBeDisabled();
+
+			await userEvent.setup().type(screen.getByLabelText('Event name'), '!');
+			expect(save).toBeEnabled();
+		});
+
 		it('saves edited event details through the host RPC', async () => {
 			const updatedParty = createMockParty({
 				event_name: '2027 Championship',

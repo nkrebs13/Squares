@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { APP_CONFIG } from '$lib/config';
-import { getDetailLine, getDisplayName } from '$lib/utils/recentParties';
+import { getDetailLine, getDisplayName } from '$lib/utils/recentPartyLabels';
 import { createMockRecentParty } from '../factories';
 
 describe('getDisplayName', () => {

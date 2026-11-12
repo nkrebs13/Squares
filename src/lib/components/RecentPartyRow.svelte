@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { MAX_NICKNAME_LENGTH } from '$lib/constants';
-	import { getDetailLine, getDisplayName } from '$lib/utils/recentParties';
+	import { getDetailLine, getDisplayName } from '$lib/utils/recentPartyLabels';
 	import { getStatusBadge } from '$lib/partyStatus';
 	import type { RecentParty } from '$lib/types';
 

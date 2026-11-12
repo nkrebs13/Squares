@@ -4,13 +4,10 @@ import {
 	party,
 	squares,
 	numbers,
-	scores,
-	winners,
 	gameScores,
 	gameHomeIsRow,
 	liveScores,
 	leadingSquare,
-	gridState,
 	filledCount,
 	isGridFull,
 	mySquares,
@@ -31,9 +28,7 @@ import {
 	createMockGameScores,
 	createMockNumbers,
 	createMockParty,
-	createMockScores,
 	createMockSquare,
-	createMockWinner,
 } from '../factories';
 
 /** An empty grid where each listed cell is owned by the given player. */
@@ -65,32 +60,6 @@ function clearOwner(row: number, col: number) {
 beforeEach(() => {
 	cleanup();
 	userName.setName('TestUser');
-});
-
-describe('gridState', () => {
-	it('returns null when party is null', () => {
-		expect(get(gridState)).toBeNull();
-	});
-
-	it('returns combined state when party is set', () => {
-		const mockParty = createMockParty();
-		const mockNumbers = createMockNumbers();
-		const mockScores = createMockScores();
-
-		party.set(mockParty);
-		squares.set(createEmptyGrid());
-		numbers.set(mockNumbers);
-		scores.set(mockScores);
-		winners.set([createMockWinner()]);
-
-		const state = get(gridState);
-		expect(state).not.toBeNull();
-		expect(state?.party).toEqual(mockParty);
-		expect(state?.squares).toHaveLength(100);
-		expect(state?.numbers).toEqual(mockNumbers);
-		expect(state?.scores).toEqual(mockScores);
-		expect(state?.winners).toHaveLength(1);
-	});
 });
 
 describe('grid counts', () => {

@@ -28,7 +28,6 @@ import {
 	gameScores,
 	winners,
 	applyWinner,
-	applyWinnerDelete,
 } from './game-state';
 import {
 	addPendingOps,
@@ -352,12 +351,11 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 		table: 'winners',
 		filterColumn: 'party_id',
 		handle: (payload) => {
+			// Winners are only ever upserted; a party delete's cascade is not delivered
+			// (a DELETE carries only the key, so the party_id filter cannot match it).
 			if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 				const newWinner = parseWinner(payload.new);
 				if (newWinner) applyWinner(newWinner);
-			} else if (payload.eventType === 'DELETE') {
-				const deleted = parseWinner(payload.old);
-				if (deleted) applyWinnerDelete(deleted);
 			}
 		},
 	},

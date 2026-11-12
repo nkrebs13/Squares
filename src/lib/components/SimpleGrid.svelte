@@ -172,7 +172,7 @@
 				<span class="text-sm text-secondary">Your squares:</span>
 				<span class="font-bold text-lg">{$mySquareCount}</span>
 			</div>
-			{#if $party && $party.square_price > 0}
+			{#if $party}
 				<div class="flex items-center gap-2">
 					<span class="text-sm text-secondary">You owe:</span>
 					<span class="font-bold text-lg" style="color: var(--color-accent)"

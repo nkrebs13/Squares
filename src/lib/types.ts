@@ -80,14 +80,6 @@ export interface Winner {
 	amount: number;
 }
 
-export interface GridState {
-	party: Party;
-	squares: Square[];
-	numbers: Numbers | null;
-	scores: Scores | null;
-	winners: Winner[];
-}
-
 /** Name of the preset whose percentages are entered by hand. */
 export const CUSTOM_PRESET_NAME = 'Custom';
 
@@ -105,10 +97,6 @@ export const SPLIT_PRESETS: SplitPreset[] = [
 	{ name: 'Big Finish', q1: 20, q2: 20, q3: 20, final: 40 },
 	{ name: CUSTOM_PRESET_NAME, q1: 0, q2: 0, q3: 0, final: 0 },
 ];
-
-// Default teams live in $lib/config (env-overridable). Re-export here for any
-// external consumers, but new imports should source directly from $lib/config.
-export { DEFAULT_TEAMS } from '$lib/config';
 
 export interface RecentParty {
 	code: string;

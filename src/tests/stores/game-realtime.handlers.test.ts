@@ -268,15 +268,6 @@ describe('postgres_changes: winners', () => {
 
 		expect(get(winners).map((w) => w.quarter)).toEqual(['q1', 'q3']);
 	});
-
-	it('DELETE removes matching winner by party_id and quarter', () => {
-		winners.set([q1, q2]);
-		open();
-
-		pgChange('winners', { eventType: 'DELETE', old: q1 });
-
-		expect(get(winners)).toEqual([q2]);
-	});
 });
 
 describe('postgres_changes: squares', () => {

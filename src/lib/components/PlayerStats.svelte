@@ -17,7 +17,7 @@
 				<div class="font-semibold">{$mySquareCount}</div>
 			</div>
 
-			{#if $party && $party.square_price > 0}
+			{#if $party}
 				<div class="text-right">
 					<div class="text-sm text-secondary">Amount owed</div>
 					<div class="font-semibold" style="color: var(--color-warning)">
