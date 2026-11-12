@@ -1,8 +1,9 @@
 import type { Page } from '@playwright/test';
+import type { Party, Square } from '../../src/lib/types';
 
 // ── Default mock data ──
 
-export const mockParty = {
+export const mockParty: Party = {
 	id: 'test-party-id',
 	code: 'TEST12',
 	status: 'filling',
@@ -25,8 +26,8 @@ export const mockParty = {
 	expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
-export function generateEmptySquares(partyId: string) {
-	const squares = [];
+export function generateEmptySquares(partyId: string): Square[] {
+	const squares: Square[] = [];
 	for (let row = 0; row < 10; row++) {
 		for (let col = 0; col < 10; col++) {
 			squares.push({
@@ -170,7 +171,7 @@ export const mockWinnersAll = [
 
 /** The get_party_state response for a party's fixture rows. */
 export function partyStateBody(
-	partyData: Record<string, unknown>,
+	partyData: Party,
 	squaresData: unknown[],
 	scoresData: unknown,
 	winnersData: unknown[] = []

@@ -61,6 +61,69 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."game_scores" (
+    "game_id" character varying(20) NOT NULL,
+    "sport" character varying(10) DEFAULT 'nfl'::character varying NOT NULL,
+    "home_team_abbrev" character varying(10) NOT NULL,
+    "away_team_abbrev" character varying(10) NOT NULL,
+    "home_team_name" character varying(50) NOT NULL,
+    "away_team_name" character varying(50) NOT NULL,
+    "home_score" integer DEFAULT 0 NOT NULL,
+    "away_score" integer DEFAULT 0 NOT NULL,
+    "game_clock" character varying(10) DEFAULT ''::character varying NOT NULL,
+    "game_quarter" integer DEFAULT 0 NOT NULL,
+    "game_status" character varying(20) DEFAULT 'pregame'::character varying NOT NULL,
+    "q1_home" integer,
+    "q1_away" integer,
+    "q2_home" integer,
+    "q2_away" integer,
+    "q3_home" integer,
+    "q3_away" integer,
+    "q4_home" integer,
+    "q4_away" integer,
+    "final_home" integer,
+    "final_away" integer,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."game_scores" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."apply_game_scores"("p_party_id" "uuid", "p_home_is_row" boolean, "p_new" "public"."game_scores", "p_old" "public"."game_scores") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'extensions'
+    AS $_$
+DECLARE
+	v_q TEXT;
+	v_home INT;
+	v_away INT;
+	v_old_home INT;
+BEGIN
+	FOREACH v_q IN ARRAY ARRAY['q1', 'q2', 'q3', 'final'] LOOP
+		EXECUTE format('SELECT ($1).%I, ($1).%I', v_q || '_home', v_q || '_away')
+			INTO v_home, v_away USING p_new;
+		EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_old_home USING p_old;
+
+		IF v_home IS NOT NULL AND v_old_home IS NULL THEN
+			IF p_home_is_row THEN
+				PERFORM auto_update_score(p_party_id, v_q, v_home, v_away);
+			ELSE
+				PERFORM auto_update_score(p_party_id, v_q, v_away, v_home);
+			END IF;
+		END IF;
+	END LOOP;
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."apply_game_scores"("p_party_id" "uuid", "p_home_is_row" boolean, "p_new" "public"."game_scores", "p_old" "public"."game_scores") OWNER TO "postgres";
+
 
 CREATE OR REPLACE FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -96,41 +159,20 @@ ALTER FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" cha
 CREATE OR REPLACE FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
-    AS $_$
+    AS $$
 DECLARE
-  v_party RECORD;
-  v_game RECORD;
-  v_quarters TEXT[] := ARRAY['q1', 'q2', 'q3', 'final'];
-  v_q TEXT;
-  v_home INT;
-  v_away INT;
-  v_row_score INT;
-  v_col_score INT;
+	v_party RECORD;
+	v_game public.game_scores;
 BEGIN
-  SELECT * INTO v_party FROM parties WHERE id = p_party_id;
-  IF NOT FOUND OR v_party.game_id IS NULL THEN RETURN; END IF;
+	SELECT id, game_id, home_team_is_row INTO v_party FROM parties WHERE id = p_party_id;
+	IF NOT FOUND OR v_party.game_id IS NULL THEN RETURN; END IF;
 
-  SELECT * INTO v_game FROM game_scores WHERE game_id = v_party.game_id;
-  IF NOT FOUND THEN RETURN; END IF;
+	SELECT * INTO v_game FROM game_scores WHERE game_id = v_party.game_id;
+	IF NOT FOUND THEN RETURN; END IF;
 
-  -- Propagate any already-completed quarters
-  FOR v_q IN SELECT unnest(v_quarters) LOOP
-    EXECUTE format('SELECT ($1).%I, ($1).%I', v_q || '_home', v_q || '_away')
-      INTO v_home, v_away USING v_game;
-
-    IF v_home IS NOT NULL THEN
-      -- Use COALESCE for safety, even though column is now NOT NULL
-      IF COALESCE(v_party.home_team_is_row, TRUE) THEN
-        v_row_score := v_home; v_col_score := v_away;
-      ELSE
-        v_row_score := v_away; v_col_score := v_home;
-      END IF;
-
-      PERFORM auto_update_score(p_party_id, v_q, v_row_score, v_col_score);
-    END IF;
-  END LOOP;
+	PERFORM apply_game_scores(p_party_id, v_party.home_team_is_row, v_game, NULL);
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") OWNER TO "postgres";
@@ -229,39 +271,6 @@ $$;
 
 
 ALTER FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") OWNER TO "postgres";
-
-SET default_tablespace = '';
-
-SET default_table_access_method = "heap";
-
-
-CREATE TABLE IF NOT EXISTS "public"."game_scores" (
-    "game_id" character varying(20) NOT NULL,
-    "sport" character varying(10) DEFAULT 'nfl'::character varying NOT NULL,
-    "home_team_abbrev" character varying(10) NOT NULL,
-    "away_team_abbrev" character varying(10) NOT NULL,
-    "home_team_name" character varying(50) NOT NULL,
-    "away_team_name" character varying(50) NOT NULL,
-    "home_score" integer DEFAULT 0 NOT NULL,
-    "away_score" integer DEFAULT 0 NOT NULL,
-    "game_clock" character varying(10) DEFAULT ''::character varying NOT NULL,
-    "game_quarter" integer DEFAULT 0 NOT NULL,
-    "game_status" character varying(20) DEFAULT 'pregame'::character varying NOT NULL,
-    "q1_home" integer,
-    "q1_away" integer,
-    "q2_home" integer,
-    "q2_away" integer,
-    "q3_home" integer,
-    "q3_away" integer,
-    "q4_home" integer,
-    "q4_away" integer,
-    "final_home" integer,
-    "final_away" integer,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."game_scores" OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name" "text", "p_game" "public"."game_scores") RETURNS boolean
@@ -795,49 +804,24 @@ ALTER FUNCTION "public"."party_expiry"("p_kickoff_at" timestamp with time zone) 
 CREATE OR REPLACE FUNCTION "public"."propagate_game_scores"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
-    AS $_$
+    AS $$
 DECLARE
-  v_party RECORD;
-  v_new_home INT;
-  v_old_home INT;
-  v_row_score INT;
-  v_col_score INT;
-  v_q TEXT;
-  v_quarters TEXT[] := ARRAY['q1', 'q2', 'q3', 'final'];
+	v_party RECORD;
 BEGIN
-  FOR v_party IN
-    SELECT id, home_team_is_row FROM parties
-    WHERE game_id = NEW.game_id AND status IN ('locked', 'active')
-  LOOP
-    FOR v_q IN SELECT unnest(v_quarters) LOOP
-      EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_new_home USING NEW;
-
-      -- OLD is only defined for UPDATE operations, not INSERT
-      IF TG_OP = 'UPDATE' THEN
-        EXECUTE format('SELECT ($1).%I', v_q || '_home') INTO v_old_home USING OLD;
-      ELSE
-        v_old_home := NULL;
-      END IF;
-
-      -- Only fire on first non-null value for this quarter (quarter just ended)
-      IF v_new_home IS NOT NULL AND v_old_home IS NULL THEN
-        -- Use COALESCE for safety, even though column is now NOT NULL
-        IF COALESCE(v_party.home_team_is_row, TRUE) THEN
-          v_row_score := v_new_home;
-          EXECUTE format('SELECT ($1).%I', v_q || '_away') INTO v_col_score USING NEW;
-        ELSE
-          EXECUTE format('SELECT ($1).%I', v_q || '_away') INTO v_row_score USING NEW;
-          v_col_score := v_new_home;
-        END IF;
-
-        PERFORM auto_update_score(v_party.id, v_q, v_row_score, v_col_score);
-      END IF;
-    END LOOP;
-  END LOOP;
-
-  RETURN NEW;
+	FOR v_party IN
+		SELECT id, home_team_is_row FROM parties
+		WHERE game_id = NEW.game_id AND status IN ('locked', 'active')
+	LOOP
+		PERFORM apply_game_scores(
+			v_party.id,
+			v_party.home_team_is_row,
+			NEW,
+			CASE WHEN TG_OP = 'UPDATE' THEN OLD END
+		);
+	END LOOP;
+	RETURN NEW;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION "public"."propagate_game_scores"() OWNER TO "postgres";
@@ -1272,15 +1256,7 @@ CREATE INDEX "idx_parties_game_id" ON "public"."parties" USING "btree" ("game_id
 
 
 
-CREATE INDEX "idx_parties_host_name" ON "public"."parties" USING "btree" ("host_name_lower");
-
-
-
 CREATE INDEX "idx_push_subscriptions_party_player" ON "public"."push_subscriptions" USING "btree" ("party_id", "player_name_lower");
-
-
-
-CREATE INDEX "idx_squares_player" ON "public"."squares" USING "btree" ("player_name_lower");
 
 
 
@@ -1594,6 +1570,17 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+GRANT SELECT ON TABLE "public"."game_scores" TO "anon";
+GRANT SELECT ON TABLE "public"."game_scores" TO "authenticated";
+GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."apply_game_scores"("p_party_id" "uuid", "p_home_is_row" boolean, "p_new" "public"."game_scores", "p_old" "public"."game_scores") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."apply_game_scores"("p_party_id" "uuid", "p_home_is_row" boolean, "p_new" "public"."game_scores", "p_old" "public"."game_scores") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) TO "service_role";
 
@@ -1613,12 +1600,6 @@ REVOKE ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_n
 GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "service_role";
 GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "anon";
 GRANT ALL ON FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") TO "authenticated";
-
-
-
-GRANT SELECT ON TABLE "public"."game_scores" TO "anon";
-GRANT SELECT ON TABLE "public"."game_scores" TO "authenticated";
-GRANT ALL ON TABLE "public"."game_scores" TO "service_role";
 
 
 
