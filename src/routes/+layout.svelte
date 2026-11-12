@@ -43,8 +43,8 @@
 	<div class="aurora-gradient-2"></div>
 </div>
 
-<div class="min-h-screen safe-top safe-bottom relative">
+<main class="min-h-screen safe-top safe-bottom relative">
 	{@render children()}
-</div>
+</main>
 
 <ToastContainer />

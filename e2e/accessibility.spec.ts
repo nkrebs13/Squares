@@ -5,7 +5,8 @@ test.describe('Accessibility', () => {
 	test('landing page has proper heading hierarchy', async ({ page }) => {
 		await page.goto('/');
 
-		const h1 = page.getByRole('heading', { level: 1 });
+		// The page's content sits in the one main landmark.
+		const h1 = page.getByRole('main').getByRole('heading', { level: 1 });
 		await expect(h1).toBeVisible();
 		await expect(h1).toContainText(DEFAULT_APP_NAME);
 	});
@@ -13,7 +14,7 @@ test.describe('Accessibility', () => {
 	test('create page has proper heading hierarchy', async ({ page }) => {
 		await page.goto('/create');
 
-		const h1 = page.getByRole('heading', { level: 1 });
+		const h1 = page.getByRole('main').getByRole('heading', { level: 1 });
 		await expect(h1).toBeVisible();
 		await expect(h1).toContainText(/create party/i);
 	});
@@ -21,7 +22,7 @@ test.describe('Accessibility', () => {
 	test('join page has proper heading hierarchy', async ({ page }) => {
 		await page.goto('/join');
 
-		const h1 = page.getByRole('heading', { level: 1 });
+		const h1 = page.getByRole('main').getByRole('heading', { level: 1 });
 		await expect(h1).toBeVisible();
 		await expect(h1).toContainText(/join party/i);
 	});

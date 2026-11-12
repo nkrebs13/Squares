@@ -177,7 +177,7 @@ describe('Join Page', () => {
 			await user.click(button);
 
 			await waitFor(() => {
-				expect(screen.getByText(/Party not found/i)).toBeInTheDocument();
+				expect(screen.getByRole('alert')).toHaveTextContent(/Party not found/i);
 			});
 		});
 

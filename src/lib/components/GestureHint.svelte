@@ -72,48 +72,52 @@
 	}
 </script>
 
-{#if show}
-	<button class="gesture-hint-overlay" onclick={dismiss} aria-label="Dismiss hint">
-		<div class="gesture-hint-card" role="status" aria-live="polite">
-			{#each hints as hint (hint.text)}
-				<div class="hint-row">
-					<span class="hint-icon">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							{#if hint.icon === 'zoom'}
-								<circle cx="11" cy="11" r="8"></circle>
-								<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-								<line x1="11" y1="8" x2="11" y2="14"></line>
-								<line x1="8" y1="11" x2="14" y2="11"></line>
-							{:else if hint.icon === 'tap'}
-								<path
-									d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
-								></path>
-							{:else}
-								<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-								<line x1="9" y1="3" x2="9" y2="21"></line>
-								<line x1="15" y1="3" x2="15" y2="21"></line>
-								<line x1="3" y1="9" x2="21" y2="9"></line>
-								<line x1="3" y1="15" x2="21" y2="15"></line>
-							{/if}
-						</svg>
-					</span>
-					<span>{hint.text}</span>
-				</div>
-			{/each}
-			<div class="hint-dismiss">Tap to dismiss</div>
-		</div>
-	</button>
-{/if}
+<!-- The live region outlives the hint so screen readers announce it when it fills;
+     the button is named by its own text (the hints and "Tap to dismiss"). -->
+<div role="status">
+	{#if show}
+		<button class="gesture-hint-overlay" onclick={dismiss}>
+			<div class="gesture-hint-card">
+				{#each hints as hint (hint.text)}
+					<div class="hint-row">
+						<span class="hint-icon">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								{#if hint.icon === 'zoom'}
+									<circle cx="11" cy="11" r="8"></circle>
+									<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+									<line x1="11" y1="8" x2="11" y2="14"></line>
+									<line x1="8" y1="11" x2="14" y2="11"></line>
+								{:else if hint.icon === 'tap'}
+									<path
+										d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+									></path>
+								{:else}
+									<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+									<line x1="9" y1="3" x2="9" y2="21"></line>
+									<line x1="15" y1="3" x2="15" y2="21"></line>
+									<line x1="3" y1="9" x2="21" y2="9"></line>
+									<line x1="3" y1="15" x2="21" y2="15"></line>
+								{/if}
+							</svg>
+						</span>
+						<span>{hint.text}</span>
+					</div>
+				{/each}
+				<div class="hint-dismiss">Tap to dismiss</div>
+			</div>
+		</button>
+	{/if}
+</div>
 
 <style>
 	.gesture-hint-overlay {

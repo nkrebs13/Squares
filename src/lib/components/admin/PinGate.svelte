@@ -47,7 +47,7 @@
 	>
 		<PinInput bind:value={enteredPin} class="mb-4" />
 		{#if pinError}
-			<div class="message-error mb-4">
+			<div class="message-error mb-4" role="alert">
 				{pinError}
 			</div>
 		{/if}

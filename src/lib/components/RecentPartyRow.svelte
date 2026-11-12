@@ -22,6 +22,9 @@
 	} = $props();
 
 	let editing = $state(false);
+	let editButton = $state<HTMLButtonElement>();
+	let removeButton = $state<HTMLButtonElement>();
+	let cancelRemoveButton = $state<HTMLButtonElement>();
 	let editValue = $state('');
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -65,14 +68,33 @@
 		editValue = '';
 	}
 
+	// Each control that replaces the focused one hands focus to its counterpart, so a
+	// keyboard user isn't dropped back at the top of the page.
+	async function focusAfterRender(target: () => HTMLElement | undefined) {
+		await tick();
+		target()?.focus();
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			saveEdit();
+			focusAfterRender(() => editButton);
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			cancelEdit();
+			focusAfterRender(() => editButton);
 		}
+	}
+
+	function requestRemove() {
+		onrequestremove(party.code);
+		focusAfterRender(() => cancelRemoveButton);
+	}
+
+	function cancelRemove() {
+		oncancelremove();
+		focusAfterRender(() => removeButton);
 	}
 
 	function handleBlur() {
@@ -120,6 +142,7 @@
 			<span class="nickname-text">
 				<span class="nickname-label">{displayName}</span>
 				<button
+					bind:this={editButton}
 					class="edit-btn"
 					onclick={startEdit}
 					aria-label={party.nickname ? `Edit nickname: ${party.nickname}` : 'Add nickname'}
@@ -165,15 +188,21 @@
 				>
 					Yes
 				</button>
-				<button class="confirm-no-btn" onclick={oncancelremove} aria-label="Cancel remove">
+				<button
+					bind:this={cancelRemoveButton}
+					class="confirm-no-btn"
+					onclick={cancelRemove}
+					aria-label="Cancel remove"
+				>
 					No
 				</button>
 			</div>
 		{:else}
 			<span class="status-badge badge-{badge.tone}">{badge.text}</span>
 			<button
+				bind:this={removeButton}
 				class="remove-btn"
-				onclick={() => onrequestremove(party.code)}
+				onclick={requestRemove}
 				aria-label="Remove from recent"
 			>
 				<svg
