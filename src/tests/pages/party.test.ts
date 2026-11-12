@@ -191,7 +191,6 @@ describe('Party Page', () => {
 				party_id: 'test-party-id',
 				row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 				col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-				assigned_at: new Date().toISOString(),
 			});
 			render(PartyPage);
 
@@ -220,7 +219,6 @@ describe('Party Page', () => {
 				party_id: 'test-party-id',
 				row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 				col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-				assigned_at: new Date().toISOString(),
 			});
 			render(PartyPage);
 
@@ -250,7 +248,6 @@ describe('Party Page', () => {
 				party_id: 'test-party-id',
 				row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 				col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-				assigned_at: new Date().toISOString(),
 			});
 			render(PartyPage);
 

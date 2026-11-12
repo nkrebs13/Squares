@@ -112,9 +112,6 @@ export function parseParty(payload: unknown): Party | null {
 	if (!isStr(p.team_col_name)) return warn('parties', p, 'team_col_name missing');
 	if (!isStr(p.team_row_color)) return warn('parties', p, 'team_row_color missing');
 	if (!isStr(p.team_col_color)) return warn('parties', p, 'team_col_color missing');
-	if (!isStr(p.created_at)) return warn('parties', p, 'created_at missing');
-	if (!isStr(p.updated_at)) return warn('parties', p, 'updated_at missing');
-	if (!isStr(p.expires_at)) return warn('parties', p, 'expires_at missing');
 	if (!isStrOrNull(p.game_id)) return warn('parties', p, 'game_id not str|null');
 	if (typeof p.home_team_is_row !== 'boolean')
 		return warn('parties', p, 'home_team_is_row not a bool');
@@ -135,9 +132,6 @@ export function parseParty(payload: unknown): Party | null {
 		team_col_name: p.team_col_name,
 		team_row_color: p.team_row_color,
 		team_col_color: p.team_col_color,
-		created_at: p.created_at,
-		updated_at: p.updated_at,
-		expires_at: p.expires_at,
 		game_id: p.game_id,
 		home_team_is_row: p.home_team_is_row,
 	};
@@ -151,12 +145,10 @@ export function parseNumbers(payload: unknown): Numbers | null {
 		return warn('numbers', p, `row_numbers not number[${GRID_SIZE}]`);
 	if (!isNumberArray(p.col_numbers) || p.col_numbers.length !== GRID_SIZE)
 		return warn('numbers', p, 'col_numbers not number[10]');
-	if (!isStr(p.assigned_at)) return warn('numbers', p, 'assigned_at missing');
 	return {
 		party_id: p.party_id,
 		row_numbers: p.row_numbers,
 		col_numbers: p.col_numbers,
-		assigned_at: p.assigned_at,
 	};
 }
 
@@ -184,7 +176,6 @@ export function parseWinner(payload: unknown): Winner | null {
 	if (!isNum(p.winning_col)) return warn('winners', p, 'winning_col missing');
 	if (!isStr(p.player_name)) return warn('winners', p, 'player_name missing');
 	if (!isNum(p.amount)) return warn('winners', p, 'amount missing');
-	if (!isStr(p.created_at)) return warn('winners', p, 'created_at missing');
 	return {
 		id: p.id,
 		party_id: p.party_id,
@@ -193,7 +184,6 @@ export function parseWinner(payload: unknown): Winner | null {
 		winning_col: p.winning_col,
 		player_name: p.player_name,
 		amount: p.amount,
-		created_at: p.created_at,
 	};
 }
 
@@ -219,7 +209,6 @@ export function parseGameScores(payload: unknown): GameScoresRow | null {
 		'home_team_name',
 		'away_team_name',
 		'game_clock',
-		'updated_at',
 	] as const;
 	for (const f of requiredStr) {
 		if (!isStr(p[f])) return warn('game_scores', p, `${f} missing`);
@@ -268,6 +257,5 @@ export function parseGameScores(payload: unknown): GameScoresRow | null {
 		q4_away: p.q4_away as number | null,
 		final_home: p.final_home as number | null,
 		final_away: p.final_away as number | null,
-		updated_at: p.updated_at as string,
 	};
 }

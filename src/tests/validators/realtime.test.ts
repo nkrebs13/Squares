@@ -144,9 +144,20 @@ describe('parseSquare', () => {
 	});
 });
 
+// The fixtures are rows as the server sends them. A parser keeps only the
+// columns the app reads, so a column it ignores can never fail a load.
+const { created_at: _pc, updated_at: _pu, expires_at: _pe, ...readParty } = validParty;
+const { assigned_at: _na, ...readNumbers } = validNumbers;
+const { created_at: _wc, ...readWinner } = validWinner;
+const { updated_at: _gu, ...readGameScores } = validGameScores;
+
 describe('parseParty', () => {
 	it('returns the typed party for a valid payload', () => {
-		expect(parseParty(validParty)).toEqual(validParty);
+		expect(parseParty(validParty)).toEqual(readParty);
+	});
+
+	it('accepts a row without the columns the app never reads', () => {
+		expect(parseParty(readParty)).toEqual(readParty);
 	});
 
 	it('rejects an unknown status value', () => {
@@ -155,7 +166,7 @@ describe('parseParty', () => {
 
 	it('strips host_pin if an RPC payload accidentally includes it', () => {
 		const withPin = { ...validParty, host_pin: '1234' };
-		expect(parseParty(withPin)).toEqual(validParty);
+		expect(parseParty(withPin)).toEqual(readParty);
 	});
 
 	it('returns null when required field is missing', () => {
@@ -166,7 +177,7 @@ describe('parseParty', () => {
 
 describe('parseNumbers', () => {
 	it('returns the typed numbers for a valid payload', () => {
-		expect(parseNumbers(validNumbers)).toEqual(validNumbers);
+		expect(parseNumbers(validNumbers)).toEqual(readNumbers);
 	});
 
 	it('rejects row_numbers with wrong length', () => {
@@ -192,7 +203,7 @@ describe('parseScores', () => {
 
 describe('parseWinner', () => {
 	it('returns the typed winner for a valid payload', () => {
-		expect(parseWinner(validWinner)).toEqual(validWinner);
+		expect(parseWinner(validWinner)).toEqual(readWinner);
 	});
 
 	it('rejects an invalid quarter value', () => {
@@ -227,9 +238,8 @@ describe('parseWinner', () => {
 		expect(parseWinner({ ...validWinner, amount: 'lots' })).toBeNull();
 	});
 
-	it('rejects when created_at is missing', () => {
-		const { created_at: _ca, ...missing } = validWinner;
-		expect(parseWinner(missing)).toBeNull();
+	it('accepts a row without the columns the app never reads', () => {
+		expect(parseWinner(readWinner)).toEqual(readWinner);
 	});
 
 	it('rejects when party_id is missing', () => {
@@ -240,7 +250,7 @@ describe('parseWinner', () => {
 
 describe('parseWinnerArray', () => {
 	it('returns the typed array for valid input', () => {
-		expect(parseWinnerArray([validWinner, validWinner])).toEqual([validWinner, validWinner]);
+		expect(parseWinnerArray([validWinner, validWinner])).toEqual([readWinner, readWinner]);
 	});
 
 	it('returns null on non-array input', () => {
@@ -258,7 +268,11 @@ describe('parseWinnerArray', () => {
 
 describe('parseGameScores', () => {
 	it('returns the typed row for a valid payload', () => {
-		expect(parseGameScores(validGameScores)).toEqual(validGameScores);
+		expect(parseGameScores(validGameScores)).toEqual(readGameScores);
+	});
+
+	it('accepts a row without the columns the app never reads', () => {
+		expect(parseGameScores(readGameScores)).toEqual(readGameScores);
 	});
 
 	it('rejects when a required string field is missing', () => {
@@ -286,7 +300,7 @@ describe('parseGameScores', () => {
 
 	it('accepts null for optional quarter scores', () => {
 		const partial = {
-			...validGameScores,
+			...readGameScores,
 			q1_home: null,
 			q1_away: null,
 		};
@@ -349,9 +363,8 @@ describe('additional parseNumbers branches', () => {
 		expect(parseNumbers(missing)).toBeNull();
 	});
 
-	it('rejects when assigned_at is missing', () => {
-		const { assigned_at: _aa, ...missing } = validNumbers;
-		expect(parseNumbers(missing)).toBeNull();
+	it('accepts a row without the columns the app never reads', () => {
+		expect(parseNumbers(readNumbers)).toEqual(readNumbers);
 	});
 
 	it('rejects when row_numbers is not an array', () => {
