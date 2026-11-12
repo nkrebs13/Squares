@@ -1165,7 +1165,7 @@ CREATE TABLE IF NOT EXISTS "public"."winners" (
     "winning_row" integer NOT NULL,
     "winning_col" integer NOT NULL,
     "player_name" character varying(50) NOT NULL,
-    "amount" numeric(10,2) NOT NULL,
+    "amount" numeric(14,2) NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "winners_quarter_check" CHECK ((("quarter")::"text" = ANY ((ARRAY['q1'::character varying, 'q2'::character varying, 'q3'::character varying, 'final'::character varying])::"text"[]))),
     CONSTRAINT "winners_winning_col_check" CHECK ((("winning_col" >= 0) AND ("winning_col" <= 9))),

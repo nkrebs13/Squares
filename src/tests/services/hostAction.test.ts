@@ -4,6 +4,7 @@ import {
 	DB_MAX_TEAM_NAME_LENGTH,
 	MAX_EVENT_NAME_LENGTH,
 	MIN_SQUARE_PRICE,
+	SQUARE_PRICE_CEILING,
 	PIN_LENGTH,
 } from '$lib/constants';
 import { mockSupabaseClient } from '../setup';
@@ -28,7 +29,7 @@ describe('callHost invalid_input copy', () => {
 			`Team names must be 1–${DB_MAX_TEAM_NAME_LENGTH} characters.`
 		);
 		expect(await refusedField('square_price')).toBe(
-			`Square price must be at least ${MIN_SQUARE_PRICE} and under 100,000,000.`
+			`Square price must be at least ${MIN_SQUARE_PRICE} and under ${SQUARE_PRICE_CEILING.toLocaleString('en-US')}.`
 		);
 	});
 });

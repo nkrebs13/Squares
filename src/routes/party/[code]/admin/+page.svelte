@@ -95,11 +95,13 @@
 		if (!storedPin || !playerToRemove) return;
 
 		isRemovingPlayer = true;
+		// Read before the await: the dialog can be dismissed while the request is in flight.
+		const player = playerToRemove;
 
-		const result = await removePlayer(storedPin, playerToRemove.normalizedName);
+		const result = await removePlayer(storedPin, player.normalizedName);
 
 		if (result.success) {
-			toast.success(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
+			toast.success(`Removed ${player.name} (${result.removedCount} squares freed)`);
 			removePlayerSucceeded = true;
 			playerToRemove = null;
 		} else {
