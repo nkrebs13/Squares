@@ -145,7 +145,14 @@ export async function fillAllSquares(_client: SupabaseClient, partyId: string): 
  * forceDeleteParty for tests that drive a party into lockout.
  */
 export async function cleanupParty(client: SupabaseClient, partyId: string): Promise<void> {
-	await client.rpc('host_delete_party', { p_party_id: partyId, p_pin: '1234' });
+	const { data, error } = await client.rpc('host_delete_party', {
+		p_party_id: partyId,
+		p_pin: '1234',
+	});
+	if (error) throw new Error(`cleanupParty failed: ${error.message}`);
+	if (!data?.ok && data?.error !== 'not_found') {
+		throw new Error(`cleanupParty refused: ${data?.error} (use forceDeleteParty)`);
+	}
 }
 
 /**
@@ -170,11 +177,12 @@ export async function cleanupAllTestParties(): Promise<void> {
 	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 	// Delete parties created before the cutoff with the test pin '1234'
-	const { data: staleParties } = await client
+	const { data: staleParties, error } = await client
 		.from('parties')
 		.select('id')
 		.eq('host_pin', '1234')
 		.lt('created_at', oneHourAgo);
+	if (error) throw new Error(`cleanupAllTestParties lookup failed: ${error.message}`);
 
 	if (staleParties && staleParties.length > 0) {
 		// Service-role delete: a stale party may be in PIN lockout, which would

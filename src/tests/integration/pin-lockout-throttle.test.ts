@@ -94,6 +94,26 @@ afterEach(async () => {
 	for (const id of createdPartyIds.splice(0)) await forceDeleteParty(id);
 });
 
+describe('host_verify_pin lockout', () => {
+	it('locks out after five wrong PINs, then refuses the correct PIN', async () => {
+		const party = await newParty();
+		for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+			const { data, error } = await client.rpc('host_verify_pin', {
+				p_party_code: party.code,
+				p_pin: WRONG_PIN,
+			});
+			expect(error).toBeNull();
+			expect(data).toEqual({ ok: false, error: 'invalid_pin' });
+			expect((await readPinState(party.id)).pin_attempts).toBe(i);
+		}
+		const { data } = await client.rpc('host_verify_pin', {
+			p_party_code: party.code,
+			p_pin: party.host_pin,
+		});
+		expect(data).toEqual({ ok: false, error: 'locked_out' });
+	});
+});
+
 describe.each(ACTIONS)('PIN lockout throttle: $name', ({ name, args }) => {
 	it('durably counts each wrong PIN, locks out at the limit, and refuses the correct PIN', async () => {
 		const party = await newParty();

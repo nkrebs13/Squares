@@ -192,6 +192,30 @@ describe('host_lock_party', () => {
 		expect(data).toEqual({ ok: false, error: 'grid_incomplete' });
 	});
 
+	it('refuses a grid with a single empty square', async () => {
+		const party = await newParty();
+		await fillAllSquares(client, party.id);
+		const { error } = await service
+			.from('squares')
+			.update({ player_name: null, claimed_at: null })
+			.eq('party_id', party.id)
+			.eq('row_num', 9)
+			.eq('col_num', 9);
+		expect(error).toBeNull();
+
+		const { data } = await client.rpc('host_lock_party', {
+			p_party_id: party.id,
+			p_pin: party.host_pin,
+		});
+		expect(data).toEqual({ ok: false, error: 'grid_incomplete' });
+		const { data: row } = await service
+			.from('parties')
+			.select('status')
+			.eq('id', party.id)
+			.single();
+		expect(row?.status).toBe('filling');
+	});
+
 	it('assigns numbers and returns the active party', async () => {
 		const party = await newParty();
 		await fillAllSquares(client, party.id);
