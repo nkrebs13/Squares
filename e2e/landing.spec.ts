@@ -83,8 +83,8 @@ test.describe('Landing Page', () => {
 		await expect(page).toHaveURL('/join?code=DEMO01');
 	});
 
-	test('displays hint about joining multiple parties', async ({ page }) => {
-		await expect(page.getByText(/join multiple parties/i)).toBeVisible();
+	test('says the last few joined parties appear below', async ({ page }) => {
+		await expect(page.getByText(/last few parties you joined/i)).toBeVisible();
 	});
 });
 

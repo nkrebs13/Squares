@@ -379,6 +379,13 @@ describe('Party Page', () => {
 			expect(screen.getByRole('button', { name: /show gesture help/i })).toBeInTheDocument();
 		});
 
+		it('offers no gesture help once the grid has stopped filling', () => {
+			party.set(createMockParty({ status: 'active' }));
+			render(PartyPage);
+
+			expect(screen.queryByRole('button', { name: /show gesture help/i })).not.toBeInTheDocument();
+		});
+
 		it('mounts the sidebar once, above the grid, in the mobile layout', () => {
 			const { container } = render(PartyPage);
 			expect(screen.getAllByTestId('party-payout-q1')).toHaveLength(1);

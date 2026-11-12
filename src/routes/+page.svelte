@@ -113,7 +113,7 @@
 	</section>
 
 	<section class="recent-section" aria-label="Recent parties">
-		<p class="recent-hint">Join multiple parties and they will all appear below.</p>
+		<p class="recent-hint">The last few parties you joined appear below.</p>
 		<RecentParties />
 	</section>
 </div>

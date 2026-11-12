@@ -290,12 +290,17 @@ CREATE OR REPLACE FUNCTION "public"."game_side"("p_row_name" "text", "p_col_name
                (strpos(hn, c) > 0 OR strpos(c, hn) > 0 OR ha = c) AS col_home,
                (strpos(an, c) > 0 OR strpos(c, an) > 0 OR aa = c) AS col_away
         FROM n
+    ),
+    o AS (
+        SELECT (row_home AND col_away) AS row_is_home,
+               (row_away AND col_home) AS row_is_away
+        FROM m
     )
     SELECT CASE
-        WHEN row_home AND col_away THEN TRUE
-        WHEN row_away AND col_home THEN FALSE
+        WHEN row_is_home AND NOT row_is_away THEN TRUE
+        WHEN row_is_away AND NOT row_is_home THEN FALSE
     END
-    FROM m;
+    FROM o;
 $$;
 
 

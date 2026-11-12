@@ -256,6 +256,32 @@ describe('ScoreBoard Component', () => {
 		});
 	});
 
+	describe('Final game', () => {
+		it("shows the game's final score beside FINAL, not the party's last quarter", () => {
+			party.set(
+				createMockParty({ status: 'active', game_id: 'test-game-id', home_team_is_row: true })
+			);
+			// The party has recorded only Q1; the game has ended 31-24.
+			scores.set(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
+			gameScores.set(
+				createMockGameScores({
+					home_score: 31,
+					away_score: 24,
+					game_status: 'final',
+					game_quarter: 4,
+				})
+			);
+
+			render(ScoreBoard);
+
+			expect(screen.getByText('FINAL')).toBeInTheDocument();
+			const values = [...document.querySelectorAll('.score-value')].map((el) =>
+				el.textContent?.trim()
+			);
+			expect(values).toEqual(['31', '24']);
+		});
+	});
+
 	describe('Edge Cases', () => {
 		it('handles null scores store', () => {
 			party.set(createMockParty({ status: 'active' }));
