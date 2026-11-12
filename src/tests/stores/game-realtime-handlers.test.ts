@@ -9,6 +9,7 @@ import {
 	winners,
 	gameScores,
 	pendingOperations,
+	connectionStatus,
 	cleanup,
 } from '$lib/stores/game';
 import { userName } from '$lib/stores/user';
@@ -18,6 +19,8 @@ import {
 	mockSupabaseChannel,
 	mockSupabaseClient,
 	simulateChannelStatus,
+	simulateChannelStatusAt,
+	subscribeCallbackCount,
 } from '../setup';
 import {
 	createEmptyGrid,
@@ -585,11 +588,11 @@ describe('channel cleanup', () => {
 		// Subscribe with gameId to create game channel
 		const unsubscribe = subscribeToParty('test-party-id', 'game-123');
 
-		// Call unsubscribe - should clean up all channels
+		mockSupabaseChannel.unsubscribe.mockClear();
 		unsubscribe();
 
-		// Channels should be unsubscribed (mock.unsubscribe called)
-		// No error should be thrown
+		// party + broadcast + game channel
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(3);
 	});
 
 	it('calling subscribeToParty again cleans up previous channels including game channel', () => {
@@ -600,9 +603,11 @@ describe('channel cleanup', () => {
 		subscribeToParty('test-party-id', 'game-123');
 
 		// Second subscription should cleanup previous channels
+		mockSupabaseChannel.unsubscribe.mockClear();
 		subscribeToParty('test-party-id-2', 'game-456');
 
-		// No error should be thrown, cleanup should be successful
+		// The three previous channels (party, broadcast, game) are torn down; the new ones stay open
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(3);
 	});
 
 	it('cleanup() cleans up game channel when present', () => {
@@ -612,10 +617,10 @@ describe('channel cleanup', () => {
 		// Subscribe with gameId
 		subscribeToParty('test-party-id', 'game-123');
 
-		// Cleanup should handle game channel
+		mockSupabaseChannel.unsubscribe.mockClear();
 		cleanup();
 
-		// No error should be thrown
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(3);
 	});
 });
 
@@ -635,11 +640,14 @@ describe('channel reconnection', () => {
 		squares.set(createEmptyGrid());
 		subscribeToParty('test-party-id');
 
-		// Simulate successful subscription
+		simulateChannelStatus('CHANNEL_ERROR');
+		expect(get(connectionStatus)).toEqual({ status: 'reconnecting', attempt: 1 });
+
 		simulateChannelStatus('SUBSCRIBED');
 
-		// No error should be thrown, reconnect counter should be reset
-		// (internal state, verified by not seeing exponential backoff on next error)
+		expect(get(connectionStatus)).toEqual({ status: 'connected', attempt: 0 });
+		// The pending reconnect timer was cancelled with the reset
+		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	it('CHANNEL_ERROR triggers reconnection attempt', () => {
@@ -704,26 +712,22 @@ describe('channel reconnection', () => {
 		squares.set(createEmptyGrid());
 		subscribeToParty('test-party-id');
 
-		// First error
+		mockSupabaseChannel.unsubscribe.mockClear();
+
+		// First error: reconnect after the base delay (1000ms + up to 500ms jitter)
 		simulateChannelStatus('CHANNEL_ERROR');
+		vi.advanceTimersByTime(999);
+		expect(mockSupabaseChannel.unsubscribe).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(501);
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalled();
 
-		// First reconnection should happen after ~1s (base delay)
-		vi.advanceTimersByTime(1500);
-
-		// Simulate another error after reconnection
+		// Second error without an intervening SUBSCRIBED: delay doubles (2000ms + jitter)
+		mockSupabaseChannel.unsubscribe.mockClear();
 		simulateChannelStatus('CHANNEL_ERROR');
-
-		// Second reconnection should take longer (~2s due to exponential backoff)
-		const callsBefore = mockSupabaseChannel.unsubscribe.mock.calls.length;
-		vi.advanceTimersByTime(1500); // Not enough time
-
-		// Should not have reconnected yet (still waiting for longer backoff)
-		// The delay is 2^1 * 1000 = 2000ms + jitter, so 1500ms shouldn't trigger it
-		vi.advanceTimersByTime(2000); // Now advance enough
-		const callsAfter = mockSupabaseChannel.unsubscribe.mock.calls.length;
-
-		// Should have reconnected after full backoff period
-		expect(callsAfter).toBeGreaterThanOrEqual(callsBefore);
+		vi.advanceTimersByTime(1999);
+		expect(mockSupabaseChannel.unsubscribe).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(501);
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalled();
 	});
 
 	it('switching parties cancels pending reconnection timeout', () => {
@@ -736,12 +740,13 @@ describe('channel reconnection', () => {
 
 		// Switch to a different party before timeout fires
 		subscribeToParty('other-party-id');
+		mockSupabaseClient.channel.mockClear();
 
-		// Advance timer - the old reconnection should NOT fire
+		// Advance timer - the old reconnection should NOT fire (it would re-create channels)
 		vi.advanceTimersByTime(5000);
 
-		// No error should occur from stale closure
-		// The new subscription should be active
+		expect(mockSupabaseClient.channel).not.toHaveBeenCalled();
+		expect(get(connectionStatus)).toEqual({ status: 'connected', attempt: 0 });
 	});
 });
 
@@ -1028,9 +1033,13 @@ describe('game channel status', () => {
 		// Subscribe with gameId to create the game channel
 		subscribeToParty('test-party-id', 'game-123');
 
-		// Simulate SUBSCRIBED on all channels (including game channel)
-		simulateChannelStatus('SUBSCRIBED');
+		// Callbacks register in order broadcast, party, game
+		const gameIndex = subscribeCallbackCount() - 1;
+		simulateChannelStatusAt(gameIndex, 'CHANNEL_ERROR');
+		expect(get(connectionStatus)).toEqual({ status: 'reconnecting', attempt: 1 });
 
-		// No error should be thrown — reconnect state should be cleanly reset
+		simulateChannelStatusAt(gameIndex, 'SUBSCRIBED');
+
+		expect(get(connectionStatus)).toEqual({ status: 'connected', attempt: 0 });
 	});
 });

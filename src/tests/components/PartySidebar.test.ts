@@ -155,9 +155,9 @@ describe('PartySidebar', () => {
 		mockParty.set(makeParty());
 		const { getByText } = render(PartySidebar);
 		await tick();
-		expect(getByText('Game')).toBeTruthy();
-		expect(getByText('Prize Split')).toBeTruthy();
-		expect(getByText('Players')).toBeTruthy();
+		expect(getByText('Game')).toBeInTheDocument();
+		expect(getByText('Prize Split')).toBeInTheDocument();
+		expect(getByText('Players')).toBeInTheDocument();
 	});
 
 	it('drops the titles and the legend in the mobile layout', async () => {
@@ -175,7 +175,7 @@ describe('PartySidebar', () => {
 		mockFilledCount.set(42);
 		const { getByText } = render(PartySidebar);
 		await tick();
-		expect(getByText(/42\/100/)).toBeTruthy();
+		expect(getByText(/42\/100/)).toBeInTheDocument();
 	});
 
 	it('shows ready to lock message when grid is full and filling', async () => {
@@ -184,7 +184,7 @@ describe('PartySidebar', () => {
 		mockIsGridFull.set(true);
 		const { getByText } = render(PartySidebar);
 		await tick();
-		expect(getByText(/Ready to lock/)).toBeTruthy();
+		expect(getByText(/Ready to lock/)).toBeInTheDocument();
 		mockIsGridFull.set(false);
 	});
 
@@ -197,6 +197,6 @@ describe('PartySidebar', () => {
 		expect(getByTestId('party-payout-q2')).toHaveTextContent('$100');
 		expect(getByTestId('party-payout-q3')).toHaveTextContent('$150');
 		expect(getByTestId('party-payout-final')).toHaveTextContent('$200');
-		expect(getByText('$5/square • $500 total pot')).toBeTruthy();
+		expect(getByText('$5/square • $500 total pot')).toBeInTheDocument();
 	});
 });

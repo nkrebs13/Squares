@@ -62,31 +62,6 @@ describe('pending operation timeout', () => {
 		expect(get(squares)[0].player_name).toBe('Alice');
 		expect(get(pendingOperations).has('0-0')).toBe(true);
 	});
-
-	it('replaces timeout when same key is claimed again', () => {
-		party.set(createMockParty());
-		squares.set([createMockSquare(0, 0), createMockSquare(0, 1)]);
-
-		mockSupabaseClient.rpc.mockReturnValue({
-			then: vi.fn().mockReturnValue({ catch: vi.fn() }),
-		} as unknown as ReturnType<typeof mockSupabaseClient.rpc>);
-
-		// Claim first square
-		claimSquareOptimistic(0, 0);
-
-		// Advance 5000ms
-		vi.advanceTimersByTime(5000);
-
-		// Unclaim and reclaim via RPC failure rollback, then claim again
-		// For simplicity, just verify the timeout mechanism works
-		expect(get(squares)[0].player_name).toBe('Alice');
-
-		// Advance remaining 5000ms
-		vi.advanceTimersByTime(5000);
-
-		// Should be rolled back after full 10000ms
-		expect(get(squares)[0].player_name).toBeNull();
-	});
 });
 
 describe('subscription cleanup', () => {
@@ -106,11 +81,13 @@ describe('subscription cleanup', () => {
 
 		claimSquareOptimistic(0, 0);
 
-		// Cleanup should clear the timeout
+		expect(vi.getTimerCount()).toBe(1);
+
 		cleanup();
 
-		// Advance past timeout — should NOT cause errors since cleanup cleared it
-		vi.advanceTimersByTime(15000);
+		// The 10s rollback timer is cancelled, not just orphaned
+		expect(vi.getTimerCount()).toBe(0);
+		expect(get(pendingOperations).size).toBe(0);
 
 		vi.useRealTimers();
 	});
@@ -118,12 +95,11 @@ describe('subscription cleanup', () => {
 	it('cleanup unsubscribes both channels', () => {
 		subscribeToParty('test-party-id');
 
-		const unsubsBefore = mockSupabaseChannel.unsubscribe.mock.calls.length;
+		mockSupabaseChannel.unsubscribe.mockClear();
 		cleanup();
-		const unsubsAfter = mockSupabaseChannel.unsubscribe.mock.calls.length;
 
-		// Should have unsubscribed at least 2 channels (channel + broadcastChannel)
-		expect(unsubsAfter - unsubsBefore).toBeGreaterThanOrEqual(2);
+		// channel + broadcastChannel, each exactly once
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(2);
 	});
 
 	it('subscribeToParty cleanup unsubscribes both channel and broadcastChannel', () => {

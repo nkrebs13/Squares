@@ -19,7 +19,6 @@ import {
 	amountOwed,
 	playerSummary,
 	availableCount,
-	selectedPlayerFilter,
 	pendingOperations,
 	cleanup,
 } from '$lib/stores/game';
@@ -38,119 +37,6 @@ describe('Game Store', () => {
 		// Reset all stores to initial state
 		cleanup();
 		userName.setName('TestUser');
-	});
-
-	describe('Core Stores', () => {
-		describe('party store', () => {
-			it('initializes as null', () => {
-				expect(get(party)).toBeNull();
-			});
-
-			it('can be set to a party', () => {
-				const mockParty = createMockParty();
-				party.set(mockParty);
-				expect(get(party)).toEqual(mockParty);
-			});
-
-			it('can be updated', () => {
-				party.set(createMockParty({ status: 'filling' }));
-				party.update((p) => (p ? { ...p, status: 'active' } : null));
-				expect(get(party)?.status).toBe('active');
-			});
-		});
-
-		describe('squares store', () => {
-			it('initializes as empty array', () => {
-				expect(get(squares)).toEqual([]);
-			});
-
-			it('can be set to a grid', () => {
-				const grid = createEmptyGrid();
-				squares.set(grid);
-				expect(get(squares)).toHaveLength(100);
-			});
-
-			it('can update individual squares', () => {
-				const grid = createEmptyGrid();
-				squares.set(grid);
-
-				squares.update((current) =>
-					current.map((s) =>
-						s.row_num === 0 && s.col_num === 0
-							? { ...s, player_name: 'Alice', player_name_lower: 'alice' }
-							: s
-					)
-				);
-
-				const updated = get(squares);
-				const targetSquare = updated.find((s) => s.row_num === 0 && s.col_num === 0);
-				expect(targetSquare?.player_name).toBe('Alice');
-			});
-		});
-
-		describe('numbers store', () => {
-			it('initializes as null', () => {
-				expect(get(numbers)).toBeNull();
-			});
-
-			it('can be set to numbers', () => {
-				const mockNumbers = createMockNumbers();
-				numbers.set(mockNumbers);
-				expect(get(numbers)).toEqual(mockNumbers);
-			});
-		});
-
-		describe('scores store', () => {
-			it('initializes as null', () => {
-				expect(get(scores)).toBeNull();
-			});
-
-			it('can be set to scores', () => {
-				const mockScores = createMockScores({ q1_row_score: 7, q1_col_score: 3 });
-				scores.set(mockScores);
-				expect(get(scores)?.q1_row_score).toBe(7);
-			});
-		});
-
-		describe('winners store', () => {
-			it('initializes as empty array', () => {
-				expect(get(winners)).toEqual([]);
-			});
-
-			it('can add winners', () => {
-				winners.set([createMockWinner()]);
-				expect(get(winners)).toHaveLength(1);
-			});
-
-			it('can append winners', () => {
-				winners.set([createMockWinner({ id: '1', quarter: 'q1' })]);
-				winners.update((w) => [...w, createMockWinner({ id: '2', quarter: 'q2' })]);
-				expect(get(winners)).toHaveLength(2);
-			});
-		});
-
-		describe('isLoading store', () => {
-			it('initializes as true', () => {
-				isLoading.set(true); // Reset to initial
-				expect(get(isLoading)).toBe(true);
-			});
-
-			it('can be toggled', () => {
-				isLoading.set(false);
-				expect(get(isLoading)).toBe(false);
-			});
-		});
-
-		describe('error store', () => {
-			it('initializes as null', () => {
-				expect(get(error)).toBeNull();
-			});
-
-			it('can be set to error message', () => {
-				error.set('Something went wrong');
-				expect(get(error)).toBe('Something went wrong');
-			});
-		});
 	});
 
 	describe('Derived Stores', () => {
@@ -384,65 +270,6 @@ describe('Game Store', () => {
 		});
 	});
 
-	describe('selectedPlayerFilter', () => {
-		it('initializes as null', () => {
-			expect(get(selectedPlayerFilter)).toBeNull();
-		});
-
-		it('can be set to filter by player', () => {
-			selectedPlayerFilter.set('alice');
-			expect(get(selectedPlayerFilter)).toBe('alice');
-		});
-
-		it('can be cleared', () => {
-			selectedPlayerFilter.set('alice');
-			selectedPlayerFilter.set(null);
-			expect(get(selectedPlayerFilter)).toBeNull();
-		});
-	});
-
-	describe('pendingOperations', () => {
-		it('initializes as empty Map', () => {
-			expect(get(pendingOperations).size).toBe(0);
-		});
-
-		it('can add pending operations', () => {
-			pendingOperations.update((ops) => {
-				const newOps = new Map(ops);
-				newOps.set('0-0', {
-					clientId: 'test-client',
-					origin: 'local',
-					type: 'claim',
-					row: 0,
-					col: 0,
-					timestamp: Date.now(),
-					originalState: {
-						player_name: null,
-						player_name_lower: null,
-						claimed_at: null,
-					},
-				});
-				return newOps;
-			});
-
-			expect(get(pendingOperations).size).toBe(1);
-			expect(get(pendingOperations).has('0-0')).toBe(true);
-		});
-	});
-
-	describe('gameScores store', () => {
-		it('initializes as null', () => {
-			expect(get(gameScores)).toBeNull();
-		});
-
-		it('can be set to a game scores row', () => {
-			const mockGs = createMockGameScores({ home_score: 14, away_score: 7 });
-			gameScores.set(mockGs);
-			expect(get(gameScores)?.home_score).toBe(14);
-			expect(get(gameScores)?.away_score).toBe(7);
-		});
-	});
-
 	describe('liveScores derived store', () => {
 		it('returns null when gameScores is null', () => {
 			party.set(createMockParty({ game_id: 'test-game-id', home_team_is_row: true }));
@@ -467,15 +294,13 @@ describe('Game Store', () => {
 				})
 			);
 
-			const live = get(liveScores);
-			expect(live).not.toBeNull();
-			if (live) {
-				expect(live.rowScore).toBe(14);
-				expect(live.colScore).toBe(7);
-				expect(live.clock).toBe('5:30');
-				expect(live.quarter).toBe(2);
-				expect(live.status).toBe('in_progress');
-			}
+			expect(get(liveScores)).toMatchObject({
+				rowScore: 14,
+				colScore: 7,
+				clock: '5:30',
+				quarter: 2,
+				status: 'in_progress',
+			});
 		});
 
 		it('maps away to row when the home team is the column team', () => {
@@ -488,12 +313,7 @@ describe('Game Store', () => {
 				})
 			);
 
-			const live = get(liveScores);
-			expect(live).not.toBeNull();
-			if (live) {
-				expect(live.rowScore).toBe(7);
-				expect(live.colScore).toBe(14);
-			}
+			expect(get(liveScores)).toMatchObject({ rowScore: 7, colScore: 14 });
 		});
 	});
 
@@ -507,6 +327,8 @@ describe('Game Store', () => {
 			winners.set([createMockWinner()]);
 			gameScores.set(createMockGameScores());
 			error.set('Some error');
+			isLoading.set(false);
+			gameHomeIsRow.set(false);
 			pendingOperations.update((ops) => {
 				const newOps = new Map(ops);
 				newOps.set('0-0', {
@@ -536,6 +358,7 @@ describe('Game Store', () => {
 			expect(get(winners)).toEqual([]);
 			expect(get(gameScores)).toBeNull();
 			expect(get(isLoading)).toBe(true);
+			expect(get(gameHomeIsRow)).toBe(true);
 			expect(get(error)).toBeNull();
 			expect(get(pendingOperations).size).toBe(0);
 		});

@@ -75,7 +75,7 @@ describe('broadcast handler: claim_intent', () => {
 
 		// Get the broadcast handler
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return; // Handler not captured
+		expect(broadcastHandler).toBeDefined();
 
 		const message: BroadcastMessage = {
 			type: 'claim_intent',
@@ -97,7 +97,7 @@ describe('broadcast handler: claim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		const message: BroadcastMessage = {
 			type: 'claim_intent',
@@ -125,7 +125,7 @@ describe('broadcast handler: claim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		const message: BroadcastMessage = {
 			type: 'claim_intent',
@@ -147,7 +147,7 @@ describe('broadcast handler: claim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		const message: BroadcastMessage = {
 			type: 'claim_intent',
@@ -177,7 +177,7 @@ describe('broadcast handler: claim_rejected', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		// First: simulate remote claim
 		broadcastHandler({
@@ -226,7 +226,7 @@ describe('broadcast handler: unclaim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		broadcastHandler({
 			payload: {
@@ -255,7 +255,7 @@ describe('broadcast handler: unclaim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		broadcastHandler({
 			payload: {
@@ -276,7 +276,7 @@ describe('broadcast handler: unclaim_intent', () => {
 		subscribeToParty('test-party-id');
 
 		const broadcastHandler = mockChannelHandlers['broadcast:square_update'];
-		if (!broadcastHandler) return;
+		expect(broadcastHandler).toBeDefined();
 
 		broadcastHandler({
 			payload: {

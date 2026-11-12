@@ -404,7 +404,7 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		party.set(createMockParty());
 		squares.set(createEmptyGrid());
 		subscribeToParty('test-party-id');
-		mockSupabaseClient.from.mockClear();
+		mockSupabaseClient.rpc.mockClear();
 		mockSupabaseChannel.send.mockClear();
 
 		rpcResolvesWith({
@@ -427,7 +427,8 @@ describe('HARDENING: claims react immediately to rejection', () => {
 		expect(at(0, 1)?.player_name).toBe('Alice');
 		expect(get(pendingOperations).has('0-0')).toBe(false);
 		expect(get(pendingOperations).has('0-1')).toBe(true);
-		expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('squares');
+		// one claim_squares call, no follow-up fetch
+		expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
 
 		const rejected = mockSupabaseChannel.send.mock.calls
 			.map((c) => c[0] as { payload: { type?: string; squareKey?: string } })
