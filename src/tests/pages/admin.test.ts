@@ -528,7 +528,7 @@ describe('Admin Page - Score Entry', () => {
 			const select = screen.getByRole('combobox', { name: /quarter/i }) as HTMLSelectElement;
 			expect(select.value).toBe('q1');
 
-			// update_score succeeds; reload shows Q1 committed at 7-3, Q2 still unscored.
+			// host_record_score succeeds; reload shows Q1 committed at 7-3, Q2 still unscored.
 			mockScoreRecorded(createMockScores({ q1_row_score: 7, q1_col_score: 3 }));
 
 			const user = userEvent.setup();

@@ -47,7 +47,7 @@ Ops carry `origin: 'local' | 'remote'` and the sending tab's `clientId`; a remot
 
 `filling` → `active` → `complete`
 
-The `locked` status exists in the DB CHECK constraint and frontend rendering but is never set by current RPCs — `lock_party` jumps directly to `active`. Do NOT remove `locked` from the type or frontend.
+The `locked` status exists in the DB CHECK constraint and frontend rendering but is never set by current RPCs — `host_lock_party` jumps directly to `active`. Do NOT remove `locked` from the type or frontend.
 
 ## Database Constraints
 
@@ -56,7 +56,7 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 - `player_name_lower` is `GENERATED ALWAYS AS (LOWER(player_name)) STORED` — never set directly in INSERT/UPDATE, only set `player_name`
 - Splits CHECK: `split_q1 + split_q2 + split_q3 + split_final = 100`
 - Winners UNIQUE on `(party_id, quarter)`
-- Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`check_pin_lockout`, `auto_update_score`, trigger functions, ...) get no grant.
+- Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`host_pin_check`, `auto_update_score`, trigger functions, ...) get no grant.
 - Live games: a party is auto-scored only through its stored `game_id` (set out of band; 73 production parties were linked to the 2026 Super Bowl that way). `get_party_state` also returns an unlinked matching game, flagged `linked: false`; that one is display-only and never scored. `parties.home_team_is_row` is kept by the `parties_home_team_side` trigger (`game_side`).
 - `push_subscriptions` has no anon table access; browsers subscribe only through `save_push_subscription`.
 
@@ -79,27 +79,17 @@ Every host action is a `host_*` function; the PIN-gated ones start with `host_ga
 | `host_update_details` | `p_party_id, p_pin, p_event_name, p_kickoff_at, p_team_row_name, p_team_col_name, p_team_row_color, p_team_col_color`                                             | `party`                      |
 | `host_record_score`   | `p_party_id, p_pin, p_quarter ('q1'\|'q2'\|'q3'\|'final'), p_row_score, p_col_score`                                                                              | `party`, `scores`, `winners` |
 
-The older `claim_square`, `claim_squares_batch`, `create_party`, `update_party_details`, `update_score`, `verify_host_pin`, `lock_party`, `delete_party`, `remove_player` and `update_payout_structure` remain only for clients still running an older bundle; the app no longer calls them, and a later migration drops them.
+The pre-035 RPCs these replaced (`create_party`, `lock_party`, `claim_square`, `update_score`, ...) were dropped in migration 041.
 
 ## RPC Signatures
 
-| RPC                       | Parameters                                                                                                                                                                                                  | Returns                                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `create_party`            | `p_host_name VARCHAR(50), p_pin VARCHAR(4), p_square_price DECIMAL, p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT, [team overrides]`                                                    | `parties` row                                                                                    |
-| `claim_square`            | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                                                                                                                                          | `BOOLEAN`                                                                                        |
-| `unclaim_square`          | same pattern                                                                                                                                                                                                | `BOOLEAN`                                                                                        |
-| `claim_squares_batch`     | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB`                                                                                                                                                 | `INTEGER`                                                                                        |
-| `claim_squares`           | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` (`[{row, col}]`, 1–100 cells)                                                                                                                   | `{ok, claimed: [{row,col}], taken: [{row,col,player_name}]}` or `{ok: false, error}`             |
-| `lock_party`              | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                                        |
-| `update_score`            | `p_party_id UUID, p_pin VARCHAR(4), p_quarter VARCHAR(10), p_row_score INT, p_col_score INT`                                                                                                                | `BOOLEAN`                                                                                        |
-| `verify_host_pin`         | `p_party_code VARCHAR(6), p_pin VARCHAR(4)`                                                                                                                                                                 | `BOOLEAN`                                                                                        |
-| `get_party_preview`       | `p_code TEXT`                                                                                                                                                                                               | `{party, filled_count}` or `NULL`                                                                |
-| `get_party_state`         | `p_code TEXT`                                                                                                                                                                                               | `{party, squares, numbers, scores, winners, game: {row, home_is_row, linked} \| null}` or `NULL` |
-| `save_push_subscription`  | `p_party_id UUID, p_player_name VARCHAR(50), p_endpoint TEXT, p_p256dh TEXT, p_auth TEXT`                                                                                                                   | `BOOLEAN` — FALSE when the name holds no square in the party                                     |
-| `delete_party`            | `p_party_id UUID, p_pin VARCHAR(4)`                                                                                                                                                                         | `BOOLEAN`                                                                                        |
-| `update_party_details`    | `p_party_id UUID, p_pin VARCHAR(4), p_event_name VARCHAR(80), p_kickoff_at TIMESTAMPTZ, p_team_row_name VARCHAR(50), p_team_col_name VARCHAR(50), p_team_row_color VARCHAR(7), p_team_col_color VARCHAR(7)` | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE                      |
-| `update_payout_structure` | `p_party_id UUID, p_pin VARCHAR(4), p_split_q1 INT, p_split_q2 INT, p_split_q3 INT, p_split_final INT`                                                                                                      | `parties` row — **NULL sentinel on PIN failure** (migration 033), not RAISE                      |
-| `remove_player`           | `p_party_id UUID, p_pin VARCHAR(4), p_player_name_lower VARCHAR(50)`                                                                                                                                        | `INTEGER` (removed count) — **NULL sentinel on PIN failure** (migration 033), not RAISE          |
+| RPC                      | Parameters                                                                                | Returns                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `unclaim_square`         | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                        | `BOOLEAN`                                                                                        |
+| `claim_squares`          | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` (`[{row, col}]`, 1–100 cells) | `{ok, claimed: [{row,col}], taken: [{row,col,player_name}]}` or `{ok: false, error}`             |
+| `get_party_preview`      | `p_code TEXT`                                                                             | `{party, filled_count}` or `NULL`                                                                |
+| `get_party_state`        | `p_code TEXT`                                                                             | `{party, squares, numbers, scores, winners, game: {row, home_is_row, linked} \| null}` or `NULL` |
+| `save_push_subscription` | `p_party_id UUID, p_player_name VARCHAR(50), p_endpoint TEXT, p_p256dh TEXT, p_auth TEXT` | `BOOLEAN` — FALSE when the name holds no square in the party                                     |
 
 ## BroadcastMessage Wire Protocol
 
@@ -116,7 +106,7 @@ The older `claim_square`, `claim_squares_batch`, `create_party`, `update_party_d
 - Never change CSS variable names in app.css
 - Never set `player_name_lower` directly — it's auto-generated
 - Never change BroadcastMessage.type string values without updating all clients
-- Never `RAISE` on a PIN/lockout failure in any host action — return the refusal (`host_refusal(...)` in `host_*` functions, the `NULL` sentinel in the legacy `update_party_details`, `update_payout_structure`, `remove_player`). PostgREST runs each RPC as ONE transaction, so a `RAISE` rolls back `check_pin_lockout`'s own `pin_attempts` increment, silently stopping the brute-force throttle and reopening a 10,000-PIN oracle (migration 033). Refusals the host can act on (status, input) also return a code; `RAISE` is only for integrity faults that should roll the call back.
+- Never `RAISE` on a PIN/lockout failure in any host action — return the refusal (`host_refusal(...)`). PostgREST runs each RPC as ONE transaction, so a `RAISE` rolls back `host_pin_check`'s own `pin_attempts` increment, silently stopping the brute-force throttle and reopening a 10,000-PIN oracle (migration 033). Refusals the host can act on (status, input) also return a code; `RAISE` is only for integrity faults that should roll the call back.
 
 ## Testing
 
