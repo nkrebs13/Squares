@@ -41,6 +41,14 @@ export function isBehind(next: PartyStatus, current: PartyStatus | undefined): b
 	return current !== undefined && STAGE[next] < STAGE[current];
 }
 
+/** True when `next` is an older image of the party already shown (same party, earlier stage). */
+export function isStaleImage(
+	next: { id: string; status: PartyStatus },
+	shown: { id: string; status: PartyStatus } | null | undefined
+): boolean {
+	return !!shown && shown.id === next.id && isBehind(next.status, shown.status);
+}
+
 /** How a status reads in the UI (legacy `locked` reads as active). */
 export function statusLabel(status: PartyStatus): string {
 	return status === 'locked' ? 'active' : status;

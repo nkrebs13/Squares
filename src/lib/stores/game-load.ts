@@ -13,7 +13,7 @@ import {
 	parseWinner,
 } from '$lib/validators/realtime';
 import { logError } from '$lib/utils/log';
-import { isBehind } from '$lib/partyStatus';
+import { isStaleImage } from '$lib/partyStatus';
 import {
 	party,
 	squares,
@@ -103,6 +103,6 @@ export async function refreshParty(code: string, isCurrent: () => boolean): Prom
 	// A snapshot read before a status change that has since been applied is out of date
 	// as a whole (numbers, scores, winners too); keep what we have.
 	const next = result.state ? parseParty(result.state.party) : null;
-	if (next && isBehind(next.status, get(party)?.status)) return false;
+	if (next && isStaleImage(next, get(party))) return false;
 	return applyPartyState(result.state);
 }
