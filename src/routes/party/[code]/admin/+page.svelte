@@ -95,13 +95,19 @@
 		if (!storedPin || !playerToRemove) return;
 
 		isRemovingPlayer = true;
+		// Read before the await: the dialog can be dismissed while the request is in flight.
+		const player = playerToRemove;
 
-		const result = await removePlayer(storedPin, playerToRemove.normalizedName);
+		const result = await removePlayer(storedPin, player.normalizedName);
 
 		if (result.success) {
-			toast.success(`Removed ${playerToRemove.name} (${result.removedCount} squares freed)`);
-			removePlayerSucceeded = true;
-			playerToRemove = null;
+			toast.success(`Removed ${player.name} (${result.removedCount} squares freed)`);
+			// Only when this dialog is still open: one dismissed mid-request already
+			// returned focus, and a stale flag would misdirect the next dialog's.
+			if (playerToRemove === player) {
+				removePlayerSucceeded = true;
+				playerToRemove = null;
+			}
 		} else {
 			toast.error(result.error || 'Failed to remove player');
 		}

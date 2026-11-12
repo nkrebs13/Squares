@@ -60,6 +60,19 @@ function record(party: TestParty, quarter: string, row: number, col: number, pin
 }
 
 describe('host_record_score', () => {
+	it('records a quarter at the highest square price the app accepts', async () => {
+		// 99,999,999.99 a square x 100 squares x 25% overflowed NUMERIC(10,2) (migration 044).
+		const party = await runningParty({ square_price: 99_999_999.99 });
+		const { data, error } = await record(party, 'q1', 7, 3);
+		expect(error).toBeNull();
+		expect(data?.ok).toBe(true);
+		const { data: winners } = await client
+			.from('winners')
+			.select('amount')
+			.eq('party_id', party.id);
+		expect(Number(winners?.[0]?.amount)).toBeCloseTo(2_499_999_999.75, 2);
+	});
+
 	it('records the score and the owner of the winning square, with the payout', async () => {
 		const party = await runningParty({ square_price: 2 });
 		const numbers = await numbersOf(party.id);

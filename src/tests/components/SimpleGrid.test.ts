@@ -124,9 +124,8 @@ describe('SimpleGrid Component', () => {
 			render(SimpleGrid);
 
 			const headers = document.querySelectorAll('.col-header');
-			if (headers.length > 0) {
-				expect(headers[0].textContent?.trim()).toBe('?');
-			}
+			expect(headers.length).toBe(10);
+			for (const h of headers) expect(h.textContent?.trim()).toBe('?');
 		});
 
 		it('renders team labels', () => {
@@ -304,7 +303,7 @@ describe('SimpleGrid Component', () => {
 				pointerType: 'mouse',
 			});
 
-			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+			expect(emptySquares[0]).not.toHaveClass('square-selected');
 		});
 
 		it('does not start drag when party is not filling', async () => {
@@ -319,14 +318,15 @@ describe('SimpleGrid Component', () => {
 				.getAllByRole('button')
 				.filter((b) => b.classList.contains('square-empty'));
 
-			if (buttons.length > 0) {
-				await fireEvent.pointerDown(buttons[0], {
-					button: 0,
-					pointerType: 'mouse',
-				});
+			expect(buttons.length).toBeGreaterThan(0);
+			await fireEvent.pointerDown(buttons[0], {
+				button: 0,
+				pointerType: 'mouse',
+			});
 
-				expect(buttons[0]).not.toHaveAttribute('aria-selected', 'true');
-			}
+			// A started drag marks the cell square-selected (see the filling-party drag tests).
+			expect(buttons[0]).not.toHaveClass('square-selected');
+			expect(document.querySelector('.square-selected')).toBeNull();
 		});
 	});
 
@@ -345,7 +345,7 @@ describe('SimpleGrid Component', () => {
 			});
 
 			// Touch should NOT start drag selection
-			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+			expect(emptySquares[0]).not.toHaveClass('square-selected');
 		});
 
 		it('claims an empty square on tap (pointerdown+pointerup, no drag)', async () => {
@@ -562,7 +562,7 @@ describe('SimpleGrid Component', () => {
 			await fireEvent(window, new PointerEvent('pointerup'));
 
 			// Selection should be cleared (batch claimed)
-			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+			expect(emptySquares[0]).not.toHaveClass('square-selected');
 		});
 
 		it('clears all state on global pointercancel', async () => {
@@ -582,7 +582,7 @@ describe('SimpleGrid Component', () => {
 			// Global pointer cancel should clear everything
 			await fireEvent(window, new PointerEvent('pointercancel'));
 
-			expect(emptySquares[0]).not.toHaveAttribute('aria-selected', 'true');
+			expect(emptySquares[0]).not.toHaveClass('square-selected');
 		});
 	});
 

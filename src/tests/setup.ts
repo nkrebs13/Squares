@@ -50,24 +50,29 @@ let subscribeCallbacks: Array<{ name: string; cb: StatusCallback }> = [];
 // that follows runs synchronously, so subscribe() belongs to that channel.
 let latestChannelName = '';
 
+// Default implementations, shared by the mock definitions and restoreMockDefaults().
+function channelOn(event: string, filter: unknown, callback?: MockCallback) {
+	const cb = callback || (typeof filter === 'function' ? (filter as MockCallback) : undefined);
+	if (typeof cb === 'function') {
+		const key =
+			typeof filter === 'object' && filter !== null
+				? `${event}:${(filter as Record<string, string>).table || (filter as Record<string, string>).event || 'default'}`
+				: event;
+		mockChannelHandlers[key] = cb;
+	}
+	return mockSupabaseChannel;
+}
+
+function channelSubscribe(callback?: MockCallback) {
+	if (typeof callback === 'function') {
+		subscribeCallbacks.push({ name: latestChannelName, cb: callback as StatusCallback });
+	}
+	return mockSupabaseChannel;
+}
+
 const mockSupabaseChannel = {
-	on: vi.fn((event: string, filter: unknown, callback?: MockCallback) => {
-		const cb = callback || (typeof filter === 'function' ? (filter as MockCallback) : undefined);
-		if (typeof cb === 'function') {
-			const key =
-				typeof filter === 'object' && filter !== null
-					? `${event}:${(filter as Record<string, string>).table || (filter as Record<string, string>).event || 'default'}`
-					: event;
-			mockChannelHandlers[key] = cb;
-		}
-		return mockSupabaseChannel;
-	}),
-	subscribe: vi.fn((callback?: MockCallback) => {
-		if (typeof callback === 'function') {
-			subscribeCallbacks.push({ name: latestChannelName, cb: callback as StatusCallback });
-		}
-		return mockSupabaseChannel;
-	}),
+	on: vi.fn(channelOn),
+	subscribe: vi.fn(channelSubscribe),
 	unsubscribe: vi.fn(),
 	send: vi.fn(),
 };
@@ -105,8 +110,8 @@ function channelHandler(event: 'broadcast' | 'postgres_changes', name: string): 
 	return handler;
 }
 
-const mockSupabaseClient = {
-	from: vi.fn(() => ({
+function queryBuilder() {
+	return {
 		select: vi.fn().mockReturnThis(),
 		insert: vi.fn().mockReturnThis(),
 		update: vi.fn().mockReturnThis(),
@@ -114,12 +119,20 @@ const mockSupabaseClient = {
 		eq: vi.fn().mockReturnThis(),
 		order: vi.fn().mockReturnThis(),
 		single: vi.fn().mockResolvedValue({ data: null, error: null }),
-	})),
-	rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
-	channel: vi.fn((name: string) => {
-		latestChannelName = name;
-		return mockSupabaseChannel;
-	}),
+	};
+}
+
+function openChannel(name: string) {
+	latestChannelName = name;
+	return mockSupabaseChannel;
+}
+
+const EMPTY_RPC_RESULT = { data: null, error: null };
+
+const mockSupabaseClient = {
+	from: vi.fn(queryBuilder),
+	rpc: vi.fn().mockResolvedValue(EMPTY_RPC_RESULT),
+	channel: vi.fn(openChannel),
 };
 
 vi.mock('$lib/supabase', () => ({
@@ -132,40 +145,11 @@ function restoreMockDefaults() {
 	// Clear subscribe callbacks
 	subscribeCallbacks = [];
 
-	mockSupabaseChannel.on.mockImplementation(
-		(event: string, filter: unknown, callback?: MockCallback) => {
-			const cb = callback || (typeof filter === 'function' ? (filter as MockCallback) : undefined);
-			if (typeof cb === 'function') {
-				const key =
-					typeof filter === 'object' && filter !== null
-						? `${event}:${(filter as Record<string, string>).table || (filter as Record<string, string>).event || 'default'}`
-						: event;
-				mockChannelHandlers[key] = cb;
-			}
-			return mockSupabaseChannel;
-		}
-	);
-	mockSupabaseChannel.subscribe.mockImplementation((callback?: MockCallback) => {
-		if (typeof callback === 'function') {
-			subscribeCallbacks.push({ name: latestChannelName, cb: callback as StatusCallback });
-		}
-		return mockSupabaseChannel;
-	});
-
-	mockSupabaseClient.from.mockImplementation(() => ({
-		select: vi.fn().mockReturnThis(),
-		insert: vi.fn().mockReturnThis(),
-		update: vi.fn().mockReturnThis(),
-		delete: vi.fn().mockReturnThis(),
-		eq: vi.fn().mockReturnThis(),
-		order: vi.fn().mockReturnThis(),
-		single: vi.fn().mockResolvedValue({ data: null, error: null }),
-	}));
-	mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
-	mockSupabaseClient.channel.mockImplementation((name: string) => {
-		latestChannelName = name;
-		return mockSupabaseChannel;
-	});
+	mockSupabaseChannel.on.mockImplementation(channelOn);
+	mockSupabaseChannel.subscribe.mockImplementation(channelSubscribe);
+	mockSupabaseClient.from.mockImplementation(queryBuilder);
+	mockSupabaseClient.rpc.mockResolvedValue(EMPTY_RPC_RESULT);
+	mockSupabaseClient.channel.mockImplementation(openChannel);
 
 	for (const key in mockChannelHandlers) {
 		delete mockChannelHandlers[key];

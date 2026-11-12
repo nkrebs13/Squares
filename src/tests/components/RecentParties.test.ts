@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 
 // Must mock before importing the component
@@ -20,6 +20,11 @@ const mockUpdatePartyNickname = vi.mocked(updatePartyNickname);
 const mockGoto = vi.mocked(goto);
 
 describe('RecentParties Component', () => {
+	// Some tests switch to fake timers; restore even when an assertion fails first.
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
@@ -400,14 +405,14 @@ describe('RecentParties Component', () => {
 				expect(screen.getByLabelText('Add nickname')).toBeInTheDocument();
 			});
 
-			// Enter edit mode
+			// The card is a stretched link; outside edit mode a click navigates normally.
+			const link = screen.getByRole('link', { name: /Open/ });
+			expect(await fireEvent.click(link)).toBe(true);
+
+			// In edit mode the same click is cancelled (fireEvent returns false when
+			// the handler called preventDefault).
 			await fireEvent.click(screen.getByLabelText('Add nickname'));
-
-			// Click the card area
-			const card = screen.getByLabelText('Party nickname').closest('[role="button"]');
-			if (card) await fireEvent.click(card);
-
-			expect(mockGoto).not.toHaveBeenCalled();
+			expect(await fireEvent.click(link)).toBe(false);
 		});
 	});
 
