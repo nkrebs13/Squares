@@ -164,12 +164,12 @@
 	{#if $userName}
 		<div class="stats-bar">
 			<div class="flex items-center gap-2">
-				<span class="text-sm" style="color: var(--text-secondary)">Your squares:</span>
+				<span class="text-sm text-secondary">Your squares:</span>
 				<span class="font-bold text-lg">{$mySquareCount}</span>
 			</div>
 			{#if $party && $party.square_price > 0}
 				<div class="flex items-center gap-2">
-					<span class="text-sm" style="color: var(--text-secondary)">You owe:</span>
+					<span class="text-sm text-secondary">You owe:</span>
 					<span class="font-bold text-lg" style="color: var(--color-accent)"
 						>{formatPrice($amountOwed)}</span
 					>
@@ -484,7 +484,7 @@
 	.square-wrapper.highlighted {
 		z-index: 5;
 		transform: scale(1.05);
-		filter: drop-shadow(0 0 8px var(--player-text, rgba(100, 210, 200, 0.6)));
+		filter: drop-shadow(0 0 8px var(--player-text, rgb(var(--rgb-teal) / 0.6)));
 	}
 
 	.square-wrapper.dimmed {
@@ -543,11 +543,15 @@
 	}
 
 	.legend-winner {
-		background: linear-gradient(135deg, rgba(100, 200, 130, 0.35), rgba(100, 210, 200, 0.35));
-		border-color: rgba(100, 200, 130, 0.6);
-		outline: 2px solid rgba(100, 200, 130, 0.8);
+		background: linear-gradient(
+			135deg,
+			rgb(var(--rgb-success) / 0.35),
+			rgb(var(--rgb-teal) / 0.35)
+		);
+		border-color: rgb(var(--rgb-success) / 0.6);
+		outline: 2px solid rgb(var(--rgb-success) / 0.8);
 		outline-offset: -1px;
-		box-shadow: 0 0 8px rgba(100, 200, 130, 0.4);
+		box-shadow: 0 0 8px rgb(var(--rgb-success) / 0.4);
 	}
 
 	.legend-leading {

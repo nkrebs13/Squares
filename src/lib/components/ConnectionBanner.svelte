@@ -54,9 +54,9 @@
 	}
 
 	.banner-failed {
-		background: rgba(239, 68, 68, 0.15);
+		background: rgb(var(--rgb-error) / 0.15);
 		color: var(--text-primary);
-		border-bottom: 1px solid rgba(239, 68, 68, 0.5);
+		border-bottom: 1px solid rgb(var(--rgb-error) / 0.5);
 	}
 
 	.dot {
@@ -76,7 +76,7 @@
 	}
 
 	.dot-failed {
-		background: rgb(239, 68, 68);
+		background: rgb(var(--rgb-error));
 	}
 
 	.message {
@@ -84,7 +84,7 @@
 	}
 
 	.refresh-btn {
-		background: rgba(239, 68, 68, 0.9);
+		background: rgb(var(--rgb-error) / 0.9);
 		color: white;
 		border: none;
 		border-radius: 6px;
@@ -95,7 +95,7 @@
 	}
 
 	.refresh-btn:hover {
-		background: rgba(239, 68, 68, 1);
+		background: rgb(var(--rgb-error));
 	}
 
 	.refresh-btn:focus-visible {

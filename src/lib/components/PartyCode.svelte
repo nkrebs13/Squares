@@ -153,7 +153,7 @@
 					height="200"
 				/>
 			</div>
-			<p class="text-xs mt-2" style="color: var(--text-muted)">Scan to join this party</p>
+			<p class="text-xs mt-2 text-muted">Scan to join this party</p>
 		{/if}
 	</div>
 {/if}

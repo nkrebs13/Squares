@@ -86,7 +86,7 @@
 		<div class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
 			{#each quarterScores as qs (qs.quarter)}
 				<div class="quarter-score-box">
-					<div class="font-medium" style="color: var(--text-secondary)">{qs.label}</div>
+					<div class="font-medium text-secondary">{qs.label}</div>
 					<div class="font-mono">
 						{qs.rowScore ?? '-'} - {qs.colScore ?? '-'}
 					</div>
@@ -119,7 +119,7 @@
 		width: 0.5rem;
 		height: 0.5rem;
 		border-radius: 50%;
-		background: #ef4444;
+		background: rgb(var(--rgb-error));
 		animation: pulse-dot 1.5s ease-in-out infinite;
 	}
 

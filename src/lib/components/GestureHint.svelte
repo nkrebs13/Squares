@@ -217,9 +217,9 @@
 		justify-content: center;
 		width: 36px;
 		height: 36px;
-		background: rgba(100, 210, 200, 0.15);
+		background: rgb(var(--rgb-teal) / 0.15);
 		border-radius: 8px;
-		color: rgba(100, 210, 200, 0.9);
+		color: rgb(var(--rgb-teal) / 0.9);
 	}
 
 	.hint-dismiss {

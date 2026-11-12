@@ -23,19 +23,19 @@
 			<div class="winner-banner animate-fade-in">
 				<div class="flex justify-between items-center">
 					<div>
-						<div class="text-sm" style="color: var(--text-secondary)">
+						<div class="text-sm text-secondary">
 							{quarterInfo(winner.quarter).long}
 						</div>
 						<div class="text-lg font-bold">{winner.player_name}</div>
 					</div>
 					<div class="text-right">
-						<div class="text-sm" style="color: var(--text-secondary)">Won</div>
+						<div class="text-sm text-secondary">Won</div>
 						<div class="text-lg font-bold" style="color: var(--color-success)">
 							{formatPrice(winner.amount)}
 						</div>
 					</div>
 				</div>
-				<div class="mt-2 text-xs" style="color: var(--text-muted)">
+				<div class="mt-2 text-xs text-muted">
 					{getScoreForQuarter(winner.quarter)}
 				</div>
 			</div>
@@ -46,7 +46,7 @@
 	     or every score landed on a square that wasn't claimed. -->
 	<div class="space-y-3">
 		<h3 class="text-lg font-semibold">Winners</h3>
-		<div class="card text-sm" style="color: var(--text-secondary)">
+		<div class="card text-sm text-secondary">
 			No winners assigned yet — waiting on quarter scores. Once the host enters scores in the admin
 			panel, winners will appear here.
 		</div>

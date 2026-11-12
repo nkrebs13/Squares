@@ -66,9 +66,9 @@
 		padding: 0.5rem 1rem;
 		border-radius: 8px;
 		font-size: 0.8125rem;
-		background: rgba(100, 210, 200, 0.1);
-		color: rgba(100, 210, 200, 0.9);
-		border: 1px solid rgba(100, 210, 200, 0.2);
+		background: rgb(var(--rgb-teal) / 0.1);
+		color: rgb(var(--rgb-teal) / 0.9);
+		border: 1px solid rgb(var(--rgb-teal) / 0.2);
 		cursor: pointer;
 		transition: background 0.15s;
 		width: 100%;
@@ -76,7 +76,7 @@
 	}
 
 	.push-opt-in:hover {
-		background: rgba(100, 210, 200, 0.15);
+		background: rgb(var(--rgb-teal) / 0.15);
 	}
 
 	.push-opt-in:disabled {

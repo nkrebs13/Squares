@@ -146,7 +146,7 @@
 	.eyebrow,
 	.panel-kicker {
 		margin: 0 0 0.75rem;
-		color: rgba(100, 210, 200, 0.95);
+		color: rgb(var(--rgb-teal) / 0.95);
 		font-size: 0.78rem;
 		font-weight: 700;
 		text-transform: uppercase;
@@ -274,18 +274,18 @@
 	}
 
 	.preview-cell.claimed {
-		background: rgba(100, 170, 230, 0.18);
-		border-color: rgba(100, 170, 230, 0.28);
+		background: rgb(var(--rgb-sky) / 0.18);
+		border-color: rgb(var(--rgb-sky) / 0.28);
 	}
 
 	.preview-cell.mine {
-		background: rgba(244, 143, 177, 0.2);
-		border-color: rgba(244, 143, 177, 0.45);
+		background: rgb(var(--rgb-accent) / 0.2);
+		border-color: rgb(var(--rgb-accent) / 0.45);
 	}
 
 	.preview-cell.winner {
-		background: rgba(100, 200, 130, 0.28);
-		border-color: rgba(100, 200, 130, 0.6);
+		background: rgb(var(--rgb-success) / 0.28);
+		border-color: rgb(var(--rgb-success) / 0.6);
 	}
 
 	.recent-section {
