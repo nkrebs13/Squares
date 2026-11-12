@@ -1,74 +1,50 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
 import ToastContainer from '$lib/components/ToastContainer.svelte';
 import { toast } from '$lib/stores/toast';
 
-describe('ToastContainer Component', () => {
+describe('ToastContainer', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		// Clear any leftover toasts from previous tests
-		const toasts = get(toast);
-		for (const t of toasts) {
-			toast.remove(t.id);
-		}
+		for (const t of get(toast)) toast.remove(t.id);
 	});
 
-	it('renders nothing when no toasts exist', () => {
-		render(ToastContainer);
-		expect(document.querySelector('.toast-container')).not.toBeInTheDocument();
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
-	it('renders container when toast is shown', async () => {
+	it('stacks every shown toast in one container', async () => {
 		render(ToastContainer);
-		toast.show('Test message');
+		toast.success('First');
+		toast.info('Second');
 		await tick();
 
-		expect(document.querySelector('.toast-container')).toBeInTheDocument();
+		const toasts = document.querySelectorAll('.toast-container > .toast');
+		expect([...toasts].map((t) => t.textContent?.trim())).toEqual(['First', 'Second']);
 	});
 
-	it('renders toast message content', async () => {
+	it('announces errors assertively and other toasts politely', async () => {
 		render(ToastContainer);
-		toast.show('Hello from toast');
+		toast.error('Broke');
+		toast.success('Saved');
 		await tick();
 
-		const msg = document.querySelector('.toast-message');
-		expect(msg?.textContent).toBe('Hello from toast');
+		expect(screen.getByRole('alert')).toHaveTextContent('Broke');
+		expect(screen.getByRole('alert')).toHaveAttribute('aria-live', 'assertive');
+		expect(screen.getByRole('status')).toHaveTextContent('Saved');
+		expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
 	});
 
-	it('renders multiple toasts', async () => {
+	it('takes a toast off the page when the store removes it', async () => {
 		render(ToastContainer);
-		toast.show('First toast');
-		toast.show('Second toast');
+		toast.show('Temporary', 'info', 1000);
 		await tick();
+		expect(screen.getByText('Temporary')).toBeInTheDocument();
 
-		const messages = document.querySelectorAll('.toast-message');
-		expect(messages).toHaveLength(2);
-		expect(messages[0].textContent).toBe('First toast');
-		expect(messages[1].textContent).toBe('Second toast');
-	});
-
-	it('has aria-live="polite" and role="status" for screen readers', async () => {
-		render(ToastContainer);
-		toast.show('Accessible toast');
-		await tick();
-
-		const container = document.querySelector('.toast-container');
-		expect(container).toHaveAttribute('role', 'status');
-		expect(container).toHaveAttribute('aria-live', 'polite');
-	});
-
-	it('removes toast from store when removed', async () => {
-		render(ToastContainer);
-		const id = toast.show('Temporary', 'info', 1000);
-		await tick();
-
-		expect(get(toast)).toHaveLength(1);
-
-		toast.remove(id);
-		await tick();
-
-		expect(get(toast)).toHaveLength(0);
+		await vi.advanceTimersByTimeAsync(1000);
+		await vi.runAllTimersAsync();
+		expect(screen.queryByText('Temporary')).not.toBeInTheDocument();
 	});
 });

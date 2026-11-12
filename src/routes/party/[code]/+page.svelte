@@ -5,6 +5,8 @@
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
 	import GestureHint from '$lib/components/GestureHint.svelte';
@@ -52,6 +54,7 @@
 	// Check if user is host (has PIN stored)
 	let isHost = $state(false);
 	let gestureHintRef = $state<GestureHint | null>(null);
+	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 
 	async function checkIsHost() {
 		if (browser && code) {
@@ -129,9 +132,6 @@
 			<a href="/" class="btn btn-secondary">Go Home</a>
 		</div>
 	{:else if $party}
-		{#snippet sidebarBoundaryFallback(_error: unknown, reset: () => void)}
-			<BoundaryFallback {reset} variant="aside" />
-		{/snippet}
 		<header class="mb-4 flex justify-between items-start">
 			<div>
 				<a href="/" class="text-sm hover:opacity-100 text-secondary">← Home</a>
@@ -169,22 +169,20 @@
 			</div>
 		</header>
 
-		<!-- Desktop Two-Column Layout -->
 		<div class="desktop-layout">
-			<!-- Main Content (Grid) -->
 			<svelte:boundary>
 				<div class="main-content">
-					<!-- Mobile sidebar content (above grid) -->
-					<div class="lg:hidden">
-						<PartySidebar variant="mobile" />
-					</div>
+					{#if !desktop.current}
+						<!-- Block wrapper: .main-content is a flex column on mobile, where the
+						     sidebar's stacked mb-4 margins would stop collapsing. -->
+						<div>
+							<PartySidebar />
+						</div>
+					{/if}
 
-					<!-- Mounted at every breakpoint: the header's help button calls reopen() on it,
-					     and GestureHint picks touch vs pointer copy itself. Nesting it in the
-					     lg:hidden wrapper above would make that button dead on desktop. -->
+					<!-- Mounted in both layouts: the header's help button calls reopen() on it. -->
 					<GestureHint bind:this={gestureHintRef} />
 
-					<!-- Main Grid -->
 					<div class="mb-4 lg:mb-0">
 						<SimpleGrid />
 					</div>
@@ -194,12 +192,16 @@
 				{/snippet}
 			</svelte:boundary>
 
-			<!-- Desktop Sidebar -->
-			<svelte:boundary failed={sidebarBoundaryFallback}>
-				<aside class="sidebar hidden lg:block">
-					<PartySidebar variant="desktop" />
+			{#if desktop.current}
+				<aside class="sidebar">
+					<svelte:boundary>
+						<PartySidebar />
+						{#snippet failed(_error, reset)}
+							<BoundaryFallback {reset} />
+						{/snippet}
+					</svelte:boundary>
 				</aside>
-			</svelte:boundary>
+			{/if}
 		</div>
 	{/if}
 </div>

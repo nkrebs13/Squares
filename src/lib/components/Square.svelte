@@ -84,7 +84,7 @@
 		if (isSelected) {
 			return `${position}Empty square, selected for claiming.`;
 		}
-		return `${position}Empty square. Press to claim or hold to multi-select.`;
+		return `${position}Empty square. Press to claim.`;
 	});
 </script>
 

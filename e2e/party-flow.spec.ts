@@ -57,15 +57,14 @@ test.describe('Party Page - Mocked Flow', () => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		// Prize percentages render in both mobile and desktop sections; verify at least one of each is in the DOM
-		await expect(page.getByText('10%').first()).toBeAttached();
-		await expect(page.getByText('20%').first()).toBeAttached();
-		await expect(page.getByText('30%').first()).toBeAttached();
-		await expect(page.getByText('40%').first()).toBeAttached();
-		await expect(page.getByTestId('party-payout-q1').first()).toContainText('$50');
-		await expect(page.getByTestId('party-payout-q2').first()).toContainText('$100');
-		await expect(page.getByTestId('party-payout-q3').first()).toContainText('$150');
-		await expect(page.getByTestId('party-payout-final').first()).toContainText('$200');
+		await expect(page.getByText('10%')).toBeVisible();
+		await expect(page.getByText('20%')).toBeVisible();
+		await expect(page.getByText('30%')).toBeVisible();
+		await expect(page.getByText('40%')).toBeVisible();
+		await expect(page.getByTestId('party-payout-q1')).toContainText('$50');
+		await expect(page.getByTestId('party-payout-q2')).toContainText('$100');
+		await expect(page.getByTestId('party-payout-q3')).toContainText('$150');
+		await expect(page.getByTestId('party-payout-final')).toContainText('$200');
 	});
 
 	test('shows filling status when party is in filling state', async ({ page }) => {

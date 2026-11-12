@@ -11,56 +11,95 @@
 	import { normalizePlayerName } from '$lib/stores/user';
 
 	interface Props {
-		// 'block' (default): renders the full Players section with header. Used in
-		//   the desktop sidebar (PartySidebar variant=desktop).
-		// 'embedded': renders only the pill grid, no surrounding chrome. Used by
-		//   MobilePlayerFilter inside its accordion shell.
-		mode?: 'block' | 'embedded';
-		onTogglePlayer?: (normalizedName: string) => void;
+		/** Show the list behind a toggle (the mobile layout, under the grid). */
+		collapsible?: boolean;
 	}
 
-	const { mode = 'block', onTogglePlayer }: Props = $props();
+	const { collapsible = false }: Props = $props();
+
+	/** A collapsible list this short starts open until the user toggles it. */
+	const AUTO_EXPAND_MAX_PLAYERS = 4;
+
+	let userExpanded = $state<boolean | null>(null);
+	let hasInteracted = $state(false);
+	const expanded = $derived(
+		!collapsible || (userExpanded ?? $playerSummary.length <= AUTO_EXPAND_MAX_PLAYERS)
+	);
+
+	function toggleList() {
+		hasInteracted = true;
+		userExpanded = !expanded;
+	}
 
 	function togglePlayerFilter(normalizedName: string) {
-		onTogglePlayer?.(normalizedName);
+		hasInteracted = true;
+		// Using the list pins it open, so a roster change can't collapse it mid-use.
+		userExpanded ??= expanded;
 		selectedPlayerFilter.update((current) => (current === normalizedName ? null : normalizedName));
 	}
 </script>
 
-{#snippet pills()}
-	{#each $playerSummary as player (player.normalizedName)}
-		{@const color = getPlayerColor(normalizePlayerName(player.name))}
-		<button
-			class="player-pill"
-			class:selected={$activePlayerFilter === player.normalizedName}
-			style="--player-bg: {color.bg}; --player-text: {color.text};"
-			onclick={() => togglePlayerFilter(player.normalizedName)}
-		>
-			<div class="player-dot" style="background: {color.text};"></div>
-			<span class="player-name">{player.name}</span>
-			<span class="player-count">{player.count}</span>
-		</button>
-	{/each}
-	{#if isFilling($party?.status) && $availableCount > 0}
-		<div class="available-count">
-			{$availableCount} squares available
-		</div>
-	{/if}
-{/snippet}
-
 {#if $playerSummary.length > 0}
-	{#if mode === 'block'}
-		<div class="players-legend">
-			<h3 class="font-medium mb-3" style="color: var(--text-secondary)">Players</h3>
+	<div class={collapsible ? 'players-section' : 'players-legend'}>
+		{#if collapsible}
+			<button
+				class="players-toggle"
+				class:has-indicator={!hasInteracted && $playerSummary.length > 1}
+				onclick={toggleList}
+				aria-expanded={expanded}
+			>
+				<span class="players-label">
+					Players ({$playerSummary.length})
+					{#if $activePlayerFilter}
+						<span class="filter-badge">filtering</span>
+					{:else if !hasInteracted && expanded}
+						<span class="hint-badge">tap to highlight</span>
+					{/if}
+				</span>
+				<svg
+					class="chevron"
+					class:expanded
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<polyline points="6 9 12 15 18 9"></polyline>
+				</svg>
+			</button>
+		{:else}
+			<h3 class="font-medium mb-3 text-secondary">Players</h3>
+		{/if}
+
+		{#if expanded}
 			<div class="players-grid">
-				{@render pills()}
+				{#each $playerSummary as player (player.normalizedName)}
+					{@const color = getPlayerColor(normalizePlayerName(player.name))}
+					<button
+						class="player-pill"
+						class:selected={$activePlayerFilter === player.normalizedName}
+						style="--player-bg: {color.bg}; --player-text: {color.text};"
+						onclick={() => togglePlayerFilter(player.normalizedName)}
+					>
+						<div class="player-dot" style="background: {color.text};"></div>
+						<span class="player-name">{player.name}</span>
+						<span class="player-count">{player.count}</span>
+					</button>
+				{/each}
+				{#if isFilling($party?.status) && $availableCount > 0}
+					<div class="available-count">
+						{$availableCount} squares available
+					</div>
+				{/if}
 			</div>
-		</div>
-	{:else}
-		<div class="players-grid">
-			{@render pills()}
-		</div>
-	{/if}
+		{/if}
+	</div>
 {/if}
 
 <style>
@@ -69,6 +108,66 @@
 		background: rgba(255, 255, 255, 0.03);
 		border-radius: 12px;
 		border: 1px solid var(--border-color);
+	}
+
+	.players-section {
+		margin-top: 0.5rem;
+		border-top: 1px solid var(--border-color);
+		padding-top: 0.5rem;
+	}
+
+	.players-toggle {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.5rem 0.75rem;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-color);
+		border-radius: 8px;
+		font-size: 0.8125rem;
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition: background 200ms;
+	}
+
+	.players-toggle:hover {
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.players-toggle.has-indicator {
+		background: rgba(100, 170, 230, 0.08);
+		border-color: rgba(100, 170, 230, 0.3);
+	}
+
+	.players-label {
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.filter-badge {
+		font-size: 0.6875rem;
+		padding: 0.125rem 0.375rem;
+		background: rgba(100, 170, 230, 0.2);
+		color: rgba(100, 170, 230, 1);
+		border-radius: 4px;
+		font-weight: 600;
+	}
+
+	.hint-badge {
+		font-size: 0.6875rem;
+		opacity: 0.7;
+		font-style: italic;
+	}
+
+	.chevron {
+		transition: transform 200ms;
+	}
+
+	.chevron.expanded {
+		transform: rotate(180deg);
 	}
 
 	.players-grid {
@@ -144,8 +243,9 @@
 		opacity: 0.7;
 	}
 
-	/* Reduced motion support */
 	@media (prefers-reduced-motion: reduce) {
+		.chevron,
+		.players-toggle,
 		.player-pill {
 			transition: none;
 		}

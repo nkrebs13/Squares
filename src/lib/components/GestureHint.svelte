@@ -2,17 +2,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { durable, STORAGE_KEYS } from '$lib/storage';
+	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
 	const hintSeen = durable<boolean>(STORAGE_KEYS.gestureHintShown, {
 		encode: (seen) => String(seen),
 		decode: (raw) => raw === 'true',
 	});
-
-	// Matches Tailwind's `lg` breakpoint boundary. The hint auto-shows only in the
-	// mobile layout, where the pan/zoom gestures it describes actually apply. The
-	// component still mounts at every breakpoint so the header's "?" button can
-	// call reopen() on desktop.
-	const MOBILE_LAYOUT_QUERY = '(max-width: 1023px)';
 
 	let show = $state(false);
 	let isTouchDevice = $state(false);
@@ -21,17 +16,9 @@
 	onMount(async () => {
 		if (!browser) return;
 
-		isTouchDevice =
-			typeof window.matchMedia === 'function'
-				? window.matchMedia('(pointer: coarse)').matches
-				: false;
-
-		// matchMedia unavailable (e.g. some non-browser environments) fails closed:
-		// a blocking modal is worse than a missing hint.
-		const isMobileLayout =
-			typeof window.matchMedia === 'function'
-				? window.matchMedia(MOBILE_LAYOUT_QUERY).matches
-				: false;
+		isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+		// Auto-shows only in the mobile layout, where the pan/zoom gestures it describes apply.
+		const isMobileLayout = !window.matchMedia(DESKTOP_LAYOUT_QUERY).matches;
 
 		const seen = (await hintSeen.get()) === true;
 		if (!seen && isMobileLayout) {

@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 
 import GestureHint from '$lib/components/GestureHint.svelte';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
 const HINT_KEY = 'squares_gesture_hint_shown';
 
@@ -17,10 +18,8 @@ function hintAlreadySeen(seen: boolean) {
 const timesMarkedSeen = () =>
 	vi.mocked(idbSet).mock.calls.filter(([key, value]) => key === HINT_KEY && value === true).length;
 
-// Mirrors the component's own MOBILE_LAYOUT_QUERY constant (Tailwind `lg` breakpoint
-// boundary). Tests build a matchMedia mock that can answer this query independently
-// from the `(pointer: coarse)` touch-device query.
-const MOBILE_LAYOUT_QUERY = '(max-width: 1023px)';
+// The matchMedia mock answers the layout query and the `(pointer: coarse)` touch query
+// independently; any query not listed is false (mobile layout, mouse pointer).
 
 function createMatchMediaMock(queryMatches: Record<string, boolean>) {
 	return vi.fn().mockImplementation((query: string) => ({
@@ -46,7 +45,7 @@ describe('GestureHint Component', () => {
 		vi.clearAllMocks();
 		// Default: mobile-width layout, non-touch pointer. Individual tests override
 		// this before calling render() when they need a different breakpoint/pointer.
-		window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: true });
+		window.matchMedia = createMatchMediaMock({});
 	});
 
 	afterEach(() => {
@@ -57,7 +56,7 @@ describe('GestureHint Component', () => {
 	describe('Visibility', () => {
 		it('shows the hint when user has not seen it before, on a mobile-width layout', async () => {
 			hintAlreadySeen(false);
-			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: true });
+			window.matchMedia = createMatchMediaMock({});
 
 			render(GestureHint);
 			// Wait for the async onMount to resolve
@@ -77,18 +76,7 @@ describe('GestureHint Component', () => {
 
 		it('does not auto-show the hint on a desktop-width layout, even when unseen', async () => {
 			hintAlreadySeen(false);
-			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
-
-			render(GestureHint);
-			await waitForMountDecision();
-
-			expect(screen.queryByLabelText('Dismiss hint')).not.toBeInTheDocument();
-		});
-
-		it('does not auto-show the hint when matchMedia is unavailable, even when unseen', async () => {
-			hintAlreadySeen(false);
-			// @ts-expect-error - simulating an environment without matchMedia support
-			delete window.matchMedia;
+			window.matchMedia = createMatchMediaMock({ [DESKTOP_LAYOUT_QUERY]: true });
 
 			render(GestureHint);
 			await waitForMountDecision();
@@ -114,7 +102,7 @@ describe('GestureHint Component', () => {
 
 		it('displays touch-specific copy when the device reports coarse pointer', async () => {
 			hintAlreadySeen(false);
-			window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+			window.matchMedia = createMatchMediaMock({ '(pointer: coarse)': true });
 
 			render(GestureHint);
 			await vi.waitFor(() => {
@@ -125,9 +113,6 @@ describe('GestureHint Component', () => {
 			// Non-touch-only copy must not leak into the touch branch
 			expect(screen.queryByText('Click to claim')).not.toBeInTheDocument();
 			expect(screen.queryByText('Click and drag to select multiple')).not.toBeInTheDocument();
-
-			// @ts-expect-error - cleaning up the test-only override
-			delete window.matchMedia;
 		});
 
 		it('displays dismiss instructions', async () => {
@@ -202,7 +187,7 @@ describe('GestureHint Component', () => {
 
 		it('re-shows the hint via reopen() on a desktop-width layout (the "?" help button works everywhere)', async () => {
 			hintAlreadySeen(true);
-			window.matchMedia = createMatchMediaMock({ [MOBILE_LAYOUT_QUERY]: false });
+			window.matchMedia = createMatchMediaMock({ [DESKTOP_LAYOUT_QUERY]: true });
 
 			const { component } = render(GestureHint);
 			await vi.waitFor(() => {

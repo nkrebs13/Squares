@@ -238,20 +238,38 @@ class ResizeObserverMock {
 
 vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 
-// Reset mocks before each test
-beforeEach(() => {
-	vi.resetAllMocks();
-	restoreMockDefaults();
-	localStorageMock.clear();
-	sessionStorageMock.clear();
+// jsdom has no Web Animations API; Svelte transitions call element.animate.
+// Each animation finishes on the next macrotask so out-transitions remove their
+// element under real or fake timers.
+if (typeof Element.prototype.animate !== 'function') {
+	Element.prototype.animate = function () {
+		const animation = {
+			playState: 'running',
+			effect: null as unknown,
+			currentTime: 0,
+			onfinish: null as null | (() => void),
+			cancel() {
+				animation.playState = 'idle';
+			},
+		};
+		setTimeout(() => {
+			animation.playState = 'finished';
+			animation.onfinish?.();
+		});
+		return animation as unknown as Animation;
+	};
+}
 
-	// jsdom does not implement matchMedia. GestureHint reads it for a mobile-layout
-	// check and a pointer-type check; default to a mobile-width, non-touch-pointer
-	// profile so component/page tests that don't care about breakpoints see the same
-	// auto-show behavior they did before that check existed. Tests that need a
-	// different breakpoint/pointer profile assign window.matchMedia locally, which
-	// takes precedence over this default (and is deleted in their own afterEach, so
-	// this default re-applies for the next test via the `typeof !== 'function'` guard).
+// jsdom does not implement matchMedia. GestureHint reads it for a mobile-layout
+// check and a pointer-type check; default to a mobile-width, non-touch-pointer
+// profile so component/page tests that don't care about breakpoints see the same
+// auto-show behavior they did before that check existed. Tests that need a
+// different breakpoint/pointer profile assign window.matchMedia locally, which
+// takes precedence over this default (and is deleted in their own afterEach, so
+// this default re-applies for the next test via the `typeof !== 'function'` guard).
+// It is also installed at load, because `svelte/motion`'s prefersReducedMotion
+// queries it when a component module is imported.
+function installDefaultMatchMedia() {
 	if (typeof window.matchMedia !== 'function') {
 		window.matchMedia = ((query: string) => ({
 			matches: query === '(max-width: 1023px)',
@@ -264,6 +282,17 @@ beforeEach(() => {
 			dispatchEvent: () => false,
 		})) as typeof window.matchMedia;
 	}
+}
+installDefaultMatchMedia();
+
+// Reset mocks before each test
+beforeEach(() => {
+	vi.resetAllMocks();
+	restoreMockDefaults();
+	localStorageMock.clear();
+	sessionStorageMock.clear();
+
+	installDefaultMatchMedia();
 });
 
 // Export mocks for use in tests

@@ -325,7 +325,7 @@ describe('Square Component', () => {
 			const button = screen.getByRole('button');
 			expect(button).toHaveAttribute(
 				'aria-label',
-				'Row 3, Column 7. Empty square. Press to claim or hold to multi-select.'
+				'Row 3, Column 7. Empty square. Press to claim.'
 			);
 		});
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { tick } from 'svelte';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import PlayerLegend from '$lib/components/PlayerLegend.svelte';
@@ -107,5 +108,75 @@ describe('PlayerLegend Component', () => {
 		// logical player would render different swatch colors.
 		const expectedColor = getPlayerColor('john');
 		expect(dot.getAttribute('style')).toBe(`background: ${expectedColor.text};`);
+	});
+});
+
+describe('PlayerLegend collapsible (mobile, under the grid)', () => {
+	const owners = (n: number) =>
+		Array.from({ length: n }, (_, i) => createMockSquare(0, i, `Player${i}`));
+	const toggle = () => screen.getByRole('button', { name: /Players \(/ });
+
+	beforeEach(() => {
+		party.set(null);
+		squares.set([]);
+		selectedPlayerFilter.set(null);
+	});
+
+	it('starts open for four players or fewer, with the tap hint', () => {
+		squares.set(owners(4));
+		render(PlayerLegend, { props: { collapsible: true } });
+		expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+		expect(screen.getByText('tap to highlight')).toBeInTheDocument();
+		expect(screen.getByText('Player0')).toBeInTheDocument();
+	});
+
+	it('starts closed for more than four players', () => {
+		squares.set(owners(5));
+		render(PlayerLegend, { props: { collapsible: true } });
+		expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+		expect(screen.queryByText('Player0')).not.toBeInTheDocument();
+	});
+
+	it('toggles open and closed and drops the hint once used', async () => {
+		squares.set(owners(5));
+		render(PlayerLegend, { props: { collapsible: true } });
+		const user = userEvent.setup();
+
+		await user.click(toggle());
+		expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+		expect(screen.queryByText('tap to highlight')).not.toBeInTheDocument();
+
+		await user.click(toggle());
+		expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('stays closed after the user collapses it, when the roster changes', async () => {
+		squares.set(owners(3));
+		render(PlayerLegend, { props: { collapsible: true } });
+		const user = userEvent.setup();
+
+		await user.click(toggle());
+		expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+
+		squares.set(owners(4));
+		await tick();
+		expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('stays open once a pill is used, when the roster grows past four', async () => {
+		squares.set(owners(4));
+		render(PlayerLegend, { props: { collapsible: true } });
+		await userEvent.setup().click(screen.getByText('Player0'));
+
+		squares.set(owners(5));
+		await tick();
+		expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	it('marks the toggle while a player filter is active', () => {
+		squares.set(owners(5));
+		selectedPlayerFilter.set('player1');
+		render(PlayerLegend, { props: { collapsible: true } });
+		expect(screen.getByText('filtering')).toBeInTheDocument();
 	});
 });
