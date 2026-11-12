@@ -52,28 +52,14 @@ export interface Scores {
 	final_col_score: number | null;
 }
 
+/** The live-game columns the app reads (the quarter breakdown is applied in SQL). */
 export interface GameScoresRow {
 	game_id: string;
-	sport: string;
-	home_team_abbrev: string;
-	away_team_abbrev: string;
-	home_team_name: string;
-	away_team_name: string;
 	home_score: number;
 	away_score: number;
 	game_clock: string;
 	game_quarter: number;
 	game_status: GameStatus;
-	q1_home: number | null;
-	q1_away: number | null;
-	q2_home: number | null;
-	q2_away: number | null;
-	q3_home: number | null;
-	q3_away: number | null;
-	q4_home: number | null;
-	q4_away: number | null;
-	final_home: number | null;
-	final_away: number | null;
 }
 
 export interface LiveScores {

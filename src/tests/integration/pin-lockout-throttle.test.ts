@@ -159,8 +159,10 @@ describe.each(ACTIONS)('PIN lockout throttle: $name', ({ name, args }) => {
 		expect(state.pin_locked_until).not.toBeNull();
 		// The lockout lasts PIN_LOCKOUT_MINUTES (the copy says "a few minutes").
 		const lockedFor = new Date(state.pin_locked_until as string).getTime() - Date.now();
-		expect(lockedFor).toBeGreaterThan((PIN_LOCKOUT_MINUTES - 1) * 60_000);
-		expect(lockedFor).toBeLessThanOrEqual(PIN_LOCKOUT_MINUTES * 60_000);
+		// Measured against this machine's clock, so allow for skew with the database's.
+		const slack = 30_000;
+		expect(lockedFor).toBeGreaterThan(PIN_LOCKOUT_MINUTES * 60_000 - slack);
+		expect(lockedFor).toBeLessThan(PIN_LOCKOUT_MINUTES * 60_000 + slack);
 
 		const { data: locked, error: lockedError } = await client.rpc(
 			name,

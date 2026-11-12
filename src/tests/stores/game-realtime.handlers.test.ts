@@ -310,17 +310,11 @@ describe('postgres_changes: game_scores', () => {
 	const liveGame = (overrides = {}) =>
 		createMockGameScores({
 			game_id: 'game-123',
-			home_team_abbrev: 'KC',
-			away_team_abbrev: 'PHI',
-			home_team_name: 'Chiefs',
-			away_team_name: 'Eagles',
 			home_score: 14,
 			away_score: 7,
 			game_clock: '5:30',
 			game_quarter: 2,
 			game_status: 'in_progress',
-			q1_home: 7,
-			q1_away: 0,
 			...overrides,
 		});
 
