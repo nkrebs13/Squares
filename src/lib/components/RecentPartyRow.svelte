@@ -36,23 +36,7 @@
 		}
 	});
 
-	function handleRemove(e: Event) {
-		e.stopPropagation();
-		onrequestremove(party.code);
-	}
-
-	function confirmRemove(e: Event) {
-		e.stopPropagation();
-		onconfirmremove(party.code);
-	}
-
-	function cancelRemove(e: Event) {
-		e.stopPropagation();
-		oncancelremove();
-	}
-
-	async function startEdit(e: Event) {
-		e.stopPropagation();
+	async function startEdit() {
 		editing = true;
 		editValue = party.nickname || '';
 		await tick();
@@ -107,6 +91,9 @@
 </script>
 
 <article class="party-card">
+	<!-- Stretched link: the row's buttons and input sit beside it (above it in z-order),
+	     never inside it, so their clicks never reach it. A click on the card itself while
+	     the nickname is being edited must not navigate away from the edit. -->
 	<a
 		class="card-nav-link"
 		href="/party/{party.code}"
@@ -128,7 +115,6 @@
 				aria-label="Party nickname"
 				onkeydown={handleKeydown}
 				onblur={handleBlur}
-				onclick={(e) => e.stopPropagation()}
 			/>
 		{:else}
 			<span class="nickname-text">
@@ -172,16 +158,24 @@
 		{#if confirmingRemove}
 			<div class="confirm-remove">
 				<span class="confirm-label">Remove?</span>
-				<button class="confirm-yes-btn" onclick={confirmRemove} aria-label="Confirm remove">
+				<button
+					class="confirm-yes-btn"
+					onclick={() => onconfirmremove(party.code)}
+					aria-label="Confirm remove"
+				>
 					Yes
 				</button>
-				<button class="confirm-no-btn" onclick={cancelRemove} aria-label="Cancel remove">
+				<button class="confirm-no-btn" onclick={oncancelremove} aria-label="Cancel remove">
 					No
 				</button>
 			</div>
 		{:else}
 			<span class="status-badge badge-{badge.tone}">{badge.text}</span>
-			<button class="remove-btn" onclick={handleRemove} aria-label="Remove from recent">
+			<button
+				class="remove-btn"
+				onclick={() => onrequestremove(party.code)}
+				aria-label="Remove from recent"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"

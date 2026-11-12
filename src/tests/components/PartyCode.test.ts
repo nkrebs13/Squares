@@ -242,6 +242,8 @@ describe('PartyCode Component', () => {
 			await vi.waitFor(() => {
 				expect(mockShare).toHaveBeenCalled();
 			});
+			// Let the rejected share settle before checking nothing was shown for it.
+			await new Promise((r) => setTimeout(r, 0));
 			expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 		});
 
