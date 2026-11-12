@@ -8,12 +8,10 @@
 // that confirms ops, lives here rather than in game-state.
 
 import { writable } from 'svelte/store';
-import type { OptimisticOperation, Square } from '$lib/types';
+import type { OptimisticOperation, Square, SquareSnapshot } from '$lib/types';
 import { toast } from './toast';
 import { clientId, squares } from './game-state';
 import { squareKey } from '$lib/utils/squareKey';
-
-export type SquareSnapshot = Pick<Square, 'player_name' | 'player_name_lower' | 'claimed_at'>;
 
 export const pendingOperations = writable<Map<string, OptimisticOperation>>(new Map());
 

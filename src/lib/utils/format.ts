@@ -61,3 +61,8 @@ export function parseAmount(value: string): number | null {
 export function formatMatchup(rowTeam: string, colTeam: string): string {
 	return `${rowTeam} vs ${colTeam}`;
 }
+
+/** "1 square", "3 squares": a count with the word that agrees with it. */
+export function plural(n: number, one: string, many: string): string {
+	return `${n} ${n === 1 ? one : many}`;
+}

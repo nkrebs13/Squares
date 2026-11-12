@@ -23,7 +23,7 @@
 	} from '$lib/stores/game';
 	import { userName } from '$lib/stores/user';
 	import { normalizePlayerName } from '$lib/utils/playerName';
-	import { formatPrice } from '$lib/utils/format';
+	import { formatPrice, plural } from '$lib/utils/format';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import { APP_CONFIG } from '$lib/config';
 	import { GRID_SIZE } from '$lib/constants';
@@ -328,7 +328,7 @@
 
 	{#if drag.isDragging && drag.selectedCells.size > 0}
 		<div class="selection-indicator">
-			{`${drag.selectedCells.size} squares`}
+			{plural(drag.selectedCells.size, 'square', 'squares')}
 		</div>
 	{/if}
 </div>

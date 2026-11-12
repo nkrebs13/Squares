@@ -258,6 +258,26 @@ describe('live scores (game_scores trigger)', () => {
 		expect(await scoresOf(party.id)).toMatchObject({ q1_row_score: 7, q1_col_score: 3 });
 	});
 
+	it('locking a linked party after kickoff applies the quarters its game already scored', async () => {
+		const party = await createTestParty(client, {
+			team_row_name: 'Eagles',
+			team_col_name: 'Chiefs',
+		});
+		createdParties.push(party.id);
+		await fillAllSquares(party.id);
+		const gameId = await newGame({ q1_home: 7, q1_away: 3 });
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+
+		expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
+
+		expect(await scoresOf(party.id)).toMatchObject({ q1_row_score: 7, q1_col_score: 3 });
+		const { data: winners } = await client
+			.from('winners')
+			.select('quarter')
+			.eq('party_id', party.id);
+		expect(winners).toEqual([{ quarter: 'q1' }]);
+	});
+
 	it('the backfill applies every quarter already scored to a party linked late', async () => {
 		const party = await runningParty({ team_row_name: 'Eagles', team_col_name: 'Chiefs' });
 		const gameId = await newGame({ q1_home: 7, q1_away: 3, q2_home: 14, q2_away: 10 });

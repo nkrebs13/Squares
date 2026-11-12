@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { plural } from '$lib/utils/format';
 	import { playerSummary } from '$lib/stores/game';
 
 	type PlayerRow = { name: string; normalizedName: string; count: number };
@@ -32,7 +33,7 @@
 							{/if}
 						</div>
 						<div class="text-sm text-secondary">
-							{player.count} square{player.count !== 1 ? 's' : ''}
+							{plural(player.count, 'square', 'squares')}
 						</div>
 					</div>
 					{#if player.normalizedName !== hostNameLower}

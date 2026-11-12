@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { formatPrice, isValidAmount, parseAmount } from '$lib/utils/format';
+import { formatPrice, isValidAmount, parseAmount, plural } from '$lib/utils/format';
 
 describe('formatPrice (default USD/en-US)', () => {
 	it('labels the price input with $ by default', async () => {
@@ -131,5 +131,13 @@ describe('parseAmount', () => {
 
 	it('returns null for empty string', () => {
 		expect(parseAmount('')).toBeNull();
+	});
+});
+
+describe('plural', () => {
+	it('agrees the word with the count', () => {
+		expect(plural(1, 'square', 'squares')).toBe('1 square');
+		expect(plural(0, 'square', 'squares')).toBe('0 squares');
+		expect(plural(3, 'square was', 'squares were')).toBe('3 squares were');
 	});
 });

@@ -21,8 +21,13 @@ export const QUARTERS: readonly QuarterInfo[] = [
 	{ key: 'final', short: 'Final', long: 'Final', mark: 'F' },
 ];
 
+const QUARTER_BY_KEY = Object.fromEntries(QUARTERS.map((q) => [q.key, q])) as Record<
+	Quarter,
+	QuarterInfo
+>;
+
 export function quarterInfo(key: Quarter): QuarterInfo {
-	return QUARTERS.find((q) => q.key === key) ?? QUARTERS[0];
+	return QUARTER_BY_KEY[key];
 }
 
 /** Order for sorting by quarter (q1 first). */

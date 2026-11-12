@@ -117,4 +117,51 @@ describe('database constraints', () => {
 		expect(error).not.toBeNull();
 		expect(error?.message).toMatch(/check|array_length/i);
 	});
+
+	// The functions validate first, so these CHECKs are the backstop for writes that
+	// bypass them (operator SQL, a future function). Each must refuse on its own.
+	const winner = { quarter: 'q2', winning_row: 0, winning_col: 0, player_name: 'A', amount: 1 };
+	it.each([
+		[
+			'squares_row_num_check',
+			() => service.from('squares').insert({ party_id: party.id, row_num: -1, col_num: 0 }),
+		],
+		[
+			'squares_col_num_check',
+			() => service.from('squares').insert({ party_id: party.id, row_num: 0, col_num: 10 }),
+		],
+		[
+			'numbers_col_numbers_check',
+			() =>
+				service.from('numbers').insert({
+					party_id: party.id,
+					row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+					col_numbers: [0, 1, 2],
+				}),
+		],
+		[
+			'parties_status_check',
+			() => service.from('parties').update({ status: 'archived' }).eq('id', party.id),
+		],
+		[
+			'parties_split_final_check',
+			() =>
+				service
+					.from('parties')
+					.update({ split_q1: 35, split_q2: 35, split_q3: 40, split_final: -10 })
+					.eq('id', party.id),
+		],
+		[
+			'winners_winning_row_check',
+			() => service.from('winners').insert({ ...winner, party_id: party.id, winning_row: 10 }),
+		],
+		[
+			'winners_winning_col_check',
+			() => service.from('winners').insert({ ...winner, party_id: party.id, winning_col: 10 }),
+		],
+	])('%s refuses a value outside it', async (constraint, write) => {
+		const { error } = await write();
+		expect(error?.code).toBe('23514');
+		expect(error?.message).toContain(constraint);
+	});
 });

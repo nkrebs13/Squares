@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { plural } from '$lib/utils/format';
 	import { isComplete, isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
 	import { page } from '$app/stores';
 	import { TOTAL_SQUARES } from '$lib/constants';
@@ -99,7 +100,9 @@
 		const result = await removePlayer(storedPin, player.normalizedName);
 
 		if (result.success) {
-			toast.success(`Removed ${player.name} (${result.removedCount} squares freed)`);
+			toast.success(
+				`Removed ${player.name} (${plural(result.removedCount, 'square', 'squares')} freed)`
+			);
 			// Only when this dialog is still open: one dismissed mid-request already
 			// returned focus, and a stale flag would misdirect the next dialog's.
 			if (playerToRemove === player) {
@@ -237,6 +240,6 @@
 >
 	{#if playerToRemove}
 		Are you sure you want to remove <strong>{playerToRemove.name}</strong>? This will free up their
-		{playerToRemove.count} square{playerToRemove.count !== 1 ? 's' : ''} for others to claim.
+		{plural(playerToRemove.count, 'square', 'squares')} for others to claim.
 	{/if}
 </ConfirmDialog>
