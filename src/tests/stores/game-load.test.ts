@@ -49,7 +49,7 @@ describe('loadParty', () => {
 	it('fills every party store from one read', async () => {
 		stateResponds();
 
-		expect(await loadParty('test123')).toBe(true);
+		expect(await loadParty('test123', () => true)).toBe(true);
 
 		expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_party_state', { p_code: 'test123' });
 		expect(get(party)?.status).toBe('active');
@@ -65,7 +65,7 @@ describe('loadParty', () => {
 	it('reports a missing party', async () => {
 		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: null, error: null });
 
-		expect(await loadParty('NOPE00')).toBe(false);
+		expect(await loadParty('NOPE00', () => true)).toBe(false);
 
 		expect(get(error)).toBe('Party not found');
 		expect(get(isLoading)).toBe(false);
@@ -77,7 +77,7 @@ describe('loadParty', () => {
 			error: { message: 'TypeError: Failed to fetch' },
 		});
 
-		expect(await loadParty('test123')).toBe(false);
+		expect(await loadParty('test123', () => true)).toBe(false);
 
 		expect(get(error)).toBe("Couldn't load that party. Check your connection and try again.");
 		expect(get(squares)).toEqual([]);
@@ -86,7 +86,7 @@ describe('loadParty', () => {
 	it('reports a load that throws instead of hanging on the spinner', async () => {
 		mockSupabaseClient.rpc.mockRejectedValueOnce(new Error('boom'));
 
-		expect(await loadParty('test123')).toBe(false);
+		expect(await loadParty('test123', () => true)).toBe(false);
 
 		expect(get(isLoading)).toBe(false);
 		expect(get(error)).toBe("Couldn't load that party. Check your connection and try again.");
@@ -96,7 +96,7 @@ describe('loadParty', () => {
 		const grid = createEmptyGrid();
 		stateResponds({ squares: [...grid.slice(0, 99), { id: 'broken' }], numbers: { bad: true } });
 
-		expect(await loadParty('test123')).toBe(true);
+		expect(await loadParty('test123', () => true)).toBe(true);
 
 		expect(get(squares)).toHaveLength(99);
 		expect(get(numbers)).toBeNull();
@@ -111,7 +111,7 @@ describe('loadParty', () => {
 			},
 		});
 
-		await loadParty('test123');
+		await loadParty('test123', () => true);
 
 		expect(get(gameHomeIsRow)).toBe(false);
 		expect(get(liveScores)).toMatchObject({ rowScore: 7, colScore: 14 });
@@ -128,7 +128,7 @@ describe('loadParty', () => {
 				linked: true,
 			},
 		});
-		await loadParty('test123');
+		await loadParty('test123', () => true);
 		expect(get(liveScores)).toMatchObject({ rowScore: 14, colScore: 7 });
 
 		// A realtime parties UPDATE after the game's team names resolved.

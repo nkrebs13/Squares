@@ -2,7 +2,12 @@
 	import { goto } from '$app/navigation';
 	import RecentParties from '$lib/components/RecentParties.svelte';
 	import { APP_CONFIG } from '$lib/config';
-	import { isCompletePartyCode, joinPath, normalizePartyCode } from '$lib/utils/partyCode';
+	import {
+		isCompletePartyCode,
+		joinPath,
+		normalizePartyCode,
+		PARTY_CODE_INPUT_MAX_LENGTH,
+	} from '$lib/utils/partyCode';
 
 	let partyCode = $state('');
 	const demoHref = $derived(joinPath(normalizePartyCode(APP_CONFIG.demoPartyCode)));
@@ -82,7 +87,7 @@
 					bind:value={partyCode}
 					placeholder="Enter party code"
 					class="input join-input"
-					maxlength="12"
+					maxlength={PARTY_CODE_INPUT_MAX_LENGTH}
 					autocomplete="off"
 					autocapitalize="characters"
 				/>

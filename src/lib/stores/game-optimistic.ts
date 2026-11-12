@@ -5,7 +5,8 @@ import type { OptimisticOperation, Square } from '$lib/types';
 import { toast } from './toast';
 import { userName } from './user';
 import { normalizePlayerName } from '$lib/utils/playerName';
-import { party, squares, squareKey } from './game-state';
+import { party, squares } from './game-state';
+import { squareKey } from '$lib/utils/squareKey';
 import {
 	addPendingOps,
 	clearSquareFields,

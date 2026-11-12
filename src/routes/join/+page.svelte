@@ -18,7 +18,12 @@
 	} from '$lib/services/partyPreview';
 	import { formatKickoff } from '$lib/utils/datetime';
 	import { formatMatchup, formatPrice } from '$lib/utils/format';
-	import { isCompletePartyCode, normalizePartyCode } from '$lib/utils/partyCode';
+	import {
+		isCompletePartyCode,
+		normalizePartyCode,
+		PARTY_CODE_INPUT_MAX_LENGTH,
+		PARTY_CODE_LENGTH,
+	} from '$lib/utils/partyCode';
 	import { onMount } from 'svelte';
 
 	let code = $state('');
@@ -188,13 +193,13 @@
 					bind:value={code}
 					placeholder="ABCD12"
 					class="input mt-2 text-center text-2xl tracking-widest uppercase"
-					maxlength="12"
+					maxlength={PARTY_CODE_INPUT_MAX_LENGTH}
 					autocomplete="off"
 					autocapitalize="characters"
 				/>
 			</label>
 			{#if code && !isCompletePartyCode(code)}
-				<p class="mt-2 text-sm text-error">Party codes are 6 characters.</p>
+				<p class="mt-2 text-sm text-error">Party codes are {PARTY_CODE_LENGTH} characters.</p>
 			{/if}
 		</div>
 

@@ -23,6 +23,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -42,6 +43,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -60,6 +62,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -78,6 +81,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -113,6 +117,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: true,
 					winners,
@@ -133,6 +138,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: true,
 					winners,
@@ -152,6 +158,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: true,
 					winners,
@@ -168,6 +175,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: true,
 				},
@@ -186,6 +194,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -204,6 +213,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -219,6 +229,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					isSelected: true,
@@ -234,6 +245,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					isPending: true,
@@ -249,7 +261,13 @@ describe('Square Component', () => {
 			await userName.setName('myname');
 			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
 
-			render(Square, { props: { square, isLocked: false } });
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: false,
+				},
+			});
 
 			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
 		});
@@ -257,7 +275,14 @@ describe('Square Component', () => {
 		it('reports aria-pressed=false for an empty, un-owned square that is mid-drag (isSelected=true)', () => {
 			const square = createMockSquare();
 
-			render(Square, { props: { square, isLocked: false, isSelected: true } });
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: false,
+					isSelected: true,
+				},
+			});
 
 			const button = screen.getByRole('button');
 			expect(button).toHaveClass('square-selected');
@@ -268,7 +293,14 @@ describe('Square Component', () => {
 			await userName.setName('myname');
 			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
 
-			render(Square, { props: { square, isLocked: false, isSelected: false } });
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: false,
+					isSelected: false,
+				},
+			});
 
 			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
 		});
@@ -280,7 +312,13 @@ describe('Square Component', () => {
 				player_name_lower: 'other player',
 			});
 
-			render(Square, { props: { square, isLocked: false } });
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: false,
+				},
+			});
 
 			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'false');
 		});
@@ -292,18 +330,36 @@ describe('Square Component', () => {
 			const lowerSquare = createMockSquare({ player_name: 'john', player_name_lower: 'john' });
 			const upperSquare = createMockSquare({ player_name: 'JOHN', player_name_lower: 'john' });
 
-			const { unmount } = render(Square, { props: { square: lowerSquare, isLocked: false } });
+			const { unmount } = render(Square, {
+				props: {
+					size: 44,
+					square: lowerSquare,
+					isLocked: false,
+				},
+			});
 			expect(screen.getByRole('button')).toHaveStyle({ background: expectedColor.bg });
 			unmount();
 
-			render(Square, { props: { square: upperSquare, isLocked: false } });
+			render(Square, {
+				props: {
+					size: 44,
+					square: upperSquare,
+					isLocked: false,
+				},
+			});
 			expect(screen.getByRole('button')).toHaveStyle({ background: expectedColor.bg });
 		});
 
 		it('keeps the displayed player name casing unchanged', () => {
 			const square = createMockSquare({ player_name: 'jOhN', player_name_lower: 'john' });
 
-			render(Square, { props: { square, isLocked: false } });
+			render(Square, {
+				props: {
+					size: 44,
+					square,
+					isLocked: false,
+				},
+			});
 
 			expect(screen.getByRole('button')).toHaveAttribute('title', 'jOhN');
 		});
@@ -315,6 +371,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					rowNumber: 3,
@@ -337,6 +394,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					rowNumber: 5,
@@ -358,6 +416,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					rowNumber: 1,
@@ -381,6 +440,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: true,
 					winners,
@@ -404,6 +464,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 				},
@@ -420,6 +481,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					onpointerdown,
@@ -436,6 +498,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					onpointerenter,
@@ -452,6 +515,7 @@ describe('Square Component', () => {
 
 			render(Square, {
 				props: {
+					size: 44,
 					square,
 					isLocked: false,
 					onpointerup,

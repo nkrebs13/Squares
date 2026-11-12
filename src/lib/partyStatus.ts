@@ -15,9 +15,14 @@ export function isGameInProgress(status: PartyStatus | undefined): boolean {
 	return status === 'active' || status === 'locked';
 }
 
+/** The game is over and every winner is decided. */
+export function isComplete(status: PartyStatus | undefined): boolean {
+	return status === 'complete';
+}
+
 /** Numbers are drawn: the game is being scored or is over. */
 export function hasDrawnNumbers(status: PartyStatus | undefined): boolean {
-	return isGameInProgress(status) || status === 'complete';
+	return isGameInProgress(status) || isComplete(status);
 }
 
 /** How a status reads in the UI (legacy `locked` reads as active). */

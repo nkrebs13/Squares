@@ -221,7 +221,7 @@
 
 					{#each cols as col (col)}
 						<div
-							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === 9
+							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === GRID_SIZE - 1
 								? 'rounded-tr'
 								: ''}"
 							role="columnheader"
@@ -233,7 +233,7 @@
 
 					{#each rows as row (row)}
 						<div
-							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === 9
+							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === GRID_SIZE - 1
 								? 'rounded-bl'
 								: ''}"
 							role="rowheader"
@@ -430,18 +430,18 @@
 		font-size: 0.75rem;
 		font-weight: bold;
 		color: white;
-		background: var(--team-row-color, #69be28);
+		background: var(--team-row-color);
 		box-shadow:
 			0 0 0 2px var(--bg-secondary),
 			-6px 0 0 0 var(--bg-secondary);
 	}
 
 	.team-col-bg {
-		background: var(--team-col-color, #c60c30);
+		background: var(--team-col-color);
 	}
 
 	.team-row-bg {
-		background: var(--team-row-color, #69be28);
+		background: var(--team-row-color);
 	}
 
 	.rounded-tl {

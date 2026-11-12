@@ -3,6 +3,7 @@
 	import type { Quarter } from '$lib/types';
 	import { quarterIndex, quarterInfo, quarterScore } from '$lib/quarters';
 	import { formatPrice } from '$lib/utils/format';
+	import { isComplete } from '$lib/partyStatus';
 
 	const sortedWinners = $derived(
 		[...$winners].sort((a, b) => quarterIndex(a.quarter) - quarterIndex(b.quarter))
@@ -41,7 +42,7 @@
 			</div>
 		{/each}
 	</div>
-{:else if $party?.status === 'complete'}
+{:else if isComplete($party?.status)}
 	<!-- Game over but no winners — usually means scores haven't been entered yet
 	     or every score landed on a square that wasn't claimed. -->
 	<div class="space-y-3">

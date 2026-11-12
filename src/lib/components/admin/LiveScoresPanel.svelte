@@ -40,7 +40,7 @@
 	{:else}
 		<p class="text-sm" style="color: rgb(147, 197, 253);">
 			<span class="font-semibold">Live API connected</span>
-			{#if $liveScores?.status === 'pregame'}
+			{#if $liveScores && !isGameStarted($liveScores.status)}
 				<span class="ml-2">— Game has not started yet</span>
 			{:else}
 				<span class="ml-2">— Waiting for game data...</span>
