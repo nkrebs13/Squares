@@ -43,13 +43,11 @@
 		{/each}
 	</div>
 {:else if isComplete($party?.status)}
-	<!-- Game over but no winners — usually means scores haven't been entered yet
-	     or every score landed on a square that wasn't claimed. -->
+	<!-- A scored quarter always has a winner (record_quarter_score refuses an unowned
+	     square), so this is a party closed without scores, or the moment before the
+	     final's winner row arrives. -->
 	<div class="space-y-3">
 		<h3 class="text-lg font-semibold">Winners</h3>
-		<div class="card text-sm text-secondary">
-			No winners assigned yet — waiting on quarter scores. Once the host enters scores in the admin
-			panel, winners will appear here.
-		</div>
+		<div class="card text-sm text-secondary">No winners have been recorded for this game.</div>
 	</div>
 {/if}

@@ -196,7 +196,7 @@ test.describe('Recent Parties', () => {
 		await removeButtons.last().click();
 
 		// Confirm the removal in the inline confirmation
-		const confirmBtn = page.getByLabel('Confirm remove');
+		const confirmBtn = page.getByLabel('Yes, remove');
 		await confirmBtn.click();
 
 		// Should have one fewer card

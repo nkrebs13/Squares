@@ -184,7 +184,7 @@
 				<button
 					class="confirm-yes-btn"
 					onclick={() => onconfirmremove(party.code)}
-					aria-label="Confirm remove"
+					aria-label="Yes, remove"
 				>
 					Yes
 				</button>
@@ -192,7 +192,7 @@
 					bind:this={cancelRemoveButton}
 					class="confirm-no-btn"
 					onclick={cancelRemove}
-					aria-label="Cancel remove"
+					aria-label="No, keep"
 				>
 					No
 				</button>

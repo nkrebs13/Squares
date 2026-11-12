@@ -247,8 +247,8 @@ describe('RecentParties Component', () => {
 
 			// Should show confirmation UI instead of immediately removing
 			expect(screen.getByText('Remove?')).toBeInTheDocument();
-			expect(screen.getByLabelText('Confirm remove')).toBeInTheDocument();
-			expect(screen.getByLabelText('Cancel remove')).toBeInTheDocument();
+			expect(screen.getByLabelText('Yes, remove')).toBeInTheDocument();
+			expect(screen.getByLabelText('No, keep')).toBeInTheDocument();
 			// Party should still be visible
 			expect(screen.getByText('DEL001')).toBeInTheDocument();
 			// Should not have called removeRecentParty yet
@@ -269,7 +269,7 @@ describe('RecentParties Component', () => {
 			await fireEvent.click(removeBtn);
 
 			// Confirm the removal
-			const confirmBtn = screen.getByLabelText('Confirm remove');
+			const confirmBtn = screen.getByLabelText('Yes, remove');
 			await fireEvent.click(confirmBtn);
 
 			expect(mockRemoveRecentParty).toHaveBeenCalledWith('DEL001');
@@ -290,7 +290,7 @@ describe('RecentParties Component', () => {
 			await fireEvent.click(removeBtn);
 
 			// Cancel the removal
-			const cancelBtn = screen.getByLabelText('Cancel remove');
+			const cancelBtn = screen.getByLabelText('No, keep');
 			await vi.waitFor(() => expect(cancelBtn).toHaveFocus());
 			await fireEvent.click(cancelBtn);
 
@@ -313,9 +313,9 @@ describe('RecentParties Component', () => {
 			await fireEvent.click(screen.getByLabelText('Party nickname'));
 			await fireEvent.keyDown(screen.getByLabelText('Party nickname'), { key: 'Escape' });
 			await fireEvent.click(screen.getByLabelText('Remove from recent'));
-			await fireEvent.click(screen.getByLabelText('Cancel remove'));
+			await fireEvent.click(screen.getByLabelText('No, keep'));
 			await fireEvent.click(screen.getByLabelText('Remove from recent'));
-			await fireEvent.click(screen.getByLabelText('Confirm remove'));
+			await fireEvent.click(screen.getByLabelText('Yes, remove'));
 
 			expect(linkClicks).not.toHaveBeenCalled();
 			expect(mockRemoveRecentParty).toHaveBeenCalledWith('RMV001');
