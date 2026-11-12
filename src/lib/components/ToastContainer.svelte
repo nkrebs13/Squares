@@ -30,14 +30,10 @@
 			>
 				{#if t.type === 'success'}
 					<polyline points="20 6 9 17 4 12"></polyline>
-				{:else if t.type === 'error'}
+				{:else}
 					<circle cx="12" cy="12" r="10"></circle>
 					<line x1="15" y1="9" x2="9" y2="15"></line>
 					<line x1="9" y1="9" x2="15" y2="15"></line>
-				{:else}
-					<circle cx="12" cy="12" r="10"></circle>
-					<line x1="12" y1="16" x2="12" y2="12"></line>
-					<line x1="12" y1="8" x2="12.01" y2="8"></line>
 				{/if}
 			</svg>
 			<span class="toast-message">{t.message}</span>
