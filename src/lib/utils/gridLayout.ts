@@ -1,5 +1,6 @@
 import { squareKey } from './squareKey';
 import { GRID_SIZE } from '$lib/constants';
+import { quarterIndex } from '$lib/quarters';
 import type { Square, Winner } from '$lib/types';
 
 export const MIN_CELL_SIZE_MOBILE = 28;
@@ -56,5 +57,9 @@ export function buildWinnerMap(winners: Winner[], hasNumbers: boolean): Map<stri
 		existing.push(w);
 		map.set(key, existing);
 	}
+	// Winners arrive in server order (alphabetical: final, q1, ...) or live-insert order;
+	// a square's badges and its label read in game order.
+	for (const list of map.values())
+		list.sort((a, b) => quarterIndex(a.quarter) - quarterIndex(b.quarter));
 	return map;
 }

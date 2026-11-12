@@ -24,12 +24,14 @@ test.describe('Golden path', () => {
 			partyStateBody(mockParty, generateEmptySquares(mockParty.id), mockScores)
 		);
 		let claimedCells: unknown;
+		let claimedBy: unknown;
 		await page.route('**/rest/v1/rpc/claim_squares', (route) => {
 			const body = route.request().postDataJSON() as {
 				p_player_name: string;
 				p_cells: unknown;
 			};
-			expect(body.p_player_name).toBe('TestPlayer');
+			// Captured, not asserted here: a throw inside a route handler does not fail the test.
+			claimedBy = body.p_player_name;
 			claimedCells = body.p_cells;
 			route.fulfill({
 				status: 200,
@@ -45,6 +47,7 @@ test.describe('Golden path', () => {
 		await page.locator('button.square-empty').first().click();
 		await expect(page.locator('button.square-mine')).toHaveCount(1);
 		await expect.poll(() => claimedCells).toEqual([{ row: 0, col: 0 }]);
+		expect(claimedBy).toBe('TestPlayer');
 
 		// ── Complete: the server now reports scores and every winner ──
 		await page.unroute('**/rest/v1/rpc/get_party_state');
