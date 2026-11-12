@@ -532,8 +532,8 @@
 	}
 
 	.legend-available {
-		background: rgba(255, 255, 255, 0.06);
-		border-color: rgba(255, 255, 255, 0.08);
+		background: var(--square-empty-fill);
+		border-color: var(--square-empty-border);
 	}
 
 	.legend-mine {
@@ -543,20 +543,16 @@
 	}
 
 	.legend-winner {
-		background: linear-gradient(
-			135deg,
-			rgb(var(--rgb-success) / 0.35),
-			rgb(var(--rgb-teal) / 0.35)
-		);
-		border-color: rgb(var(--rgb-success) / 0.6);
-		outline: 2px solid rgb(var(--rgb-success) / 0.8);
+		background: var(--square-winner-fill);
+		border-color: var(--square-winner-border);
+		outline: 2px solid var(--square-winner-ring);
 		outline-offset: -1px;
 		box-shadow: 0 0 8px rgb(var(--rgb-success) / 0.4);
 	}
 
 	.legend-leading {
-		border-color: rgba(255, 255, 255, 0.7);
-		outline: 2px solid rgba(255, 255, 255, 0.9);
+		border-color: var(--square-leading-border);
+		outline: 2px solid var(--square-leading-ring);
 		outline-offset: -1px;
 	}
 

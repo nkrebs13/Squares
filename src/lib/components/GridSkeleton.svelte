@@ -53,32 +53,31 @@
 		padding: 0.75rem;
 	}
 
+	/* Every placeholder shares one shimmer; squares run it a shade dimmer. */
+	.skeleton-badge,
+	.skeleton-text,
+	.skeleton-number,
+	.skeleton-square {
+		background: linear-gradient(
+			90deg,
+			var(--shimmer-base, rgba(255, 255, 255, 0.04)) 0%,
+			var(--shimmer-peak, rgba(255, 255, 255, 0.08)) 50%,
+			var(--shimmer-base, rgba(255, 255, 255, 0.04)) 100%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.5s infinite;
+	}
+
 	.skeleton-badge {
 		width: 1.75rem;
 		height: 1.75rem;
 		border-radius: 50%;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0.04) 0%,
-			rgba(255, 255, 255, 0.08) 50%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.5s infinite;
 	}
 
 	.skeleton-text {
 		width: 6rem;
 		height: 1.25rem;
 		border-radius: 4px;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0.04) 0%,
-			rgba(255, 255, 255, 0.08) 50%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.5s infinite;
 	}
 
 	.skeleton-grid-container {
@@ -102,14 +101,6 @@
 		width: 2.75rem;
 		height: 1.75rem;
 		border-radius: 4px;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0.04) 0%,
-			rgba(255, 255, 255, 0.08) 50%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.5s infinite;
 		flex-shrink: 0;
 	}
 
@@ -127,14 +118,8 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: 6px;
-		background: linear-gradient(
-			90deg,
-			rgba(255, 255, 255, 0.03) 0%,
-			rgba(255, 255, 255, 0.06) 50%,
-			rgba(255, 255, 255, 0.03) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.5s infinite;
+		--shimmer-base: rgba(255, 255, 255, 0.03);
+		--shimmer-peak: rgba(255, 255, 255, 0.06);
 		flex-shrink: 0;
 	}
 
