@@ -1,4 +1,10 @@
 import { test, expect } from '@playwright/test';
+import {
+	generateEmptySquares,
+	mockPartyState,
+	mockScores,
+	partyStateBody,
+} from './fixtures/supabase-mocks';
 
 test.describe('Create Party Page', () => {
 	test.beforeEach(async ({ page }) => {
@@ -132,7 +138,6 @@ test.describe('Create Party Page', () => {
 	test('allows selecting different presets', async ({ page }) => {
 		const equalButton = page.getByRole('button', { name: /equal/i });
 		await expect(page.getByText('10%').first()).toBeVisible();
-		await page.waitForTimeout(100);
 		await equalButton.click();
 
 		// Equal preset should show 25% for each quarter
@@ -243,79 +248,48 @@ test.describe('Create Party - Submission', () => {
 		await page.getByPlaceholder(/enter your name/i).fill('Test Host');
 		await page.getByPlaceholder('0000').fill('1234');
 
+		const createdParty = {
+			id: 'new-party-id',
+			code: 'XTEST1',
+			status: 'filling',
+			square_price: 1,
+			split_q1: 10,
+			split_q2: 20,
+			split_q3: 30,
+			split_final: 40,
+			event_name: 'Football Squares',
+			kickoff_at: null,
+			team_row_name: 'Seahawks',
+			team_col_name: 'Patriots',
+			team_row_color: '#69be28',
+			team_col_color: '#c60c30',
+			host_name_lower: 'test host',
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+			game_id: null,
+			home_team_is_row: true,
+		};
+
 		await page.route('**/rest/v1/rpc/host_create_party', async (route) => {
 			route.fulfill({
 				status: 200,
 				contentType: 'application/json',
 				body: JSON.stringify({
 					ok: true,
-					party: {
-						id: 'new-party-id',
-						code: 'XTEST1',
-						status: 'filling',
-						square_price: 1,
-						split_q1: 10,
-						split_q2: 20,
-						split_q3: 30,
-						split_final: 40,
-						event_name: 'Football Squares',
-						kickoff_at: null,
-						team_row_name: 'Seahawks',
-						team_col_name: 'Patriots',
-						team_row_color: '#69be28',
-						team_col_color: '#c60c30',
-						host_name_lower: 'test host',
-						created_at: new Date().toISOString(),
-						updated_at: new Date().toISOString(),
-						expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-						game_id: null,
-						home_team_is_row: true,
-					},
+					party: createdParty,
 				}),
 			});
 		});
 
-		await page.route('**/rest/v1/squares*', (route) => {
-			route.fulfill({
-				status: 201,
-				contentType: 'application/json',
-				body: JSON.stringify([]),
-			});
-		});
-
-		await page.route('**/rest/v1/scores*', (route) => {
-			route.fulfill({
-				status: 201,
-				contentType: 'application/json',
-				body: JSON.stringify({
-					party_id: 'new-party-id',
-					q1_row_score: null,
-					q1_col_score: null,
-					q2_row_score: null,
-					q2_col_score: null,
-					q3_row_score: null,
-					q3_col_score: null,
-					final_row_score: null,
-					final_col_score: null,
-				}),
-			});
-		});
-
-		await page.route('**/rest/v1/numbers*', (route) => {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify(null),
-			});
-		});
-
-		await page.route('**/rest/v1/winners*', (route) => {
-			route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify([]),
-			});
-		});
+		// The party page it lands on loads through get_party_state.
+		await mockPartyState(
+			page,
+			partyStateBody(createdParty, generateEmptySquares(createdParty.id), {
+				...mockScores,
+				party_id: createdParty.id,
+			})
+		);
 
 		await page.route('**/realtime/**', (route) => {
 			route.abort();
@@ -325,7 +299,8 @@ test.describe('Create Party - Submission', () => {
 		await page.getByRole('button', { name: /create party/i }).click();
 
 		// Should navigate to /party/{code}
-		await expect(page).toHaveURL(/\/party\/[A-Z0-9]{6}/, { timeout: 15000 });
+		await expect(page).toHaveURL(/\/party\/XTEST1$/, { timeout: 15000 });
+		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 	});
 
 	test('shows error on creation failure', async ({ page }) => {

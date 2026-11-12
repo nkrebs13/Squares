@@ -5,6 +5,7 @@ import {
 	getServiceRoleClient,
 	createTestParty,
 	fillAllSquares,
+	waitUntilBlockedOnLock,
 	cleanupParty,
 	type TestParty,
 } from './helpers';
@@ -59,27 +60,9 @@ afterAll(async () => {
 	await Promise.all(openClients.splice(0).map((c) => c.end().catch(() => {})));
 });
 
-/** Poll pg_stat_activity until the given backend pid is blocked waiting on a lock. */
-async function waitUntilBlockedOnLock(
-	poller: InstanceType<typeof Client>,
-	pid: number,
-	timeoutMs = 5000
-): Promise<void> {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		const { rows } = await poller.query<{ wait_event_type: string | null }>(
-			'SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1',
-			[pid]
-		);
-		if (rows[0]?.wait_event_type === 'Lock') return;
-		await new Promise((resolve) => setTimeout(resolve, 20));
-	}
-	throw new Error(`Backend ${pid} never entered a Lock wait state within ${timeoutMs}ms`);
-}
-
 describe('host_lock_party vs unclaim_square TOCTOU race (032)', () => {
 	it('rejects a concurrent unclaim that reads status mid-lock, so an active party never ends up with an empty square', async () => {
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 
 		const lockConn = new Client({ connectionString: databaseUrl });
 		const unclaimConn = new Client({ connectionString: databaseUrl });
@@ -163,7 +146,7 @@ describe('unclaim_square owner-name sanity check', () => {
 	// the party the race test above locks/commits -- so it can't interfere
 	// with that test's interleaving or leave residual state behind.
 	it('lets the true owner (Player-R0C0) unclaim square (0,0) while the party is still filling', async () => {
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 
 		const { data, error } = await client.rpc('unclaim_square', {
 			p_party_id: party.id,

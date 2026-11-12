@@ -168,7 +168,7 @@ describe('live score trigger chain', () => {
 
 	beforeAll(async () => {
 		party = await createTestParty(client);
-		await fillAllSquares(client, party.id);
+		await fillAllSquares(party.id);
 		expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
 		const game = await service.from('game_scores').insert({
 			game_id: gameId,

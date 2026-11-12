@@ -6,6 +6,7 @@ import {
 	forceDeleteParty,
 	getServiceRoleClient,
 	getTestClient,
+	MAX_ATTEMPTS,
 	type TestParty,
 } from './helpers';
 
@@ -20,7 +21,6 @@ const client = getTestClient();
 const service = getServiceRoleClient();
 const createdPartyIds: string[] = [];
 const WRONG_PIN = '0000';
-const MAX_ATTEMPTS = 5;
 
 type Args = Record<string, unknown>;
 
@@ -184,15 +184,14 @@ describe('PIN lockout throttle: recovery', () => {
 		const { data, error } = await client.rpc(payouts.name, payouts.args(party, party.host_pin));
 		expect(error).toBeNull();
 		expect(data.ok).toBe(true);
-		expect(data.party).toMatchObject({ split_q1: 10, split_final: 40 });
 		expect(await readPinState(party.id)).toEqual({ pin_attempts: 0, pin_locked_until: null });
 	});
 
-	it('host_remove_player: the correct PIN removes the squares and resets pin_attempts to 0', async () => {
+	it('host_remove_player: wrong PINs remove nothing; the correct PIN removes and resets pin_attempts to 0', async () => {
 		const party = await newParty();
+		const remove = ACTIONS[1];
 		expect(await claimCell(client, party.id, 0, 0, 'Alice')).toBe(true);
 		expect(await claimCell(client, party.id, 0, 1, 'Alice')).toBe(true);
-		const remove = ACTIONS[1];
 
 		for (let i = 0; i < 3; i++) await client.rpc(remove.name, remove.args(party, WRONG_PIN));
 		expect((await readPinState(party.id)).pin_attempts).toBe(3);

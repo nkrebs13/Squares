@@ -1,9 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import {
 	setupSupabaseMocksWithOverrides,
 	mockActiveScores,
 	mockCompleteScores,
 	mockWinnersAll,
+	generatePartiallyFilledSquares,
 	setUserName,
 } from './fixtures/supabase-mocks';
 
@@ -27,24 +28,44 @@ import {
  * specifically; visual.spec.ts is happy with mocked data.
  */
 
+/**
+ * The first-visit gesture hint covers the page in the mobile layout (and only there);
+ * these shots are of the page, so dismiss it the way a visitor would.
+ */
+async function dismissGestureHint(page: Page, testInfo: TestInfo) {
+	if (testInfo.project.name !== 'Mobile Chrome') return;
+	const hint = page.getByLabel('Dismiss hint');
+	await hint.click();
+	await expect(hint).toBeHidden();
+}
+
+/** Layout depends on web fonts; screenshot only once they have loaded. */
+const fontsReady = (page: Page) => page.evaluate(() => document.fonts.ready.then(() => undefined));
+
 test.describe('Visual regression: party page states', () => {
-	test('filling state — grid with 5 claimed squares', async ({ page }) => {
+	test('filling state — grid with 5 claimed squares', async ({ page }, testInfo) => {
 		await setUserName(page, 'TestPlayer');
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'filling' },
+			squaresData: generatePartiallyFilledSquares('test-party-id', [
+				{ row: 0, col: 0, name: 'Alice' },
+				{ row: 0, col: 1, name: 'Bob' },
+				{ row: 1, col: 2, name: 'Charlie' },
+				{ row: 2, col: 3, name: 'Dana' },
+				{ row: 3, col: 4, name: 'Eve' },
+			]),
 		});
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 
-		// Wait a beat so any open animations settle. animations:'disabled' in
-		// playwright.config handles CSS transitions; this is for any layout that
-		// depends on resize-observer / first-paint timing.
-		await page.waitForTimeout(300);
+		await expect(page.locator('.square-claimed')).toHaveCount(5);
+		await dismissGestureHint(page, testInfo);
+		await fontsReady(page);
 
 		await expect(page).toHaveScreenshot('party-filling.png', { fullPage: true });
 	});
 
-	test('active state — numbers visible, scoreboard live', async ({ page }) => {
+	test('active state — numbers visible, scoreboard live', async ({ page }, testInfo) => {
 		await setUserName(page, 'TestPlayer');
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'active' },
@@ -52,21 +73,25 @@ test.describe('Visual regression: party page states', () => {
 		});
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
-		await page.waitForTimeout(300);
+		await expect(page.getByRole('columnheader').first()).toHaveText('0');
+		await dismissGestureHint(page, testInfo);
+		await fontsReady(page);
 
 		await expect(page).toHaveScreenshot('party-active.png', { fullPage: true });
 	});
 
-	test('complete state — winners section populated', async ({ page }) => {
+	test('complete state — winners section populated', async ({ page }, testInfo) => {
 		await setUserName(page, 'TestPlayer');
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'complete' },
 			scoresOverrides: mockCompleteScores,
-			winnersOverrides: mockWinnersAll,
+			winnersData: mockWinnersAll,
 		});
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
-		await page.waitForTimeout(300);
+		await expect(page.locator('.winner-banner')).toHaveCount(4);
+		await dismissGestureHint(page, testInfo);
+		await fontsReady(page);
 
 		await expect(page).toHaveScreenshot('party-complete.png', { fullPage: true });
 	});
