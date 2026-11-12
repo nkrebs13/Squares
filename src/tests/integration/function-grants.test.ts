@@ -177,6 +177,27 @@ async function tablePrivilegesOf(role: string): Promise<string[]> {
 	return rows.map((r) => r.entry);
 }
 
+/**
+ * Column-level rights of `role` in public, as Postgres decides them (table-level
+ * grants, column grants, PUBLIC and role membership all count). A column grant is
+ * invisible to has_table_privilege, so this is what catches e.g.
+ * `GRANT UPDATE (player_name) ON squares TO anon`.
+ */
+async function columnPrivilegesOf(role: string): Promise<{ table: string; priv: string }[]> {
+	const { rows } = await db.query<{ table: string; priv: string }>(
+		`SELECT DISTINCT c.relname AS table, p.priv
+		 FROM pg_class c
+		 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+		 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+		 CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','REFERENCES']) AS p(priv)
+		 WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f')
+		   AND has_column_privilege($1, c.oid, a.attnum, p.priv)
+		 ORDER BY 1, 2`,
+		[role]
+	);
+	return rows;
+}
+
 describe('table privileges', () => {
 	it.each(['anon', 'authenticated'])(
 		'%s may only SELECT the client-readable tables',
@@ -186,6 +207,25 @@ describe('table privileges', () => {
 			);
 		}
 	);
+
+	it.each(['anon', 'authenticated'])(
+		'%s may read columns only of the readable tables and parties, and write none',
+		async (role) => {
+			const rights = await columnPrivilegesOf(role);
+			expect(rights.filter((r) => r.priv !== 'SELECT')).toEqual([]);
+			expect(rights.map((r) => r.table)).toEqual([...CLIENT_READABLE_TABLES, 'parties'].sort());
+		}
+	);
+
+	it('counts a column-level write grant', async () => {
+		await db.query('BEGIN');
+		try {
+			await db.query('GRANT UPDATE (player_name) ON public.squares TO anon');
+			expect(await columnPrivilegesOf('anon')).toContainEqual({ table: 'squares', priv: 'UPDATE' });
+		} finally {
+			await db.query('ROLLBACK');
+		}
+	});
 
 	it('a newly created table or sequence grants anon nothing', async () => {
 		await db.query('BEGIN');

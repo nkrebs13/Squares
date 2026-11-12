@@ -4,7 +4,6 @@ export interface Toast {
 	id: string;
 	message: string;
 	type: 'success' | 'error';
-	duration: number;
 }
 
 /** Errors stay up longer than confirmations so they can be read and acted on. */
@@ -19,7 +18,7 @@ function createToastStore() {
 
 	function show(message: string, type: Toast['type'], duration = DEFAULT_TOAST_DURATION_MS) {
 		const id = `toast-${++idCounter}`;
-		update((toasts) => [...toasts, { id, message, type, duration }]);
+		update((toasts) => [...toasts, { id, message, type }]);
 		timers.set(
 			id,
 			setTimeout(() => remove(id), duration)
