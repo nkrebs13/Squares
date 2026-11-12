@@ -205,6 +205,15 @@ describe('postgres_changes: winners', () => {
 		expect(get(winners)[0]).toMatchObject({ player_name: 'Bob', amount: 300 });
 	});
 
+	it('UPDATE keeps the winner in its place', () => {
+		winners.set([q1, q3]);
+		open();
+
+		pgChange('winners', { eventType: 'UPDATE', new: { ...q1, amount: 300 } });
+
+		expect(get(winners).map((w) => w.quarter)).toEqual(['q1', 'q3']);
+	});
+
 	it('DELETE removes matching winner by party_id and quarter', () => {
 		winners.set([q1, q2]);
 		open();
