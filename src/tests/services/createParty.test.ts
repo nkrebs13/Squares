@@ -7,6 +7,13 @@ vi.mock('$lib/supabase', () => ({
 
 import { createParty } from '$lib/services/createParty';
 import { APP_CONFIG, DEFAULT_TEAMS } from '$lib/config';
+import {
+	DB_MAX_TEAM_NAME_LENGTH,
+	MAX_EVENT_NAME_LENGTH,
+	MIN_SQUARE_PRICE,
+	PIN_LENGTH,
+	SQUARE_PRICE_CEILING,
+} from '$lib/constants';
 
 const validPartyRow = {
 	id: '11111111-1111-1111-1111-111111111111',
@@ -79,11 +86,14 @@ describe('createParty service', () => {
 
 	it.each([
 		['host_name', 'Please enter a host name.'],
-		['pin', 'PIN must be exactly 4 digits.'],
-		['square_price', 'Square price must be at least 0.01 and under 100,000,000.'],
+		['pin', `PIN must be exactly ${PIN_LENGTH} digits.`],
+		[
+			'square_price',
+			`Square price must be at least ${MIN_SQUARE_PRICE} and under ${SQUARE_PRICE_CEILING.toLocaleString('en-US')}.`,
+		],
 		['splits', 'Each split must be 0–100% and they must add up to 100%.'],
-		['event_name', 'Event name must be 1–80 characters.'],
-		['team_name', 'Team names must be 1–50 characters.'],
+		['event_name', `Event name must be 1–${MAX_EVENT_NAME_LENGTH} characters.`],
+		['team_name', `Team names must be 1–${DB_MAX_TEAM_NAME_LENGTH} characters.`],
 		['teams', 'Choose two different teams for the matchup.'],
 		['team_color', 'Team colors must be valid hex colors.'],
 	])('shows the copy for an invalid %s', async (field, copy) => {

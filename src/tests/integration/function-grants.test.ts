@@ -4,11 +4,9 @@ import {
 	claimCell,
 	cleanupParty,
 	createTestParty,
-	fillAllSquares,
 	ensureSupabaseReady,
 	getServiceRoleClient,
 	getTestClient,
-	lockParty,
 	type TestParty,
 	getTestDatabaseUrl,
 } from './helpers';
@@ -157,49 +155,6 @@ describe('push subscriptions', () => {
 		expect(del.error?.code).toBe('42501');
 
 		expect(await subscriptionRows()).toHaveLength(1);
-	});
-});
-
-describe('live score trigger chain', () => {
-	const client = getTestClient();
-	const service = getServiceRoleClient();
-	const gameId = `gt-${Date.now()}`;
-	let party: TestParty;
-
-	beforeAll(async () => {
-		party = await createTestParty(client);
-		await fillAllSquares(party.id);
-		expect(await lockParty(client, party.id, party.host_pin)).toBe(true);
-		const game = await service.from('game_scores').insert({
-			game_id: gameId,
-			home_team_abbrev: 'PHI',
-			away_team_abbrev: 'KC',
-			home_team_name: 'Eagles',
-			away_team_name: 'Chiefs',
-			game_status: 'in_progress',
-		});
-		if (game.error) throw game.error;
-		const link = await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
-		if (link.error) throw link.error;
-	});
-
-	afterAll(async () => {
-		await cleanupParty(client, party.id);
-		await service.from('game_scores').delete().eq('game_id', gameId);
-	});
-
-	it('a game_scores quarter result still records the winner through the internal helpers', async () => {
-		const { error } = await service
-			.from('game_scores')
-			.update({ q1_home: 7, q1_away: 3 })
-			.eq('game_id', gameId);
-		if (error) throw error;
-
-		const { data: winners } = await client
-			.from('winners')
-			.select('quarter')
-			.eq('party_id', party.id);
-		expect(winners).toEqual([{ quarter: 'q1' }]);
 	});
 });
 

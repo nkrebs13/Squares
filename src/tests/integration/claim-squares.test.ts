@@ -10,6 +10,9 @@ import {
 	getTestDatabaseUrl,
 } from './helpers';
 
+// player_name is VARCHAR(50); no shared constant exists for it.
+const DB_MAX_NAME_LENGTH = 50;
+
 // claim_squares (migration 038): claims a set of cells and reports which it
 // got and who holds the rest.
 
@@ -138,7 +141,12 @@ describe('claim_squares', () => {
 
 	it.each([
 		['a blank name', '  ', [{ row: 0, col: 0 }], 'player_name'],
-		['a name over 50 characters', 'x'.repeat(51), [{ row: 0, col: 0 }], 'player_name'],
+		[
+			'a name over the column limit',
+			'x'.repeat(DB_MAX_NAME_LENGTH + 1),
+			[{ row: 0, col: 0 }],
+			'player_name',
+		],
 		['no cells', 'Alice', [], 'cells'],
 		['a cell off the grid', 'Alice', [{ row: 10, col: 0 }], 'cells'],
 		['a fractional cell', 'Alice', [{ row: 1.5, col: 0 }], 'cells'],

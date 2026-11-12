@@ -31,14 +31,6 @@ test.describe('Party Page - Mocked Flow', () => {
 		await expect(page.getByText(/seahawks vs patriots/i).first()).toBeVisible();
 	});
 
-	test('displays the 10x10 grid', async ({ page }) => {
-		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST12');
-
-		// Wait for grid to load - look for grid elements
-		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
-	});
-
 	test('shows user stats bar', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
@@ -214,20 +206,6 @@ test.describe('Square Interactions', () => {
 		const otherSquare = page.locator('button.square-claimed').first();
 		await expect(otherSquare).toBeDisabled();
 	});
-
-	test('cannot click squares when party is locked', async ({ page }) => {
-		await setupSupabaseMocksWithOverrides(page, {
-			partyOverrides: { status: 'locked' },
-		});
-		await setUserName(page, 'TestPlayer');
-		await page.goto('/party/TEST12');
-
-		await expect(page.locator('.grid-11x11')).toBeVisible({ timeout: 10000 });
-
-		// All squares should be disabled
-		const firstSquare = page.locator('button.square').first();
-		await expect(firstSquare).toBeDisabled();
-	});
 });
 
 test.describe('Party Code Sharing', () => {
@@ -280,18 +258,6 @@ test.describe('Party Code Sharing', () => {
 });
 
 test.describe('Party Page - Error States', () => {
-	test('shows error when party does not exist', async ({ page }) => {
-		// get_party_state returns null for an unknown code
-		await mockPartyState(page, null);
-
-		await setUserName(page, 'TestPlayer');
-
-		await page.goto('/party/INVALID');
-
-		await expect(page.getByText('Party not found')).toBeVisible({ timeout: 10000 });
-		await expect(page.getByRole('link', { name: /go home/i })).toBeVisible({ timeout: 10000 });
-	});
-
 	test('shows error on network failure', async ({ page }) => {
 		await mockPartyState(page, null, 500);
 

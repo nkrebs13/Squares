@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
 import {
 	claimCell,
 	createTestParty,
@@ -6,6 +7,7 @@ import {
 	forceDeleteParty,
 	getServiceRoleClient,
 	getTestClient,
+	getTestDatabaseUrl,
 	MAX_ATTEMPTS,
 	type TestParty,
 } from './helpers';
@@ -92,6 +94,31 @@ afterEach(async () => {
 	// Force-delete: tests here intentionally lock parties out, so
 	// host_delete_party('1234') would itself be refused and leak the row.
 	for (const id of createdPartyIds.splice(0)) await forceDeleteParty(id);
+});
+
+describe('PIN-gated action matrix', () => {
+	it('covers every client-callable host_* function that takes a PIN', async () => {
+		// host_create_party sets the PIN and host_verify_pin has its own lockout
+		// test below. Internal helpers (host_gate, host_pin_check) are not
+		// executable by anon, so they are not client API.
+		const db = new pg.Client({ connectionString: getTestDatabaseUrl() });
+		await db.connect();
+		try {
+			const { rows } = await db.query<{ proname: string }>(
+				`SELECT DISTINCT p.proname
+				 FROM pg_proc p
+				 JOIN pg_namespace n ON n.oid = p.pronamespace
+				 WHERE n.nspname = 'public'
+				   AND p.proname LIKE 'host\\_%'
+				   AND 'p_pin' = ANY (p.proargnames)
+				   AND has_function_privilege('anon', p.oid, 'EXECUTE')
+				   AND p.proname NOT IN ('host_create_party', 'host_verify_pin')`
+			);
+			expect(rows.map((r) => r.proname).sort()).toEqual(ACTIONS.map((a) => a.name).sort());
+		} finally {
+			await db.end();
+		}
+	});
 });
 
 describe('host_verify_pin lockout', () => {
