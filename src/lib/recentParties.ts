@@ -4,6 +4,7 @@
 import { browser } from '$app/environment';
 import { get, set } from 'idb-keyval';
 import type { RecentParty } from '$lib/types';
+import { PARTY_STATUSES, type PartyStatus } from '$lib/partyStatus';
 import { local, session, STORAGE_KEYS } from '$lib/storage';
 
 const MAX_RECENT_PARTIES = 10;
@@ -11,15 +12,19 @@ const MAX_RECENT_PARTIES = 10;
 export const HOME_RECENT_PARTIES = 5;
 const EXPIRY_MS = 90 * 24 * 60 * 60 * 1000;
 
-function withoutExpired(parties: RecentParty[]): RecentParty[] {
+// Stored lists come from browsers that may hold entries written by older builds, so an
+// entry with an unknown status is dropped rather than reaching the exhaustive badge switch.
+function usable(parties: RecentParty[]): RecentParty[] {
 	const now = Date.now();
-	return parties.filter((p) => now - p.lastVisited < EXPIRY_MS);
+	return parties.filter(
+		(p) => now - p.lastVisited < EXPIRY_MS && PARTY_STATUSES.includes(p.status as PartyStatus)
+	);
 }
 
 function readLocal(): RecentParty[] {
 	try {
 		const stored = local.get(STORAGE_KEYS.recentParties);
-		return stored ? withoutExpired(JSON.parse(stored)) : [];
+		return stored ? usable(JSON.parse(stored)) : [];
 	} catch {
 		return [];
 	}
@@ -33,7 +38,7 @@ export async function getRecentParties(): Promise<RecentParty[]> {
 
 	try {
 		const parties = await get<RecentParty[]>(STORAGE_KEYS.recentParties);
-		return parties ? withoutExpired(parties) : [];
+		return parties ? usable(parties) : [];
 	} catch {
 		return readLocal();
 	}
