@@ -32,6 +32,18 @@ test.describe('Party Page - Mocked Flow', () => {
 		await expect(page.getByText(/seahawks vs patriots/i).first()).toBeVisible();
 	});
 
+	test('the browser exposes the grid as eleven rows of cells', async ({ page }) => {
+		// The rows are display: contents; this checks the browser's accessibility tree
+		// keeps them, not just the DOM.
+		await setUserName(page, 'TestPlayer');
+		await page.goto('/party/TEST12');
+
+		const grid = page.getByRole('grid');
+		await expect(grid.getByRole('row')).toHaveCount(11);
+		await expect(grid.getByRole('row').nth(5).getByRole('gridcell')).toHaveCount(10);
+		await expect(grid.getByRole('row').nth(5).getByRole('rowheader')).toHaveCount(1);
+	});
+
 	test('shows user stats bar', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');

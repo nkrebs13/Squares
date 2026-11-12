@@ -228,61 +228,65 @@
 					aria-rowcount={GRID_SIZE + 1}
 					aria-colcount={GRID_SIZE + 1}
 				>
-					<div class="corner-cell" role="presentation"></div>
-
-					{#each cols as col (col)}
-						<div
-							class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === GRID_SIZE - 1
-								? 'rounded-tr'
-								: ''}"
-							role="columnheader"
-							aria-colindex={col + 2}
-						>
-							{$numbers ? $numbers.col_numbers[col] : '?'}
-						</div>
-					{/each}
-
-					{#each rows as row (row)}
-						<div
-							class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === GRID_SIZE - 1
-								? 'rounded-bl'
-								: ''}"
-							role="rowheader"
-							aria-rowindex={row + 2}
-						>
-							{$numbers ? $numbers.row_numbers[row] : '?'}
-						</div>
+					<!-- Rows are display: contents, so the 11x11 CSS grid lays out their cells
+					     directly while screen readers still get the rows a grid needs. -->
+					<div class="grid-row" role="row" aria-rowindex={1}>
+						<div class="corner-cell" role="presentation"></div>
 
 						{#each cols as col (col)}
-							{@const square = getSquare(row, col)}
-							{#if square}
-								<div
-									class="square-wrapper"
-									class:highlighted={isSquareHighlighted(square)}
-									class:dimmed={isSquareDimmed(square)}
-									role="gridcell"
-									aria-rowindex={row + 2}
-									aria-colindex={col + 2}
-								>
-									<Square
-										{square}
-										size={effectiveCellSize}
-										rowNumber={$numbers?.row_numbers[row]}
-										colNumber={$numbers?.col_numbers[col]}
-										isMine={isMine(square)}
-										isLocked={!filling}
-										isSelected={drag.selectedCells.has(squareKey(row, col))}
-										isPending={isSquarePending(row, col)}
-										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}
-										winners={getWinners(row, col)}
-										onpointerdown={(e) => drag.pointerDown(row, col, e)}
-										onpointerenter={() => drag.pointerEnter(row, col)}
-										onpointerup={() => drag.pointerUp(row, col)}
-										onclick={(e) => handleSquareKeyboardClick(row, col, e)}
-									/>
-								</div>
-							{/if}
+							<div
+								class="col-header team-col-bg {col === 0 ? 'rounded-tl' : ''} {col === GRID_SIZE - 1
+									? 'rounded-tr'
+									: ''}"
+								role="columnheader"
+								aria-colindex={col + 2}
+							>
+								{$numbers ? $numbers.col_numbers[col] : '?'}
+							</div>
 						{/each}
+					</div>
+
+					{#each rows as row (row)}
+						<div class="grid-row" role="row" aria-rowindex={row + 2}>
+							<div
+								class="row-header team-row-bg {row === 0 ? 'rounded-tl' : ''} {row === GRID_SIZE - 1
+									? 'rounded-bl'
+									: ''}"
+								role="rowheader"
+							>
+								{$numbers ? $numbers.row_numbers[row] : '?'}
+							</div>
+
+							{#each cols as col (col)}
+								{@const square = getSquare(row, col)}
+								{#if square}
+									<div
+										class="square-wrapper"
+										class:highlighted={isSquareHighlighted(square)}
+										class:dimmed={isSquareDimmed(square)}
+										role="gridcell"
+										aria-colindex={col + 2}
+									>
+										<Square
+											{square}
+											size={effectiveCellSize}
+											rowNumber={$numbers?.row_numbers[row]}
+											colNumber={$numbers?.col_numbers[col]}
+											isMine={isMine(square)}
+											isLocked={!filling}
+											isSelected={drag.selectedCells.has(squareKey(row, col))}
+											isPending={isSquarePending(row, col)}
+											isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}
+											winners={getWinners(row, col)}
+											onpointerdown={(e) => drag.pointerDown(row, col, e)}
+											onpointerenter={() => drag.pointerEnter(row, col)}
+											onpointerup={() => drag.pointerUp(row, col)}
+											onclick={(e) => handleSquareKeyboardClick(row, col, e)}
+										/>
+									</div>
+								{/if}
+							{/each}
+						</div>
 					{/each}
 				</div>
 			</div>
@@ -402,6 +406,10 @@
 	}
 
 	/* 10 = GRID_SIZE, 11 = header column + GRID_SIZE (CSS can't import the constant). */
+	.grid-row {
+		display: contents;
+	}
+
 	.grid-11x11 {
 		display: grid;
 		grid-template-columns: repeat(11, var(--cell-size));
