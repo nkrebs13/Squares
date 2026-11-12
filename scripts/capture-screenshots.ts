@@ -48,8 +48,8 @@ if (!SUPABASE_URL || !CLIENT_KEY) {
 	process.exit(1);
 }
 
-// This script creates AND deletes real rows (create_party, claim_squares_batch,
-// lock_party, delete_party) against whatever VITE_SUPABASE_URL resolves to. The
+// This script creates AND deletes real rows (host_create_party, claim_squares,
+// host_lock_party, host_record_score, host_delete_party) against whatever VITE_SUPABASE_URL resolves to. The
 // repo's .env sets that var to the PRODUCTION Supabase project, so running this
 // script unguarded mutates live data. Fires before any client is constructed or
 // any network/browser call is made. See assertLocalDb.ts for the full rationale
@@ -63,6 +63,10 @@ const supabase = createClient(SUPABASE_URL, CLIENT_KEY);
 async function rpc(fn: string, args: Record<string, unknown>) {
 	const { data, error } = await supabase.rpc(fn, args);
 	if (error) throw new Error(`RPC ${fn} failed: ${error.message}`);
+	// host_* and claim_squares report refusals as {ok: false, error, field?}.
+	if (data?.ok === false) {
+		throw new Error(`RPC ${fn} refused: ${data.error}${data.field ? ` (${data.field})` : ''}`);
+	}
 	return data;
 }
 
@@ -143,7 +147,7 @@ async function main() {
 
 		// ── 2. Create the demo party via RPC (faster than UI flow) ────────────
 		console.log('Creating demo party…');
-		const party = await rpc('create_party', {
+		const { party } = await rpc('host_create_party', {
 			p_host_name: 'Screenshot Bot',
 			p_pin: partyPin,
 			p_square_price: 5,
@@ -219,7 +223,7 @@ async function main() {
 
 		console.log('Claiming squares for demo players…');
 		for (const player of players) {
-			await rpc('claim_squares_batch', {
+			await rpc('claim_squares', {
 				p_party_id: partyId,
 				p_player_name: player.name,
 				p_cells: player.cells,
@@ -266,7 +270,7 @@ async function main() {
 		if (remaining.length > 0) {
 			const chunkSize = 50;
 			for (let i = 0; i < remaining.length; i += chunkSize) {
-				await rpc('claim_squares_batch', {
+				await rpc('claim_squares', {
 					p_party_id: partyId,
 					p_player_name: 'Chris',
 					p_cells: remaining.slice(i, i + chunkSize),
@@ -276,7 +280,7 @@ async function main() {
 
 		// ── 6. Lock party (assigns numbers, moves to active) ─────────────────
 		console.log('Locking party (moving to active state)…');
-		await rpc('lock_party', { p_party_id: partyId, p_pin: partyPin });
+		await rpc('host_lock_party', { p_party_id: partyId, p_pin: partyPin });
 
 		// Reload and screenshot active state (numbers now assigned)
 		await page.evaluate(
@@ -331,7 +335,7 @@ async function main() {
 				`  Setting Q1 score to ${teamRowFinalScore}-${teamColFinalScore} to create winner for ${firstClaimedSquare.player_name}…`
 			);
 
-			await rpc('update_score', {
+			await rpc('host_record_score', {
 				p_party_id: partyId,
 				p_pin: partyPin,
 				p_quarter: 'q1',
@@ -436,11 +440,11 @@ async function main() {
 		// ── Cleanup: delete the test party ────────────────────────────────────
 		if (partyId) {
 			console.log(`\nCleaning up test party ${partyCode}…`);
-			const { error: delErr } = await supabase.rpc('delete_party', {
+			const { data: deleted, error: delErr } = await supabase.rpc('host_delete_party', {
 				p_party_id: partyId,
 				p_pin: partyPin,
 			});
-			if (delErr) {
+			if (delErr || deleted?.ok !== true) {
 				// Try service-role direct delete as fallback
 				await supabase.from('parties').delete().eq('id', partyId);
 			}

@@ -133,6 +133,23 @@ describe('game_side via the trigger', () => {
 		expect(data?.home_team_is_row).toBe(expected ?? true);
 	});
 
+	it('treats wildcard characters in team names as literals', async () => {
+		const party = await createTestParty(client, { team_row_name: '%' });
+		parties.push(party.id);
+		const gameId = await newGame(['Philadelphia Eagles', 'PHI'], ['Kansas City Chiefs', 'KC']);
+		await service.from('parties').update({ home_team_is_row: false }).eq('id', party.id);
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+
+		const { data } = await service
+			.from('parties')
+			.select('home_team_is_row')
+			.eq('id', party.id)
+			.single();
+		// '%' as a pattern would match the home team and flip the flag; as a
+		// literal it matches nothing, so the flag stays as it was.
+		expect(data?.home_team_is_row).toBe(false);
+	});
+
 	it('follows a team-name edit on a linked party', async () => {
 		const party = await newParty();
 		const gameId = await newGame(['Philadelphia Eagles', 'PHI'], ['Kansas City Chiefs', 'KC']);

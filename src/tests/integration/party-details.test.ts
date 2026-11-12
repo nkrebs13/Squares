@@ -77,11 +77,46 @@ describe('host_create_party', () => {
 		expect(expires - new Date(kickoff).getTime()).toBeCloseTo(14 * 24 * 3600 * 1000, -5);
 	});
 
+	it('keeps the default cleanup window when kickoff is not known', async () => {
+		const before = Date.now();
+		const data = await createParty({ p_kickoff_at: null });
+		const expires = new Date(data.party.expires_at).getTime();
+		const thirtyDays = 30 * 24 * 3600 * 1000;
+		expect(expires).toBeGreaterThanOrEqual(before + thirtyDays);
+		expect(expires).toBeLessThan(Date.now() + thirtyDays + 60_000);
+	});
+
+	it('gives each party its own code and leaves every quarter score empty', async () => {
+		const first = await createParty();
+		const second = await createParty();
+		expect(second.party.code).not.toBe(first.party.code);
+
+		const { data: scores } = await client
+			.from('scores')
+			.select('*')
+			.eq('party_id', first.party.id)
+			.single();
+		for (const q of ['q1', 'q2', 'q3', 'final']) {
+			expect(scores?.[`${q}_row_score`]).toBeNull();
+			expect(scores?.[`${q}_col_score`]).toBeNull();
+		}
+
+		const { data: squares } = await client
+			.from('squares')
+			.select('row_num, col_num')
+			.eq('party_id', first.party.id);
+		expect(new Set(squares?.map((s) => `${s.row_num}-${s.col_num}`)).size).toBe(100);
+	});
+
 	it.each([
 		['host_name', { p_host_name: '   ' }],
 		['host_name', { p_host_name: 'x'.repeat(51) }],
 		['pin', { p_pin: '12a4' }],
+		['pin', { p_pin: '12' }],
+		['pin', { p_pin: '12345' }],
+		['pin', { p_pin: '' }],
 		['square_price', { p_square_price: 0 }],
+		['square_price', { p_square_price: -1 }],
 		['square_price', { p_square_price: 99999999999 }],
 		['square_price', { p_square_price: 99999999.995 }],
 		['square_price', { p_square_price: 0.004 }],
@@ -119,9 +154,13 @@ describe('host_update_details', () => {
 		party = await createTestParty(client);
 		created.push(party.id);
 
-		const data = await update({ p_event_name: '  Final  ' });
+		const kickoff = '2027-02-14T23:30:00.000Z';
+		const data = await update({ p_event_name: '  Final  ', p_kickoff_at: kickoff });
 
 		expect(data.ok).toBe(true);
+		expect(new Date(data.party.expires_at).getTime()).toBeGreaterThanOrEqual(
+			new Date(kickoff).getTime() + 14 * 24 * 3600 * 1000
+		);
 		expect(data.party).toMatchObject({
 			event_name: 'Final',
 			team_row_name: 'Ravens',

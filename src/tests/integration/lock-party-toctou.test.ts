@@ -12,21 +12,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const { Client } = pg;
 
-// Regression coverage for the lock_party / unclaim_square TOCTOU race fixed in
-// migration 032. See that migration's header comment for the full mechanism
-// writeup -- summarized here: lock_party now holds a `FOR UPDATE` lock on every
-// squares row for the duration of its transaction, and unclaim_square now reads
+// Regression coverage for the host_lock_party / unclaim_square TOCTOU race fixed
+// in migration 032. See that migration's header comment for the full mechanism
+// writeup -- summarized here: host_lock_party holds a `FOR UPDATE` lock on every
+// squares row for the duration of its transaction, and unclaim_square reads
 // parties.status with `FOR UPDATE` (instead of a plain read) so it serializes
-// against lock_party's existing parties-row lock (held since check_pin_lockout).
-// Whichever RPC acquires the parties-row lock first now fully determines a
+// against host_lock_party's existing parties-row lock (held since host_pin_check).
+// Whichever RPC acquires the parties-row lock first fully determines a
 // happens-before order; the loser always observes the winner's committed state.
 //
-// This test exercises the REAL lock_party/unclaim_square functions (not a
+// This test exercises the REAL host_lock_party/unclaim_square functions (not a
 // reimplementation of their SQL) over two raw `pg` connections so it can hold
-// lock_party's transaction open past its internal commit point and force the
+// host_lock_party's transaction open past its internal commit point and force the
 // exact interleaving the bug required: unclaim_square's status read must be
-// issued *before* lock_party commits, so it's mid-flight and blocked on the
-// parties-row lock when lock_party's commit finally releases it.
+// issued *before* host_lock_party commits, so it's mid-flight and blocked on the
+// parties-row lock when host_lock_party's commit finally releases it.
 
 const databaseUrl =
 	process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
@@ -77,7 +77,7 @@ async function waitUntilBlockedOnLock(
 	throw new Error(`Backend ${pid} never entered a Lock wait state within ${timeoutMs}ms`);
 }
 
-describe('lock_party vs unclaim_square TOCTOU race (032)', () => {
+describe('host_lock_party vs unclaim_square TOCTOU race (032)', () => {
 	it('rejects a concurrent unclaim that reads status mid-lock, so an active party never ends up with an empty square', async () => {
 		await fillAllSquares(client, party.id);
 
@@ -94,20 +94,20 @@ describe('lock_party vs unclaim_square TOCTOU race (032)', () => {
 
 		let unclaimResult: boolean | undefined;
 		try {
-			// Open lock_party's transaction and hold it uncommitted. By the time
-			// this resolves, lock_party has already: verified the PIN, locked the
-			// parties row (via check_pin_lockout), locked every squares row, seen
+			// Open host_lock_party's transaction and hold it uncommitted. By the time
+			// this resolves, host_lock_party has already: verified the PIN, locked the
+			// parties row (via host_pin_check), locked every squares row, seen
 			// the grid as full, generated numbers, inserted scores, and staged
 			// status='active' -- all still uncommitted.
 			await lockConn.query('BEGIN');
-			const { rows: lockRows } = await lockConn.query<{ lock_party: boolean }>(
-				'SELECT lock_party($1, $2) AS lock_party',
+			const { rows: lockRows } = await lockConn.query<{ result: { ok: boolean } }>(
+				'SELECT host_lock_party($1, $2) AS result',
 				[party.id, party.host_pin]
 			);
-			expect(lockRows[0].lock_party).toBe(true);
+			expect(lockRows[0].result.ok).toBe(true);
 
 			// Fire the racing unclaim. Its own status read now uses FOR UPDATE
-			// (the 032 fix), so it must block on lock_party's still-held
+			// (the 032 fix), so it must block on host_lock_party's still-held
 			// parties-row lock instead of reading a stale 'filling' status.
 			const unclaimPromise = unclaimConn
 				.query<{
@@ -120,7 +120,7 @@ describe('lock_party vs unclaim_square TOCTOU race (032)', () => {
 
 			await waitUntilBlockedOnLock(lockConn, unclaimPid);
 
-			// Only now does lock_party's transaction commit.
+			// Only now does host_lock_party's transaction commit.
 			await lockConn.query('COMMIT');
 
 			unclaimResult = await unclaimPromise;

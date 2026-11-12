@@ -41,14 +41,14 @@ Running `supabase db reset` applies all migrations and then automatically execut
 
 Tests use `createTestParty()` (defined in each test file's setup) with randomly-generated UUIDs. These never collide with the demo party's reserved UUID (`00000000-0000-0000-0000-000000000001`).
 
-If you want to regenerate `src/lib/database.types.ts` from your local schema:
+For typed `.rpc()` calls and table queries, generate the types from your local schema (the output is gitignored):
 
 ```bash
 supabase start
 npm run db:types
 ```
 
-For full RPC type-safety, after regenerating the types pass the `Database` type to the Supabase client in `src/lib/supabase.ts`:
+Then pass the `Database` type to the Supabase client in `src/lib/supabase.ts`:
 
 ```ts
 import type { Database } from './database.types';
@@ -56,7 +56,7 @@ import type { Database } from './database.types';
 // to:     createClient<Database>(url, key, ...)
 ```
 
-The file ships as a hand-written schema reference because the auto-generated shape requires a running local instance. Both approaches work; the generated version gives you typed `.rpc()` call signatures.
+The current schema, RPC bodies included, is always readable in `supabase/schema.snapshot.sql`.
 
 ## Testing
 
