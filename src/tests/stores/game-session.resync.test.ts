@@ -12,11 +12,16 @@ vi.mock('$lib/stores/game-realtime', async () => {
 	const { writable } = await import('svelte/store');
 	const store = writable({ status: 'connected', attempt: 0 });
 	hoisted.store = store;
-	return { connectionStatus: store, subscribeToParty: vi.fn(), cleanupChannels: vi.fn() };
+	return {
+		connectionStatus: store,
+		subscribeToParty: vi.fn(),
+		followGame: vi.fn(),
+		cleanupChannels: vi.fn(),
+	};
 });
 
 import { openParty, cleanup } from '$lib/stores/game-session';
-import { subscribeToParty } from '$lib/stores/game-realtime';
+import { followGame, subscribeToParty } from '$lib/stores/game-realtime';
 
 const connection = () => hoisted.store as Writable<Connection>;
 
@@ -217,35 +222,37 @@ describe('resync after a reconnect', () => {
 	});
 });
 
-describe('following a game linked while the party is open', () => {
+describe("following the party's game while it is open", () => {
 	beforeEach(async () => {
 		cleanup();
 		connection().set({ status: 'connected', attempt: 0 });
 		mockSupabaseClient.rpc.mockReset();
 		vi.mocked(subscribeToParty).mockClear();
+		vi.mocked(followGame).mockClear();
 		stateResponds();
 		await openParty('ABC123');
 	});
 
-	it("subscribes the game's channel when the party gains a game", () => {
+	it("re-keys only the game's channel when the party gains a game, leaving the party's joined", () => {
 		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', null);
 		stateResponds();
 		party.update((p) => (p ? { ...p, game_id: 'g1' } : p));
-		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', 'g1');
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+		expect(vi.mocked(followGame)).toHaveBeenCalledWith('g1');
+		expect(vi.mocked(followGame)).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(1);
 	});
 
-	it('re-reads the party once after following a newly linked game', async () => {
+	it('re-reads the party once after following a newly linked game, to fetch its row', async () => {
 		stateResponds();
 		party.update((p) => (p ? { ...p, game_id: 'g1' } : p));
 		await flush();
 		expect(stateCalls()).toBe(2);
 	});
 
-	it('does not resubscribe for other changes to the same party', () => {
+	it('does not re-key for other changes to the same party', () => {
 		party.update((p) => (p ? { ...p, game_id: 'g1' } : p));
 		party.update((p) => (p ? { ...p, event_name: 'Renamed' } : p));
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+		expect(vi.mocked(followGame)).toHaveBeenCalledTimes(1);
 	});
 
 	it('re-reads an unlinked party when its team names change (its game is detected by name)', async () => {
@@ -269,7 +276,7 @@ describe('following a game linked while the party is open', () => {
 		expect(stateCalls()).toBe(2);
 	});
 
-	it("an unlinked party's channel follows the game a re-read detects, and drops it when none matches", async () => {
+	it("an unlinked party's game channel follows the game a re-read detects, and drops it when none matches", async () => {
 		const renamedTo = (row: string, col: string, game: string | null) => {
 			mockSupabaseClient.rpc.mockResolvedValueOnce({
 				data: {
@@ -287,30 +294,32 @@ describe('following a game linked while the party is open', () => {
 			party.update((p) => (p ? { ...p, team_row_name: row, team_col_name: col } : p));
 		};
 
-		stateResponds(); // the re-read after following
 		renamedTo('Ravens', 'Lions', 'g2');
 		await flush();
 		expect(get(gameScores)?.game_id).toBe('g2');
-		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', 'g2');
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+		expect(vi.mocked(followGame)).toHaveBeenLastCalledWith('g2');
 
 		renamedTo('Jets', 'Bills', null);
 		await flush();
 		expect(get(gameScores)).toBeNull();
-		expect(vi.mocked(subscribeToParty)).toHaveBeenLastCalledWith('p1', null);
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(3);
+		expect(vi.mocked(followGame)).toHaveBeenLastCalledWith(null);
+		expect(vi.mocked(followGame)).toHaveBeenCalledTimes(2);
+		// One read per rename: following a detected game needs no extra read.
+		expect(stateCalls()).toBe(3);
+		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not resubscribe when a re-read finds the same detected game', async () => {
+	it('does not re-key when a read or a live update keeps the same detected game', () => {
 		gameScores.set(createMockGameScores({ game_id: 'g2' }));
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
 		gameScores.set(createMockGameScores({ game_id: 'g2', home_score: 7 }));
-		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(2);
+		expect(vi.mocked(followGame)).toHaveBeenCalledTimes(1);
 	});
 
 	it('stops following after the party is left', () => {
 		cleanup();
 		party.set(createMockParty({ id: 'p1', game_id: 'g9' }));
+		gameScores.set(createMockGameScores({ game_id: 'g9' }));
+		expect(vi.mocked(followGame)).not.toHaveBeenCalled();
 		expect(vi.mocked(subscribeToParty)).toHaveBeenCalledTimes(1);
 	});
 });

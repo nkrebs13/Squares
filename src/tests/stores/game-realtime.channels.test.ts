@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { subscribeToParty, connectionStatus, cleanup } from '$lib/stores/game';
-import { broadcast } from '$lib/stores/game-realtime';
+import { broadcast, followGame } from '$lib/stores/game-realtime';
 import {
 	channelStatusCallbacks,
 	mockSupabaseChannel,
@@ -294,5 +294,41 @@ describe('a late CLOSED from a channel we no longer use', () => {
 
 		expect(channelsCreated()).toBe(channelsBefore);
 		expect(mockSupabaseChannel.unsubscribe.mock.calls.length).toBe(unsubscribesBefore);
+	});
+});
+
+describe('followGame (re-keying the game channel alone)', () => {
+	it("replaces only the game channel; the party's channels stay joined", () => {
+		subscribeToParty('p1', 'g1');
+		mockSupabaseClient.channel.mockClear();
+		mockSupabaseChannel.unsubscribe.mockClear();
+
+		followGame('g2');
+
+		expect(mockSupabaseClient.channel.mock.calls).toEqual([['game:g2']]);
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('drops the game channel when the party follows no game', () => {
+		subscribeToParty('p1', 'g1');
+		mockSupabaseClient.channel.mockClear();
+		mockSupabaseChannel.unsubscribe.mockClear();
+
+		followGame(null);
+
+		expect(mockSupabaseClient.channel).not.toHaveBeenCalled();
+		expect(mockSupabaseChannel.unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores the old game channel's late CLOSED, so it is never resurrected", () => {
+		subscribeToParty('p1', 'g1');
+		followGame(null);
+		const created = channelsCreated();
+
+		statusCallback('game:g1')('CLOSED');
+		vi.advanceTimersByTime(20_000);
+
+		expect(channelsCreated()).toBe(created);
+		expect(get(connectionStatus)).toEqual({ status: 'connected', attempt: 0 });
 	});
 });
