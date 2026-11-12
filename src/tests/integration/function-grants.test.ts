@@ -163,7 +163,7 @@ async function tablePrivilegesOf(role: string): Promise<string[]> {
 		`SELECT c.relname || ':' || p.priv AS entry
 		 FROM pg_class c
 		 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
-		 CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS p(priv)
+		 CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER','MAINTAIN']) AS p(priv)
 		 WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND has_table_privilege($1, c.oid, p.priv)
 		 UNION ALL
 		 SELECT c.relname || ':' || p.priv
