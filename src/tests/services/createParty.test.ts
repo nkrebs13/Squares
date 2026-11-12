@@ -28,7 +28,7 @@ const validPartyRow = {
 	updated_at: '2026-04-26T00:00:00Z',
 	expires_at: '2026-05-26T00:00:00Z',
 	game_id: null,
-	home_team_is_row: null,
+	home_team_is_row: true,
 };
 
 const validInput = {

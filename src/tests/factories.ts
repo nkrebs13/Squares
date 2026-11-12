@@ -38,7 +38,7 @@ export function createMockParty(overrides: Partial<Party> = {}): Party {
 		updated_at: new Date().toISOString(),
 		expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
 		game_id: null,
-		home_team_is_row: null,
+		home_team_is_row: true,
 		...overrides,
 	};
 }

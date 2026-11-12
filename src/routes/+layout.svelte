@@ -4,7 +4,6 @@
 	import { browser } from '$app/environment';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { requestPersistentStorage } from '$lib/storage';
-	import { APP_CONFIG } from '$lib/config';
 
 	const { children } = $props();
 
@@ -32,12 +31,8 @@
 	<meta name="theme-color" content="#1a2744" />
 	<link rel="manifest" href="/manifest.webmanifest" />
 
-	<meta property="og:title" content={APP_CONFIG.appName} />
-	<meta property="og:description" content={APP_CONFIG.appDescription} />
 	<meta property="og:type" content="website" />
 	<meta name="twitter:card" content="summary" />
-	<meta name="twitter:title" content={APP_CONFIG.appName} />
-	<meta name="twitter:description" content={APP_CONFIG.appDescription} />
 
 	<link rel="icon" href="/favicon.ico" sizes="32x32" />
 	<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />

@@ -5,9 +5,11 @@
 	import { verifyHostPin } from '$lib/stores/game';
 	import { recallHostPin, rememberHostPin } from '$lib/hostPin';
 	import { stageNickname } from '$lib/recentParties';
+	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { partySplits } from '$lib/payouts';
 	import { statusLabel } from '$lib/partyStatus';
 	import { MAX_NAME_LENGTH, MAX_NICKNAME_LENGTH, PIN_LENGTH, TOTAL_SQUARES } from '$lib/constants';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import PinInput from '$lib/components/forms/PinInput.svelte';
 	import Modal from '$lib/components/forms/Modal.svelte';
 	import PayoutPreview from '$lib/components/forms/PayoutPreview.svelte';
@@ -67,6 +69,13 @@
 		}
 	});
 
+	/** Save the typed name and nickname, then open the party. */
+	function enterParty(partyCode: string) {
+		userName.setName(name.trim());
+		stageNickname(partyCode, nickname);
+		goto(`/party/${partyCode}`);
+	}
+
 	async function handleJoin() {
 		if (!isCompletePartyCode(code) || !name.trim()) return;
 
@@ -83,15 +92,13 @@
 				return;
 			}
 
-			const enteredNameLower = name.trim().toLowerCase();
+			const enteredNameLower = normalizePlayerName(name);
 			if (partyData.host_name_lower && enteredNameLower === partyData.host_name_lower) {
 				const storedPin = await recallHostPin(upperCode);
 				if (storedPin) {
 					const verified = await verifyHostPin(upperCode, storedPin);
 					if (verified.success) {
-						userName.setName(name.trim());
-						stageNickname(upperCode, nickname);
-						goto(`/party/${upperCode}`);
+						enterParty(upperCode);
 						return;
 					}
 				}
@@ -103,9 +110,7 @@
 				return;
 			}
 
-			userName.setName(name.trim());
-			stageNickname(upperCode, nickname);
-			goto(`/party/${upperCode}`);
+			enterParty(upperCode);
 		} catch {
 			error = 'Something went wrong. Please try again.';
 		} finally {
@@ -148,10 +153,8 @@
 			if (result.success) {
 				await rememberHostPin(pendingPartyCode, pinInput);
 
-				userName.setName(name.trim());
-				stageNickname(pendingPartyCode, nickname);
 				showPinChallenge = false;
-				goto(`/party/${pendingPartyCode}`);
+				enterParty(pendingPartyCode);
 			} else {
 				pinError = result.error ?? 'Incorrect PIN. Please try again.';
 				pinInput = '';
@@ -171,6 +174,8 @@
 		name = '';
 	}
 </script>
+
+<PageMeta />
 
 <div class="min-h-screen p-6">
 	<header class="mb-8">

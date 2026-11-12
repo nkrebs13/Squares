@@ -51,13 +51,18 @@
 
 	// Pointer drag-select (see $lib/utils/dragSelect.svelte.ts)
 	const drag = new DragSelect({
-		canInteract: () => !!$userName && isFilling($party?.status),
+		canInteract: () => canAct,
 		canSelectCell,
 		onCellClick: handleSquareClick,
 		onBatch: (cells) => claimSquaresBatchOptimistic(cells),
 	});
 
 	let resizeObserver: ResizeObserver | null = null;
+
+	// The one rule for "this user can act on the grid" (claim, unclaim, drag-select).
+	const filling = $derived(isFilling($party?.status));
+	const canAct = $derived(!!$userName && filling);
+	const myName = $derived($userName ? normalizePlayerName($userName) : null);
 
 	const fitCellSize = $derived(getFitCellSize(containerWidth));
 	// The minimum cell size can make the grid wider than a narrow phone; then it
@@ -81,9 +86,13 @@
 	}
 
 	function canSelectCell(row: number, col: number): boolean {
-		if (!$userName || !isFilling($party?.status)) return false;
+		if (!canAct) return false;
 		const square = getSquare(row, col);
 		return square !== undefined && square.player_name === null;
+	}
+
+	function isMine(square: SquareType): boolean {
+		return myName !== null && square.player_name_lower === myName;
 	}
 
 	function isSquareHighlighted(square: SquareType): boolean {
@@ -97,12 +106,12 @@
 	}
 
 	function handleSquareClick(row: number, col: number) {
-		if (!$userName || !isFilling($party?.status)) return;
+		if (!canAct) return;
 
 		const square = getSquare(row, col);
 		if (!square) return;
 
-		if (square.player_name_lower === normalizePlayerName($userName)) {
+		if (isMine(square)) {
 			unclaimSquareOptimistic(row, col);
 		} else if (!square.player_name) {
 			claimSquareOptimistic(row, col);
@@ -128,7 +137,7 @@
 
 	onDestroy(() => resizeObserver?.disconnect());
 
-	const myColor = $derived($userName ? getPlayerColor(normalizePlayerName($userName)) : null);
+	const myColor = $derived(myName ? getPlayerColor(myName) : null);
 
 	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
 	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);
@@ -147,6 +156,16 @@
 	onpointerup={() => drag.globalPointerUp()}
 	onpointercancel={() => drag.globalPointerCancel()}
 />
+
+{#snippet teamLogo(src: string)}
+	<img
+		{src}
+		alt=""
+		aria-hidden="true"
+		class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
+		onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
+	/>
+{/snippet}
 
 <div class="space-y-4">
 	{#if $userName}
@@ -169,13 +188,7 @@
 	<div class="grid-wrapper">
 		<div class="team-label-col">
 			{#if showColLogo}
-				<img
-					src={APP_CONFIG.defaultTeams.col.logoUrl}
-					alt=""
-					aria-hidden="true"
-					class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
-					onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-				/>
+				{@render teamLogo(APP_CONFIG.defaultTeams.col.logoUrl)}
 			{/if}
 			<span
 				class="team-name font-bold text-xl sm:text-2xl md:text-3xl"
@@ -194,13 +207,7 @@
 					{$teamTheme.rowName}
 				</span>
 				{#if showRowLogo}
-					<img
-						src={APP_CONFIG.defaultTeams.row.logoUrl}
-						alt=""
-						aria-hidden="true"
-						class="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain drop-shadow-lg"
-						onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-					/>
+					{@render teamLogo(APP_CONFIG.defaultTeams.row.logoUrl)}
 				{/if}
 			</div>
 
@@ -258,7 +265,8 @@
 										size={effectiveCellSize}
 										rowNumber={$numbers?.row_numbers[row]}
 										colNumber={$numbers?.col_numbers[col]}
-										isLocked={!isFilling($party?.status)}
+										isMine={isMine(square)}
+										isLocked={!filling}
 										isSelected={drag.selectedCells.has(squareKey(row, col))}
 										isPending={isSquarePending(row, col)}
 										isLeading={$leadingSquare?.row === row && $leadingSquare?.col === col}

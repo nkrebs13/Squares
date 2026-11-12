@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import Square from '$lib/components/Square.svelte';
 import type { Square as SquareType } from '$lib/types';
-import { userName } from '$lib/stores/user';
 import { getPlayerColor } from '$lib/utils/colors';
 import { createMockWinner, createMockSquare as baseSquare } from '../factories';
 
@@ -12,11 +11,6 @@ function createMockSquare(overrides: Partial<SquareType> = {}): SquareType {
 }
 
 describe('Square Component', () => {
-	beforeEach(() => {
-		// Reset userName store
-		userName.setName('TestUser');
-	});
-
 	describe('Rendering', () => {
 		it('renders an empty square correctly', () => {
 			const square = createMockSquare();
@@ -71,9 +65,7 @@ describe('Square Component', () => {
 			expect(screen.getByText('MI')).toBeInTheDocument();
 		});
 
-		it('renders user own square with square-mine class', async () => {
-			await userName.setName('testuser');
-
+		it('renders user own square with square-mine class', () => {
 			const square = createMockSquare({
 				player_name: 'TestUser',
 				player_name_lower: 'testuser',
@@ -84,6 +76,7 @@ describe('Square Component', () => {
 					size: 44,
 					square,
 					isLocked: false,
+					isMine: true,
 				},
 			});
 
@@ -184,9 +177,7 @@ describe('Square Component', () => {
 			expect(screen.getByRole('button')).toBeDisabled();
 		});
 
-		it('disables square claimed by another player', async () => {
-			await userName.setName('currentuser');
-
+		it('disables square claimed by another player', () => {
 			const square = createMockSquare({
 				player_name: 'Other Player',
 				player_name_lower: 'other player',
@@ -203,9 +194,7 @@ describe('Square Component', () => {
 			expect(screen.getByRole('button')).toBeDisabled();
 		});
 
-		it('enables square claimed by current user for unclaiming', async () => {
-			await userName.setName('myname');
-
+		it('enables square claimed by current user for unclaiming', () => {
 			const square = createMockSquare({
 				player_name: 'MyName',
 				player_name_lower: 'myname',
@@ -216,6 +205,7 @@ describe('Square Component', () => {
 					size: 44,
 					square,
 					isLocked: false,
+					isMine: true,
 				},
 			});
 
@@ -257,8 +247,7 @@ describe('Square Component', () => {
 	});
 
 	describe('aria-pressed tracks ownership, not the drag-select preview (Bug 4 regression)', () => {
-		it('reports aria-pressed=true for a square the current user owns', async () => {
-			await userName.setName('myname');
+		it('reports aria-pressed=true for a square the current user owns', () => {
 			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
 
 			render(Square, {
@@ -266,6 +255,7 @@ describe('Square Component', () => {
 					size: 44,
 					square,
 					isLocked: false,
+					isMine: true,
 				},
 			});
 
@@ -289,8 +279,7 @@ describe('Square Component', () => {
 			expect(button).toHaveAttribute('aria-pressed', 'false');
 		});
 
-		it('reports aria-pressed=true for an owned square even when isSelected is false', async () => {
-			await userName.setName('myname');
+		it('reports aria-pressed=true for an owned square even when isSelected is false', () => {
 			const square = createMockSquare({ player_name: 'MyName', player_name_lower: 'myname' });
 
 			render(Square, {
@@ -298,6 +287,7 @@ describe('Square Component', () => {
 					size: 44,
 					square,
 					isLocked: false,
+					isMine: true,
 					isSelected: false,
 				},
 			});
@@ -305,8 +295,7 @@ describe('Square Component', () => {
 			expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
 		});
 
-		it('reports aria-pressed=false for a square claimed by someone else', async () => {
-			await userName.setName('currentuser');
+		it('reports aria-pressed=false for a square claimed by someone else', () => {
 			const square = createMockSquare({
 				player_name: 'Other Player',
 				player_name_lower: 'other player',
@@ -406,9 +395,7 @@ describe('Square Component', () => {
 			expect(button).toHaveAttribute('aria-label', 'Row 5, Column 2. Claimed by John Doe.');
 		});
 
-		it('has proper aria-label for own square', async () => {
-			await userName.setName('myname');
-
+		it('has proper aria-label for own square', () => {
 			const square = createMockSquare({
 				player_name: 'MyName',
 				player_name_lower: 'myname',
@@ -419,6 +406,7 @@ describe('Square Component', () => {
 					size: 44,
 					square,
 					isLocked: false,
+					isMine: true,
 					rowNumber: 1,
 					colNumber: 1,
 				},

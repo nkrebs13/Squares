@@ -9,3 +9,8 @@ export const DEFAULT_APP_INTRO =
 export const DEFAULT_GRID_LABEL = 'Football squares grid';
 export const DEFAULT_DEMO_PARTY_CODE = 'DEMO01';
 export const DEFAULT_EVENT_NAME = 'Football Squares';
+
+// Default teams' colours. The create form preselects an NFL preset by matching name + colour, so
+// nflTeams.ts uses these same constants for the two default teams.
+export const DEFAULT_TEAM_ROW_COLOR = '#69BE28';
+export const DEFAULT_TEAM_COL_COLOR = '#C60C30';
