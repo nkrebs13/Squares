@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isFilling } from '$lib/partyStatus';
+	import { canActOnGrid, isFilling } from '$lib/partyStatus';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -59,9 +59,8 @@
 
 	let resizeObserver: ResizeObserver | null = null;
 
-	// The one rule for "this user can act on the grid" (claim, unclaim, drag-select).
 	const filling = $derived(isFilling($party?.status));
-	const canAct = $derived(!!$userName && filling);
+	const canAct = $derived(canActOnGrid($party?.status, $userName));
 	const myName = $derived($userName ? normalizePlayerName($userName) : null);
 
 	const fitCellSize = $derived(getFitCellSize(containerWidth));
@@ -137,7 +136,7 @@
 
 	onDestroy(() => resizeObserver?.disconnect());
 
-	const myColor = $derived(myName ? getPlayerColor(myName) : null);
+	const myColor = $derived($userName ? getPlayerColor($userName) : null);
 
 	const rows = Array.from({ length: GRID_SIZE }, (_, i) => i);
 	const cols = Array.from({ length: GRID_SIZE }, (_, i) => i);

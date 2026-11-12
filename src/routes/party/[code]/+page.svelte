@@ -52,8 +52,12 @@
 		}
 	}
 
+	/** The status last written to the recent-parties entry (undefined until the first save). */
+	let savedStatus: string | undefined;
+
 	async function saveToRecentParties() {
 		if (!$party) return;
+		savedStatus = $party.status;
 
 		const recentParty: RecentParty = {
 			code: $party.code,
@@ -80,6 +84,12 @@
 		if (await openParty(code)) {
 			await saveToRecentParties();
 		}
+	});
+
+	// A lock or completion while the page is open must reach the saved entry too.
+	$effect(() => {
+		const status = $party?.status;
+		if (status && savedStatus !== undefined && status !== savedStatus) void saveToRecentParties();
 	});
 
 	onDestroy(cleanup);

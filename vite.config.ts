@@ -4,6 +4,7 @@ import { loadEnv } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { svelteTesting } from '@testing-library/svelte/vite';
+import { DEFAULT_APP_DESCRIPTION, DEFAULT_APP_NAME } from './src/lib/app-defaults';
 
 export default defineConfig(({ mode }) => {
 	// Read brand env vars at build time. vite.config runs in Node before
@@ -12,9 +13,8 @@ export default defineConfig(({ mode }) => {
 	// does. Without this, .env values would only reach the runtime config and the
 	// PWA manifest would silently disagree. Defaults match src/lib/config.ts.
 	const env = loadEnv(mode, process.cwd(), 'PUBLIC_');
-	const APP_NAME = env.PUBLIC_APP_NAME || 'Football Squares';
-	const APP_DESCRIPTION =
-		env.PUBLIC_APP_DESCRIPTION || 'Run Football Squares pools at your Super Bowl party';
+	const APP_NAME = env.PUBLIC_APP_NAME || DEFAULT_APP_NAME;
+	const APP_DESCRIPTION = env.PUBLIC_APP_DESCRIPTION || DEFAULT_APP_DESCRIPTION;
 
 	return {
 		test: {

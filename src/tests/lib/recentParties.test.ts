@@ -48,6 +48,12 @@ describe('recent parties', () => {
 		expect(await codes()).toEqual(['NEW']);
 	});
 
+	it('drops a stored visit whose status this build does not know', async () => {
+		await saveRecentParty(visit('BAD'));
+		await saveRecentParty({ ...visit('ODD'), status: 'archived' as never });
+		expect((await getRecentParties()).map((p) => p.code)).toEqual(['BAD']);
+	});
+
 	it('applies a nickname staged on the create/join page to the next visit, once', async () => {
 		stageNickname('ABC123', '  Office Pool ');
 		await saveRecentParty(visit('ABC123'));

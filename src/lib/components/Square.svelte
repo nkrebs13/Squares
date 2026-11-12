@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { quarterInfo } from '$lib/quarters';
-	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import type { Square as SquareType, Winner } from '$lib/types';
 
@@ -52,9 +51,7 @@
 
 	const initials = $derived(square.player_name ? getInitials(square.player_name) : '');
 
-	const playerColor = $derived(
-		square.player_name ? getPlayerColor(normalizePlayerName(square.player_name)) : null
-	);
+	const playerColor = $derived(square.player_name ? getPlayerColor(square.player_name) : null);
 
 	const classes = $derived(
 		`square ${!square.player_name ? 'square-empty' : ''} ${isMine ? 'square-mine' : square.player_name ? 'square-claimed' : ''} ${isWinner ? 'square-winner' : ''} ${isLeading && !isWinner ? 'square-leading' : ''} ${isSelected ? 'square-selected' : ''} ${isPending ? 'square-pending' : ''}`
