@@ -9,7 +9,6 @@
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import SimpleGrid from '$lib/components/SimpleGrid.svelte';
 	import GridSkeleton from '$lib/components/GridSkeleton.svelte';
-	import GestureHint from '$lib/components/GestureHint.svelte';
 	import ConnectionBanner from '$lib/components/ConnectionBanner.svelte';
 	import BoundaryFallback from '$lib/components/BoundaryFallback.svelte';
 	import PartySidebar from '$lib/components/PartySidebar.svelte';
@@ -22,6 +21,7 @@
 		partyToShareMetadata,
 	} from '$lib/partyMeta';
 	import { saveRecentParty } from '$lib/recentParties';
+	import { isFilling } from '$lib/partyStatus';
 	import { mayPlayAs, recallHostPin } from '$lib/hostPin';
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
@@ -41,7 +41,7 @@
 	const canonicalUrl = $derived(buildPartyCanonicalUrl(shareMeta?.code || code));
 
 	let isHost = $state(false);
-	let gestureHintRef = $state<GestureHint | null>(null);
+	let grid = $state<SimpleGrid>();
 	const desktop = new MediaQuery(DESKTOP_LAYOUT_QUERY);
 
 	async function checkIsHost() {
@@ -126,28 +126,31 @@
 				{#if isHost}
 					<a href="/party/{code}/admin" class="btn btn-secondary text-sm"> Host Panel </a>
 				{/if}
-				<button
-					type="button"
-					class="help-btn"
-					onclick={() => gestureHintRef?.reopen()}
-					aria-label="Show gesture help"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
+				<!-- The gesture help teaches claiming, so it is offered only while the grid fills. -->
+				{#if isFilling($party.status)}
+					<button
+						type="button"
+						class="help-btn"
+						onclick={() => grid?.showGestureHelp()}
+						aria-label="Show gesture help"
 					>
-						<circle cx="12" cy="12" r="10"></circle>
-						<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-						<line x1="12" y1="17" x2="12.01" y2="17"></line>
-					</svg>
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="10"></circle>
+							<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+							<line x1="12" y1="17" x2="12.01" y2="17"></line>
+						</svg>
+					</button>
+				{/if}
 			</div>
 		</header>
 
@@ -162,11 +165,8 @@
 						</div>
 					{/if}
 
-					<!-- Mounted in both layouts: the header's help button calls reopen() on it. -->
-					<GestureHint bind:this={gestureHintRef} />
-
 					<div class="grid-slot mb-4 lg:mb-0">
-						<SimpleGrid />
+						<SimpleGrid bind:this={grid} />
 					</div>
 				</div>
 				{#snippet failed(_error, reset)}

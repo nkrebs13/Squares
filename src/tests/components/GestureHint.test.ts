@@ -40,6 +40,9 @@ async function waitForMountDecision() {
 	await tick();
 }
 
+/** A filling grid that shows its Zoom button: every row applies. */
+const FILLING = { claiming: true, zoom: true };
+
 describe('GestureHint Component', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -58,7 +61,7 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(false);
 			window.matchMedia = createMatchMediaMock({});
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			// Wait for the async onMount to resolve
 			await vi.waitFor(() => {
 				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
@@ -68,7 +71,7 @@ describe('GestureHint Component', () => {
 		it('does not show the hint when user has seen it before', async () => {
 			hintAlreadySeen(true);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
@@ -78,7 +81,7 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(false);
 			window.matchMedia = createMatchMediaMock({ [DESKTOP_LAYOUT_QUERY]: true });
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
@@ -89,7 +92,7 @@ describe('GestureHint Component', () => {
 		it('displays all gesture hints for non-touch (mouse) devices', async () => {
 			hintAlreadySeen(false);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
 				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
 				expect(screen.getByText('Click to claim')).toBeInTheDocument();
@@ -104,7 +107,7 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(false);
 			window.matchMedia = createMatchMediaMock({ '(pointer: coarse)': true });
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
 				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
 				expect(screen.getByText('Tap to claim')).toBeInTheDocument();
@@ -118,7 +121,7 @@ describe('GestureHint Component', () => {
 		it('displays dismiss instructions', async () => {
 			hintAlreadySeen(false);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
 				expect(screen.getByText('Tap to dismiss')).toBeInTheDocument();
 			});
@@ -127,10 +130,45 @@ describe('GestureHint Component', () => {
 		it('announces itself to screen readers when shown', async () => {
 			hintAlreadySeen(false);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
 				expect(screen.getByRole('status')).toHaveTextContent('Tap to dismiss');
 			});
+		});
+	});
+
+	describe('What the grid offers', () => {
+		it('does not auto-show, or spend its first showing, once the grid has stopped filling', async () => {
+			hintAlreadySeen(false);
+
+			render(GestureHint, { props: { claiming: false, zoom: true } });
+			await waitForMountDecision();
+
+			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
+			expect(timesMarkedSeen()).toBe(0);
+		});
+
+		it('leaves out the zoom row when the grid has no Zoom button', async () => {
+			hintAlreadySeen(false);
+
+			render(GestureHint, { props: { claiming: true, zoom: false } });
+			await vi.waitFor(() => {
+				expect(screen.getByText('Click to claim')).toBeInTheDocument();
+			});
+			expect(screen.queryByText('Tap Zoom to enlarge grid')).not.toBeInTheDocument();
+		});
+
+		it('reopened on a grid that is no longer filling, shows no claim rows', async () => {
+			hintAlreadySeen(true);
+
+			const { component } = render(GestureHint, { props: { claiming: false, zoom: true } });
+			await waitForMountDecision();
+			component.reopen();
+
+			await vi.waitFor(() => {
+				expect(screen.getByText('Tap Zoom to enlarge grid')).toBeInTheDocument();
+			});
+			expect(screen.queryByText('Click to claim')).not.toBeInTheDocument();
 		});
 	});
 
@@ -138,7 +176,7 @@ describe('GestureHint Component', () => {
 		it('hides and persists when clicked', async () => {
 			hintAlreadySeen(false);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 			await vi.waitFor(() => {
 				expect(screen.getByRole('button', { name: /Tap to dismiss/ })).toBeInTheDocument();
 			});
@@ -153,7 +191,7 @@ describe('GestureHint Component', () => {
 			vi.useFakeTimers();
 			hintAlreadySeen(false);
 
-			render(GestureHint);
+			render(GestureHint, { props: FILLING });
 
 			// Wait for mount
 			await vi.advanceTimersByTimeAsync(0);
@@ -173,7 +211,7 @@ describe('GestureHint Component', () => {
 		it('re-shows the hint via the exported reopen() after it was dismissed', async () => {
 			hintAlreadySeen(true); // already seen -> not shown on mount
 
-			const { component } = render(GestureHint);
+			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
@@ -188,7 +226,7 @@ describe('GestureHint Component', () => {
 			hintAlreadySeen(true);
 			window.matchMedia = createMatchMediaMock({ [DESKTOP_LAYOUT_QUERY]: true });
 
-			const { component } = render(GestureHint);
+			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
@@ -202,7 +240,7 @@ describe('GestureHint Component', () => {
 		it('does not clear the persisted seen-flag when reopened', async () => {
 			hintAlreadySeen(true);
 
-			const { component } = render(GestureHint);
+			const { component } = render(GestureHint, { props: FILLING });
 			await waitForMountDecision();
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 
@@ -219,7 +257,7 @@ describe('GestureHint Component', () => {
 			vi.useFakeTimers();
 			hintAlreadySeen(true);
 
-			const { component } = render(GestureHint);
+			const { component } = render(GestureHint, { props: FILLING });
 			await vi.advanceTimersByTimeAsync(0);
 			expect(screen.queryByRole('button', { name: /Tap to dismiss/ })).not.toBeInTheDocument();
 

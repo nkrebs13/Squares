@@ -150,6 +150,15 @@ describe('game_side via the trigger', () => {
 			start: true,
 			expected: false,
 		},
+		{
+			// "New York" fits both teams; "Jets" fits only the away team, so the row is home.
+			label: 'one name fits both teams, the other settles it',
+			teams: ['New York', 'Jets'],
+			home: ['New York Giants', 'NYG'],
+			away: ['New York Jets', 'NYJ'],
+			start: false,
+			expected: true,
+		},
 	])('$label', async ({ teams, home, away, start, expected }) => {
 		const party = await createTestParty(client, {
 			team_row_name: teams[0],
@@ -171,6 +180,25 @@ describe('game_side via the trigger', () => {
 	it('leaves the flag as it was when no team matches', async () => {
 		const party = await newParty();
 		const gameId = await newGame(['Gotham Knights', 'GOT'], ['Metropolis Heroes', 'MET']);
+		await service.from('parties').update({ home_team_is_row: false }).eq('id', party.id);
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+
+		const { data } = await service
+			.from('parties')
+			.select('home_team_is_row')
+			.eq('id', party.id)
+			.single();
+		expect(data?.home_team_is_row).toBe(false);
+	});
+
+	it('leaves the flag as it was when the names fit both ways round', async () => {
+		// Each name fits both game teams, so neither side can be told.
+		const party = await createTestParty(client, {
+			team_row_name: 'New York',
+			team_col_name: 'York',
+		});
+		parties.push(party.id);
+		const gameId = await newGame(['New York Giants', 'NYG'], ['New York Jets', 'NYJ']);
 		await service.from('parties').update({ home_team_is_row: false }).eq('id', party.id);
 		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
 

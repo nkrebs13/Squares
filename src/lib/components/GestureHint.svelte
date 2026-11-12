@@ -3,6 +3,15 @@
 	import { durable, STORAGE_KEYS } from '$lib/storage';
 	import { DESKTOP_LAYOUT_QUERY } from '$lib/layout';
 
+	interface Props {
+		/** Squares can be claimed (the grid is filling): the claim rows apply. */
+		claiming: boolean;
+		/** The grid shows its Zoom button: the zoom row applies. */
+		zoom: boolean;
+	}
+
+	const { claiming, zoom }: Props = $props();
+
 	const hintSeen = durable<boolean>(STORAGE_KEYS.gestureHintShown, {
 		encode: (seen) => String(seen),
 		decode: (raw) => raw === 'true',
@@ -17,8 +26,9 @@
 		// Auto-shows only in the mobile layout, where the pan/zoom gestures it describes apply.
 		const isMobileLayout = !window.matchMedia(DESKTOP_LAYOUT_QUERY).matches;
 
+		// It teaches claiming, so a grid that is no longer filling never spends it.
 		const seen = (await hintSeen.get()) === true;
-		if (!seen && isMobileLayout) {
+		if (!seen && isMobileLayout && claiming) {
 			show = true;
 			scheduleAutoDismiss();
 		}
@@ -48,20 +58,23 @@
 		await hintSeen.set(true);
 	}
 
-	const hints: { icon: 'zoom' | 'tap' | 'drag'; text: string }[] = $derived(
-		isTouchDevice
+	type Hint = { icon: 'zoom' | 'tap' | 'drag'; text: string };
+	const hints: Hint[] = $derived.by(() => {
+		const zoomRow: Hint[] = zoom ? [{ icon: 'zoom', text: 'Tap Zoom to enlarge grid' }] : [];
+		if (!claiming) return zoomRow;
+		return isTouchDevice
 			? [
-					{ icon: 'zoom', text: 'Tap Zoom to enlarge grid' },
+					...zoomRow,
 					{ icon: 'tap', text: 'Tap to claim' },
 					{ icon: 'tap', text: 'Tap again to unclaim your square' },
 				]
 			: [
-					{ icon: 'zoom', text: 'Tap Zoom to enlarge grid' },
+					...zoomRow,
 					{ icon: 'tap', text: 'Click to claim' },
 					{ icon: 'tap', text: 'Click again to unclaim your square' },
 					{ icon: 'drag', text: 'Click and drag to select multiple' },
-				]
-	);
+				];
+	});
 
 	// Re-shows the hint on demand (e.g. from a "?" help affordance) without
 	// touching the persisted seen-flag — the flag only tracks the first,

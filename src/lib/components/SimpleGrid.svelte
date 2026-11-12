@@ -6,6 +6,7 @@
 	import Square from './Square.svelte';
 	import PlayerLegend from './PlayerLegend.svelte';
 	import ZoomToggle from './ZoomToggle.svelte';
+	import GestureHint from './GestureHint.svelte';
 	import {
 		squares,
 		numbers,
@@ -69,6 +70,12 @@
 	const fitsWithoutScroll = $derived(gridWidthAt(fitCellSize) <= containerWidth);
 	const effectiveCellSize = $derived(getEffectiveCellSize(zoomState, fitCellSize));
 	const showZoomControl = $derived(shouldShowZoomControl(fitCellSize));
+
+	let gestureHint = $state<GestureHint>();
+	/** Opens the gesture help (the party page's "?" button). */
+	export function showGestureHelp() {
+		gestureHint?.reopen();
+	}
 	const headerHeight = $derived(getHeaderHeight(effectiveCellSize));
 
 	const squareMap = $derived(buildSquareMap($squares));
@@ -331,6 +338,9 @@
 		</div>
 	{/if}
 </div>
+
+<!-- A fixed overlay; it sits outside the space-y root so it adds no gap. -->
+<GestureHint bind:this={gestureHint} claiming={filling} zoom={showZoomControl} />
 
 <style>
 	.writing-vertical {

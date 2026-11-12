@@ -29,8 +29,8 @@ import {
  */
 
 /**
- * The first-visit gesture hint covers the page in the mobile layout (and only there);
- * these shots are of the page, so dismiss it the way a visitor would.
+ * The first-visit gesture hint covers a filling grid in the mobile layout (and only
+ * there); these shots are of the page, so dismiss it the way a visitor would.
  */
 async function dismissGestureHint(page: Page, testInfo: TestInfo) {
 	if (testInfo.project.name !== 'Mobile Chrome') return;
@@ -65,7 +65,7 @@ test.describe('Visual regression: party page states', () => {
 		await expect(page).toHaveScreenshot('party-filling.png', { fullPage: true });
 	});
 
-	test('active state — numbers visible, scoreboard live', async ({ page }, testInfo) => {
+	test('active state — numbers visible, scoreboard live', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'active' },
@@ -74,13 +74,12 @@ test.describe('Visual regression: party page states', () => {
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 		await expect(page.getByRole('columnheader').first()).toHaveText('0');
-		await dismissGestureHint(page, testInfo);
 		await fontsReady(page);
 
 		await expect(page).toHaveScreenshot('party-active.png', { fullPage: true });
 	});
 
-	test('complete state — winners section populated', async ({ page }, testInfo) => {
+	test('complete state — winners section populated', async ({ page }) => {
 		await setUserName(page, 'TestPlayer');
 		await setupSupabaseMocksWithOverrides(page, {
 			partyOverrides: { status: 'complete' },
@@ -90,7 +89,6 @@ test.describe('Visual regression: party page states', () => {
 		await page.goto('/party/TEST12');
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
 		await expect(page.locator('.winner-banner')).toHaveCount(4);
-		await dismissGestureHint(page, testInfo);
 		await fontsReady(page);
 
 		await expect(page).toHaveScreenshot('party-complete.png', { fullPage: true });

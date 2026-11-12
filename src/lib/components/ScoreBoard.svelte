@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { scores, liveScores, teamTheme } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
-	import { isGameFinal, isGameLive, isHalftime } from '$lib/liveGame';
+	import { isGameFinal, isGameLive, isGameStarted, isHalftime } from '$lib/liveGame';
 	import { QUARTERS, formatGamePeriod, latestScoredQuarter, quarterScore } from '$lib/quarters';
 
 	interface QuarterScore {
@@ -25,12 +25,15 @@
 
 	const isLive = $derived(isGameLive($liveScores?.status));
 	const isFinal = $derived(isGameFinal($liveScores?.status));
+	// From kickoff to the final whistle the board shows the game's own score, so a
+	// FINAL badge never sits beside the party's last recorded quarter.
+	const followsGame = $derived(isGameStarted($liveScores?.status));
 
 	const displayRowScore = $derived(
-		isLive ? ($liveScores?.rowScore ?? 0) : (currentQuarter?.rowScore ?? 0)
+		followsGame ? ($liveScores?.rowScore ?? 0) : (currentQuarter?.rowScore ?? 0)
 	);
 	const displayColScore = $derived(
-		isLive ? ($liveScores?.colScore ?? 0) : (currentQuarter?.colScore ?? 0)
+		followsGame ? ($liveScores?.colScore ?? 0) : (currentQuarter?.colScore ?? 0)
 	);
 
 	const quarterLabel = $derived.by(() => {
