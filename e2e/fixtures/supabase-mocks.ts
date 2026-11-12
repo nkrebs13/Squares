@@ -282,9 +282,39 @@ export async function setupSupabaseMocksWithOverrides(page: Page, overrides: Moc
 		});
 	});
 
-	// Mock realtime connections
-	await page.context().route('**/realtime/**', (route) => {
-		route.abort();
+	await mockRealtimeConnected(page);
+}
+
+/**
+ * Answer the Realtime websocket like a healthy server, so the party is "connected"
+ * without a database: every channel join gets an `ok` that echoes the client's
+ * postgres_changes bindings with ids (the client errors the channel on a mismatch),
+ * and heartbeats / token refreshes / leaves get an `ok`. Broadcasts are dropped.
+ * Protocol v2 frames are `[join_ref, ref, topic, event, payload]`.
+ */
+export async function mockRealtimeConnected(page: Page) {
+	await page.context().routeWebSocket('**/realtime/v1/websocket**', (ws) => {
+		ws.onMessage((raw) => {
+			if (typeof raw !== 'string') return;
+			const [joinRef, ref, topic, event, payload] = JSON.parse(raw) as [
+				string | null,
+				string | null,
+				string,
+				string,
+				{ config?: { postgres_changes?: Record<string, unknown>[] } },
+			];
+			if (ref === null) return;
+			const response =
+				event === 'phx_join'
+					? {
+							postgres_changes: (payload.config?.postgres_changes ?? []).map((binding, i) => ({
+								...binding,
+								id: i + 1,
+							})),
+						}
+					: {};
+			ws.send(JSON.stringify([joinRef, ref, topic, 'phx_reply', { status: 'ok', response }]));
+		});
 	});
 }
 
