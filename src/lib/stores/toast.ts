@@ -8,8 +8,8 @@ export interface Toast {
 }
 
 /** Errors stay up longer than confirmations so they can be read and acted on. */
-export const DEFAULT_TOAST_DURATION_MS = 3000;
-export const ERROR_TOAST_DURATION_MS = 6000;
+const DEFAULT_TOAST_DURATION_MS = 3000;
+const ERROR_TOAST_DURATION_MS = 6000;
 
 /** The store owns each toast's whole life; the container only animates entries in and out. */
 function createToastStore() {

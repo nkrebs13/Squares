@@ -46,7 +46,3 @@ function createUserStore() {
 }
 
 export const userName = createUserStore();
-
-export function normalizePlayerName(name: string): string {
-	return name.trim().toLowerCase();
-}

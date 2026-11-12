@@ -16,18 +16,11 @@
  *   If the surface grows past ~10 tables, switch to a schema library.
  */
 
-import type {
-	Square,
-	Party,
-	Numbers,
-	Scores,
-	Winner,
-	GameScoresRow,
-	GameStatus,
-	PartyStatus,
-	Quarter,
-} from '$lib/types';
+import type { Square, Party, Numbers, Scores, Winner, GameScoresRow } from '$lib/types';
 import { GRID_SIZE } from '$lib/constants';
+import { GAME_STATUSES, type GameStatus } from '$lib/liveGame';
+import { PARTY_STATUSES, type PartyStatus } from '$lib/partyStatus';
+import { QUARTER_KEYS, QUARTERS, type Quarter } from '$lib/quarters';
 
 function isObject(v: unknown): v is Record<string, unknown> {
 	return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -54,15 +47,15 @@ function isBoolOrNull(v: unknown): v is boolean | null {
 }
 
 function isPartyStatus(v: unknown): v is PartyStatus {
-	return v === 'filling' || v === 'locked' || v === 'active' || v === 'complete';
+	return PARTY_STATUSES.includes(v as PartyStatus);
 }
 
 function isGameStatus(v: unknown): v is GameStatus {
-	return v === 'pregame' || v === 'in_progress' || v === 'halftime' || v === 'final';
+	return GAME_STATUSES.includes(v as GameStatus);
 }
 
 function isQuarter(v: unknown): v is Quarter {
-	return v === 'q1' || v === 'q2' || v === 'q3' || v === 'final';
+	return QUARTER_KEYS.includes(v as Quarter);
 }
 
 function isNumberArray(v: unknown): v is number[] {
@@ -159,7 +152,7 @@ export function parseNumbers(payload: unknown): Numbers | null {
 	const p = payload;
 	if (!isStr(p.party_id)) return warn('numbers', p, 'party_id missing');
 	if (!isNumberArray(p.row_numbers) || p.row_numbers.length !== GRID_SIZE)
-		return warn('numbers', p, 'row_numbers not number[10]');
+		return warn('numbers', p, `row_numbers not number[${GRID_SIZE}]`);
 	if (!isNumberArray(p.col_numbers) || p.col_numbers.length !== GRID_SIZE)
 		return warn('numbers', p, 'col_numbers not number[10]');
 	if (!isStr(p.assigned_at)) return warn('numbers', p, 'assigned_at missing');
@@ -175,30 +168,14 @@ export function parseScores(payload: unknown): Scores | null {
 	if (!isObject(payload)) return warn('scores', payload, 'not an object');
 	const p = payload;
 	if (!isStr(p.party_id)) return warn('scores', p, 'party_id missing');
-	const intFields = [
-		'q1_row_score',
-		'q1_col_score',
-		'q2_row_score',
-		'q2_col_score',
-		'q3_row_score',
-		'q3_col_score',
-		'final_row_score',
-		'final_col_score',
-	] as const;
-	for (const field of intFields) {
-		if (!isNumOrNull(p[field])) return warn('scores', p, `${field} not number|null`);
+	const fields = QUARTERS.flatMap(({ key }) => [`${key}_row_score`, `${key}_col_score`] as const);
+	const parsed: Record<string, number | null> = {};
+	for (const field of fields) {
+		const value = p[field];
+		if (!isNumOrNull(value)) return warn('scores', p, `${field} not number|null`);
+		parsed[field] = value;
 	}
-	return {
-		party_id: p.party_id,
-		q1_row_score: p.q1_row_score as number | null,
-		q1_col_score: p.q1_col_score as number | null,
-		q2_row_score: p.q2_row_score as number | null,
-		q2_col_score: p.q2_col_score as number | null,
-		q3_row_score: p.q3_row_score as number | null,
-		q3_col_score: p.q3_col_score as number | null,
-		final_row_score: p.final_row_score as number | null,
-		final_col_score: p.final_col_score as number | null,
-	};
+	return { party_id: p.party_id, ...parsed } as unknown as Scores;
 }
 
 export function parseWinner(payload: unknown): Winner | null {

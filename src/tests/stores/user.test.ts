@@ -7,7 +7,6 @@ const mockIdbDel = vi.mocked(idbDel);
 
 // We need to re-import fresh modules per test to reset store state
 let userName: typeof import('$lib/stores/user').userName;
-let normalizePlayerName: typeof import('$lib/stores/user').normalizePlayerName;
 
 describe('userName store', () => {
 	beforeEach(async () => {
@@ -16,7 +15,6 @@ describe('userName store', () => {
 		// Re-import to get a fresh store instance
 		const mod = await import('$lib/stores/user');
 		userName = mod.userName;
-		normalizePlayerName = mod.normalizePlayerName;
 	});
 
 	it('initializes from localStorage', async () => {
@@ -144,21 +142,5 @@ describe('userName async IndexedDB initialization', () => {
 
 		expect(get(userName)).toBeNull();
 		expect(localStorage.removeItem).toHaveBeenCalledWith('squares_user_name');
-	});
-});
-
-describe('normalizePlayerName', () => {
-	beforeEach(async () => {
-		vi.resetModules();
-		const mod = await import('$lib/stores/user');
-		normalizePlayerName = mod.normalizePlayerName;
-	});
-
-	it('lowercases the name', () => {
-		expect(normalizePlayerName('John Doe')).toBe('john doe');
-	});
-
-	it('trims whitespace', () => {
-		expect(normalizePlayerName('  Alice  ')).toBe('alice');
 	});
 });

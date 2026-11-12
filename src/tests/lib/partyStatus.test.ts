@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { hasDrawnNumbers, isFilling, isGameInProgress, statusLabel } from '$lib/partyStatus';
+import {
+	getStatusBadge,
+	hasDrawnNumbers,
+	isFilling,
+	isGameInProgress,
+	PARTY_STATUSES,
+	statusLabel,
+} from '$lib/partyStatus';
 import type { PartyStatus } from '$lib/types';
 
-const ALL: PartyStatus[] = ['filling', 'locked', 'active', 'complete'];
+const ALL: readonly PartyStatus[] = PARTY_STATUSES;
 
 describe('party status', () => {
 	it('classifies every status', () => {
@@ -16,5 +23,20 @@ describe('party status', () => {
 		expect(isFilling(undefined) || isGameInProgress(undefined) || hasDrawnNumbers(undefined)).toBe(
 			false
 		);
+	});
+});
+
+describe('getStatusBadge', () => {
+	it.each([
+		['filling', 'Filling', 'badge-filling'],
+		['locked', 'Locked', 'badge-locked'],
+		['active', 'Live', 'badge-active'],
+		['complete', 'Done', 'badge-complete'],
+	] as const)('maps %s', (status, text, cls) => {
+		expect(getStatusBadge(status)).toEqual({ text, class: cls });
+	});
+
+	it('passes unknown statuses through with no class', () => {
+		expect(getStatusBadge('mystery' as never)).toEqual({ text: 'mystery', class: '' });
 	});
 });

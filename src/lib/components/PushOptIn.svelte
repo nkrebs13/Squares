@@ -14,7 +14,7 @@
 		supported = isPushSupported();
 		if (!supported) return;
 
-		const permission = await getPushPermission();
+		const permission = getPushPermission();
 		denied = permission === 'denied';
 		subscribed = await isSubscribed();
 	});

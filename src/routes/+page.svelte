@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-	<title>{APP_CONFIG.appName} | Real-time football squares</title>
+	<title>{APP_CONFIG.appName} | {APP_CONFIG.appEyebrow}</title>
 	<meta name="description" content={APP_CONFIG.appDescription} />
 	<link rel="canonical" href={canonicalUrl} />
 	<meta property="og:url" content={canonicalUrl} />
@@ -49,15 +49,12 @@
 <div class="home-page">
 	<section class="hero-shell" aria-labelledby="home-title">
 		<div class="hero-copy animate-fade-in">
-			<p class="eyebrow">Real-time football squares</p>
+			<p class="eyebrow">{APP_CONFIG.appEyebrow}</p>
 			<h1 id="home-title" class="logo-title">
 				<span class="logo-gradient">{APP_CONFIG.appName}</span>
 			</h1>
 			<p class="tagline">{APP_CONFIG.appTagline}</p>
-			<p class="intro">
-				Run a live pool from one shared link. Friends claim cells in real time, hosts lock the grid,
-				scores reveal winners, and everyone keeps the same source of truth.
-			</p>
+			<p class="intro">{APP_CONFIG.appIntro}</p>
 
 			<div class="hero-actions" aria-label="Primary actions">
 				<a href="/create" class="btn btn-primary action-primary">Create Party</a>

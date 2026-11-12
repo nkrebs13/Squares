@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 
 // Must mock before importing the component
 vi.mock('$lib/recentParties', () => ({
+	HOME_RECENT_PARTIES: 5,
 	getRecentParties: vi.fn().mockResolvedValue([]),
 	removeRecentParty: vi.fn().mockResolvedValue(undefined),
 	updatePartyNickname: vi.fn().mockResolvedValue(undefined),

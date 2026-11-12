@@ -1,11 +1,14 @@
 import { env } from '$env/dynamic/public';
 import {
 	DEFAULT_APP_DESCRIPTION,
+	DEFAULT_APP_EYEBROW,
+	DEFAULT_APP_INTRO,
 	DEFAULT_APP_NAME,
 	DEFAULT_APP_TAGLINE,
 	DEFAULT_APP_URL,
 	DEFAULT_DEMO_PARTY_CODE,
 	DEFAULT_EVENT_NAME,
+	DEFAULT_GRID_LABEL,
 } from '$lib/app-defaults';
 
 /** Validate a CSS hex color from env config; fall back to the literal default if malformed. */
@@ -25,6 +28,15 @@ export const APP_CONFIG = {
 
 	/** Override with PUBLIC_APP_DESCRIPTION. Used in OG/Twitter meta tags. */
 	appDescription: env.PUBLIC_APP_DESCRIPTION || DEFAULT_APP_DESCRIPTION,
+
+	/** Override with PUBLIC_APP_EYEBROW. Short line above the home-page hero title and in its <title>. */
+	appEyebrow: env.PUBLIC_APP_EYEBROW || DEFAULT_APP_EYEBROW,
+
+	/** Override with PUBLIC_APP_INTRO. Paragraph under the home-page hero tagline. */
+	appIntro: env.PUBLIC_APP_INTRO || DEFAULT_APP_INTRO,
+
+	/** Override with PUBLIC_GRID_LABEL. Start of the grid's accessible name. */
+	gridLabel: env.PUBLIC_GRID_LABEL || DEFAULT_GRID_LABEL,
 
 	/** Override with PUBLIC_DEMO_PARTY_CODE. Used by the home-page demo CTA. */
 	demoPartyCode: env.PUBLIC_DEMO_PARTY_CODE || DEFAULT_DEMO_PARTY_CODE,
@@ -67,3 +79,8 @@ export const DEFAULT_TEAMS = {
 	row: { name: APP_CONFIG.defaultTeams.row.name, color: APP_CONFIG.defaultTeams.row.color },
 	col: { name: APP_CONFIG.defaultTeams.col.name, color: APP_CONFIG.defaultTeams.col.color },
 } as const;
+
+/** A blank event name means the configured default; the server stores no default of its own. */
+export function eventNameOrDefault(name: string | undefined): string {
+	return name?.trim() || APP_CONFIG.defaultEventName;
+}

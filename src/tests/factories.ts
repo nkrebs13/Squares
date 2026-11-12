@@ -21,7 +21,6 @@ export function createMockParty(overrides: Partial<Party> = {}): Party {
 	return {
 		id: 'test-party-id',
 		code: 'TEST123',
-		host_pin: '1234',
 		host_name_lower: null,
 		event_name: 'Test Football Squares',
 		kickoff_at: null,

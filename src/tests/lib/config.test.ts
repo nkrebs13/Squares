@@ -13,6 +13,8 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.appUrl).toBe('https://squares.nathankrebs.com');
 		expect(APP_CONFIG.appTagline).toBe('Football squares pools for any game');
 		expect(APP_CONFIG.appDescription).toContain('football squares pools');
+		expect(APP_CONFIG.appEyebrow).toBe('Real-time football squares');
+		expect(APP_CONFIG.gridLabel).toBe('Football squares grid');
 		expect(APP_CONFIG.demoPartyCode).toBe('DEMO01');
 		expect(APP_CONFIG.defaultEventName).toBe('Football Squares');
 		expect(APP_CONFIG.defaultTeams.row.name).toBe('Seahawks');
@@ -30,6 +32,9 @@ describe('APP_CONFIG', () => {
 				PUBLIC_APP_URL: 'https://demo.example.com',
 				PUBLIC_APP_TAGLINE: 'A different tagline',
 				PUBLIC_APP_DESCRIPTION: 'A different description',
+				PUBLIC_APP_EYEBROW: 'Live pools',
+				PUBLIC_APP_INTRO: 'A different intro',
+				PUBLIC_GRID_LABEL: 'Pool grid',
 				PUBLIC_DEMO_PARTY_CODE: 'PLAY99',
 				PUBLIC_DEFAULT_EVENT_NAME: '2027 Super Bowl',
 				PUBLIC_DEFAULT_TEAM_ROW_NAME: 'Lakers',
@@ -46,6 +51,9 @@ describe('APP_CONFIG', () => {
 		expect(APP_CONFIG.appUrl).toBe('https://demo.example.com');
 		expect(APP_CONFIG.appTagline).toBe('A different tagline');
 		expect(APP_CONFIG.appDescription).toBe('A different description');
+		expect(APP_CONFIG.appEyebrow).toBe('Live pools');
+		expect(APP_CONFIG.appIntro).toBe('A different intro');
+		expect(APP_CONFIG.gridLabel).toBe('Pool grid');
 		expect(APP_CONFIG.demoPartyCode).toBe('PLAY99');
 		expect(APP_CONFIG.defaultEventName).toBe('2027 Super Bowl');
 		expect(APP_CONFIG.defaultTeams.row.name).toBe('Lakers');
@@ -72,5 +80,17 @@ describe('APP_CONFIG', () => {
 
 		expect(DEFAULT_TEAMS.row.name).toBe(APP_CONFIG.defaultTeams.row.name);
 		expect(DEFAULT_TEAMS.col.name).toBe(APP_CONFIG.defaultTeams.col.name);
+	});
+});
+
+describe('eventNameOrDefault', () => {
+	it('trims a given name and falls back to the configured default when blank', async () => {
+		vi.resetModules();
+		vi.doMock('$env/dynamic/public', () => ({ env: { PUBLIC_DEFAULT_EVENT_NAME: 'Pool Night' } }));
+		const { eventNameOrDefault } = await import('$lib/config');
+
+		expect(eventNameOrDefault('  Big Game ')).toBe('Big Game');
+		expect(eventNameOrDefault('   ')).toBe('Pool Night');
+		expect(eventNameOrDefault(undefined)).toBe('Pool Night');
 	});
 });

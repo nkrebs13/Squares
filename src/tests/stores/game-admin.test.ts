@@ -451,7 +451,7 @@ describe('host actions are refused by the server, not gated on party status', ()
 		it.each(NON_FILLING_STATUSES)(
 			'surfaces the wrong_status refusal when status is %s',
 			async (status) => {
-				const original = createMockParty({ status, host_pin: '1234' });
+				const original = createMockParty({ status });
 				party.set(original);
 				refuse('wrong_status');
 
@@ -472,7 +472,7 @@ describe('host actions are refused by the server, not gated on party status', ()
 		it.each(NON_FILLING_STATUSES)(
 			'surfaces the wrong_status refusal when status is %s',
 			async (status) => {
-				party.set(createMockParty({ status, host_pin: '1234' }));
+				party.set(createMockParty({ status }));
 				squares.set([createMockSquare(0, 0, { player_name: 'Alice', player_name_lower: 'alice' })]);
 				refuse('wrong_status');
 

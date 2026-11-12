@@ -5,7 +5,7 @@ import { broadcastScoreUpdate, cleanupChannels } from './game-realtime';
 import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
 import type { Quarter } from '$lib/types';
 import { callHost } from '$lib/services/hostAction';
-import { eventNameOrDefault } from '$lib/utils/partyForm';
+import { eventNameOrDefault } from '$lib/config';
 
 export interface PartyDetailsInput {
 	eventName: string;

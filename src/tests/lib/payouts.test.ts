@@ -5,6 +5,7 @@ import {
 	calculateTotalPot,
 	findMatchingPresetName,
 	isValidSplit,
+	partySplits,
 	presetToSplits,
 	splitTotal,
 } from '$lib/payouts';
@@ -61,5 +62,13 @@ describe('split helpers', () => {
 		}
 		expect(findMatchingPresetName({ q1: 5, q2: 5, q3: 5, final: 85 })).toBe('Custom');
 		expect(findMatchingPresetName({ q1: 0, q2: 0, q3: 0, final: 0 })).toBe('Custom');
+	});
+});
+
+describe('partySplits', () => {
+	it('reads the four percentages off a party', () => {
+		expect(
+			partySplits({ split_q1: 10, split_q2: 20, split_q3: 30, split_final: 40 })
+		).toStrictEqual({ q1: 10, q2: 20, q3: 30, final: 40 });
 	});
 });

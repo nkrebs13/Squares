@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { quarterInfo } from '$lib/quarters';
-	import { userName, normalizePlayerName } from '$lib/stores/user';
+	import { userName } from '$lib/stores/user';
+	import { normalizePlayerName } from '$lib/utils/playerName';
 	import { getPlayerColor } from '$lib/utils/colors';
 	import type { Square as SquareType, Winner } from '$lib/types';
 

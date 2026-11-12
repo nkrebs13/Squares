@@ -1,6 +1,9 @@
 import { TOTAL_SQUARES } from '$lib/constants';
 import { QUARTERS } from '$lib/quarters';
-import { SPLIT_PRESETS, type Quarter, type SplitPreset } from '$lib/types';
+import type { Quarter } from '$lib/quarters';
+import { CUSTOM_PRESET_NAME, SPLIT_PRESETS, type Party, type SplitPreset } from '$lib/types';
+
+export { CUSTOM_PRESET_NAME };
 
 export type PayoutSplits = Record<Quarter, number>;
 
@@ -15,8 +18,8 @@ function roundCurrency(amount: number): number {
 	return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
 
-export function calculateTotalPot(squarePrice: number, squareCount = TOTAL_SQUARES): number {
-	return roundCurrency(squarePrice * squareCount);
+export function calculateTotalPot(squarePrice: number): number {
+	return roundCurrency(squarePrice * TOTAL_SQUARES);
 }
 
 export function calculatePayoutAmount(totalPot: number, percent: number): number {
@@ -32,8 +35,12 @@ export function buildPayoutRows(splits: PayoutSplits, totalPot: number): PayoutR
 	}));
 }
 
-/** Name of the preset whose percentages are entered by hand. */
-export const CUSTOM_PRESET_NAME = 'Custom';
+/** The percentages a party pays out. */
+export function partySplits(
+	p: Pick<Party, 'split_q1' | 'split_q2' | 'split_q3' | 'split_final'>
+): PayoutSplits {
+	return { q1: p.split_q1, q2: p.split_q2, q3: p.split_q3, final: p.split_final };
+}
 
 /** The percentages a preset stands for. */
 export function presetToSplits(preset: SplitPreset): PayoutSplits {

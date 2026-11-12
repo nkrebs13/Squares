@@ -2,6 +2,7 @@
 	import { hasDrawnNumbers } from '$lib/partyStatus';
 	import { scores, liveScores, party, teamTheme } from '$lib/stores/game';
 	import type { Quarter } from '$lib/types';
+	import { isGameFinal, isGameLive, isHalftime } from '$lib/liveGame';
 	import { QUARTERS, formatGamePeriod, latestScoredQuarter, quarterScore } from '$lib/quarters';
 
 	interface QuarterScore {
@@ -23,12 +24,8 @@
 		return latest ? (quarterScores.find((q) => q.quarter === latest) ?? null) : null;
 	});
 
-	const isLive = $derived(
-		$liveScores?.status != null &&
-			$liveScores.status !== 'pregame' &&
-			$liveScores.status !== 'final'
-	);
-	const isFinal = $derived($liveScores?.status === 'final');
+	const isLive = $derived(isGameLive($liveScores?.status));
+	const isFinal = $derived(isGameFinal($liveScores?.status));
 
 	const displayRowScore = $derived(
 		isLive ? ($liveScores?.rowScore ?? 0) : (currentQuarter?.rowScore ?? 0)
@@ -40,7 +37,7 @@
 	const quarterLabel = $derived.by(() => {
 		if (!isLive) return currentQuarter?.label ?? '';
 		const q = $liveScores?.quarter ?? 0;
-		if ($liveScores?.status === 'halftime') return 'HALF';
+		if (isHalftime($liveScores?.status)) return 'HALF';
 		if (q === 0) return '';
 		return formatGamePeriod(q);
 	});

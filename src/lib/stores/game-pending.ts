@@ -21,7 +21,7 @@ const pendingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 const PENDING_TIMEOUT_MS = 10000;
 
 /** The ownership fields of a square, so an optimistic change can be undone. */
-export function snapshotSquare(sq: SquareSnapshot): SquareSnapshot {
+function snapshotSquare(sq: SquareSnapshot): SquareSnapshot {
 	return {
 		player_name: sq.player_name,
 		player_name_lower: sq.player_name_lower,
@@ -30,7 +30,7 @@ export function snapshotSquare(sq: SquareSnapshot): SquareSnapshot {
 }
 
 /** Pure: a copy of `s` with the ownership fields replaced by `snapshot`. */
-export function withSnapshot(s: Square, snapshot: SquareSnapshot): Square {
+function withSnapshot(s: Square, snapshot: SquareSnapshot): Square {
 	return { ...s, ...snapshotSquare(snapshot) };
 }
 

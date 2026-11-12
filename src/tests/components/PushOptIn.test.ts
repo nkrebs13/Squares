@@ -5,7 +5,7 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 const mockIsPushSupported = vi.fn().mockReturnValue(true);
 const mockSubscribeToPush = vi.fn().mockResolvedValue({ success: true });
 const mockIsSubscribed = vi.fn().mockResolvedValue(false);
-const mockGetPushPermission = vi.fn().mockResolvedValue('default');
+const mockGetPushPermission = vi.fn().mockReturnValue('default');
 
 vi.mock('$lib/push', () => ({
 	isPushSupported: () => mockIsPushSupported(),
@@ -47,7 +47,7 @@ describe('PushOptIn Component', () => {
 		mockIsPushSupported.mockReturnValue(true);
 		mockSubscribeToPush.mockResolvedValue({ success: true });
 		mockIsSubscribed.mockResolvedValue(false);
-		mockGetPushPermission.mockResolvedValue('default');
+		mockGetPushPermission.mockReturnValue('default');
 	});
 
 	it('renders enable notifications button when supported and not subscribed', async () => {
@@ -80,7 +80,7 @@ describe('PushOptIn Component', () => {
 	});
 
 	it('does not render when permission is denied', async () => {
-		mockGetPushPermission.mockResolvedValue('denied');
+		mockGetPushPermission.mockReturnValue('denied');
 
 		const { container } = render(PushOptIn);
 

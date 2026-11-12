@@ -1,4 +1,7 @@
-import type { Quarter, Scores } from '$lib/types';
+import type { Scores } from '$lib/types';
+
+export const QUARTER_KEYS = ['q1', 'q2', 'q3', 'final'] as const;
+export type Quarter = (typeof QUARTER_KEYS)[number];
 
 /** A scoring quarter and how the UI names it. Same order as play. */
 export interface QuarterInfo {
