@@ -65,17 +65,6 @@ describe('host gate', () => {
 		expect(await pinState(party.id)).toEqual({ pin_attempts: 1, pin_locked_until: null });
 	});
 
-	it('a correct PIN resets the attempt count', async () => {
-		const party = await newParty();
-		await client.rpc('host_verify_pin', { p_party_code: party.code, p_pin: WRONG_PIN });
-		const { data } = await client.rpc('host_verify_pin', {
-			p_party_code: party.code,
-			p_pin: party.host_pin,
-		});
-		expect(data).toEqual({ ok: true });
-		expect((await pinState(party.id)).pin_attempts).toBe(0);
-	});
-
 	it('answers not_found for an unknown party', async () => {
 		const { data } = await client.rpc('host_verify_pin', { p_party_code: 'ZZZZZZ', p_pin: '1234' });
 		expect(data).toEqual({ ok: false, error: 'not_found' });

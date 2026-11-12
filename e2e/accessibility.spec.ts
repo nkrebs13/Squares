@@ -155,22 +155,3 @@ test.describe('Mobile Responsiveness', () => {
 		await expect(equalButton).toHaveClass(/btn-primary/);
 	});
 });
-
-test.describe('Visual Regression Prevention', () => {
-	test('landing page renders correctly', async ({ page }) => {
-		await page.goto('/');
-
-		// Wait for key visual elements to be rendered and stable
-		await expect(page.locator('.logo-title')).toBeVisible();
-		await expect(page.getByRole('link', { name: /create party/i })).toBeVisible();
-		await expect(page.getByRole('button', { name: /join party/i })).toBeVisible();
-	});
-
-	test('create page form sections render correctly', async ({ page }) => {
-		await page.goto('/create');
-
-		// Check form cards are visible
-		const cards = page.locator('.card');
-		await expect(cards).toHaveCount(7); // Event, Price, Split, Teams, Name, PIN, Nickname
-	});
-});

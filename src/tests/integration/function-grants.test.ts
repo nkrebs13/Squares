@@ -10,6 +10,7 @@ import {
 	getTestClient,
 	lockParty,
 	type TestParty,
+	getTestDatabaseUrl,
 } from './helpers';
 
 // The functions a browser may call. Everything else in `public` is internal
@@ -30,8 +31,7 @@ const CLIENT_API = [
 	'unclaim_square',
 ];
 
-const databaseUrl =
-	process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const databaseUrl = getTestDatabaseUrl();
 const db = new pg.Client({ connectionString: databaseUrl });
 
 beforeAll(async () => {

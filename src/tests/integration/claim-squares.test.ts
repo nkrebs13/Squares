@@ -7,6 +7,7 @@ import {
 	getTestClient,
 	type TestParty,
 	waitUntilBlockedOnLock,
+	getTestDatabaseUrl,
 } from './helpers';
 
 // claim_squares (migration 038): claims a set of cells and reports which it
@@ -154,8 +155,7 @@ describe('claim_squares', () => {
 
 	it('names the winner of a cell another claimer took while we waited for it', async () => {
 		const party = await newParty();
-		const url =
-			process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+		const url = getTestDatabaseUrl();
 		const rival = new pg.Client({ connectionString: url });
 		const us = new pg.Client({ connectionString: url });
 		await rival.connect();

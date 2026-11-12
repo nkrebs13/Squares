@@ -22,8 +22,18 @@ test.describe('Error Recovery', () => {
 	});
 
 	test('join page handles invalid code gracefully', async ({ page }) => {
+		await page.context().route('**/rest/v1/rpc/get_party_preview', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify(null),
+			});
+		});
+
 		await page.goto('/join');
-		await expect(page.locator('input, [class*="input"]').first()).toBeVisible({ timeout: 5000 });
+		await page.getByPlaceholder('ABCD12').fill('NOPE99');
+
+		await expect(page.getByText('No party found for this code.')).toBeVisible();
 	});
 
 	test('nonexistent route shows SvelteKit error page', async ({ page }) => {
@@ -43,15 +53,14 @@ test.describe('Error Recovery', () => {
 });
 
 test.describe('Error Boundary', () => {
-	test('party page has error boundary wrappers', async ({ page }) => {
+	test('party page renders the grid with no error fallback', async ({ page }) => {
 		await setupSupabaseMocksWithOverrides(page);
 		await setUserName(page, 'TestPlayer');
 		await page.goto('/party/TEST12');
 
-		// Verify the page loads without errors — error boundaries are transparent when no error
 		await expect(page.locator('.grid-wrapper').first()).toBeVisible({ timeout: 10000 });
-
-		// The error boundary fallback should NOT be visible in normal operation
-		await expect(page.getByText(/this section encountered an error/i)).not.toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: /not found|something went wrong/i })
+		).toHaveCount(0);
 	});
 });

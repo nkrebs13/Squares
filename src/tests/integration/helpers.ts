@@ -17,6 +17,11 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'not-
 // whatever SUPABASE_URL resolves to.
 assertLocalSupabaseUrl(SUPABASE_URL, process.env.ALLOW_REMOTE_INTEGRATION_DB === '1');
 
+/** Direct Postgres connection string for tests that need raw SQL or several connections. */
+export function getTestDatabaseUrl(): string {
+	return process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+}
+
 /**
  * Create a Supabase client for integration tests.
  * Connects to local Supabase instance started via `supabase start`.
