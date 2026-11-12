@@ -3,12 +3,12 @@
 	import {
 		getRecentParties,
 		HOME_RECENT_PARTIES,
-		partyDetails,
 		removeRecentParty,
 		updatePartyNickname,
 	} from '$lib/recentParties';
 	import RecentPartyRow from './RecentPartyRow.svelte';
 	import { fetchPartyPreview } from '$lib/services/partyPreview';
+	import { partyToShareMetadata } from '$lib/partyMeta';
 	import type { RecentParty } from '$lib/types';
 
 	let recentParties = $state<RecentParty[]>([]);
@@ -32,7 +32,7 @@
 				.then((preview) => {
 					if (!preview) return;
 					recentParties = recentParties.map((p) =>
-						p.code === code ? { ...p, ...partyDetails(preview.party) } : p
+						p.code === code ? { ...p, ...partyToShareMetadata(preview.party) } : p
 					);
 				})
 				.catch(() => {});
