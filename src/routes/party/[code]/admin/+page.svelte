@@ -4,6 +4,7 @@
 	import { TOTAL_SQUARES } from '$lib/constants';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import { cachedHostPin, forgetHostPin, recallHostPin } from '$lib/hostPin';
 	import { removeRecentParty } from '$lib/recentParties';
 	import {
@@ -112,6 +113,8 @@
 		return partyStatusHeadingEl;
 	}
 </script>
+
+<PageMeta />
 
 <div
 	class="min-h-screen p-6"
