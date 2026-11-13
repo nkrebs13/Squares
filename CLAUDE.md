@@ -58,7 +58,6 @@ The `locked` status exists in the DB CHECK constraint and frontend rendering but
 - Winners UNIQUE on `(party_id, quarter)`
 - Functions in `public` are private by default (migration 034). A function is client API only when a migration `GRANT EXECUTE ... TO anon, authenticated` it and it is listed in `CLIENT_API` in `src/tests/integration/function-grants.test.ts`. Internal helpers (`host_pin_check`, `auto_update_score`, trigger functions, ...) get no grant. Tables are private by default too (migration 042): browsers may only `SELECT` the tables in `CLIENT_READABLE_TABLES` (same test file) plus the column-granted `parties` columns Realtime needs; every write goes through a function.
 - Live games: a party is auto-scored only through its stored `game_id` (set out of band; 73 production parties were linked to the 2026 Super Bowl that way). `get_party_state` also returns an unlinked matching game, flagged `linked: false`; that one is display-only and never scored. `backfill_party_scores(party_id)` is the service-role-only operator tool (no client grant) for a party linked to a game out of band: it reads the party's `game_id` row in `game_scores` and, for each quarter whose score is already recorded, maps home/away to row/col via `home_team_is_row` and applies it through `auto_update_score`; it does nothing for an unlinked party or a missing game. `parties.home_team_is_row` is kept by the `parties_home_team_side` trigger (`game_side`).
-- `push_subscriptions` has no anon table access; browsers subscribe only through `save_push_subscription`.
 
 ## UI / DB Constraint Asymmetry
 
@@ -85,13 +84,12 @@ The pre-035 RPCs these replaced (`create_party`, `lock_party`, `claim_square`, `
 
 ## RPC Signatures
 
-| RPC                      | Parameters                                                                                | Returns                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `unclaim_square`         | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                        | `BOOLEAN`                                                                                        |
-| `claim_squares`          | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` (`[{row, col}]`, 1–100 cells) | `{ok, claimed: [{row,col}], taken: [{row,col,player_name}]}` or `{ok: false, error}`             |
-| `get_party_preview`      | `p_code TEXT`                                                                             | `{party, filled_count}` or `NULL`                                                                |
-| `get_party_state`        | `p_code TEXT`                                                                             | `{party, squares, numbers, scores, winners, game: {row, home_is_row, linked} \| null}` or `NULL` |
-| `save_push_subscription` | `p_party_id UUID, p_player_name VARCHAR(50), p_endpoint TEXT, p_p256dh TEXT, p_auth TEXT` | `BOOLEAN` — FALSE when the name holds no square in the party                                     |
+| RPC                 | Parameters                                                                                | Returns                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `unclaim_square`    | `p_party_id UUID, p_row INT, p_col INT, p_player_name VARCHAR(50)`                        | `BOOLEAN`                                                                                        |
+| `claim_squares`     | `p_party_id UUID, p_player_name VARCHAR(50), p_cells JSONB` (`[{row, col}]`, 1–100 cells) | `{ok, claimed: [{row,col}], taken: [{row,col,player_name}]}` or `{ok: false, error}`             |
+| `get_party_preview` | `p_code TEXT`                                                                             | `{party, filled_count}` or `NULL`                                                                |
+| `get_party_state`   | `p_code TEXT`                                                                             | `{party, squares, numbers, scores, winners, game: {row, home_is_row, linked} \| null}` or `NULL` |
 
 ## BroadcastMessage Wire Protocol
 

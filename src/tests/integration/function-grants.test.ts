@@ -1,15 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import {
-	claimCell,
-	cleanupParty,
-	createTestParty,
-	ensureSupabaseReady,
-	getServiceRoleClient,
-	getTestClient,
-	type TestParty,
-	getTestDatabaseUrl,
-} from './helpers';
+import { ensureSupabaseReady, getTestDatabaseUrl } from './helpers';
 
 // The functions a browser may call. Everything else in `public` is internal
 // (migration 034). Adding an RPC means adding it here AND granting it.
@@ -25,7 +16,6 @@ const CLIENT_API = [
 	'host_update_details',
 	'host_update_payouts',
 	'host_verify_pin',
-	'save_push_subscription',
 	'unclaim_square',
 ];
 
@@ -73,120 +63,6 @@ describe('function grants', () => {
 		const executable = await functionsExecutableBy('service_role');
 		for (const fn of ['auto_update_score', 'host_pin_check', 'log_audit_event']) {
 			expect(executable).toContain(fn);
-		}
-	});
-});
-
-describe('push subscriptions', () => {
-	const client = getTestClient();
-	let party: TestParty;
-
-	beforeAll(async () => {
-		party = await createTestParty(client);
-		expect(await claimCell(client, party.id, 0, 0, 'Alice')).toBe(true);
-	});
-
-	afterAll(async () => {
-		await cleanupParty(client, party.id);
-	});
-
-	async function subscriptionRows() {
-		const { data, error } = await getServiceRoleClient()
-			.from('push_subscriptions')
-			.select('player_name, endpoint, p256dh')
-			.eq('party_id', party.id)
-			.order('endpoint');
-		if (error) throw error;
-		return data;
-	}
-
-	function save(playerName: string, endpoint: string, p256dh = 'key-1') {
-		return client.rpc('save_push_subscription', {
-			p_party_id: party.id,
-			p_player_name: playerName,
-			p_endpoint: endpoint,
-			p_p256dh: p256dh,
-			p_auth: 'auth-1',
-		});
-	}
-
-	it('saves and refreshes a player subscription', async () => {
-		expect((await save(' alice ', 'https://push.example/a')).data).toBe(true);
-		expect((await save('Alice', 'https://push.example/a', 'key-2')).data).toBe(true);
-
-		expect(await subscriptionRows()).toEqual([
-			{ player_name: 'Alice', endpoint: 'https://push.example/a', p256dh: 'key-2' },
-		]);
-	});
-
-	it('refuses an endpoint that is not an https URL', async () => {
-		expect((await save('Alice', 'http://169.254.169.254/latest')).data).toBe(false);
-		expect((await save('Alice', `https://push.example/${'x'.repeat(2100)}`)).data).toBe(false);
-	});
-
-	it('refuses a name that holds no square in the party', async () => {
-		expect((await save('Mallory', 'https://push.example/m')).data).toBe(false);
-		expect((await subscriptionRows()).map((r) => r.endpoint)).not.toContain(
-			'https://push.example/m'
-		);
-	});
-
-	it('anon cannot read, repoint or delete subscriptions directly', async () => {
-		const select = await client.from('push_subscriptions').select('id').eq('party_id', party.id);
-		expect(select.error?.code).toBe('42501');
-
-		const update = await client
-			.from('push_subscriptions')
-			.update({ endpoint: 'https://push.example/stolen' })
-			.eq('party_id', party.id);
-		expect(update.error?.code).toBe('42501');
-
-		const del = await client.from('push_subscriptions').delete().eq('party_id', party.id);
-		expect(del.error?.code).toBe('42501');
-
-		expect(await subscriptionRows()).toHaveLength(1);
-	});
-
-	it('a full party still refreshes its devices but takes no new one', async () => {
-		// The cap trigger fires before ON CONFLICT resolves, so the save must update an
-		// existing endpoint before it tries to insert (an upsert would refuse this refresh).
-		const full = await createTestParty(client);
-		const service = getServiceRoleClient();
-		try {
-			expect(await claimCell(client, full.id, 0, 0, 'Bob')).toBe(true);
-			const rows = Array.from({ length: 200 }, (_, i) => ({
-				party_id: full.id,
-				player_name: 'Bob',
-				endpoint: `https://push.example/full-${i}`,
-				p256dh: 'key-1',
-				auth: 'auth-1',
-			}));
-			expect((await service.from('push_subscriptions').insert(rows)).error).toBeNull();
-			const saveTo = (endpoint: string, p256dh: string) =>
-				client.rpc('save_push_subscription', {
-					p_party_id: full.id,
-					p_player_name: 'Bob',
-					p_endpoint: endpoint,
-					p_p256dh: p256dh,
-					p_auth: 'auth-1',
-				});
-
-			const refresh = await saveTo('https://push.example/full-7', 'key-2');
-			expect(refresh.error).toBeNull();
-			expect(refresh.data).toBe(true);
-
-			const extra = await saveTo('https://push.example/full-200', 'key-1');
-			expect(extra.error?.message).toContain('Push subscription limit reached');
-
-			const { data, error } = await service
-				.from('push_subscriptions')
-				.select('endpoint, p256dh')
-				.eq('party_id', full.id);
-			expect(error).toBeNull();
-			expect(data).toHaveLength(200);
-			expect(data?.find((r) => r.endpoint.endsWith('/full-7'))?.p256dh).toBe('key-2');
-		} finally {
-			await cleanupParty(client, full.id);
 		}
 	});
 });
