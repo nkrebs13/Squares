@@ -63,8 +63,22 @@ export function isSameOp(op: OptimisticOperation, other: OptimisticOperation): b
 	);
 }
 
+/**
+ * Counts what changes the grid outside a re-read: every new op and every applied row
+ * event. A re-read that sees this move while it was in flight holds an older snapshot
+ * than the screen, so it must not be applied over it.
+ */
+let localChanges = 0;
+export function noteLocalChange(): void {
+	localChanges++;
+}
+export function localChangeCount(): number {
+	return localChanges;
+}
+
 /** Record ops and start their timeouts. */
 export function addPendingOps(ops: OptimisticOperation[]): void {
+	noteLocalChange();
 	pendingOperations.update((current) => {
 		const next = new Map(current);
 		for (const op of ops) next.set(squareKey(op.row, op.col), op);
@@ -136,6 +150,7 @@ function scheduleTimeout(op: OptimisticOperation): void {
 
 /** Apply an UPDATE on the squares table. The DB is the source of truth, so any pending op ends. */
 export function applySquareUpdate(newSquare: Square): void {
+	noteLocalChange();
 	const key = squareKey(newSquare.row_num, newSquare.col_num);
 	clearTimer(key);
 	pendingOperations.update((ops) => {

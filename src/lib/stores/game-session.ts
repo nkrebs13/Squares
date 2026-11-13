@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { party, gameScores, resetPartyState } from './game-state';
 import { loadParty, refreshParty } from './game-load';
-import { clearPendingOps, pendingOperations } from './game-pending';
+import { clearPendingOps, localChangeCount, pendingOperations } from './game-pending';
 import { subscribeToParty, followGame, cleanupChannels } from './game-realtime';
 
 /** How often an open, visible party is re-read regardless of Realtime. */
@@ -16,9 +16,9 @@ let stopResync: (() => void) | null = null;
 /**
  * Re-read the party quietly. Realtime can miss events: those sent before the party
  * channel joined, during a gap, or dropped by a rate limit while the socket looks fine
- * (HB-2437). The server rows replace the grid, and pending ops end with them (as
- * applySquareUpdate ends an op on a postgres_changes UPDATE): the DB is the source of
- * truth, and an op left alive would time out and roll a square back over the fresh row.
+ * (HB-2437). The server rows replace the grid only when nothing newer is on screen: no
+ * claim was in flight when the read started, and no op or row event arrived while it
+ * was out. Otherwise the read is dropped and the next trigger heals.
  */
 function quietRefresher(code: string, mine: number): () => void {
 	// Only the newest refresh may apply: two quick refreshes must not let an older
@@ -27,25 +27,26 @@ function quietRefresher(code: string, mine: number): () => void {
 	return () => {
 		// A trigger that outlived its party (a late channel join, a timer) reads nothing.
 		if (mine !== session) return;
+		// A claim in flight may commit after the read: its snapshot would undo it on screen.
+		if (get(pendingOperations).size > 0) return;
 		const refresh = ++latest;
-		const isCurrent = () => mine === session && refresh === latest;
-		void refreshParty(code, isCurrent).then((applied) => {
-			if (applied && isCurrent()) clearPendingOps();
-		});
+		const changesAtStart = localChangeCount();
+		// Anything the user or Realtime changed while the read was out is newer than it;
+		// the next refresh picks it all up.
+		const isCurrent = () =>
+			mine === session && refresh === latest && localChangeCount() === changesAtStart;
+		void refreshParty(code, isCurrent);
 	};
 }
 
 /**
  * Re-read while the page is looked at: when it becomes visible again (a phone screen
- * waking) and every PARTY_REFRESH_MS. Never while a claim is in flight, whose snapshot
- * might predate it.
+ * waking) and every PARTY_REFRESH_MS.
  */
 function refreshWhileVisible(refresh: () => void): () => void {
 	if (typeof document === 'undefined') return () => {};
-	const visibleAndIdle = () =>
-		document.visibilityState === 'visible' && get(pendingOperations).size === 0;
 	const onVisibility = () => {
-		if (visibleAndIdle()) refresh();
+		if (document.visibilityState === 'visible') refresh();
 	};
 	const timer = setInterval(onVisibility, PARTY_REFRESH_MS);
 	document.addEventListener('visibilitychange', onVisibility);

@@ -34,6 +34,7 @@ import {
 	applySquareUpdate,
 	clearSquareFields,
 	newPendingOp,
+	noteLocalChange,
 	rollbackPendingOpIf,
 } from './game-pending';
 import { normalizePlayerName } from '$lib/utils/playerName';
@@ -382,7 +383,10 @@ function setupPartyChannel(partyId: string, generation: number) {
 		channel = channel.on(
 			'postgres_changes',
 			{ event: '*', schema: 'public', table, filter: `${filterColumn}=eq.${partyId}` },
-			handle
+			(payload) => {
+				noteLocalChange();
+				handle(payload);
+			}
 		);
 	}
 	channelStates.party.channel = channel.subscribe((status) => {

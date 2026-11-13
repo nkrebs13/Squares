@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { party, squares, isLoading, error, gameScores } from '$lib/stores/game-state';
-import { pendingOperations, addPendingOps, newPendingOp } from '$lib/stores/game-pending';
+import {
+	pendingOperations,
+	addPendingOps,
+	newPendingOp,
+	applySquareUpdate,
+} from '$lib/stores/game-pending';
 import { mockSupabaseClient } from '../setup';
 import { createEmptyGrid, createMockGameScores, createMockParty } from '../factories';
 
@@ -172,12 +177,64 @@ describe('re-read when the party channel joins', () => {
 		expect(vi.mocked(subscribeToParty).mock.calls.length).toBe(subscribed);
 	});
 
-	it('ends pending ops when fresh rows replace the grid', async () => {
+	it('does not re-read while a claim is in flight', async () => {
 		addPendingOps([newPendingOp('claim', get(squares)[0], Date.now())]);
-		stateResponds();
 		partyChannelJoins();
 		await flush();
-		expect(get(pendingOperations).size).toBe(0);
+		expect(stateCalls()).toBe(1);
+		expect(get(pendingOperations).size).toBe(1);
+	});
+
+	it('a claim made while a read is out is not undone by its older snapshot', async () => {
+		let answer!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+		partyChannelJoins();
+
+		// The user claims 0-0 while the read is out (begin: op added, square drawn).
+		const square = get(squares)[0];
+		addPendingOps([newPendingOp('claim', square, Date.now())]);
+		squares.update((all) =>
+			all.map((s) =>
+				s.id === square.id ? { ...s, player_name: 'Me', player_name_lower: 'me' } : s
+			)
+		);
+		answer({
+			data: {
+				party: createMockParty({ id: 'p1' }),
+				squares: createEmptyGrid(),
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		await flush();
+
+		expect(get(squares)[0].player_name).toBe('Me');
+		expect(get(pendingOperations).size).toBe(1);
+	});
+
+	it('a Realtime row applied while a read is out is not overwritten by it', async () => {
+		let answer!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+		partyChannelJoins();
+
+		applySquareUpdate({ ...get(squares)[5], player_name: 'Bob', player_name_lower: 'bob' });
+		answer({
+			data: {
+				party: createMockParty({ id: 'p1' }),
+				squares: createEmptyGrid(),
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		await flush();
+
+		expect(get(squares)[5].player_name).toBe('Bob');
 	});
 
 	it('does not refresh after cleanup', async () => {
