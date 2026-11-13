@@ -196,6 +196,13 @@
 							results.
 						</p>
 					</div>
+					<ScoreEntryCard
+						party={$party}
+						{storedPin}
+						title="Correct the Final Score"
+						quarters={['final']}
+						description="Entered the final score wrong? Save the right one and the final winner is picked again."
+					/>
 				{/if}
 
 				<DangerZoneCard ondelete={() => (showDeleteConfirm = true)} />

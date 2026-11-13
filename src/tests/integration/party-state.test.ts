@@ -33,9 +33,15 @@ async function newParty(): Promise<TestParty> {
 	return party;
 }
 
-async function newGame(home: [string, string], away: [string, string], status = 'in_progress') {
+async function newGame(
+	home: [string, string],
+	away: [string, string],
+	status = 'in_progress',
+	updatedAt?: string
+) {
 	const gameId = `ps-${Math.random().toString(36).slice(2, 10)}`;
 	const { error } = await service.from('game_scores').insert({
+		...(updatedAt ? { updated_at: updatedAt } : {}),
 		game_id: gameId,
 		home_team_name: home[0],
 		home_team_abbrev: home[1],
@@ -94,6 +100,36 @@ describe('get_party_state', () => {
 		await newGame(['Dallas Cowboys', 'DAL'], ['New York Giants', 'NYG']);
 
 		expect((await state(party.code)).game).toBeNull();
+	});
+
+	it('ignores a matching game whose feed stopped writing, whatever its status says', async () => {
+		// Nothing has fed game_scores since 2026-02; a row left "in_progress" is not live.
+		const party = await newParty();
+		const thirteenHoursAgo = new Date(Date.now() - 13 * 3_600_000).toISOString();
+		await newGame(
+			['Kansas City Chiefs', 'KC'],
+			['Philadelphia Eagles', 'PHI'],
+			'in_progress',
+			thirteenHoursAgo
+		);
+
+		expect((await state(party.code)).game).toBeNull();
+	});
+
+	it('stamps updated_at on every game update, so a fed game stays fresh', async () => {
+		const party = await newParty();
+		const thirteenHoursAgo = new Date(Date.now() - 13 * 3_600_000).toISOString();
+		const gameId = await newGame(
+			['Kansas City Chiefs', 'KC'],
+			['Philadelphia Eagles', 'PHI'],
+			'in_progress',
+			thirteenHoursAgo
+		);
+		// The feeder writes a new score without setting updated_at.
+		await service.from('game_scores').update({ home_score: 21 }).eq('game_id', gameId);
+
+		const { game } = await state(party.code);
+		expect(game?.row.game_id).toBe(gameId);
 	});
 
 	it('returns the linked game, with the side the trigger set', async () => {
