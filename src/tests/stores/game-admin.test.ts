@@ -33,6 +33,33 @@ describe('lockParty', () => {
 		cleanup();
 	});
 
+	it("leaves the next party's stores alone when the host switched parties mid-call", async () => {
+		party.set(createMockParty({ id: 'party-a' }));
+		let answer!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+		const locking = lockParty('1234');
+
+		const partyB = createMockParty({ id: 'party-b', code: 'BBBB22' });
+		party.set(partyB);
+		answer({
+			data: {
+				ok: true,
+				party: createMockParty({ id: 'party-a', status: 'active' }),
+				numbers: {
+					party_id: 'party-a',
+					row_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+					col_numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+					assigned_at: '2027-02-14T23:30:00.000Z',
+				},
+			},
+			error: null,
+		});
+
+		expect(await locking).toEqual({ success: true });
+		expect(get(party)).toEqual(partyB);
+		expect(get(numbers)).toBeNull();
+	});
+
 	it('returns error when no party loaded', async () => {
 		const result = await lockParty('1234');
 		expect(result).toEqual({ success: false, error: 'No party loaded' });

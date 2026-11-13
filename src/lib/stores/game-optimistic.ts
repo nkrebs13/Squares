@@ -14,6 +14,7 @@ import {
 	isSameOp,
 	newPendingOp,
 	rollbackPendingOpIf,
+	settlePendingOps,
 } from './game-pending';
 import type { SquareSnapshot } from '$lib/types';
 import { broadcast } from './game-realtime';
@@ -151,6 +152,10 @@ function claimCells(cells: Cell[]): void {
 				if (op) reject(op, 'claim_rejected', ctx.user, restoreTo);
 			}
 			const lost = data.taken.length;
+			// The rest are saved: end their ops now rather than waiting on Realtime.
+			settlePendingOps(
+				ops.filter((op) => data.claimed.some((c) => c.row === op.row && c.col === op.col))
+			);
 
 			if (single) {
 				if (lost) toast.error('Square already claimed');
@@ -190,7 +195,10 @@ export function unclaimSquareOptimistic(row: number, col: number): void {
 		.then(({ data, error }) => {
 			// FALSE means zero rows changed (not ours, or already changed): no
 			// postgres_changes event will heal us, so roll back now (migration 029).
-			if (!error && data !== false) return;
+			if (!error && data !== false) {
+				settlePendingOps([op]);
+				return;
+			}
 			reject(op, 'unclaim_rejected', ctx.user);
 			toast.error("Couldn't unclaim that square — try again.");
 		});

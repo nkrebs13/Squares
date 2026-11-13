@@ -34,6 +34,7 @@ import {
 	applySquareUpdate,
 	clearSquareFields,
 	newPendingOp,
+	noteLocalChange,
 	rollbackPendingOpIf,
 } from './game-pending';
 import { normalizePlayerName } from '$lib/utils/playerName';
@@ -153,7 +154,8 @@ function handleChannelStatus(
 	status: `${REALTIME_SUBSCRIBE_STATES}`,
 	setupFn: () => void,
 	generation: number,
-	token: number
+	token: number,
+	onSubscribed?: () => void
 ) {
 	// A superseded generation: the async CLOSED after an intentional unsubscribe()
 	// must not schedule a reconnect (see currentGeneration).
@@ -165,6 +167,7 @@ function handleChannelStatus(
 
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
+		onSubscribed?.();
 	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
 		scheduleReconnect(channelKey, setupFn);
 	}
@@ -256,7 +259,9 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 			}
 			if (!stillOpen()) return;
 			const parsed = parseScores(data);
-			if (parsed) scores.set(parsed);
+			if (!parsed) return;
+			noteLocalChange();
+			scores.set(parsed);
 		});
 
 	supabase
@@ -271,7 +276,9 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 			}
 			if (!stillOpen()) return;
 			const parsed = parseWinnerArray(data);
-			if (parsed) winners.set(parsed);
+			if (!parsed) return;
+			noteLocalChange();
+			winners.set(parsed);
 		});
 }
 
@@ -366,6 +373,12 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 	},
 ];
 
+/**
+ * Called each time the party's postgres_changes channel joins: first subscribe and every
+ * rejoin. Events from before a join never arrive, so the caller re-reads the party then.
+ */
+let onPartyJoined: (() => void) | null = null;
+
 function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	const token = ++channelStates.party.instanceToken;
@@ -374,7 +387,10 @@ function setupPartyChannel(partyId: string, generation: number) {
 		channel = channel.on(
 			'postgres_changes',
 			{ event: '*', schema: 'public', table, filter: `${filterColumn}=eq.${partyId}` },
-			handle
+			(payload) => {
+				noteLocalChange();
+				handle(payload);
+			}
 		);
 	}
 	channelStates.party.channel = channel.subscribe((status) => {
@@ -383,7 +399,8 @@ function setupPartyChannel(partyId: string, generation: number) {
 			status,
 			() => setupPartyChannel(partyId, generation),
 			generation,
-			token
+			token,
+			() => onPartyJoined?.()
 		);
 	});
 }
@@ -402,6 +419,7 @@ function setupGameChannel(gameId: string, generation: number) {
 				filter: `game_id=eq.${gameId}`,
 			},
 			(payload) => {
+				noteLocalChange();
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newGameScores = parseGameScores(payload.new);
 					if (newGameScores) gameScores.set(newGameScores);
@@ -421,8 +439,13 @@ function setupGameChannel(gameId: string, generation: number) {
 		});
 }
 
-export function subscribeToParty(partyId: string, gameId: string | null = null) {
+export function subscribeToParty(
+	partyId: string,
+	gameId: string | null = null,
+	onJoined: (() => void) | null = null
+) {
 	watchConnectivity();
+	onPartyJoined = onJoined;
 
 	// Bump first so the CLOSED from the teardown below is treated as stale.
 	const generation = ++currentGeneration;
@@ -478,6 +501,7 @@ export function broadcastScoreUpdate() {
 export function cleanupChannels() {
 	// Bump so the CLOSED events from this teardown cannot resurrect a subscription.
 	++currentGeneration;
+	onPartyJoined = null;
 	teardownChannels();
 	unwatchConnectivity();
 }

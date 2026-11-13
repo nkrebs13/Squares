@@ -253,6 +253,24 @@ describe('a late CLOSED from a channel we no longer use', () => {
 		expect(channelsCreated()).toBe(before);
 	});
 
+	it("reports each join of the party's channel, and none from a party already left", () => {
+		const joins: string[] = [];
+		subscribeToParty('party-a', null, () => joins.push('a'));
+		statusCallback('party-broadcast:party-a')('SUBSCRIBED');
+		expect(joins).toEqual([]); // the broadcast channel carries hints only
+		statusCallback('party:party-a')('SUBSCRIBED');
+		expect(joins).toEqual(['a']);
+
+		subscribeToParty('party-b', null, () => joins.push('b'));
+		statusCallback('party:party-a')('SUBSCRIBED'); // late, from the party left
+		statusCallback('party:party-b')('SUBSCRIBED');
+		expect(joins).toEqual(['a', 'b']);
+
+		cleanup();
+		statusCallback('party:party-b')('SUBSCRIBED');
+		expect(joins).toEqual(['a', 'b']);
+	});
+
 	it('still reconnects on a genuine CLOSED for the current subscription', () => {
 		subscribeToParty('party-a');
 		const before = channelsCreated();

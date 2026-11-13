@@ -1,7 +1,7 @@
 import type { PayoutSplits } from '$lib/payouts';
 import { get } from 'svelte/store';
 import { party, squares, numbers, scores, winners } from './game-state';
-import { clearSquareFields } from './game-pending';
+import { clearSquareFields, noteLocalChange } from './game-pending';
 import { broadcastScoreUpdate } from './game-realtime';
 import { parseNumbers, parseParty, parseScores, parseWinnerArray } from '$lib/validators/realtime';
 import type { Quarter } from '$lib/types';
@@ -22,6 +22,23 @@ type RemovePlayerResult = AdminResult & { removedCount: number };
 
 const NO_PARTY: AdminResult = { success: false, error: 'No party loaded' };
 
+/**
+ * Whether the party an action started on is still the one shown. The host may leave
+ * (or open another party) while the call is in flight; its result then belongs to no
+ * page and must not land in the next party's stores. The server change stands.
+ */
+const stillShowing = (partyId: string) => get(party)?.id === partyId;
+
+/**
+ * Apply a host action's result to the party it was for, if it is still shown. Counted
+ * as a local change, so a re-read that was already out can't put the old rows back.
+ */
+function applyIfShowing(partyId: string, apply: () => void): void {
+	if (!stillShowing(partyId)) return;
+	noteLocalChange();
+	apply();
+}
+
 export async function lockParty(pin: string): Promise<AdminResult> {
 	const currentParty = get(party);
 	if (!currentParty) return { ...NO_PARTY };
@@ -38,8 +55,10 @@ export async function lockParty(pin: string): Promise<AdminResult> {
 	if (!lockedParty || !assigned) {
 		return { success: false, error: 'Game started, but the page is out of date. Please refresh.' };
 	}
-	party.set(lockedParty);
-	numbers.set(assigned);
+	applyIfShowing(currentParty.id, () => {
+		party.set(lockedParty);
+		numbers.set(assigned);
+	});
 	return { success: true };
 }
 
@@ -74,9 +93,12 @@ export async function updateScore(
 	if (!updatedParty || !updatedScores || !updatedWinners) {
 		return { success: false, error: 'Score saved, but the page is out of date. Please refresh.' };
 	}
-	party.set(updatedParty);
-	scores.set(updatedScores);
-	winners.set(updatedWinners);
+	if (!stillShowing(currentParty.id)) return { success: true };
+	applyIfShowing(currentParty.id, () => {
+		party.set(updatedParty);
+		scores.set(updatedScores);
+		winners.set(updatedWinners);
+	});
 	broadcastScoreUpdate();
 	return { success: true };
 }
@@ -109,7 +131,7 @@ export async function updatePayoutStructure(
 	if (!updatedParty) {
 		return { success: false, error: 'Server returned unexpected payout details. Please refresh.' };
 	}
-	party.set(updatedParty);
+	applyIfShowing(currentParty.id, () => party.set(updatedParty));
 	return { success: true };
 }
 
@@ -143,7 +165,7 @@ export async function updatePartyDetails(
 	if (!updatedParty) {
 		return { success: false, error: 'Server returned unexpected party details. Please refresh.' };
 	}
-	party.set(updatedParty);
+	applyIfShowing(currentParty.id, () => party.set(updatedParty));
 	return { success: true };
 }
 
@@ -164,12 +186,15 @@ export async function removePlayer(
 	);
 	if (!result.ok) return { success: false, removedCount: 0, error: result.error };
 
+	const removedCount = Number(result.data.removed) || 0;
 	// Clearing the squares recomputes playerSummary, which also clears the
 	// player filter if it pointed at the removed player.
-	squares.update((current) =>
-		current.map((s) => (s.player_name_lower === playerNameLower ? clearSquareFields(s) : s))
+	applyIfShowing(currentParty.id, () =>
+		squares.update((current) =>
+			current.map((s) => (s.player_name_lower === playerNameLower ? clearSquareFields(s) : s))
+		)
 	);
-	return { success: true, removedCount: Number(result.data.removed) || 0 };
+	return { success: true, removedCount };
 }
 
 export async function deleteParty(pin: string): Promise<AdminResult> {

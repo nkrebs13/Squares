@@ -63,8 +63,22 @@ export function isSameOp(op: OptimisticOperation, other: OptimisticOperation): b
 	);
 }
 
+/**
+ * Counts what changes the grid outside a re-read: every new op and every applied row
+ * event. A re-read that sees this move while it was in flight holds an older snapshot
+ * than the screen, so it must not be applied over it.
+ */
+let localChanges = 0;
+export function noteLocalChange(): void {
+	localChanges++;
+}
+export function localChangeCount(): number {
+	return localChanges;
+}
+
 /** Record ops and start their timeouts. */
 export function addPendingOps(ops: OptimisticOperation[]): void {
+	noteLocalChange();
 	pendingOperations.update((current) => {
 		const next = new Map(current);
 		for (const op of ops) next.set(squareKey(op.row, op.col), op);
@@ -136,6 +150,7 @@ function scheduleTimeout(op: OptimisticOperation): void {
 
 /** Apply an UPDATE on the squares table. The DB is the source of truth, so any pending op ends. */
 export function applySquareUpdate(newSquare: Square): void {
+	noteLocalChange();
 	const key = squareKey(newSquare.row_num, newSquare.col_num);
 	clearTimer(key);
 	pendingOperations.update((ops) => {
@@ -145,6 +160,30 @@ export function applySquareUpdate(newSquare: Square): void {
 		return next;
 	});
 	squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
+}
+
+/**
+ * End ops the server has confirmed (claim_squares ok, unclaim_square true). The square
+ * already shows the result, so it stays as drawn; only the op and its timer go. Without
+ * this, a saved claim whose postgres_changes event never arrives (a stalled socket, a
+ * Realtime rate limit) would time out and roll back as "not saved". An op another
+ * change has already replaced is left alone.
+ */
+export function settlePendingOps(confirmed: OptimisticOperation[]): void {
+	const settled: string[] = [];
+	pendingOperations.update((ops) => {
+		const next = new Map(ops);
+		for (const op of confirmed) {
+			const key = squareKey(op.row, op.col);
+			const current = next.get(key);
+			if (current && isSameOp(current, op)) {
+				next.delete(key);
+				settled.push(key);
+			}
+		}
+		return settled.length ? next : ops;
+	});
+	for (const key of settled) clearTimer(key);
 }
 
 /** Drop every pending op and timer (leaving a party). */
