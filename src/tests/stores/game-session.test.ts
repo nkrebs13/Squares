@@ -54,19 +54,19 @@ describe('openParty', () => {
 		loadsParty('g-linked', 'g-detected');
 		expect(await openParty('ABC123')).toBe(true);
 		expect(loadParty).toHaveBeenCalledWith('ABC123', expect.any(Function));
-		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-linked');
+		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-linked', expect.any(Function));
 	});
 
 	it('follows a detected game when none is linked', async () => {
 		loadsParty(null, 'g-detected');
 		await openParty('ABC123');
-		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-detected');
+		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-detected', expect.any(Function));
 	});
 
 	it('follows the party alone when there is no game', async () => {
 		loadsParty(null);
 		await openParty('ABC123');
-		expect(subscribeToParty).toHaveBeenCalledWith('p1', null);
+		expect(subscribeToParty).toHaveBeenCalledWith('p1', null, expect.any(Function));
 	});
 
 	it('subscribes to nothing when the party cannot be loaded', async () => {
@@ -112,7 +112,7 @@ describe('openParty when the party is left mid-load', () => {
 		releaseFirst();
 		expect(await first).toBe(false);
 		expect(subscribeToParty).toHaveBeenCalledTimes(1);
-		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-new');
+		expect(subscribeToParty).toHaveBeenCalledWith('p1', 'g-new', expect.any(Function));
 	});
 });
 

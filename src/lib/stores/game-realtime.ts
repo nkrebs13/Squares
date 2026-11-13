@@ -153,7 +153,8 @@ function handleChannelStatus(
 	status: `${REALTIME_SUBSCRIBE_STATES}`,
 	setupFn: () => void,
 	generation: number,
-	token: number
+	token: number,
+	onSubscribed?: () => void
 ) {
 	// A superseded generation: the async CLOSED after an intentional unsubscribe()
 	// must not schedule a reconnect (see currentGeneration).
@@ -165,6 +166,7 @@ function handleChannelStatus(
 
 	if (status === 'SUBSCRIBED') {
 		resetReconnectState(channelKey);
+		onSubscribed?.();
 	} else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
 		scheduleReconnect(channelKey, setupFn);
 	}
@@ -366,6 +368,12 @@ const PARTY_TABLE_SUBSCRIPTIONS: ReadonlyArray<{
 	},
 ];
 
+/**
+ * Called each time the party's postgres_changes channel joins: first subscribe and every
+ * rejoin. Events from before a join never arrive, so the caller re-reads the party then.
+ */
+let onPartyJoined: (() => void) | null = null;
+
 function setupPartyChannel(partyId: string, generation: number) {
 	const supabase = getSupabaseClient();
 	const token = ++channelStates.party.instanceToken;
@@ -383,7 +391,8 @@ function setupPartyChannel(partyId: string, generation: number) {
 			status,
 			() => setupPartyChannel(partyId, generation),
 			generation,
-			token
+			token,
+			() => onPartyJoined?.()
 		);
 	});
 }
@@ -421,8 +430,13 @@ function setupGameChannel(gameId: string, generation: number) {
 		});
 }
 
-export function subscribeToParty(partyId: string, gameId: string | null = null) {
+export function subscribeToParty(
+	partyId: string,
+	gameId: string | null = null,
+	onJoined: (() => void) | null = null
+) {
 	watchConnectivity();
+	onPartyJoined = onJoined;
 
 	// Bump first so the CLOSED from the teardown below is treated as stale.
 	const generation = ++currentGeneration;
@@ -478,6 +492,7 @@ export function broadcastScoreUpdate() {
 export function cleanupChannels() {
 	// Bump so the CLOSED events from this teardown cannot resurrect a subscription.
 	++currentGeneration;
+	onPartyJoined = null;
 	teardownChannels();
 	unwatchConnectivity();
 }

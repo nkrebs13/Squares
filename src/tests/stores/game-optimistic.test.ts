@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	claimSquareOptimistic,
@@ -429,10 +429,33 @@ describe('claimSquaresBatchOptimistic', () => {
 		expect(squareAt(0, 0)).toMatchObject({ player_name: 'Mallory', player_name_lower: 'mallory' });
 		expect(squareAt(0, 1)?.player_name).toBe('Alice');
 		expect(get(pendingOperations).has('0-0')).toBe(false);
-		expect(get(pendingOperations).has('0-1')).toBe(true);
+		// The server confirmed 0-1: its op ends now, without waiting on Realtime.
+		expect(get(pendingOperations).has('0-1')).toBe(false);
 		// one claim_squares call, no follow-up fetch
 		expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
 		expect(sentBroadcastKeys('claim_rejected')).toEqual(['0-0']);
+	});
+
+	it('a saved claim whose Realtime event never comes stays claimed, with no timeout error', async () => {
+		vi.useFakeTimers();
+		try {
+			party.set(createMockParty());
+			squares.set(createEmptyGrid());
+			rpcResolvesWith({
+				data: { ok: true, claimed: [{ row: 0, col: 1 }], taken: [] },
+				error: null,
+			});
+			const errorsBefore = get(toast).filter((t) => t.type === 'error').length;
+
+			claimSquareOptimistic(0, 1);
+			await vi.advanceTimersByTimeAsync(15_000);
+
+			expect(squareAt(0, 1)?.player_name).toBe('Alice');
+			expect(get(pendingOperations).size).toBe(0);
+			expect(get(toast).filter((t) => t.type === 'error').length).toBe(errorsBefore);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('does nothing when all cells are already claimed', () => {

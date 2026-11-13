@@ -147,6 +147,30 @@ export function applySquareUpdate(newSquare: Square): void {
 	squares.update((current) => current.map((s) => (s.id === newSquare.id ? newSquare : s)));
 }
 
+/**
+ * End ops the server has confirmed (claim_squares ok, unclaim_square true). The square
+ * already shows the result, so it stays as drawn; only the op and its timer go. Without
+ * this, a saved claim whose postgres_changes event never arrives (a stalled socket, a
+ * Realtime rate limit) would time out and roll back as "not saved". An op another
+ * change has already replaced is left alone.
+ */
+export function settlePendingOps(confirmed: OptimisticOperation[]): void {
+	const settled: string[] = [];
+	pendingOperations.update((ops) => {
+		const next = new Map(ops);
+		for (const op of confirmed) {
+			const key = squareKey(op.row, op.col);
+			const current = next.get(key);
+			if (current && isSameOp(current, op)) {
+				next.delete(key);
+				settled.push(key);
+			}
+		}
+		return settled.length ? next : ops;
+	});
+	for (const key of settled) clearTimer(key);
+}
+
 /** Drop every pending op and timer (leaving a party). */
 export function clearPendingOps(): void {
 	for (const timer of pendingTimeouts.values()) clearTimeout(timer);

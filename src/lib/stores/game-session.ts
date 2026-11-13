@@ -1,27 +1,32 @@
 import { get } from 'svelte/store';
 import { party, gameScores, resetPartyState } from './game-state';
 import { loadParty, refreshParty } from './game-load';
-import { clearPendingOps } from './game-pending';
-import { subscribeToParty, followGame, cleanupChannels, connectionStatus } from './game-realtime';
+import { clearPendingOps, pendingOperations } from './game-pending';
+import { subscribeToParty, followGame, cleanupChannels } from './game-realtime';
+
+/** How often an open, visible party is re-read regardless of Realtime. */
+export const PARTY_REFRESH_MS = 60_000;
 
 /** Bumped by every open and every cleanup; a load that finishes under an older value is stale. */
 let session = 0;
 
-/** Stops the reconnect watcher of the open party. */
+/** Stops the open party's refresh triggers. */
 let stopResync: (() => void) | null = null;
 
 /**
- * Re-read the party each time the realtime connection comes back after a gap, since
- * events sent during the gap are gone for good. The server rows replace the grid, and
- * pending ops end with them (as applySquareUpdate ends an op on a postgres_changes
- * UPDATE): the DB is the source of truth, and an op left alive would time out and roll
- * a square back to its pre-gap snapshot over the fresh row.
+ * Re-read the party quietly. Realtime can miss events: those sent before the party
+ * channel joined, during a gap, or dropped by a rate limit while the socket looks fine
+ * (HB-2437). The server rows replace the grid, and pending ops end with them (as
+ * applySquareUpdate ends an op on a postgres_changes UPDATE): the DB is the source of
+ * truth, and an op left alive would time out and roll a square back over the fresh row.
  */
 function quietRefresher(code: string, mine: number): () => void {
 	// Only the newest refresh may apply: two quick refreshes must not let an older
 	// response land last and put the party back a step (e.g. complete -> filling).
 	let latest = 0;
 	return () => {
+		// A trigger that outlived its party (a late channel join, a timer) reads nothing.
+		if (mine !== session) return;
 		const refresh = ++latest;
 		const isCurrent = () => mine === session && refresh === latest;
 		void refreshParty(code, isCurrent).then((applied) => {
@@ -30,13 +35,24 @@ function quietRefresher(code: string, mine: number): () => void {
 	};
 }
 
-function resyncOnReconnect(refresh: () => void): () => void {
-	let previous: string | null = null;
-	return connectionStatus.subscribe(({ status }) => {
-		const reconnected = previous !== null && previous !== 'connected' && status === 'connected';
-		previous = status;
-		if (reconnected) refresh();
-	});
+/**
+ * Re-read while the page is looked at: when it becomes visible again (a phone screen
+ * waking) and every PARTY_REFRESH_MS. Never while a claim is in flight, whose snapshot
+ * might predate it.
+ */
+function refreshWhileVisible(refresh: () => void): () => void {
+	if (typeof document === 'undefined') return () => {};
+	const visibleAndIdle = () =>
+		document.visibilityState === 'visible' && get(pendingOperations).size === 0;
+	const onVisibility = () => {
+		if (visibleAndIdle()) refresh();
+	};
+	const timer = setInterval(onVisibility, PARTY_REFRESH_MS);
+	document.addEventListener('visibilitychange', onVisibility);
+	return () => {
+		clearInterval(timer);
+		document.removeEventListener('visibilitychange', onVisibility);
+	};
 }
 
 /**
@@ -50,10 +66,12 @@ export async function openParty(code: string): Promise<boolean> {
 	const current = get(party);
 	if (!current) return false;
 	let followedGame = current.game_id ?? get(gameScores)?.game_id ?? null;
-	subscribeToParty(current.id, followedGame);
 	stopResync?.();
 	const refresh = quietRefresher(code, mine);
-	const stopReconnectWatch = resyncOnReconnect(refresh);
+	// Each join of the party channel (the first, and every rejoin after a gap) re-reads,
+	// since nothing from before the join will arrive.
+	subscribeToParty(current.id, followedGame, refresh);
+	const stopVisibleRefresh = refreshWhileVisible(refresh);
 	// The game channel follows the party's game: its linked one, else the one the
 	// server detects from its team names. Only that channel is re-keyed.
 	const follow = (gameId: string | null): boolean => {
@@ -82,7 +100,7 @@ export async function openParty(code: string): Promise<boolean> {
 		follow(game?.game_id ?? null);
 	});
 	stopResync = () => {
-		stopReconnectWatch();
+		stopVisibleRefresh();
 		stopPartyWatch();
 		stopDetectedWatch();
 	};
