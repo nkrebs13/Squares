@@ -2,12 +2,10 @@ import { refusalCopy, type HostCopy, type HostRefusal } from '$lib/services/host
 import { getSupabaseClient } from '$lib/supabase';
 
 type HostResponse =
-	| ({ ok: true } & Record<string, unknown>)
-	| { ok: false; error: HostRefusal; field?: string };
+	({ ok: true } & Record<string, unknown>) | { ok: false; error: HostRefusal; field?: string };
 
 export type HostCallResult =
-	| { ok: true; data: Record<string, unknown> }
-	| { ok: false; error: string };
+	{ ok: true; data: Record<string, unknown> } | { ok: false; error: string };
 
 function isHostResponse(data: unknown): data is HostResponse {
 	return (

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supabase (Postgres + Realtime), Tailwind 4, deployed on Cloudflare Pages. Production app, Super Bowl Sunday usage expected.
+Football Squares — a real-time Super Bowl squares pool app. SvelteKit 5, Supabase (Postgres + Realtime), Tailwind 4, deployed on Cloudflare Pages. Production app, now running unattended (README "Running unattended": keep-alive, self-healing clients, dormant live scores, no bot PRs). `parties.expires_at` is stored but never enforced.
 
 ## CRITICAL: Hybrid Reactivity Model
 
