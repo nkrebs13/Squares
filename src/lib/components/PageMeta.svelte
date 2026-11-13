@@ -5,12 +5,7 @@
 	 * The one place a page's title and share tags are written, so each appears once per page.
 	 * Site-wide tags (og:type, twitter:card, icons, manifest) stay in the root layout.
 	 */
-	const {
-		title = APP_CONFIG.appName,
-		shareTitle = title,
-		description = APP_CONFIG.appDescription,
-		url,
-	} = $props<{
+	interface Props {
 		/** Browser tab title. */
 		title?: string;
 		/** og:title / twitter:title when it differs from the tab title. */
@@ -18,7 +13,14 @@
 		description?: string;
 		/** Canonical URL; also sent as og:url. */
 		url?: string;
-	}>();
+	}
+
+	const {
+		title = APP_CONFIG.appName,
+		shareTitle = title,
+		description = APP_CONFIG.appDescription,
+		url,
+	}: Props = $props();
 </script>
 
 <svelte:head>

@@ -10,12 +10,7 @@ import {
 } from '$lib/constants';
 /** Refusal codes every `host_*` RPC returns (migrations 035, 036). */
 export type HostRefusal =
-	| 'not_found'
-	| 'invalid_pin'
-	| 'locked_out'
-	| 'wrong_status'
-	| 'grid_incomplete'
-	| 'invalid_input';
+	'not_found' | 'invalid_pin' | 'locked_out' | 'wrong_status' | 'grid_incomplete' | 'invalid_input';
 
 const REFUSAL_COPY: Record<HostRefusal, string> = {
 	not_found: 'This party no longer exists.',

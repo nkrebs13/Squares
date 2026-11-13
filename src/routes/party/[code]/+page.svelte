@@ -26,9 +26,11 @@
 	import type { RecentParty } from '$lib/types';
 	import type { PartyShareMetadata } from '$lib/partyMeta';
 
-	const { data = { partyMeta: null } } = $props<{
+	interface Props {
 		data?: { partyMeta: PartyShareMetadata | null };
-	}>();
+	}
+
+	const { data = { partyMeta: null } }: Props = $props();
 	// Host PINs are stored under the upper-case code (the RPCs upper-case too), so a URL
 	// typed in lower case still finds them. Not normalizePartyCode: no truncation here.
 	const code = $derived(($page.params.code ?? '').toUpperCase());

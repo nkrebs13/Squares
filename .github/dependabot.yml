@@ -7,7 +7,8 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'monday'
-    open-pull-requests-limit: 10
+    # The app runs unattended (README "Running unattended"): no version-update PRs.
+    open-pull-requests-limit: 0
     groups:
       # Group minor/patch updates to reduce PR noise
       production-deps:
@@ -57,7 +58,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'monday'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
