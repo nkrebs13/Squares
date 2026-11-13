@@ -87,17 +87,6 @@ vi.mock('$lib/stores/user', () => ({
 	},
 }));
 
-vi.mock('$lib/push', () => ({
-	pushSubscribed: {
-		subscribe: vi.fn((cb: (v: boolean) => void) => {
-			cb(false);
-			return () => {};
-		}),
-	},
-	subscribeToPush: vi.fn(),
-	isPushSupported: vi.fn().mockReturnValue(false),
-}));
-
 vi.mock('$lib/stores/game-realtime', () => ({
 	connectionStatus: {
 		subscribe: vi.fn((cb: (v: { status: string }) => void) => {

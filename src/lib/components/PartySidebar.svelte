@@ -12,7 +12,6 @@
 	import Winners from './Winners.svelte';
 	import PlayerStats from './PlayerStats.svelte';
 	import PartyCode from './PartyCode.svelte';
-	import PushOptIn from './PushOptIn.svelte';
 	import PlayerLegend from './PlayerLegend.svelte';
 
 	// Above the grid on mobile; a titled column with the player legend on desktop.
@@ -62,10 +61,6 @@
 
 <div class="mb-4">
 	<PartyCode />
-</div>
-
-<div class="mb-4">
-	<PushOptIn />
 </div>
 
 {#if $party}

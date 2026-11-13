@@ -35,12 +35,11 @@ understands the sentinel by the time the DB starts returning it.
 
 See [`.env.example`](../.env.example) for the full list. The most useful for forks:
 
-| Var                     | Purpose                                                |
-| ----------------------- | ------------------------------------------------------ |
-| `PUBLIC_SENTRY_DSN`     | Error tracking + Web Vitals (Sentry)                   |
-| `VITE_VAPID_PUBLIC_KEY` | Push notifications (with `VAPID_PRIVATE_KEY`)          |
-| `PUBLIC_APP_NAME`       | Brand override — see "Customizing your fork" in README |
-| `PUBLIC_CURRENCY_CODE`  | Currency override (default `USD`)                      |
+| Var                    | Purpose                                                |
+| ---------------------- | ------------------------------------------------------ |
+| `PUBLIC_SENTRY_DSN`    | Error tracking + Web Vitals (Sentry)                   |
+| `PUBLIC_APP_NAME`      | Brand override — see "Customizing your fork" in README |
+| `PUBLIC_CURRENCY_CODE` | Currency override (default `USD`)                      |
 
 `PUBLIC_*` env vars must be set **at build time** (in the platform dashboard before deploying), not at runtime, because SvelteKit's `$env/dynamic/public` is replaced at build.
 

@@ -88,7 +88,6 @@ export default defineConfig(({ mode }) => {
 					],
 				},
 				workbox: {
-					importScripts: ['/push-sw.js'],
 					navigateFallback: undefined,
 					globPatterns: [
 						'client/**/*.{js,css,ico,png,svg,webp,webmanifest}',

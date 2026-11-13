@@ -30,7 +30,7 @@
 - **Editable setup before lock** — hosts can correct event details, kickoff, and matchup without recreating a pool
 - **Multiple payout structures** — Rising / Equal / Big Finish / Custom
 - **Host PIN protection** for grid lock, score entry, payout edits, party deletion
-- **PWA installable** on iOS + Android with push notifications
+- **PWA installable** on iOS + Android
 - **Matchup-aware live score assist** — links to ESPN-sourced NFL scores when the active game matches the party teams; manual scoring stays available as the fallback
 - **Color-coded player legend** with click-to-filter
 - **Pan and zoom** for usable squares on small phones

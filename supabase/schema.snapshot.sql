@@ -181,21 +181,6 @@ $$;
 ALTER FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."check_push_subscription_limit"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  IF (SELECT COUNT(*) FROM push_subscriptions WHERE party_id = NEW.party_id) >= 200 THEN
-    RAISE EXCEPTION 'Push subscription limit reached for this party';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."check_push_subscription_limit"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."claim_squares"("p_party_id" "uuid", "p_player_name" character varying, "p_cells" "jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -949,49 +934,6 @@ $_$;
 ALTER FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'extensions'
-    AS $$
-BEGIN
-    -- send-push POSTs to the stored endpoint, so only accept a real push URL.
-    IF p_endpoint !~ '^https://' OR length(p_endpoint) > 2048
-       OR length(p_p256dh) > 256 OR length(p_auth) > 64 THEN
-        RETURN FALSE;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM squares
-        WHERE party_id = p_party_id
-          AND player_name_lower = LOWER(TRIM(p_player_name))
-    ) THEN
-        RETURN FALSE;
-    END IF;
-
-    -- One save per party at a time: keeps the 200-row cap exact and the
-    -- update-then-insert below free of duplicate-key races.
-    PERFORM 1 FROM parties WHERE id = p_party_id FOR UPDATE;
-
-    -- Refresh an existing device first: the 200-per-party limit trigger fires
-    -- before ON CONFLICT is resolved, so an upsert would block refreshes at the cap.
-    UPDATE push_subscriptions
-    SET player_name = TRIM(p_player_name), p256dh = p_p256dh, auth = p_auth
-    WHERE party_id = p_party_id AND endpoint = p_endpoint;
-    IF FOUND THEN
-        RETURN TRUE;
-    END IF;
-
-    INSERT INTO push_subscriptions (party_id, player_name, endpoint, p256dh, auth)
-    VALUES (p_party_id, TRIM(p_player_name), p_endpoint, p_p256dh, p_auth);
-
-    RETURN TRUE;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_home_team_side"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
@@ -1122,21 +1064,6 @@ CREATE TABLE IF NOT EXISTS "public"."numbers" (
 ALTER TABLE "public"."numbers" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."push_subscriptions" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "party_id" "uuid" NOT NULL,
-    "player_name" character varying(50) NOT NULL,
-    "endpoint" "text" NOT NULL,
-    "p256dh" "text" NOT NULL,
-    "auth" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "player_name_lower" character varying(50) GENERATED ALWAYS AS ("lower"(("player_name")::"text")) STORED
-);
-
-
-ALTER TABLE "public"."push_subscriptions" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."scores" (
     "party_id" "uuid" NOT NULL,
     "q1_row_score" integer,
@@ -1213,16 +1140,6 @@ ALTER TABLE ONLY "public"."parties"
 
 
 
-ALTER TABLE ONLY "public"."push_subscriptions"
-    ADD CONSTRAINT "push_subscriptions_party_id_endpoint_key" UNIQUE ("party_id", "endpoint");
-
-
-
-ALTER TABLE ONLY "public"."push_subscriptions"
-    ADD CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."scores"
     ADD CONSTRAINT "scores_pkey" PRIMARY KEY ("party_id");
 
@@ -1268,14 +1185,6 @@ CREATE INDEX "idx_parties_game_id" ON "public"."parties" USING "btree" ("game_id
 
 
 
-CREATE INDEX "idx_push_subscriptions_party_player" ON "public"."push_subscriptions" USING "btree" ("party_id", "player_name_lower");
-
-
-
-CREATE OR REPLACE TRIGGER "enforce_push_subscription_limit" BEFORE INSERT ON "public"."push_subscriptions" FOR EACH ROW EXECUTE FUNCTION "public"."check_push_subscription_limit"();
-
-
-
 CREATE OR REPLACE TRIGGER "game_scores_a_home_team_side" AFTER INSERT OR UPDATE OF "home_team_name", "away_team_name", "home_team_abbrev", "away_team_abbrev" ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."sync_linked_home_team_side"();
 
 
@@ -1308,11 +1217,6 @@ ALTER TABLE ONLY "public"."numbers"
 
 ALTER TABLE ONLY "public"."parties"
     ADD CONSTRAINT "parties_game_id_fkey" FOREIGN KEY ("game_id") REFERENCES "public"."game_scores"("game_id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."push_subscriptions"
-    ADD CONSTRAINT "push_subscriptions_party_id_fkey" FOREIGN KEY ("party_id") REFERENCES "public"."parties"("id") ON DELETE CASCADE;
 
 
 
@@ -1355,10 +1259,6 @@ CREATE POLICY "Anyone can read winners" ON "public"."winners" FOR SELECT USING (
 
 
 
-CREATE POLICY "Service role can read subscriptions" ON "public"."push_subscriptions" FOR SELECT TO "service_role" USING (true);
-
-
-
 CREATE POLICY "Service role only" ON "public"."audit_log" TO "service_role" USING (true) WITH CHECK (true);
 
 
@@ -1373,9 +1273,6 @@ ALTER TABLE "public"."numbers" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."parties" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."push_subscriptions" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."scores" ENABLE ROW LEVEL SECURITY;
@@ -1600,11 +1497,6 @@ GRANT ALL ON FUNCTION "public"."auto_update_score"("p_party_id" "uuid", "p_quart
 
 REVOKE ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."backfill_party_scores"("p_party_id" "uuid") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."check_push_subscription_limit"() FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."check_push_subscription_limit"() TO "service_role";
 
 
 
@@ -1839,13 +1731,6 @@ GRANT ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_qu
 
 
 
-REVOKE ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "service_role";
-GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."save_push_subscription"("p_party_id" "uuid", "p_player_name" character varying, "p_endpoint" "text", "p_p256dh" "text", "p_auth" "text") TO "authenticated";
-
-
-
 REVOKE ALL ON FUNCTION "public"."set_home_team_side"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."set_home_team_side"() TO "service_role";
 
@@ -1895,10 +1780,6 @@ GRANT ALL ON TABLE "public"."audit_log" TO "service_role";
 GRANT SELECT ON TABLE "public"."numbers" TO "anon";
 GRANT SELECT ON TABLE "public"."numbers" TO "authenticated";
 GRANT ALL ON TABLE "public"."numbers" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."push_subscriptions" TO "service_role";
 
 
 
