@@ -329,6 +329,7 @@ BEGIN
     ELSE
         SELECT * INTO v_game FROM game_scores g
         WHERE g.game_status <> 'final'
+          AND g.updated_at > now() - interval '12 hours'
           AND game_side(v_party.team_row_name, v_party.team_col_name, g) IS NOT NULL
         ORDER BY g.updated_at DESC
         LIMIT 1;
@@ -881,7 +882,10 @@ DECLARE
     v_winner_name TEXT;
 BEGIN
     SELECT * INTO v_party FROM parties WHERE id = p_party_id FOR UPDATE;
-    IF NOT FOUND OR v_party.status NOT IN ('active', 'locked') THEN
+    -- A complete party takes one more score: a corrected final (the host typed it
+    -- wrong). The winners upsert below re-picks the final winner; status stays complete.
+    IF NOT FOUND OR NOT (v_party.status IN ('active', 'locked')
+                         OR (v_party.status = 'complete' AND p_quarter = 'final')) THEN
         RETURN 'wrong_status';
     END IF;
 
@@ -983,6 +987,19 @@ $$;
 
 
 ALTER FUNCTION "public"."sync_linked_home_team_side"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."touch_game_scores_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."touch_game_scores_updated_at"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."unclaim_square"("p_party_id" "uuid", "p_row" integer, "p_col" integer, "p_player_name" character varying) RETURNS boolean
@@ -1190,6 +1207,10 @@ CREATE OR REPLACE TRIGGER "game_scores_a_home_team_side" AFTER INSERT OR UPDATE 
 
 
 CREATE OR REPLACE TRIGGER "game_scores_propagate" AFTER INSERT OR UPDATE ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."propagate_game_scores"();
+
+
+
+CREATE OR REPLACE TRIGGER "game_scores_touch_updated_at" BEFORE UPDATE ON "public"."game_scores" FOR EACH ROW EXECUTE FUNCTION "public"."touch_game_scores_updated_at"();
 
 
 
@@ -1743,6 +1764,11 @@ GRANT ALL ON FUNCTION "public"."splits_valid"("p_q1" integer, "p_q2" integer, "p
 
 REVOKE ALL ON FUNCTION "public"."sync_linked_home_team_side"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."sync_linked_home_team_side"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."touch_game_scores_updated_at"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."touch_game_scores_updated_at"() TO "service_role";
 
 
 

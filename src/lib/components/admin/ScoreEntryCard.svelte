@@ -3,7 +3,6 @@
 	import { scores, updateScore } from '$lib/stores/game';
 	import { toast } from '$lib/stores/toast';
 	import type { Party, Quarter, Scores } from '$lib/types';
-	import { isGameInProgress } from '$lib/partyStatus';
 	import { QUARTERS, nextQuarterToScore, quarterInfo, quarterScore } from '$lib/quarters';
 
 	interface Props {
@@ -15,9 +14,27 @@
 		 * host's in-progress entry survives hiding/showing the manual override.
 		 */
 		visible?: boolean;
+		title?: string;
+		/** The quarters the host may score here (a finished game takes only the final). */
+		quarters?: readonly Quarter[];
 	}
 
-	const { party, storedPin, description, visible = true }: Props = $props();
+	const {
+		party,
+		storedPin,
+		description,
+		visible = true,
+		title = 'Manual Score Entry',
+		quarters = QUARTERS.map((q) => q.key),
+	}: Props = $props();
+
+	const choices = $derived(QUARTERS.filter((q) => quarters.includes(q.key)));
+
+	/** The quarter the form follows: the next one to score, if it may be scored here. */
+	function quarterToFollow(s: Scores | null): Quarter {
+		const next = nextQuarterToScore(s);
+		return quarters.includes(next) ? next : quarters[quarters.length - 1];
+	}
 
 	const manualScores = $state({
 		quarter: 'q1' as Quarter,
@@ -26,7 +43,7 @@
 	});
 	let isUpdatingScore = $state(false);
 
-	const nextQuarter = $derived.by(() => nextQuarterToScore($scores));
+	const nextQuarter = $derived.by(() => quarterToFollow($scores));
 
 	function syncManualScoreFields(s: Scores | null, quarter: Quarter) {
 		const { row, col } = quarterScore(s, quarter);
@@ -42,7 +59,7 @@
 	// rewrite with the wrong score.
 	let edited = $state(false);
 	$effect(() => {
-		if (!edited && isGameInProgress(party.status) && $scores) {
+		if (!edited && $scores) {
 			manualScores.quarter = nextQuarter;
 			syncManualScoreFields($scores, nextQuarter);
 		}
@@ -76,7 +93,7 @@
 			// updateScore has just set the store; read it with get() because the
 			// runes-batched $scores binding may not have flushed yet.
 			const reloadedScores = get(scores);
-			const next = nextQuarterToScore(reloadedScores);
+			const next = quarterToFollow(reloadedScores);
 			manualScores.quarter = next;
 			syncManualScoreFields(reloadedScores, next);
 			// Saved: nothing unsaved is left, so the form follows the scores again.
@@ -91,7 +108,7 @@
 
 {#if visible}
 	<div class="card">
-		<h2 class="text-lg font-semibold mb-4">Manual Score Entry</h2>
+		<h2 class="text-lg font-semibold mb-4">{title}</h2>
 		<p class="text-sm mb-4 text-secondary">
 			{description}
 		</p>
@@ -106,7 +123,7 @@
 					disabled={isUpdatingScore}
 					onchange={handleQuarterSelected}
 				>
-					{#each QUARTERS as q (q.key)}
+					{#each choices as q (q.key)}
 						<option value={q.key}>{q.long}</option>
 					{/each}
 				</select>

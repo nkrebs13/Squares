@@ -154,11 +154,32 @@ describe('host_record_score', () => {
 
 		const party = await runningParty();
 		await record(party, 'final', 7, 3);
+		// Only the final can be re-recorded once the game is over.
 		expect((await record(party, 'q1', 7, 3)).data).toEqual({ ok: false, error: 'wrong_status' });
 		expect((await record(party, 'q1', 7, 3, '9999')).data).toEqual({
 			ok: false,
 			error: 'invalid_pin',
 		});
+	});
+
+	it('lets the host correct a mistyped final after the game is complete', async () => {
+		const party = await runningParty();
+		const { data: typo } = await record(party, 'final', 24, 21);
+		expect(typo.party.status).toBe('complete');
+
+		const { data } = await record(party, 'final', 24, 17);
+
+		expect(data.ok).toBe(true);
+		expect(data.party.status).toBe('complete');
+		expect(data.scores).toMatchObject({ final_row_score: 24, final_col_score: 17 });
+		const { row_numbers, col_numbers } = await numbersOf(party.id);
+		const finals = data.winners.filter((w: { quarter: string }) => w.quarter === 'final');
+		expect(finals).toEqual([
+			expect.objectContaining({
+				winning_row: row_numbers.indexOf(4),
+				winning_col: col_numbers.indexOf(7),
+			}),
+		]);
 	});
 
 	it('rolls the whole score back when the winning square has no owner', async () => {

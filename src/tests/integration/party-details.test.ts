@@ -93,8 +93,10 @@ describe('host_create_party', () => {
 		const data = await createParty({ p_kickoff_at: null });
 		const expires = new Date(data.party.expires_at).getTime();
 		const thirtyDays = 30 * 24 * 3600 * 1000;
-		expect(expires).toBeGreaterThanOrEqual(before + thirtyDays);
-		expect(expires).toBeLessThan(Date.now() + thirtyDays + 60_000);
+		// The database clock is not this machine's (Docker drifts either way by ms).
+		const clockSkew = 30_000;
+		expect(expires).toBeGreaterThanOrEqual(before + thirtyDays - clockSkew);
+		expect(expires).toBeLessThan(Date.now() + thirtyDays + clockSkew);
 	});
 
 	it('gives each party its own code and leaves every quarter score empty', async () => {

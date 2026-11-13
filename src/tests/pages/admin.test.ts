@@ -169,6 +169,34 @@ describe('Admin Page - Score Entry', () => {
 			expect(screen.getByText('Game Complete')).toBeInTheDocument();
 		});
 
+		it('lets the host correct only the final score once the game is complete', async () => {
+			renderAuthorizedAdmin(
+				{ status: 'complete' },
+				createMockScores({ final_row_score: 24, final_col_score: 21 })
+			);
+
+			expect(screen.getByText('Correct the Final Score')).toBeInTheDocument();
+			const quarter = screen.getByLabelText('Quarter');
+			expect([...(quarter as HTMLSelectElement).options].map((o) => o.value)).toEqual(['final']);
+			await waitFor(() => expect(screen.getByLabelText('Eagles')).toHaveValue(24));
+
+			mockSupabaseClient.rpc.mockResolvedValueOnce({
+				data: { ok: false, error: 'invalid_pin' },
+				error: null,
+			});
+			const user = userEvent.setup();
+			await user.clear(screen.getByLabelText('Chiefs'));
+			await user.type(screen.getByLabelText('Chiefs'), '17');
+			await user.click(screen.getByRole('button', { name: /Update Score & Calculate Winner/i }));
+
+			await waitFor(() =>
+				expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+					'host_record_score',
+					expect.objectContaining({ p_quarter: 'final', p_row_score: 24, p_col_score: 17 })
+				)
+			);
+		});
+
 		it('REGRESSION: shows score entry section when party status is locked', () => {
 			renderAuthorizedAdmin({ status: 'locked' });
 
