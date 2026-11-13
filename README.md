@@ -163,7 +163,7 @@ The production site is not actively maintained. It is set up to keep working on 
 
 - **Supabase stays awake.** The free tier pauses a project after a week without traffic. A LaunchAgent on the owner's Mac Mini (`com.nkrebs.squares-keepalive`) checks the project every day, restores it if paused, and reads `parties`. Re-check with `tail ~/Library/Logs/squares-keepalive.log` (expect `OK status=ACTIVE_HEALTHY rest=200` within a day). If that machine goes away, the project pauses after about a week, and the site's reads fail until it is restored from the Supabase dashboard.
 - **Clients heal themselves.** The party page re-reads its state when its live channel joins, when the tab becomes visible, and every 60 seconds, so a dropped Realtime event never leaves a stale grid.
-- **Scores are manual.** Nothing feeds the `game_scores` table, so the live-score assist is dormant and a game is never shown as live from old data (only games updated in the last 12 hours count).
+- **Scores are manual.** Nothing feeds the `game_scores` table, so the live-score assist is dormant. A game detected from a party's team names counts only if it was updated in the last 12 hours; a party linked to a game shows that game's stored status, and every stored game is final (the two rows left mid-game were cleaned up on 2026-11-12).
 - **Party expiry is recorded but not enforced.** `expires_at` is stored and never read; old parties stay readable by code.
 - **No bot PRs.** Dependabot version updates are off (`open-pull-requests-limit: 0`); `/health` reports the app is up.
 
