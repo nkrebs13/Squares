@@ -17,6 +17,7 @@ vi.mock('$lib/stores/game-realtime', () => ({
 }));
 
 import { openParty, cleanup, PARTY_REFRESH_MS } from '$lib/stores/game-session';
+import { removePlayer } from '$lib/stores/game-admin';
 import { followGame, subscribeToParty } from '$lib/stores/game-realtime';
 
 /** The party channel (re)joining: what subscribeToParty's callback reports. */
@@ -125,19 +126,18 @@ describe('re-read when the party channel joins', () => {
 		expect(get(error)).toBe('Party not found');
 	});
 
-	it('a newer refresh wins when an older one answers last', async () => {
-		let answerOld!: (value: unknown) => void;
-		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answerOld = r)) as never);
+	it('a trigger while a read is out runs one more read after it, and that one lands', async () => {
+		let answerFirst!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answerFirst = r)) as never);
 		partyChannelJoins();
+		partyChannelJoins(); // queued, not a second read in parallel
+		partyChannelJoins(); // still just one more
+		expect(stateCalls()).toBe(2);
 
 		stateResponds({ status: 'complete' });
-		partyChannelJoins();
-		await flush();
-		expect(get(party)?.status).toBe('complete');
-
-		answerOld({
+		answerFirst({
 			data: {
-				party: createMockParty({ id: 'p1', status: 'filling' }),
+				party: createMockParty({ id: 'p1', status: 'active' }),
 				squares: createEmptyGrid(),
 				numbers: null,
 				scores: null,
@@ -147,6 +147,9 @@ describe('re-read when the party channel joins', () => {
 			error: null,
 		});
 		await flush();
+		await flush();
+
+		expect(stateCalls()).toBe(3);
 		expect(get(party)?.status).toBe('complete');
 	});
 
@@ -213,6 +216,35 @@ describe('re-read when the party channel joins', () => {
 
 		expect(get(squares)[0].player_name).toBe('Me');
 		expect(get(pendingOperations).size).toBe(1);
+	});
+
+	it("a host's removal applied while a read is out is not undone by it", async () => {
+		squares.update((all) =>
+			all.map((sq, i) =>
+				i === 3 ? { ...sq, player_name: 'Alice', player_name_lower: 'alice' } : sq
+			)
+		);
+		let answer!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+		partyChannelJoins();
+		const withAlice = get(squares);
+
+		mockSupabaseClient.rpc.mockResolvedValueOnce({ data: { ok: true, removed: 1 }, error: null });
+		expect((await removePlayer('1234', 'alice')).success).toBe(true);
+		answer({
+			data: {
+				party: createMockParty({ id: 'p1' }),
+				squares: withAlice,
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		await flush();
+
+		expect(get(squares)[3].player_name).toBeNull();
 	});
 
 	it('a Realtime row applied while a read is out is not overwritten by it', async () => {
@@ -390,6 +422,30 @@ describe('re-read while the page is looked at', () => {
 		document.dispatchEvent(new Event('visibilitychange'));
 		await vi.advanceTimersByTimeAsync(0);
 		expect(stateCalls()).toBe(2);
+	});
+
+	it('reads slower than the poll still land', async () => {
+		let answer!: (value: unknown) => void;
+		mockSupabaseClient.rpc.mockReturnValueOnce(new Promise((r) => (answer = r)) as never);
+		await vi.advanceTimersByTimeAsync(PARTY_REFRESH_MS); // read 1 goes out
+		stateResponds({ status: 'complete' });
+		await vi.advanceTimersByTimeAsync(PARTY_REFRESH_MS); // poll while it is out: queued
+		expect(stateCalls()).toBe(2);
+
+		answer({
+			data: {
+				party: createMockParty({ id: 'p1', status: 'active' }),
+				squares: createEmptyGrid(),
+				numbers: null,
+				scores: null,
+				winners: [],
+				game: null,
+			},
+			error: null,
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		expect(stateCalls()).toBe(3);
+		expect(get(party)?.status).toBe('complete');
 	});
 
 	it('waits while a claim is in flight', async () => {

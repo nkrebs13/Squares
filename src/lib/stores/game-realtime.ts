@@ -259,7 +259,9 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 			}
 			if (!stillOpen()) return;
 			const parsed = parseScores(data);
-			if (parsed) scores.set(parsed);
+			if (!parsed) return;
+			noteLocalChange();
+			scores.set(parsed);
 		});
 
 	supabase
@@ -274,7 +276,9 @@ function handleScoreUpdateBroadcast(payload: { payload: { clientId: string } }) 
 			}
 			if (!stillOpen()) return;
 			const parsed = parseWinnerArray(data);
-			if (parsed) winners.set(parsed);
+			if (!parsed) return;
+			noteLocalChange();
+			winners.set(parsed);
 		});
 }
 
@@ -415,6 +419,7 @@ function setupGameChannel(gameId: string, generation: number) {
 				filter: `game_id=eq.${gameId}`,
 			},
 			(payload) => {
+				noteLocalChange();
 				if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
 					const newGameScores = parseGameScores(payload.new);
 					if (newGameScores) gameScores.set(newGameScores);

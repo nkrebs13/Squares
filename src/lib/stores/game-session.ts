@@ -21,22 +21,31 @@ let stopResync: (() => void) | null = null;
  * was out. Otherwise the read is dropped and the next trigger heals.
  */
 function quietRefresher(code: string, mine: number): () => void {
-	// Only the newest refresh may apply: two quick refreshes must not let an older
-	// response land last and put the party back a step (e.g. complete -> filling).
-	let latest = 0;
-	return () => {
+	// One read at a time: a trigger while one is out queues exactly one more after it,
+	// so reads slower than the poll still land, and none answers out of order.
+	let reading = false;
+	let again = false;
+	const run = (): void => {
 		// A trigger that outlived its party (a late channel join, a timer) reads nothing.
 		if (mine !== session) return;
 		// A claim in flight may commit after the read: its snapshot would undo it on screen.
 		if (get(pendingOperations).size > 0) return;
-		const refresh = ++latest;
+		if (reading) {
+			again = true;
+			return;
+		}
+		reading = true;
+		again = false;
 		const changesAtStart = localChangeCount();
-		// Anything the user or Realtime changed while the read was out is newer than it;
-		// the next refresh picks it all up.
-		const isCurrent = () =>
-			mine === session && refresh === latest && localChangeCount() === changesAtStart;
-		void refreshParty(code, isCurrent);
+		// Anything the user, the host or Realtime changed while the read was out is newer
+		// than it; the read is dropped and the next one picks it all up.
+		const isCurrent = () => mine === session && localChangeCount() === changesAtStart;
+		void refreshParty(code, isCurrent).finally(() => {
+			reading = false;
+			if (again) run();
+		});
 	};
+	return run;
 }
 
 /**
