@@ -585,7 +585,7 @@ BEGIN
         RETURN v_refusal;
     END IF;
 
-    v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score);
+    v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score, TRUE);
     IF v_problem IS NOT NULL THEN
         RETURN host_refusal(p_party_id, 'record_score', v_problem,
             CASE WHEN v_problem = 'invalid_input' THEN 'score' END);
@@ -871,7 +871,7 @@ $$;
 ALTER FUNCTION "public"."public_party_json"("p_party" "public"."parties") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) RETURNS "text"
+CREATE OR REPLACE FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer, "p_host_correction" boolean DEFAULT false) RETURNS "text"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
     AS $_$
@@ -882,10 +882,13 @@ DECLARE
     v_winner_name TEXT;
 BEGIN
     SELECT * INTO v_party FROM parties WHERE id = p_party_id FOR UPDATE;
-    -- A complete party takes one more score: a corrected final (the host typed it
-    -- wrong). The winners upsert below re-picks the final winner; status stays complete.
+    -- A complete party takes one more score, and only from its host: a corrected final.
+    -- The live feed and the backfill never pass p_host_correction, so they can't
+    -- overwrite a final the host has fixed. The winners upsert below re-picks the
+    -- final winner; status stays complete.
     IF NOT FOUND OR NOT (v_party.status IN ('active', 'locked')
-                         OR (v_party.status = 'complete' AND p_quarter = 'final')) THEN
+                         OR (v_party.status = 'complete' AND p_quarter = 'final'
+                             AND p_host_correction)) THEN
         RETURN 'wrong_status';
     END IF;
 
@@ -935,7 +938,7 @@ END;
 $_$;
 
 
-ALTER FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer, "p_host_correction" boolean) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."set_home_team_side"() RETURNS "trigger"
@@ -1747,8 +1750,8 @@ GRANT ALL ON FUNCTION "public"."public_party_json"("p_party" "public"."parties")
 
 
 
-REVOKE ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer, "p_host_correction" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer, "p_host_correction" boolean) TO "service_role";
 
 
 

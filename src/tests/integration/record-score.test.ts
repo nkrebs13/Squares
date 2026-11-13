@@ -343,6 +343,25 @@ describe('live scores (game_scores trigger)', () => {
 		expect(winners?.map((w) => w.quarter)).toEqual(['q1', 'q2']);
 	});
 
+	it("the backfill leaves a host's corrected final alone once the game is over", async () => {
+		const party = await runningParty({ team_row_name: 'Eagles', team_col_name: 'Chiefs' });
+		const gameId = await newGame({ final_home: 24, final_away: 21 });
+		await service.from('parties').update({ game_id: gameId }).eq('id', party.id);
+		// The host records the final (completing the party), then corrects it.
+		await record(party, 'final', 24, 21);
+		expect((await record(party, 'final', 24, 17)).data.ok).toBe(true);
+
+		const { error } = await service.rpc('backfill_party_scores', { p_party_id: party.id });
+		expect(error).toBeNull();
+
+		const { data: after } = await client
+			.from('scores')
+			.select('final_row_score, final_col_score')
+			.eq('party_id', party.id)
+			.single();
+		expect(after).toEqual({ final_row_score: 24, final_col_score: 17 });
+	});
+
 	it('a party deleted mid-update is skipped, not an error', async () => {
 		const db = new pg.Client({
 			connectionString: getTestDatabaseUrl(),

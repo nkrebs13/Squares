@@ -3,9 +3,10 @@
 --    row "Home Eagles" vs "Away Chiefs" in progress, a college game at halftime) were
 --    detected forever: any Eagles/Chiefs party showed a frozen LIVE scoreboard. A game
 --    not updated for 12 hours is not live, whatever its status says.
--- 2. The final score can be corrected after the game is complete (HB-2444): before,
---    the final set the party complete and every later score was refused, so a typo
---    paid the wrong square for good. Only the final, only by re-recording it.
+-- 2. The host can correct the final score after the game is complete (HB-2444): before,
+--    the final set the party complete and every later score was refused, so a typo paid
+--    the wrong square for good. Only the host path may do it (p_host_correction), so the
+--    live feed and backfill_party_scores still leave a complete party alone.
 
 CREATE OR REPLACE FUNCTION "public"."get_party_state"("p_code" "text") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
@@ -54,7 +55,9 @@ END;
 $$;
 
 
-CREATE OR REPLACE FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer) RETURNS "text"
+DROP FUNCTION public.record_quarter_score(uuid, text, integer, integer);
+
+CREATE FUNCTION "public"."record_quarter_score"("p_party_id" "uuid", "p_quarter" "text", "p_row_score" integer, "p_col_score" integer, "p_host_correction" boolean DEFAULT false) RETURNS "text"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'extensions'
     AS $_$
@@ -65,10 +68,13 @@ DECLARE
     v_winner_name TEXT;
 BEGIN
     SELECT * INTO v_party FROM parties WHERE id = p_party_id FOR UPDATE;
-    -- A complete party takes one more score: a corrected final (the host typed it
-    -- wrong). The winners upsert below re-picks the final winner; status stays complete.
+    -- A complete party takes one more score, and only from its host: a corrected final.
+    -- The live feed and the backfill never pass p_host_correction, so they can't
+    -- overwrite a final the host has fixed. The winners upsert below re-picks the
+    -- final winner; status stays complete.
     IF NOT FOUND OR NOT (v_party.status IN ('active', 'locked')
-                         OR (v_party.status = 'complete' AND p_quarter = 'final')) THEN
+                         OR (v_party.status = 'complete' AND p_quarter = 'final'
+                             AND p_host_correction)) THEN
         RETURN 'wrong_status';
     END IF;
 
@@ -116,6 +122,40 @@ BEGIN
     RETURN NULL;
 END;
 $_$;
+
+
+CREATE OR REPLACE FUNCTION "public"."host_record_score"("p_party_id" "uuid", "p_pin" character varying, "p_quarter" character varying, "p_row_score" integer, "p_col_score" integer) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'extensions'
+    AS $$
+DECLARE
+    v_refusal JSONB;
+    v_problem TEXT;
+BEGIN
+    v_refusal := host_gate(p_party_id, p_pin, 'record_score');
+    IF v_refusal IS NOT NULL THEN
+        RETURN v_refusal;
+    END IF;
+
+    v_problem := record_quarter_score(p_party_id, p_quarter, p_row_score, p_col_score, TRUE);
+    IF v_problem IS NOT NULL THEN
+        RETURN host_refusal(p_party_id, 'record_score', v_problem,
+            CASE WHEN v_problem = 'invalid_input' THEN 'score' END);
+    END IF;
+
+    PERFORM log_audit_event('record_score_success', p_party_id,
+        jsonb_build_object('quarter', p_quarter, 'row_score', p_row_score, 'col_score', p_col_score));
+
+    RETURN jsonb_build_object(
+        'ok', true,
+        'party', (SELECT public_party_json(p) FROM parties p WHERE p.id = p_party_id),
+        'scores', (SELECT to_jsonb(s) FROM scores s WHERE s.party_id = p_party_id),
+        'winners', COALESCE(
+            (SELECT jsonb_agg(to_jsonb(w) ORDER BY w.quarter) FROM winners w WHERE w.party_id = p_party_id),
+            '[]'::jsonb)
+    );
+END;
+$$;
 
 
 -- updated_at was only set on insert. The freshness check above reads it, so every
