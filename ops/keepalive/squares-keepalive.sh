@@ -32,9 +32,14 @@ case "$token" in sbp_*) ;; ?*) token="$(printf '%s' "$token" | base64 -d 2>/dev/
 
 # The header goes through a config on stdin so the token never appears in argv (ps).
 mgmt() { printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -sS -m 30 --config - "$@"; }
+# NO_TOKEN / TOKEN_INVALID (401 or 403: revoked, or a token for another account) only lose
+# auto-restore; UNKNOWN (network or API error) is retried.
 project_status() {
   [ -n "$token" ] || { echo NO_TOKEN; return; }
-  mgmt "https://api.supabase.com/v1/projects/$ref" 2>/dev/null |
+  local out
+  out="$(mgmt -w '\n%{http_code}' "https://api.supabase.com/v1/projects/$ref" 2>/dev/null || true)"
+  case "${out##*$'\n'}" in 401|403) echo TOKEN_INVALID; return ;; esac
+  printf '%s' "${out%$'\n'*}" |
     python3 -c 'import sys,json; print(json.load(sys.stdin).get("status","UNKNOWN"))' 2>/dev/null || echo UNKNOWN
 }
 rest_read() {
@@ -58,14 +63,17 @@ for attempt in 1 2 3; do
     esac
   fi
   rest="$(rest_read)"; rest="${rest:-000}"
-  [ "$rest" = "200" ] && break
+  [ "$rest" = "200" ] && [ "$status" != "UNKNOWN" ] && break
   [ "$attempt" = 3 ] || sleep 30
 done
 
-if [ "$rest" = "200" ] && { [ "$status" = "ACTIVE_HEALTHY" ] || [ "$status" = "NO_TOKEN" ]; }; then
-  # The read is what keeps the project awake; a missing Management token only loses auto-restore.
-  if [ "$status" = "NO_TOKEN" ]; then say "OK status=NO_TOKEN rest=200 (run 'supabase login' to re-enable auto-restore)"
-  else say "OK status=$status rest=$rest$restored"; fi
-  exit 0
+if [ "$rest" = "200" ]; then
+  # The read is what keeps the project awake; an unusable Management token only loses auto-restore.
+  case "$status" in
+    ACTIVE_HEALTHY) say "OK status=$status rest=$rest$restored"; exit 0 ;;
+    NO_TOKEN|TOKEN_INVALID)
+      say "OK status=$status rest=200 (auto-restore off: put a token for the project's Supabase account in the 'Supabase CLI' keychain item, e.g. supabase login)"
+      exit 0 ;;
+  esac
 fi
 fail "status=$status rest=$rest$restored"
