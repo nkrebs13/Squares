@@ -30,7 +30,12 @@ cat >"$plist" <<PLIST
 </dict></plist>
 PLIST
 launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$plist"
-launchctl kickstart -k "gui/$(id -u)/$label"
-sleep 8
+# bootout returns before teardown finishes; RunAtLoad starts the first run on bootstrap.
+for _ in 1 2 3; do
+  launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null && break
+  sleep 2
+done
+launchctl print "gui/$(id -u)/$label" >/dev/null
+# A first run may show a one-time keychain dialog for the Supabase CLI token: choose "Always Allow".
+sleep 12
 tail -n 2 "$log"
