@@ -12,7 +12,7 @@ conf_dir="$HOME/.config/squares-keepalive"
 plist="$HOME/Library/LaunchAgents/$label.plist"
 log="$HOME/Library/Logs/squares-keepalive.log"
 # Full Disk Access host: macOS TCC checks a launchd job's non-Apple binaries under their own identity, so the
-# job starts through FDAHost.app, which execs the rest of argv.
+# job starts through FDAHost.app, which runs the rest of argv as its child.
 fdahost="$HOME/Applications/FDAHost.app/Contents/MacOS/fdahost"
 [[ -x "$fdahost" ]] || { echo "FDAHost.app missing ($fdahost); run ~/.claude/scripts/fdahost/build.sh and grant it Full Disk Access" >&2; exit 1; }
 
