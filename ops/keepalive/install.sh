@@ -11,6 +11,10 @@ bin_dir="$HOME/.local/share/squares-keepalive"
 conf_dir="$HOME/.config/squares-keepalive"
 plist="$HOME/Library/LaunchAgents/$label.plist"
 log="$HOME/Library/Logs/squares-keepalive.log"
+# Full Disk Access host: macOS TCC checks a launchd job's non-Apple binaries under their own identity, so the
+# job starts through FDAHost.app, which runs the rest of argv as its child.
+fdahost="$HOME/Applications/FDAHost.app/Contents/MacOS/fdahost"
+[[ -x "$fdahost" ]] || { echo "FDAHost.app missing ($fdahost); run ~/.claude/scripts/fdahost/build.sh and grant it Full Disk Access" >&2; exit 1; }
 
 anon="$(supabase projects api-keys --project-ref "$ref" -o json |
   python3 -c 'import sys,json; print(next(k["api_key"] for k in json.load(sys.stdin) if k.get("name")=="anon"))')"
@@ -23,7 +27,7 @@ cat >"$plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>$label</string>
-  <key>ProgramArguments</key><array><string>/bin/bash</string><string>$bin_dir/squares-keepalive.sh</string></array>
+  <key>ProgramArguments</key><array><string>$fdahost</string><string>/bin/bash</string><string>$bin_dir/squares-keepalive.sh</string></array>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>17</integer></dict>
   <key>RunAtLoad</key><true/>
   <key>StandardErrorPath</key><string>$log</string>
